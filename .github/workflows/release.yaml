@@ -1,0 +1,25 @@
+name: Release
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - '.github/workflows/**'
+
+jobs:
+  tests:
+    name: Tests
+    uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-tests.yaml@main
+    secrets: inherit
+    with:
+      python-version: "3.11"
+
+  release:
+    needs: [tests]
+    name: Release
+    uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-release.yaml@main
+    secrets: inherit
+    with:
+      python-version: "3.11"
+

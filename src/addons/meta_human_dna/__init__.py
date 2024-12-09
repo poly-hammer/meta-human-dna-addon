@@ -1,0 +1,141 @@
+import os
+import sys
+import bpy
+import bpy.utils.previews
+import logging
+
+from . import operators, properties, utilities
+from .ui import menus, importer, view_3d, addon_preferences, callbacks
+from .resources.unreal import meta_human_dna_utilities
+
+# ensure these modules are available to the send2ue extension
+sys.modules['meta_human_dna_utilities'] = meta_human_dna_utilities # namespaced for unreal environment
+sys.modules['meta_human_dna.ui.callbacks'] = callbacks
+sys.modules['meta_human_dna.utilities'] = utilities
+
+logger = logging.getLogger(__name__)
+
+bl_info = {
+    "name": "Meta-Human DNA",
+    "author": "Poly Hammer",
+    "version": (0, 0, 3),
+    "blender": (4, 2, 0),
+    "location": "File > Import > Metahuman DNA",
+    "description": "Imports a Metahuman head from a DNA file, lets you customize it, then send it back to unreal.",
+    "warning": "",
+    "wiki_url": "https://docs.polyhammer.com/meta-human-dna-blender-addon",
+    "category": "Rigging",
+}
+
+classes = [
+    operators.ImportMetahumanDna,
+    operators.DNA_FH_import_dna,
+    operators.ConvertSelectedToDna,
+    operators.ImportMetahumanFaceAnimation,
+    operators.ImportShapeKeys,
+    operators.ExportMetahumanFacePose,
+    operators.TestSentry,
+    operators.MirrorSelectedBones,
+    operators.PushBonesForwardAlongNormals,
+    operators.PushBonesBackwardAlongNormals,
+    operators.ShrinkWrapVertexGroup,
+    operators.AutoFitSelectedBones,
+    operators.RevertBoneTransformsToDna,
+    operators.ForceEvaluate,
+    operators.SendToUnreal,
+    operators.ExportToDisk,
+    operators.SculptThisShapeKey,
+    operators.EditThisShapeKey,
+    operators.ReImportThisShapeKey,
+    operators.RefreshMaterialSlotNames,
+    operators.RevertMaterialSlotValues,
+    operators.DuplicateRigLogicInstance,
+    operators.MetaHumanDnaReportError,
+    operators.UILIST_RIG_LOGIC_OT_entry_move,
+    operators.UILIST_RIG_LOGIC_OT_entry_add,
+    operators.UILIST_RIG_LOGIC_OT_entry_remove,
+    operators.UILIST_ADDON_PREFERENCES_OT_extra_dna_entry_add,
+    operators.UILIST_ADDON_PREFERENCES_OT_extra_dna_entry_remove,
+    importer.META_HUMAN_DNA_MESH_DATA_PT_panel,
+    importer.META_HUMAN_DNA_LODS_PT_panel,
+    view_3d.META_HUMAN_DNA_PT_face_board,
+    view_3d.META_HUMAN_DNA_PT_utilities,
+    view_3d.META_HUMAN_DNA_PT_mesh_utilities_sub_panel,
+    view_3d.META_HUMAN_DNA_PT_armature_utilities_sub_panel,
+    view_3d.META_HUMAN_DNA_PT_utilities_sub_panel,
+    view_3d.META_HUMAN_DNA_UL_shape_keys,
+    view_3d.META_HUMAN_DNA_UL_output_items,
+    view_3d.META_HUMAN_DNA_UL_rig_logic_instances,
+    view_3d.META_HUMAN_DNA_UL_material_slot_to_instance_mapping,
+    view_3d.META_HUMAN_DNA_PT_view_options,
+    view_3d.META_HUMAN_DNA_PT_rig_logic,
+    view_3d.META_HUMAN_DNA_PT_shape_keys,
+    view_3d.META_HUMAN_DNA_PT_output_panel,
+    view_3d.META_HUMAN_DNA_PT_send2ue_settings_sub_panel,
+    view_3d.META_HUMAN_DNA_PT_buttons_sub_panel
+]
+
+app_handlers = {
+    'load_pre': bpy.app.handlers.persistent(utilities.teardown_scene),
+    'load_post': bpy.app.handlers.persistent(utilities.setup_scene)
+}
+
+def register():
+    """
+    Registers the addon classes when the addon is enabled.
+    """
+    logging.basicConfig(level=logging.INFO)
+
+    try:
+
+        # register the properties
+        addon_preferences.register()
+        properties.register()
+
+        # register the classes
+        for cls in classes:
+            bpy.utils.register_class(cls)
+
+
+        # add menu items
+        menus.add_dna_import_menu()
+
+    except Exception as error:
+        logger.error(error)
+
+    # collect metrics when not in dev mode
+    if not os.environ.get('META_HUMAN_DNA_DEV'):
+        utilities.init_sentry()
+
+    # add event handlers
+    bpy.app.handlers.load_pre.append(app_handlers['load_pre'])
+    bpy.app.handlers.load_post.append(app_handlers['load_post'])
+
+
+def unregister():
+    """
+    Un-registers the addon classes when the addon is disabled.
+    """
+    utilities.teardown_scene()
+
+    # remove event handlers
+    # if app_handlers['undo_pre'] in bpy.app.handlers.undo_pre:
+    #     bpy.app.handlers.undo_pre.remove(app_handlers['undo_pre'])
+    if app_handlers['load_pre'] in bpy.app.handlers.load_pre:
+        bpy.app.handlers.load_pre.remove(app_handlers['load_pre'])
+    if app_handlers['load_post'] in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.remove(app_handlers['load_post'])
+
+    try:
+        # remove menu items
+        menus.remove_dna_import_menu()
+
+        # unregister the classes
+        for cls in reversed(classes):
+            bpy.utils.unregister_class(cls)
+
+        # unregister the properties
+        properties.unregister()
+        addon_preferences.unregister()
+    except Exception as error:
+        logger.error(error)
