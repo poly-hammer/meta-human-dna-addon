@@ -1,0 +1,105 @@
+name: Re-Useable Tests
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        required: true
+        type: string
+
+    secrets:
+      GH_PAT:
+        required: true
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    name: Tests
+    runs-on: ${{ matrix.os }}
+    env:
+      PYTHONUNBUFFERED: 1
+      META_HUMAN_DNA_DEV: 1
+      RUNNING_CI: 1
+    
+    steps:      
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+        with:
+          path: 'meta-human-dna-addon'
+          lfs: true
+          submodules: true
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Checkout meta-human-dna-bindings Repo
+        uses: actions/checkout@v4
+        with:
+          repository: 'poly-hammer/meta-human-dna-bindings'
+          path: 'meta-human-dna-bindings'
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Checkout meta-human-dna-core Repo
+        uses: actions/checkout@v4
+        with:
+          repository: 'poly-hammer/meta-human-dna-core'
+          path: 'meta-human-dna-core'
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Set up Python ${{ inputs.python-version }} 
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }} 
+
+      - name: Install Dependencies
+        run: |
+          cd meta-human-dna-addon
+          pip install --upgrade -r requirements.txt
+
+      - name: Run Tests Windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          cd meta-human-dna-addon
+          .github\workflows\pytest-windows.bat
+
+      - name: Run Tests Linux
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cd meta-human-dna-addon
+          bash ./.github/workflows/pytest-linux.sh
+
+      - name: Run Tests MacOS
+        if: matrix.os == 'macos-latest'
+        run: |
+          cd meta-human-dna-addon
+          bash ./.github/workflows/pytest-mac.sh
+
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v4
+        # always run even if the previous step fails
+        if: success() || failure()
+        with:
+          check_name: Test Results (${{ matrix.os }})
+          include_passed: True
+          fail_on_failure: True
+          require_tests: True
+          require_passed_tests: True
+          detailed_summary: True
+          report_paths: './meta-human-dna-addon/reports/pytest/*.xml'
+
+      - name: Pytest coverage comment
+        uses: MishaKav/pytest-coverage-comment@v1
+        if: success() || failure()
+        with:
+          github-token: ${{ secrets.GH_PAT }}
+          pytest-xml-coverage-path: ./meta-human-dna-addon/reports/coverage/results.xml
+          title: Coverage ${{ matrix.os }}
+          badge-title: Coverage ${{ matrix.os }}
+          hide-badge: false
+          hide-report: false
+          create-new-comment: false
+          hide-comment: false
+          report-only-changed-files: false
+          remove-link-from-badge: false
+          unique-id-for-comment: ${{ matrix.os }}
+          junitxml-path: ./meta-human-dna-addon/reports/pytest/results.xml
+          junitxml-title: Tests Summary ${{ matrix.os }}

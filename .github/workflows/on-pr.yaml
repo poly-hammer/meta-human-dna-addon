@@ -1,0 +1,18 @@
+name: Tests
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - '.github/workflows/**.yaml'
+
+jobs:
+  test:
+    name: Tests
+    uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-tests.yaml@main
+    secrets: inherit
+    with:
+      python-version: "3.11"

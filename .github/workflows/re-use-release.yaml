@@ -1,0 +1,42 @@
+name: Re-Useable Release
+on: 
+  workflow_call:
+    inputs:
+        python-version:
+          required: true
+          type: string
+    secrets:
+      GH_PAT:
+        required: true
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:      
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          submodules: false
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Set up Python ${{ inputs.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }} 
+
+      - name: Install Dependencies
+        run: |
+          pip install --upgrade -r requirements.txt
+
+      - name: Create Release
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          ADDON_FOLDER: src/addons/meta_human_dna
+          GITHUB_REPO: ${{ github.repository }}
+          CORE_REPO: ${{ secrets.CORE_REPO }}
+        run: |
+          python -m poly_hammer_utils.addon.release
+
+      

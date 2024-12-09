@@ -1,0 +1,58 @@
+{
+  "configurations": [
+    {
+      "name": "Run Active Python File",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": false
+    },
+    {
+      "name": "Run Pytest",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env",
+      "args": [
+        "${input:test-suite}",
+        "-k",
+        "${input:test-case}",
+        "--junitxml=./reports/pytest-results.xml"
+      ],
+      "justMyCode": false
+    },
+    {
+      "name": "Python Debugger: Attach",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": {
+        "host": "localhost",
+        "port": 5678
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "test-suite",
+      "type": "pickString",
+      "default": "",
+      "options": [
+        "",
+        "tests/test_addon_registration.py",
+        "tests/test_calibrator.py",
+        "tests/test_exporter.py",
+        "tests/test_rig_logic.py"
+      ],
+      "description": "What test suite do you want to run?"
+    },
+    {
+      "id": "test-case",
+      "type": "promptString",
+      "description": "What test case do you want to run?",
+      "default": ""
+    }
+  ]
+}

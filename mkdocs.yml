@@ -1,0 +1,24 @@
+site_name: Meta-Human DNA Addon
+nav:
+  - Quick Start: "index.md"
+  - Terminology: "terminology.md"
+  - User Interface:
+    - Face Board: "user-interface/face-board.md"
+    - View Options: "user-interface/view-options.md"
+    - Rig Logic: "user-interface/rig-logic.md"
+    - Shape Keys: "user-interface/shape-keys.md"
+    - Output: "user-interface/output.md"
+  - Workflows:
+    - Face Form Wrap: "workflows/face-form-wrap.md"
+  - Contributing:
+    - Development: "contributing/development.md"
+    - Documentation: "contributing/documentation.md"
+    - Testing: "contributing/testing.md"
+
+
+theme:
+  name: material
+
+markdown_extensions:
+  - attr_list
+  - admonition

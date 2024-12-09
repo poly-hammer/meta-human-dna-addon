@@ -1,0 +1,2824 @@
+{
+    "CTRL_C_eyesAim": {
+        "location": [
+            4.1092702304013073e-05,
+            0.00045094272354617715,
+            78.42807006835938
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_eyeAim": {
+        "location": [
+            3.617988397763838e-08,
+            0.0,
+            -3.617988753035206e-08
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_eyeAim": {
+        "location": [
+            -3.245427393494538e-08,
+            0.0,
+            3.617957489154833e-08
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_convergenceSwitch": {
+        "location": [
+            -1.0103322692356365e-11,
+            -1.986817110832817e-08,
+            -4.35622371508515e-12
+        ],
+        "rotation": [
+            -3.4150931601172945e-06,
+            3.933709936914467e-11,
+            1.707516759177075e-06
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_C_jaw": {
+        "location": [
+            0.0,
+            0.0720829963684082,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_jaw_clench": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_C_jaw_openExtreme": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_C_jaw_fwdBack": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_jaw_clench": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_neck_mastoidContract": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_neck_stretch": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_neck_digastricUpDown": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_neck_stretch": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_neck_throatExhaleInhale": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_neck_mastoidContract": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_neck_throatUpDown": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_jaw_chinCompress": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_jaw_ChinRaiseD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_jaw_ChinRaiseU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_jaw_ChinRaiseU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_jaw_chinCompress": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_jaw_ChinRaiseD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_lipsBlow": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_lipsPressU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_lipsTogetherU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_lipsTogetherD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_lipSticky": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_lipSticky": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            0.0,
+            -0.0,
+            -3.2294346651622743e-18
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_lipsTogetherU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_lipsPressU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_lipsBlow": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_lipsTogetherD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_stretchLipsClose": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_stretchLipsClose": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_C_tongue_press": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_C_tongue_roll": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_C_tongue_tip": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_C_tongue": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_C_tongue_narrowWide": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            0.0,
+            -0.0,
+            -1.758419349994075e-15
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_C_tongue_inOut": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_C_mouth": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_upperLipRaise": {
+        "location": [
+            0.0,
+            0.4878090023994446,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_sharpCornerPull": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_cornerPull": {
+        "location": [
+            0.0,
+            0.8295450210571289,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_dimple": {
+        "location": [
+            0.0,
+            0.14154446125030518,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_cornerDepress": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_stretch": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_lowerLipDepress": {
+        "location": [
+            0.0,
+            0.4029780328273773,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_lowerLipDepress": {
+        "location": [
+            0.0,
+            0.4029780328273773,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_stretch": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_towardsD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_stickyInnerU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_funnelU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_C_neck_swallow": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_stickyOuterD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_C_mouth_stickyD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_towardsU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_stickyInnerD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_lipBiteD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_funnelD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_stickyOuterU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_C_mouth_stickyU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_tightenD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_pressU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_tightenD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_stickyInnerU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_funnelD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_suckBlow": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            1.9589883053161157e-15
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_tightenU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_tightenU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_pressD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_funnelU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_towardsU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_stickyOuterD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_purseD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_lipBiteU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_pressD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_pressU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_purseD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_lipBiteU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_suckBlow": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_purseU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_towardsD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_stickyInnerD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_lipBiteD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_purseU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_stickyOuterU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_cornerDepress": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_upperLipRaise": {
+        "location": [
+            0.0,
+            0.4878090023994446,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_dimple": {
+        "location": [
+            0.0,
+            0.14154446125030518,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_sharpCornerPull": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_cornerPull": {
+        "location": [
+            0.0,
+            0.8295450210571289,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_ear_up": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_ear_up": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_nose": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_nose": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_eye": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_eye_blink": {
+        "location": [
+            0.0,
+            -0.17835792899131775,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_eye": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_eye_blink": {
+        "location": [
+            0.0,
+            -0.17835792899131775,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_eye_pupil": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_eye_pupil": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            0.0,
+            -0.0,
+            -5.8509096136013815e-15
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_C_eye": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_C_eye_parallelLook": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            0.0,
+            -0.0,
+            -5.8509096136013815e-15
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_eye_cheekRaise": {
+        "location": [
+            0.0,
+            0.2638620138168335,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_eye_squintInner": {
+        "location": [
+            0.0,
+            0.8045229911804199,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_eye_lidPress": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_nose_wrinkleUpper": {
+        "location": [
+            0.0,
+            1.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_nose_wrinkleUpper": {
+        "location": [
+            0.0,
+            1.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_eye_squintInner": {
+        "location": [
+            0.0,
+            0.8045229911804199,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_eye_cheekRaise": {
+        "location": [
+            0.0,
+            0.2638620138168335,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_eye_lidPress": {
+        "location": [
+            -1.881386722574121e-14,
+            -4.1512208781568916e-07,
+            1.784727388391607e-14
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_brow_lateral": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_brow_lateral": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_brow_down": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_brow_down": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_brow_raiseOut": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_brow_raiseIn": {
+        "location": [
+            0.0,
+            0.171301007270813,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_brow_raiseIn": {
+        "location": [
+            0.0,
+            0.171301007270813,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_brow_raiseOut": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_lookAtSwitch": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_C_teethD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_C_teethU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_C_teeth_fwdBackU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_corner": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_corner": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_C_teeth_fwdBackD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_eye_faceScrunch": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_pushPullU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_eyelashes_tweakerOut": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_thicknessU": {
+        "location": [
+            0.0,
+            0.1532234102487564,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_pushPullD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_thicknessU": {
+        "location": [
+            0.0,
+            0.1532234102487564,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_cornerSharpnessD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_C_mouth_lipShiftD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_lipsRollD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_eyelashes_tweakerOut": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_thicknessD": {
+        "location": [
+            0.0,
+            0.0732664167881012,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_cornerSharpnessU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_C_mouth_lipShiftU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_eyelashes_tweakerIn": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_lipsRollU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_eye_eyelidU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_lipsRollD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_cornerSharpnessD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_thicknessD": {
+        "location": [
+            0.0,
+            0.0732664167881012,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_eye_eyelidD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_lipsRollU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_cornerSharpnessU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_nose_nasolabialDeepen": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_eye_faceScrunch": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_pushPullU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_lipsTowardsTeethD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_lipsTowardsTeethD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_eye_eyelidU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_eyelashes_tweakerIn": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_nose_nasolabialDeepen": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_pushPullD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_lipsTowardsTeethU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_eye_eyelidD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_lipsTowardsTeethU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_lipsPressD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_lipsPressD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "FRM_faceAndEyesAimFollowHeadGUI": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_faceGUIfollowHead": {
+        "location": [
+            -2.534069416977591e-13,
+            -3.576274707484117e-07,
+            -8.940700126913725e-07
+        ],
+        "rotation": [
+            -1.603341070185499e-19,
+            3.4527127849877404e-19,
+            -4.830963343871946e-40
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_eyesAimFollowHead": {
+        "location": [
+            -2.534070772230307e-13,
+            -3.5762766970037774e-07,
+            -1.1920932365683257e-06
+        ],
+        "rotation": [
+            -1.603341070185499e-19,
+            3.4527127849877404e-19,
+            -4.830963343871946e-40
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    }
+}

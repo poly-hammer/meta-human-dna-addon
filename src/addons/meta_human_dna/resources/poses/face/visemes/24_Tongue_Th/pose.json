@@ -1,0 +1,223 @@
+{
+    "CTRL_C_jaw": {
+        "location": [
+            0.0,
+            0.20000000298023224,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_lipsTogetherU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_lipsTogetherD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_lipsTogetherU": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_lipsTogetherD": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_C_tongue_press": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_C_tongue_roll": {
+        "location": [
+            0.0,
+            -0.029999999329447746,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_C_tongue_tip": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_C_tongue": {
+        "location": [
+            0.0,
+            0.15688766539096832,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_C_tongue_narrowWide": {
+        "location": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "rotation": [
+            0.0,
+            -0.0,
+            -1.7584192713058965e-15
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_C_tongue_inOut": {
+        "location": [
+            0.0,
+            -0.21011939644813538,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_L_mouth_upperLipRaise": {
+        "location": [
+            0.0,
+            0.10000000149011612,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "CTRL_R_mouth_upperLipRaise": {
+        "location": [
+            0.0,
+            0.10000000149011612,
+            0.0
+        ],
+        "rotation": [
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "scale": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    }
+}
