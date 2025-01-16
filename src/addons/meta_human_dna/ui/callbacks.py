@@ -186,10 +186,15 @@ def get_shape_key_value(self) -> float:
     if instance:
         channel_index = instance.channel_name_to_index_lookup.get(self.name)
         if not channel_index:
-            return 0.0        
+            return 0.0      
+        
         for shape_key_block in instance.shape_key_blocks.get(channel_index, []):
-            if shape_key_block.name == self.name:
-                return shape_key_block.value
+            try:
+                if shape_key_block.name == self.name:
+                    return shape_key_block.value
+            except UnicodeDecodeError:
+                # This happens when the block is already removed from memory
+                pass
     return 0.0
 
 def get_active_shape_key_mesh_names(self, context):
