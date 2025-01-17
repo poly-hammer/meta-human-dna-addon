@@ -122,10 +122,9 @@ def create_shape_key(
     # the new vertex layout is the original vertex layout with the deltas from the dna applied
     for vertex_index, delta_x, delta_y, delta_z in zip(vertex_indices, delta_x_values, delta_y_values, delta_z_values):
         try:
-            # Perform the rotation
             delta = Vector((delta_x, delta_y, delta_z)) * linear_modifier
             rotated_delta = rotation_matrix @ delta
-
+            
             # set the positions of the points
             shape_key_block.data[vertex_index].co = mesh_object.data.vertices[vertex_index].co + rotated_delta # type: ignore
             if delta.length > delta_threshold:

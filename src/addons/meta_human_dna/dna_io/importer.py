@@ -282,11 +282,14 @@ class DNAImporter:
         vertex_indices = self._dna_reader.getVertexLayoutPositionIndices(mesh_index)
         self._index_to_face.clear()
         for index in range(self._dna_reader.getFaceCount(mesh_index)):
-            face = bmesh_object.faces.new([
-                bmesh_object.verts[vertex_indices[i]]
-                for i in self._dna_reader.getFaceVertexLayoutIndices(mesh_index, index)
-            ])
-            self._index_to_face[index] = face
+            try:
+                face = bmesh_object.faces.new([
+                    bmesh_object.verts[vertex_indices[i]]
+                    for i in self._dna_reader.getFaceVertexLayoutIndices(mesh_index, index)
+                ])
+                self._index_to_face[index] = face
+            except (RuntimeError, Exception):
+                logger.error(f"Face {index} failed to create on mesh index {mesh_index}")
 
         bmesh_object.faces.index_update()
         # flip the dictionary so that we can get the dna index from the face index

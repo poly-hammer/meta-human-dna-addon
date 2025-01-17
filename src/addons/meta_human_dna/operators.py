@@ -432,20 +432,29 @@ class SendToUnreal(bpy.types.Operator):
         if face and face.rig_logic_instance and face.head_mesh_object and face.head_rig_object:
             instance = face.rig_logic_instance
             dna_io_instance: DNAExporter = None # type: ignore
+
+            # export a separate DNA file since we are only going to export bone 
+            # transforms, mesh are sent across via FBX
+            dna_file = f'export/{face.rig_logic_instance.name}.dna'
             if face.rig_logic_instance.output_method == 'calibrate':
                 dna_io_instance = DNACalibrator(
                     instance=face.rig_logic_instance,
-                    linear_modifier=face.linear_modifier
+                    linear_modifier=face.linear_modifier,
+                    meshes=False,
+                    bones=True,
+                    file_name=dna_file
                 )              
             elif face.rig_logic_instance.output_method == 'overwrite':
                 dna_io_instance = DNAExporter(
                     instance=face.rig_logic_instance,
-                    linear_modifier=face.linear_modifier
+                    linear_modifier=face.linear_modifier,
+                    meshes=False,
+                    bones=True,
+                    file_name=dna_file
                 )
 
             valid, title, message, fix = dna_io_instance.run()
             if not valid:
-                # self.report({'ERROR'}, message)
                 utilities.report_error(
                     title=title,
                     message=message,
@@ -777,14 +786,11 @@ class EditThisShapeKey(ShapeKeyOperatorBase):
             
             _, key_block, _, mesh_object = result # type: ignore
             self.lock_all_other_shape_keys(mesh_object, key_block)
-            vertex_indexes = utilities.get_shape_key_delta_vertices(
+            short_name = self.shape_key_name.split("__", 1)[-1]
+            utilities.switch_to_edit_mode(mesh_object)
+            utilities.select_vertex_group(
                 mesh_object=mesh_object, 
-                shape_key_name=key_block.name,
-                delta_threshold=0.0001
-            )
-            utilities.set_vertex_selection(
-                mesh_object=mesh_object, 
-                vertex_indexes=vertex_indexes,
+                vertex_group_name=f'{SHAPE_KEY_GROUP_PREFIX}{short_name}',
                 add=False
             )
             mesh_object.show_only_shape_key = False

@@ -24,6 +24,7 @@ class DNAExporter:
             meshes: bool = True,
             bones: bool = True,
             vertex_colors: bool = True,
+            file_name: str | None = None,
             reader: dna.BinaryStreamReader | None = None
         ):
         self._instance = instance
@@ -36,7 +37,7 @@ class DNAExporter:
 
         self._output_folder = Path(bpy.path.abspath(instance.output_folder_path))
         self._source_dna_file = Path(bpy.path.abspath(instance.dna_file_path))
-        self._target_dna_file = Path(bpy.path.abspath(instance.output_folder_path)) / f'{instance.name}.dna'
+        self._target_dna_file = Path(bpy.path.abspath(instance.output_folder_path)) / (file_name or f'{instance.name}.dna')
 
         # Open a read to the source DNA file if an existing reader is not provided
         if not reader:
@@ -109,28 +110,50 @@ class DNAExporter:
                 "No rig object found. Must link a head rig to export DNA.",
                 None
             )
-        if self._non_lod_mesh_objects:
-            mesh_names = '\n'.join([f'"{i.name}"' for i in self._non_lod_mesh_objects])
-            return (
-                False,
-                "Invalid LOD names. Fix by renaming to LOD 0 meshes?",
-                mesh_names,
-                lambda: utilities.rename_as_lod0_meshes(self._non_lod_mesh_objects)
-            )
         
-        meshes_missing_uvs = []
-        for _, mesh_objects in self._export_lods.items():
-            for mesh_object, _ in mesh_objects:
-                if not mesh_object.data.uv_layers.active:
-                    meshes_missing_uvs.append(mesh_object)
-        if meshes_missing_uvs:
-            mesh_names = '\n'.join([f'"{i.name}"' for i in meshes_missing_uvs])
-            return (
-                False,
-                "Missing UVs. Auto unwrap the following meshes?",
-                mesh_names,
-                lambda: utilities.auto_unwrap_uvs(meshes_missing_uvs)
-            )
+        if self._include_meshes:
+            if self._non_lod_mesh_objects:
+                mesh_names = '\n'.join([f'"{i.name}"' for i in self._non_lod_mesh_objects])
+                return (
+                    False,
+                    "Invalid LOD names. Fix by renaming to LOD 0 meshes?",
+                    mesh_names,
+                    lambda: utilities.rename_as_lod0_meshes(self._non_lod_mesh_objects)
+                )
+            
+            meshes_missing_uvs = []
+            for _, mesh_objects in self._export_lods.items():
+                for mesh_object, _ in mesh_objects:
+                    if not mesh_object.data.uv_layers.active:
+                        meshes_missing_uvs.append(mesh_object)
+            if meshes_missing_uvs:
+                mesh_names = '\n'.join([f'"{i.name}"' for i in meshes_missing_uvs])
+                return (
+                    False,
+                    "Missing UVs. Auto unwrap the following meshes?",
+                    mesh_names,
+                    lambda: utilities.auto_unwrap_uvs(meshes_missing_uvs)
+                )
+            
+            # make sure the mesh objects have the same origin as the rig
+            meshes_with_mismatched_origins = []
+            for _, mesh_objects in self._export_lods.items():
+                for mesh_object, _ in mesh_objects:
+                    if (self._rig_object.location.copy() - mesh_object.location).length > 1e-6:
+                        meshes_with_mismatched_origins.append(mesh_object)
+            
+            if meshes_with_mismatched_origins:
+                mesh_names = '\n'.join([f'"{i.name}"' for i in meshes_with_mismatched_origins])
+                return (
+                    False,
+                    "Mesh origin mismatch. Fix by matching and applying to the rig's origin?",
+                    mesh_names,
+                    lambda: utilities.set_objects_origins(
+                        meshes_with_mismatched_origins, 
+                        location=self._rig_object.location.copy()
+                    )
+                )
+
         
         # TODO: Add more validations
         return (

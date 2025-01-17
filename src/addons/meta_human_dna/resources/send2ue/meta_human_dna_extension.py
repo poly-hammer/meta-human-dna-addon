@@ -192,7 +192,7 @@ class MetaHumanDna(ExtensionBase):
                 remote_update_meta_human_face = make_remote(update_meta_human_face)
                 remote_update_meta_human_face(
                     self.asset_path,
-                    str(Path(bpy.path.abspath(instance.output_folder_path)).absolute() / f'{instance.name}.dna'),
+                    str(Path(bpy.path.abspath(instance.output_folder_path)).absolute() / f'export/{instance.name}.dna'),
                     material_name,
                     instance.unreal_face_control_rig_asset_path,
                     instance.unreal_face_anim_bp_asset_path,

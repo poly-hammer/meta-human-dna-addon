@@ -357,6 +357,17 @@ def set_origin_to_world_center(scene_object: bpy.types.Object):
     # then move the origin to match the cursor
     bpy.ops.object.origin_set(type='ORIGIN_CURSOR', center='BOUNDS')
 
+def set_objects_origins(scene_objects: list[bpy.types.Object], location: Vector):   
+    switch_to_object_mode()
+    # set the active object
+    for scene_object in scene_objects:
+        select_only(scene_object)
+        # snap the cursor to the world center
+        bpy.context.scene.cursor.location = location # type: ignore
+        # then move the origin to match the cursor
+        bpy.ops.object.origin_set(type='ORIGIN_CURSOR', center='BOUNDS')
+        apply_transforms(scene_object, location=True, rotation=True, scale=True)
+
 def re_create_rig_logic_instance(
         instance: 'RigLogicInstance',
         new_name: str,
