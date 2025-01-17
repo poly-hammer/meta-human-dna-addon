@@ -305,6 +305,24 @@ class META_HUMAN_DNA_PT_armature_utilities_sub_panel(bpy.types.Panel):
             draw_rig_logic_instance_error(self.layout, error)
 
 
+class META_HUMAN_DNA_PT_materials_utilities_sub_panel(bpy.types.Panel):
+    bl_parent_id = "META_HUMAN_DNA_PT_utilities"
+    bl_label = "Material"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'Meta-Human DNA'
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        error = valid_rig_logic_instance_exists(context)
+        if not error:
+            row = self.layout.row()
+            row.operator('meta_human_dna.generate_material', icon='MATERIAL')
+        else:
+            draw_rig_logic_instance_error(self.layout, error)
+
+
+
 class META_HUMAN_DNA_PT_utilities_sub_panel(bpy.types.Panel):
     bl_parent_id = "META_HUMAN_DNA_PT_utilities"
     bl_label = "(Not Shown)"

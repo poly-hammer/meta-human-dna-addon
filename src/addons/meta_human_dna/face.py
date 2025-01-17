@@ -197,13 +197,13 @@ class MetahumanFace:
             utilities.hide_empties()        
             self.head_rig_object.hide_set(True)
 
-    def _set_image_textures(self, materials):
+    def _set_image_textures(self, materials: list[bpy.types.Material], generate_materials: bool = False):
         # set the combined mask image and topology image
         bpy.data.images[MASKS_TEXTURE].filepath = str(MASKS_TEXTURE_FILE_PATH)
         bpy.data.images[TOPOLOGY_TEXTURE].filepath = str(TOPOLOGY_TEXTURE_FILE_PATH)
 
         for material in materials:
-            for node in material.node_tree.nodes:
+            for node in material.node_tree.nodes: # type: ignore
                 if node.type == 'TEX_IMAGE' and node.image:
                     # set the masks and topology textures
                     image_file = os.path.basename(node.image.filepath)
@@ -225,7 +225,8 @@ class MetahumanFace:
                         if os.path.splitext(image_file)[0].endswith('normal_map'):
                             node.image.colorspace_settings.name = 'Non-Color' # type: ignore
                     else:
-                        logger.warning(f'"{new_image_path}" can not be found on disk using the default image "{node.image.filepath}" instead.')
+                        if not generate_materials:
+                            logger.warning(f'"{new_image_path}" can not be found on disk using the default image "{node.image.filepath}" instead.')
 
         # remove any extra masks and topology images
         for image in bpy.data.images:
@@ -235,15 +236,15 @@ class MetahumanFace:
                 bpy.data.images.remove(image)
 
 
-    def _import_materials(self):
-        if not self.dna_import_properties.import_materials:
+    def import_materials(self, generate_materials: bool = False):
+        if self.dna_import_properties and not self.dna_import_properties.import_materials:
             return
 
         from .ui import callbacks
         sep = '\\'
         if sys.platform != 'win32':
             sep = '/'
-        if self.dna_import_properties.import_materials and self.has_maps:
+        if self.has_maps or generate_materials:
             logger.info(f'Importing materials for {self.name}')
             materials = []
             directory_path = f'{MATERIALS_FILE_PATH}{sep}Material{sep}'
@@ -298,7 +299,7 @@ class MetahumanFace:
             utilities.set_viewport_shading('MATERIAL')
 
             # set the image textures to match
-            self._set_image_textures(materials)
+            self._set_image_textures(materials, generate_materials=generate_materials)
             # prefix the material image names with the metahuman name
             for material in materials:
                 utilities.prefix_material_image_names(
@@ -386,7 +387,7 @@ class MetahumanFace:
         self.rig_logic_instance.head_rig = self.dna_importer.rig_object
 
         self._organize_viewport()
-        self._import_materials()
+        self.import_materials()
         # import the face board if one does not already exist in the scene
         if not any(i.face_board for i in self.scene_properties.rig_logic_instance_list):
             face_board_object = self._import_face_board()

@@ -351,6 +351,23 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
         layout.prop(self, 'new_folder')
         layout.prop(self, 'run_calibration')
 
+class GenerateMaterial(bpy.types.Operator):
+    """Generates a material for the head mesh object that you can then customize"""
+    bl_idname = "meta_human_dna.generate_material"
+    bl_label = "Generate Material"    
+
+    def execute(self, context):
+        face = utilities.get_active_face()
+        if face and face.head_mesh_object:
+            face.import_materials(generate_materials=True)
+        return {'FINISHED'}
+    
+    @classmethod
+    def poll(cls, context):
+        instance = callbacks.get_active_rig_logic()
+        if instance and instance.head_mesh and not instance.material and bpy.context.mode == 'OBJECT': # type: ignore
+            return True
+        return False
 
 
 class ImportShapeKeys(GenericProgressQueueOperator):
@@ -383,7 +400,7 @@ class ForceEvaluate(bpy.types.Operator):
         if instance:
             instance.evaluate()
         else:
-            logger.warning('No active Rig Logic Instance found!')
+            self.report({'ERROR'}, 'No active Rig Logic Instance found!')
 
         context.window_manager.meta_human_dna.evaluate_dependency_graph = True # type: ignore
         return {'FINISHED'}
@@ -415,20 +432,29 @@ class SendToUnreal(bpy.types.Operator):
         if face and face.rig_logic_instance and face.head_mesh_object and face.head_rig_object:
             instance = face.rig_logic_instance
             dna_io_instance: DNAExporter = None # type: ignore
+
+            # export a separate DNA file since we are only going to export bone 
+            # transforms, mesh are sent across via FBX
+            dna_file = f'export/{face.rig_logic_instance.name}.dna'
             if face.rig_logic_instance.output_method == 'calibrate':
                 dna_io_instance = DNACalibrator(
                     instance=face.rig_logic_instance,
-                    linear_modifier=face.linear_modifier
+                    linear_modifier=face.linear_modifier,
+                    meshes=False,
+                    bones=True,
+                    file_name=dna_file
                 )              
             elif face.rig_logic_instance.output_method == 'overwrite':
                 dna_io_instance = DNAExporter(
                     instance=face.rig_logic_instance,
-                    linear_modifier=face.linear_modifier
+                    linear_modifier=face.linear_modifier,
+                    meshes=False,
+                    bones=True,
+                    file_name=dna_file
                 )
 
             valid, title, message, fix = dna_io_instance.run()
             if not valid:
-                # self.report({'ERROR'}, message)
                 utilities.report_error(
                     title=title,
                     message=message,
@@ -650,8 +676,7 @@ class ShapeKeyOperatorBase(bpy.types.Operator):
     
     def lock_all_other_shape_keys(self, mesh_object: bpy.types.Object, key_block: bpy.types.ShapeKey):            
         mesh_object.hide_set(False)
-        mesh_object.use_shape_key_edit_mode = True
-        mesh_object.show_only_shape_key = False
+        bpy.context.view_layer.objects.active = mesh_object # type: ignore
                 
         # make sure the armature modifier is visible on mesh in edit mode
         for modifier in mesh_object.modifiers:
@@ -664,7 +689,7 @@ class ShapeKeyOperatorBase(bpy.types.Operator):
             key_block.lock_shape = key_block.name != self.shape_key_name
         
         key_block.lock_shape = False
-        bpy.context.view_layer.objects.active = mesh_object # type: ignore
+        mesh_object.use_shape_key_edit_mode = True
     
     def validate(self, context, instance) -> bool | tuple:
         mesh_object = bpy.data.objects.get(instance.active_shape_key_mesh_name)
@@ -681,6 +706,12 @@ class ShapeKeyOperatorBase(bpy.types.Operator):
         else:
             self.report({'ERROR'}, f'The shape key "{self.shape_key_name}" is not found')
             return False
+        
+        # Set the active shape key in the shape key list to the one we are editing
+        for i,  _shape_key in enumerate(instance.shape_key_list):
+            if _shape_key.name == self.shape_key_name:
+                instance.shape_key_list_active_index = i
+                break
         
         return shape_key_index, key_block, channel_index, mesh_object
     
@@ -737,6 +768,7 @@ class SculptThisShapeKey(ShapeKeyOperatorBase):
             _, key_block, _, mesh_object = result # type: ignore
             self.lock_all_other_shape_keys(mesh_object, key_block)
             utilities.switch_to_sculpt_mode(mesh_object)
+            mesh_object.show_only_shape_key = False
 
         return {'FINISHED'}
 
@@ -754,16 +786,14 @@ class EditThisShapeKey(ShapeKeyOperatorBase):
             
             _, key_block, _, mesh_object = result # type: ignore
             self.lock_all_other_shape_keys(mesh_object, key_block)
-            vertex_indexes = utilities.get_shape_key_delta_vertices(
+            short_name = self.shape_key_name.split("__", 1)[-1]
+            utilities.switch_to_edit_mode(mesh_object)
+            utilities.select_vertex_group(
                 mesh_object=mesh_object, 
-                shape_key_name=key_block.name,
-                delta_threshold=0.0001
-            )
-            utilities.set_vertex_selection(
-                mesh_object=mesh_object, 
-                vertex_indexes=vertex_indexes,
+                vertex_group_name=f'{SHAPE_KEY_GROUP_PREFIX}{short_name}',
                 add=False
             )
+            mesh_object.show_only_shape_key = False
 
         return {'FINISHED'}
     
@@ -792,6 +822,9 @@ class ReImportThisShapeKey(ShapeKeyOperatorBase):
 
             current_context = utilities.get_current_context()
             short_name = self.shape_key_name.split("__", 1)[-1]
+            # filter out the shape key block we are re-importing
+            shape_key_blocks = instance.data['shape_key_blocks'].pop(channel_index, [])
+            new_shape_key_blocks = [block for block in shape_key_blocks if block.name != f'{mesh_dna_name}__{short_name}']
             new_shape_key_block = create_shape_key(
                 index=channel_index,
                 mesh_index=mesh_index,
@@ -802,9 +835,11 @@ class ReImportThisShapeKey(ShapeKeyOperatorBase):
                 linear_modifier=face.linear_modifier,
                 delta_threshold=0.0001
             )
+            mesh_object.show_only_shape_key = False
             utilities.set_context(current_context)
-            # swap the cached shape key block reference in the instance
-            instance.data['shape_key_blocks'][channel_index] = new_shape_key_block
+            new_shape_key_blocks.append(new_shape_key_block)
+            # swap the cached shape key blocks index in the instance
+            instance.data['shape_key_blocks'][channel_index] = new_shape_key_blocks
             instance.evaluate()
         return {'FINISHED'}
     
