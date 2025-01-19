@@ -5,6 +5,7 @@ import logging
 from pathlib import Path
 from mathutils import Vector
 from typing import TYPE_CHECKING, Callable
+from ..constants import MATERIALS_FILE_PATH, TEXTURE_LOGIC_NODE_LABEL
 from ..rig_logic import start_listening
 from ..constants import (
     SENTRY_DSN,
@@ -471,3 +472,21 @@ def report_error(
         message=message,
         width=width,
     ) # type: ignore
+
+
+def import_texture_logic_node() -> bpy.types.NodeTree | None:
+    sep = '\\'
+    if sys.platform != 'win32':
+        sep = '/'
+
+    node_group = bpy.data.node_groups.get(TEXTURE_LOGIC_NODE_LABEL)
+    if not node_group:
+        directory_path = f'{MATERIALS_FILE_PATH}{sep}NodeTree{sep}'
+        file_path = f'{MATERIALS_FILE_PATH}{sep}NodeTree{sep}{TEXTURE_LOGIC_NODE_LABEL}'
+        bpy.ops.wm.append(
+            filepath=file_path,
+            filename=TEXTURE_LOGIC_NODE_LABEL,
+            directory=directory_path
+        )
+        return bpy.data.node_groups.get(TEXTURE_LOGIC_NODE_LABEL)
+    return node_group

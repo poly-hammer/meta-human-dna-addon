@@ -846,6 +846,7 @@ class MetahumanFace:
                 'mesh_object': mesh_object,
                 'reader': self.dna_reader,
                 'name': shape_key_name,
+                'is_neutral': self.rig_logic_instance.generate_neutral_shapes,
                 'linear_modifier': self.linear_modifier,
                 'prefix': f'{mesh_dna_name}__'
             }

@@ -13,6 +13,7 @@ from .properties import MetahumanDnaImportProperties
 from .constants import (
     SEND2UE_FACE_SETTINGS,
     TEXTURE_LOGIC_NODE_NAME,
+    TEXTURE_LOGIC_NODE_LABEL,
     ToolInfo,
     NUMBER_OF_FACE_LODS,
     SHAPE_KEY_GROUP_PREFIX
@@ -371,7 +372,7 @@ class GenerateMaterial(bpy.types.Operator):
 
 
 class ImportShapeKeys(GenericProgressQueueOperator):
-    """Imports the shape keys from a DNA file associated with the active rig logic instance"""
+    """Imports the shape keys from the DNA file and their deltas"""
     bl_idname = "meta_human_dna.import_shape_keys"
     bl_label = "Import Shape Keys"    
 
@@ -832,6 +833,7 @@ class ReImportThisShapeKey(ShapeKeyOperatorBase):
                 reader=instance.dna_reader,
                 name=short_name,
                 prefix=f'{mesh_dna_name}__',
+                is_neutral=instance.generate_neutral_shapes,
                 linear_modifier=face.linear_modifier,
                 delta_threshold=0.0001
             )
@@ -1007,6 +1009,55 @@ class DuplicateRigLogicInstance(bpy.types.Operator):
         layout = self.layout
         layout.prop(self, 'new_name')
         layout.prop(self, 'new_folder')
+
+
+class AddRigLogicTextureNode(bpy.types.Operator):
+    """Add a new Rig Logic Texture Node to the active material. This is used to control the wrinkle map blending on Metahuman faces"""
+    bl_idname = 'meta_human_dna.add_rig_logic_texture_node'
+    bl_label = "Add Rig Logic Texture Node"
+
+    @classmethod
+    def get_active_material(cls, context) -> bpy.types.Material | None:
+        space = context.space_data # type: ignore
+        node_tree = space.node_tree # type: ignore                
+        for material in bpy.data.materials:
+            if material.node_tree == node_tree:
+                return material
+
+    @classmethod
+    def poll(cls, context):
+        space = context.space_data # type: ignore
+        node_tree = space.node_tree # type: ignore                
+        if node_tree and node_tree.type == 'SHADER':
+            active_material = cls.get_active_material(context)
+            if not active_material:
+                return False
+
+            if not callbacks.get_texture_logic_node(active_material):
+                return True
+            return False
+        
+    def execute(self, context):
+        space = context.space_data # type: ignore
+        node_tree = space.node_tree # type: ignore
+        cursor_location = cursor_location = space.cursor_location # type: ignore
+
+        active_material = self.get_active_material(context)
+        if not active_material:
+            self.report({'ERROR'}, "Could not find the active material")
+            return {'CANCELLED'}
+        
+        texture_logic_node = utilities.import_texture_logic_node()
+        if not texture_logic_node:
+            self.report({'ERROR'}, "Could not import the Texture Logic Node")
+            return {'CANCELLED'}
+        
+        node = node_tree.nodes.new(type='ShaderNodeGroup')
+        node.name = f'{active_material.name}_{TEXTURE_LOGIC_NODE_NAME}'
+        node.label = f'{active_material.name} {TEXTURE_LOGIC_NODE_LABEL}'
+        node.node_tree = texture_logic_node
+        node.location = cursor_location
+        return {'FINISHED'}
 
 
 class UILIST_ADDON_PREFERENCES_OT_extra_dna_entry_remove(GenericUIListOperator, bpy.types.Operator):

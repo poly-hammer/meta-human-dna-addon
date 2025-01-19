@@ -33,8 +33,10 @@ def rig_logic_listener(scene, dependency_graph):
 
             elif data_type == 'Armature':
                 if update.is_updated_transform:
+                    # Note: we split the name by '.' to get the armature name incase there are duplicates i.e. "face_gui.001"
+                    face_board_armature_name = update.id.name.split('.')[0]
                     # get all the face board names from the rig logic instances and check if this armature is one of those face boards
-                    if any(i.face_board.name.endswith(update.id.name) for i in scene.meta_human_dna.rig_logic_instance_list if i.face_board):
+                    if any(i.face_board.name.endswith(face_board_armature_name) for i in scene.meta_human_dna.rig_logic_instance_list if i.face_board):
                         should_update = True
                     break
 
@@ -253,6 +255,11 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         description="This determines which mesh object's shape keys value are being displayed in the shape key list",
         options={'ANIMATABLE'},
         items=callbacks.get_active_shape_key_mesh_names
+    ) # type: ignore
+    generate_neutral_shapes: bpy.props.BoolProperty(
+        name="Generate Neutral Shapes",
+        description="Use this to generate neutral shape keys that match the names in the DNA file. This is useful when you can't import the deltas because vert count is not the same",
+        default=False
     ) # type: ignore
 
     # ----- Output Properties -----

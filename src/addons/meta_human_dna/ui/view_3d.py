@@ -18,7 +18,7 @@ def valid_rig_logic_instance_exists(context, ignore_face_board: bool = False) ->
         elif instance.dna_file_path and instance.face_board:
             return ''
     else:
-        return 'No Rig Logic Instances. Create one.'
+        return 'Missing data. Create/Import DNA data.'
     return ''
 
 def draw_rig_logic_instance_error(layout, error: str):
@@ -506,6 +506,8 @@ class META_HUMAN_DNA_PT_shape_keys(bpy.types.Panel):
                 insertion_operators=False,
                 move_operators=False # type: ignore
             )
+            row = self.layout.row()
+            row.prop(instance, 'generate_neutral_shapes')
             row = self.layout.row()
             row.operator('meta_human_dna.import_shape_keys', icon='IMPORT', text='Reimport All Shape Keys')
         else:

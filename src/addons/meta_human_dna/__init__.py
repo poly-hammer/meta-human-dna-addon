@@ -51,6 +51,7 @@ classes = [
     operators.RefreshMaterialSlotNames,
     operators.RevertMaterialSlotValues,
     operators.DuplicateRigLogicInstance,
+    operators.AddRigLogicTextureNode,
     operators.MetaHumanDnaReportError,
     operators.UILIST_RIG_LOGIC_OT_entry_move,
     operators.UILIST_RIG_LOGIC_OT_entry_add,
@@ -101,6 +102,7 @@ def register():
 
         # add menu items
         menus.add_dna_import_menu()
+        menus.add_rig_logic_texture_node_menu()
 
     except Exception as error:
         logger.error(error)
@@ -131,6 +133,7 @@ def unregister():
     try:
         # remove menu items
         menus.remove_dna_import_menu()
+        menus.remove_rig_logic_texture_node_menu()
 
         # unregister the classes
         for cls in reversed(classes):
