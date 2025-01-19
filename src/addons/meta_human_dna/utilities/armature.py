@@ -18,11 +18,7 @@ from .mesh import (
 )
 from ..constants import ( 
     CUSTOM_BONE_SHAPE_NAME, 
-    CUSTOM_BONE_SHAPE_SCALE,
-    LEAF_BONE_IMMEDIATE_PARENT_OFFSETS_FILE_PATH,
-    LEAF_BONE_TO_VERTEX_MAPPING_FILE_PATH,
-    LIP_BONE_OFFSETS_FILE_PATH,
-    MAX_BONE_HIERARCHY_DEPTH
+    CUSTOM_BONE_SHAPE_SCALE
 )
 from ..bindings import meta_human_dna_core
 
@@ -340,179 +336,25 @@ def copy_armature(armature_object: bpy.types.Object, new_armature_name: str) -> 
     return armature_object_copy
 
 
-def get_leaf_bones(
-        armature_object: bpy.types.Object, 
-        ignored_bone_names: list[str] | None = None,
-        only_selection: bool = False,
-    ) -> list[bpy.types.PoseBone]:
-    if not ignored_bone_names:
-        ignored_bone_names = []
-    
-    pose_bones = []
-    for pose_bone in armature_object.pose.bones: # type: ignore
-        bone_collection = armature_object.data.collections.get(meta_human_dna_core.BoneCollection.LEAF_BONES.value) # type: ignore
-        if bone_collection and bone_collection.bones.get(pose_bone.name):
-            if only_selection:
-                if pose_bone.bone.select:
-                    pose_bones.append(pose_bone)
-            else:
-                pose_bones.append(pose_bone)
-                
-    return [pose_bone for pose_bone in pose_bones if pose_bone.name not in ignored_bone_names]
-
-
-def get_bone_hierarchy_depth(armature_object: bpy.types.Object) -> dict[str, int]:
-    bone_depths = {}
-    for pose_bone in armature_object.pose.bones: # type: ignore
-        depth = -1
-        parent = pose_bone.parent
-        while parent:
-            depth += 1
-            parent = parent.parent
-        bone_depths[pose_bone.name] = depth
-
-    return bone_depths
-
-def group_bones_by_parent(
-        pose_bones: list[bpy.types.PoseBone]
-    ) -> dict[str, list[str]]:
-    bone_groups = {}
-    for pose_bone in pose_bones:
-        if pose_bone.parent:
-            parent_name = pose_bone.parent.name
-            bone_groups[parent_name] = bone_groups.get(parent_name, [])
-            bone_groups[parent_name].append(pose_bone.name)
-    return bone_groups
-
-
-@preserve_context
-def save_bone_leaf_bone_offsets(armature_object: bpy.types.Object):
-    hierarchy_depth_lookup = get_bone_hierarchy_depth(armature_object)
-    grouped_bones = group_bones_by_parent(pose_bones=get_leaf_bones(armature_object))
-    bone_offsets = {}
-
-    switch_to_bone_edit_mode(armature_object)
-    for parent_name, children in grouped_bones.items():
-        parent_edit_bone = armature_object.data.edit_bones[parent_name] # type: ignore
-        bone_offsets[parent_name] = {
-            'position': parent_edit_bone.head.to_tuple(),
-            'reversed_depth': MAX_BONE_HIERARCHY_DEPTH - hierarchy_depth_lookup[parent_name],
-            'children': {}
-        }
-        for child_name in children:
-            child_edit_bone = armature_object.data.edit_bones[child_name] # type: ignore
-            bone_offsets[parent_name]['children'][child_name] = child_edit_bone.head.to_tuple()
-
-    with open(LEAF_BONE_IMMEDIATE_PARENT_OFFSETS_FILE_PATH, 'w') as file:
-        json.dump(bone_offsets, file)
-
-
 def get_topology_group_surface_bones(
         mesh_object: bpy.types.Object,
         armature_object: bpy.types.Object,
-        vertex_group_name: str
+        vertex_group_name: str,
+        dna_reader
     ) -> list[bpy.types.Bone]:
+    from ..bindings import meta_human_dna_core
     bones = []
     vertex_indices = get_vertex_group_vertices(mesh_object, vertex_group_name)
-
-    with open(LEAF_BONE_TO_VERTEX_MAPPING_FILE_PATH, 'r') as file:
-        leaf_bone_to_vertex = json.load(file)
-        vertex_to_leaf_bone = {v: k for k, v in leaf_bone_to_vertex.items()}
-        for vertex_index in vertex_indices:
-            bone_name = vertex_to_leaf_bone.get(vertex_index, None)
-            if bone_name:
-                bone = armature_object.data.bones.get(bone_name) # type: ignore
-                if bone:
-                    bones.append(bone)
+    vertex_to_bone_name = meta_human_dna_core.calculate_vertex_to_bone_name_mapping(
+        dna_reader=dna_reader
+    )
+    for vertex_index in vertex_indices:
+        bone_name = vertex_to_bone_name.get(vertex_index, None)
+        if bone_name:
+            bone = armature_object.data.bones.get(bone_name) # type: ignore
+            if bone:
+                bones.append(bone)
     return bones
-
-
-@preserve_context
-def save_eye_offsets(armature_object: bpy.types.Object):
-    from ..bindings import meta_human_dna_core
-    bone_offsets = {
-        'eye_lid_l': {},
-        'eye_lid_r': {},
-        'eye_ball_l': {},
-        'eye_ball_r': {}
-    }
-    switch_to_bone_edit_mode(armature_object)
-
-    for bone_name in meta_human_dna_core.EYE_LID_L_BONES:
-        edit_bone = armature_object.data.edit_bones.get(bone_name) # type: ignore
-        if edit_bone:
-            bone_offsets['eye_lid_l'][bone_name] = edit_bone.head.to_tuple()
-
-    for bone_name in meta_human_dna_core.EYE_LID_R_BONES:
-        edit_bone = armature_object.data.edit_bones.get(bone_name) # type: ignore
-        if edit_bone:
-            bone_offsets['eye_lid_r'][bone_name] = edit_bone.head.to_tuple()
-    
-    for bone_name in meta_human_dna_core.EYE_BALL_L_BONES:
-        edit_bone = armature_object.data.edit_bones.get(bone_name) # type: ignore
-        if edit_bone:
-            bone_offsets['eye_ball_l'][bone_name] = edit_bone.head.to_tuple()
-
-    for bone_name in meta_human_dna_core.EYE_BALL_R_BONES:
-        edit_bone = armature_object.data.edit_bones.get(bone_name) # type: ignore
-        if edit_bone:
-            bone_offsets['eye_ball_r'][bone_name] = edit_bone.head.to_tuple()
-
-    with open(meta_human_dna_core.EYE_BONE_OFFSETS_FILE_PATH, 'w') as file:
-        json.dump(bone_offsets, file)
-                
-
-@preserve_context
-def save_mouth_offsets(mesh_object: bpy.types.Object, armature_object: bpy.types.Object):
-    bone_offsets = {
-        'lips_outer': {},
-        'lips_inner': {}
-    }
-    switch_to_bone_edit_mode(armature_object)
-
-    for bone_name in meta_human_dna_core.INTERNAL_LIP_BONES:
-        edit_bone = armature_object.data.edit_bones.get(bone_name) # type: ignore
-        if edit_bone:
-            bone_offsets['lips_inner'][bone_name] = edit_bone.head.to_tuple()
-
-    lip_upper_bones = get_topology_group_surface_bones(
-        mesh_object=mesh_object,
-        armature_object=armature_object,
-        vertex_group_name='TOPO_GROUP_lip_upper'
-    )
-    lip_lower_bones = get_topology_group_surface_bones(
-        mesh_object=mesh_object,
-        armature_object=armature_object,
-        vertex_group_name='TOPO_GROUP_lip_lower'
-    )
-    for bone in lip_upper_bones + lip_lower_bones:
-        edit_bone = armature_object.data.edit_bones.get(bone.name) # type: ignore
-        if edit_bone:
-            bone_offsets['lips_outer'][bone.name] = edit_bone.head.to_tuple()
-
-    with open(LIP_BONE_OFFSETS_FILE_PATH, 'w') as file:
-        json.dump(bone_offsets, file)
-
-
-def save_leaf_bone_to_vertex_mapping(
-        mesh_object: bpy.types.Object,
-        armature_object: bpy.types.Object
-    ):
-    pose_bones = get_leaf_bones(
-        armature_object=armature_object, 
-        ignored_bone_names=[],
-        only_selection=False
-    )
-    bone_to_vert_index = get_closet_vertex_indices_to_bones(
-        mesh_object=mesh_object,
-        pose_bones=pose_bones,
-        max_distance=0.0001
-    )
-    logger.info(len(bone_to_vert_index.values()))
-
-    # get the default bone to vertex index mapping
-    with open(LEAF_BONE_TO_VERTEX_MAPPING_FILE_PATH, 'w') as file:
-        json.dump(bone_to_vert_index, file)
 
 def get_mouth_bone_names(armature_object: bpy.types.Object) -> list[str]:
     bones = []
@@ -571,7 +413,6 @@ def auto_fit_bones(
         factor=1.0,
         only_bone_names=bone_names, # type: ignore
     )
-    from mathutils import Vector
     for bone_name, (head, tail) in result['bone_positions'].items():
         edit_bone = armature_object.data.edit_bones.get(bone_name) # type: ignore
         if edit_bone:

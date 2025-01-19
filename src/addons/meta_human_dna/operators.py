@@ -116,30 +116,6 @@ class ImportMetahumanFaceAnimation(bpy.types.Operator, importer.ImportAsset, Met
         if face:
             face.import_animation(self.filepath)  # type: ignore
         return {'FINISHED'}
-    
-
-class ExportMetahumanFacePose(bpy.types.Operator, ExportHelper):
-    """Exports a pose from the metahuman face board"""
-    bl_idname = "meta_human_dna.export_face_pose"
-    bl_label = "Export Face Pose"
-    filename_ext = ".json"
-    bl_options = {'UNDO', 'PRESET'}
-
-    filter_glob: bpy.props.StringProperty(
-        default="*.json",
-        options={"HIDDEN"},
-        subtype="FILE_PATH",
-    ) # type: ignore
-
-    def draw(self, context):
-        pass
-
-    def execute(self, context):
-        logger.info(f'Exporting face pose {self.filepath}')  # type: ignore
-        face = utilities.get_face(bpy.context.active_object['metahuman_id'])  # type: ignore
-        if face:
-            face.export_pose(self.filepath)  # type: ignore
-        return {'FINISHED'}
 
 
 class ImportMetahumanDna(bpy.types.Operator, importer.ImportAsset, MetahumanDnaImportProperties):
@@ -312,7 +288,10 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
             new_dna_file_path = str(new_folder / f'{self.new_name}.dna')
             # make the path relative to the blend file if it is saved
             if bpy.data.filepath:
-                new_dna_file_path = bpy.path.relpath(new_dna_file_path, start=os.path.dirname(bpy.data.filepath))
+                try:
+                    new_dna_file_path = bpy.path.relpath(new_dna_file_path, start=os.path.dirname(bpy.data.filepath))
+                except ValueError:
+                    pass
 
             # TODO: look into why a full re-import makes the rig logic instance work again.
             # This is heavy handed and should be avoided if possible.

@@ -33,7 +33,6 @@ classes = [
     operators.ConvertSelectedToDna,
     operators.ImportMetahumanFaceAnimation,
     operators.ImportShapeKeys,
-    operators.ExportMetahumanFacePose,
     operators.TestSentry,
     operators.MirrorSelectedBones,
     operators.PushBonesForwardAlongNormals,

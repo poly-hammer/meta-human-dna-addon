@@ -172,19 +172,9 @@ class META_HUMAN_DNA_PT_face_board(bpy.types.Panel):
             )
             row = self.layout.row()
             row.prop(window_manager_properties, "face_pose_previews", text='')
-            row = self.layout.row()
-            grid = self.layout.grid_flow(
-                    row_major=True, 
-                    columns=2, 
-                    even_columns=True, 
-                    even_rows=True, 
-                    align=True
-                )
-            col = grid.column()
-            col.operator('meta_human_dna.import_animation', icon='IMPORT')
-
-            col = grid.column()
-            col.operator('meta_human_dna.export_face_pose', icon='EXPORT', text='Export Animation')
+            # TODO: Implement import from FBX file instead of from just a JSON file
+            # row = self.layout.row()
+            # row.operator('meta_human_dna.import_animation', icon='IMPORT')
         else:
             draw_rig_logic_instance_error(self.layout, error)
 
@@ -288,12 +278,14 @@ class META_HUMAN_DNA_PT_armature_utilities_sub_panel(bpy.types.Panel):
             row = col.row()
             row.prop(instance, 'head_rig_bone_groups', text='')
             row = self.layout.row()
-            row.label(text='Transform and Apply Selected Bones:')
+            row.label(text='Push Bones:')
             row = self.layout.row()
             row.prop(properties, 'push_along_normal_distance', text='Normal Distance')
             split = row.split(factor=0.5, align=True)
             split.operator('meta_human_dna.push_bones_backward_along_normals', text='', icon='REMOVE')
             split.operator('meta_human_dna.push_bones_forward_along_normals', text='', icon='ADD')
+            row = self.layout.row()
+            row.label(text='Transform and Apply Selected Bones:')
             row = self.layout.row()
             row.operator('meta_human_dna.mirror_selected_bones', text='Mirror Selected Bones')
             row = self.layout.row()
