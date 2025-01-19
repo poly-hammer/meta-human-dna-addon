@@ -34,9 +34,7 @@ from .constants import (
     SCALE_FACTOR,
     INVALID_NAME_CHARACTERS_REGEX,
     TEXTURE_LOGIC_NODE_NAME,
-    LEAF_BONE_TO_VERTEX_MAPPING_FILE_PATH,
     UV_MAP_NAME,
-    FLOATING_POINT_PRECISION,
     TOPO_GROUP_PREFIX
 )
 from .bindings import meta_human_dna_core
@@ -664,7 +662,8 @@ class MetahumanFace:
                 for bone in utilities.get_topology_group_surface_bones(
                     mesh_object=self.rig_logic_instance.head_mesh,
                     armature_object=self.rig_logic_instance.head_rig,
-                    vertex_group_name=self.rig_logic_instance.head_rig_bone_groups
+                    vertex_group_name=self.rig_logic_instance.head_rig_bone_groups,
+                    dna_reader=self.dna_reader
                 ):
                     bone.select = True
 
