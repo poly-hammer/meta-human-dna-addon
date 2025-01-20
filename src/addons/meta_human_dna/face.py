@@ -34,9 +34,7 @@ from .constants import (
     SCALE_FACTOR,
     INVALID_NAME_CHARACTERS_REGEX,
     TEXTURE_LOGIC_NODE_NAME,
-    LEAF_BONE_TO_VERTEX_MAPPING_FILE_PATH,
     UV_MAP_NAME,
-    FLOATING_POINT_PRECISION,
     TOPO_GROUP_PREFIX
 )
 from .bindings import meta_human_dna_core
@@ -664,7 +662,8 @@ class MetahumanFace:
                 for bone in utilities.get_topology_group_surface_bones(
                     mesh_object=self.rig_logic_instance.head_mesh,
                     armature_object=self.rig_logic_instance.head_rig,
-                    vertex_group_name=self.rig_logic_instance.head_rig_bone_groups
+                    vertex_group_name=self.rig_logic_instance.head_rig_bone_groups,
+                    dna_reader=self.dna_reader
                 ):
                     bone.select = True
 
@@ -722,104 +721,22 @@ class MetahumanFace:
             )
 
     @utilities.preserve_context
-    def auto_fit_bones(
-        self, 
-        parent_depth: int = 1,
-        factor: float = 1.0,
-        only_selection: bool = True,
-        precision: float = FLOATING_POINT_PRECISION
-        ):
-        if self.head_mesh_object and self.head_rig_object:
-            ignored_bone_names = utilities.get_ignored_bones_names(self.head_rig_object)
-            mouth_bone_names = utilities.get_mouth_bone_names(self.head_rig_object)
-            eye_l_bone_names = utilities.get_eye_bones_names(side='l')
-            eye_r_bone_names = utilities.get_eye_bones_names(side='r')
-            if only_selection:
-                selected_bone_names = [pose_bone.name for pose_bone in bpy.context.selected_pose_bones] # type: ignore
-            else:
-                selected_bone_names = [pose_bone.name for pose_bone in self.head_rig_object.pose.bones]
-
-            # get the selected leaf bones ignoring the internal lip bones
-            pose_bones = utilities.get_leaf_bones(
-                armature_object=self.head_rig_object,
-                ignored_bone_names=ignored_bone_names,
-                only_selection=only_selection
-            )
-
-            # get the default bone to vertex index mapping
-            with open(LEAF_BONE_TO_VERTEX_MAPPING_FILE_PATH, 'r') as file:
-                bone_to_vert_index = json.load(file)
-
-            # get the vertex positions by index for the head mesh
-            vertex_positions = utilities.get_vertex_positions(
-                mesh_object=self.head_mesh_object,
-                bone_to_vert_index=bone_to_vert_index
-            )
-
-            bone_names = [bone.name for bone in pose_bones]
-            # update edit bones positions to those of the vertex positions
-            utilities.switch_to_bone_edit_mode(self.head_rig_object)
-            for bone_name in bone_names:
-                position = vertex_positions.get(bone_name)
-                if position:
-                    edit_bone = self.head_rig_object.data.edit_bones[bone_name] # type: ignore
-                    # make sure the bone is not already at the position
-                    if (position - edit_bone.head.copy()).length > precision:
-                        diff = edit_bone.head.copy() - edit_bone.tail.copy()
-                        edit_bone.head = position
-                        edit_bone.tail = position + diff
-
-            utilities.average_parent_bones_positions_by_change_in_children(
-                armature_object=self.head_rig_object,
-                parent_depth=parent_depth,
-                factor=factor,
-                ignored_bone_names=ignored_bone_names,
-                only_selection=only_selection,
-                precision=precision
-            )
-            if any(bone_name in mouth_bone_names for bone_name in selected_bone_names):
-                utilities.fit_mouth(
-                    self.head_rig_object,
-                    precision=precision
-                )
-            if any(bone_name in eye_l_bone_names for bone_name in selected_bone_names):
-                utilities.fit_eyes(
-                    self.head_rig_object, 
-                    side='l',
-                    precision=precision
-                )
-            if any(bone_name in eye_r_bone_names for bone_name in selected_bone_names):
-                utilities.fit_eyes(
-                    self.head_rig_object,
-                    side='r',
-                    precision=precision
-                )
-
-    @utilities.exclude_rig_logic_evaluation
     def revert_bone_transforms_to_dna(self):
-        if self.rig_logic_instance.head_rig:
-            joint_lookup: dict = self.dna_provider.read_all_neutral_joints(as_dictionary=True) # type: ignore
-            for pose_bone in bpy.context.selected_pose_bones: # type: ignore
-                joint = joint_lookup.get(pose_bone.name)
-                if joint:
-                    rotation = Euler([
-                        math.radians(joint.orientation.x),
-                        math.radians(joint.orientation.y),
-                        math.radians(joint.orientation.z)
-                    ], 'XYZ')
-                    location = Vector([
-                        joint.translation.x/SCALE_FACTOR,
-                        joint.translation.y/SCALE_FACTOR,
-                        joint.translation.z/SCALE_FACTOR
-                    ])
-
-                    if pose_bone.parent != 'root':
-                        # change local location and rotation into a transformation matrix
-                        local_matrix = Matrix.Translation(location) @ rotation.to_matrix().to_4x4()
-                        # combine with the parent bone matrix
-                        pose_bone.matrix = pose_bone.parent.matrix @ local_matrix
-                    else:
-                        pose_bone.matrix = Matrix.Translation(location) @ rotation.to_matrix().to_4x4()
+        if self.head_rig_object:
+            # make sure the dna importer has the rig object set
+            self.dna_importer.rig_object = self.head_rig_object
+            
+            bone_names = [pose_bone.name for pose_bone in bpy.context.selected_pose_bones] # type: ignore
+            utilities.switch_to_bone_edit_mode(self.rig_logic_instance.head_rig)
+            
+            for bone_name in bone_names:
+                edit_bone = self.head_rig_object.data.edit_bones[bone_name] # type: ignore
+                if bone_name == 'root':
+                    edit_bone.matrix = self.head_rig_object.matrix_world
+                else:
+                    bone_matrix = self.dna_importer.get_bone_matrix(bone_name=bone_name)
+                    if bone_matrix:
+                        edit_bone.matrix = bone_matrix
 
     @utilities.exclude_rig_logic_evaluation
     def import_shape_keys(self, commands_queue: queue.Queue) -> list:
@@ -846,6 +763,7 @@ class MetahumanFace:
                 'mesh_object': mesh_object,
                 'reader': self.dna_reader,
                 'name': shape_key_name,
+                'is_neutral': self.rig_logic_instance.generate_neutral_shapes,
                 'linear_modifier': self.linear_modifier,
                 'prefix': f'{mesh_dna_name}__'
             }

@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 bl_info = {
     "name": "Meta-Human DNA",
     "author": "Poly Hammer",
-    "version": (0, 0, 5),
+    "version": (0, 0, 6),
     "blender": (4, 2, 0),
     "location": "File > Import > Metahuman DNA",
     "description": "Imports a Metahuman head from a DNA file, lets you customize it, then send it back to unreal.",
@@ -33,8 +33,10 @@ classes = [
     operators.ConvertSelectedToDna,
     operators.ImportMetahumanFaceAnimation,
     operators.ImportShapeKeys,
-    operators.ExportMetahumanFacePose,
     operators.TestSentry,
+    operators.OpenBuildToolDocumentation,
+    operators.OpenMetricsCollectionAgreement,
+    operators.MetricsCollectionConsent,
     operators.MirrorSelectedBones,
     operators.PushBonesForwardAlongNormals,
     operators.PushBonesBackwardAlongNormals,
@@ -51,6 +53,7 @@ classes = [
     operators.RefreshMaterialSlotNames,
     operators.RevertMaterialSlotValues,
     operators.DuplicateRigLogicInstance,
+    operators.AddRigLogicTextureNode,
     operators.MetaHumanDnaReportError,
     operators.UILIST_RIG_LOGIC_OT_entry_move,
     operators.UILIST_RIG_LOGIC_OT_entry_add,
@@ -101,13 +104,12 @@ def register():
 
         # add menu items
         menus.add_dna_import_menu()
+        menus.add_rig_logic_texture_node_menu()
 
     except Exception as error:
         logger.error(error)
 
-    # collect metrics when not in dev mode
-    if not os.environ.get('META_HUMAN_DNA_DEV'):
-        utilities.init_sentry()
+    utilities.init_sentry()
 
     # add event handlers
     bpy.app.handlers.load_pre.append(app_handlers['load_pre'])
@@ -131,6 +133,7 @@ def unregister():
     try:
         # remove menu items
         menus.remove_dna_import_menu()
+        menus.remove_rig_logic_texture_node_menu()
 
         # unregister the classes
         for cls in reversed(classes):

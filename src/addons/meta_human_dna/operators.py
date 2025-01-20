@@ -4,7 +4,7 @@ import queue
 import shutil
 import logging
 from pathlib import Path
-from bpy_extras.io_utils import ExportHelper
+from datetime import datetime, timedelta
 from .face import MetahumanFace
 from .ui import importer, callbacks
 from . import utilities
@@ -13,6 +13,7 @@ from .properties import MetahumanDnaImportProperties
 from .constants import (
     SEND2UE_FACE_SETTINGS,
     TEXTURE_LOGIC_NODE_NAME,
+    TEXTURE_LOGIC_NODE_LABEL,
     ToolInfo,
     NUMBER_OF_FACE_LODS,
     SHAPE_KEY_GROUP_PREFIX
@@ -115,30 +116,6 @@ class ImportMetahumanFaceAnimation(bpy.types.Operator, importer.ImportAsset, Met
         if face:
             face.import_animation(self.filepath)  # type: ignore
         return {'FINISHED'}
-    
-
-class ExportMetahumanFacePose(bpy.types.Operator, ExportHelper):
-    """Exports a pose from the metahuman face board"""
-    bl_idname = "meta_human_dna.export_face_pose"
-    bl_label = "Export Face Pose"
-    filename_ext = ".json"
-    bl_options = {'UNDO', 'PRESET'}
-
-    filter_glob: bpy.props.StringProperty(
-        default="*.json",
-        options={"HIDDEN"},
-        subtype="FILE_PATH",
-    ) # type: ignore
-
-    def draw(self, context):
-        pass
-
-    def execute(self, context):
-        logger.info(f'Exporting face pose {self.filepath}')  # type: ignore
-        face = utilities.get_face(bpy.context.active_object['metahuman_id'])  # type: ignore
-        if face:
-            face.export_pose(self.filepath)  # type: ignore
-        return {'FINISHED'}
 
 
 class ImportMetahumanDna(bpy.types.Operator, importer.ImportAsset, MetahumanDnaImportProperties):
@@ -196,7 +173,13 @@ class ImportMetahumanDna(bpy.types.Operator, importer.ImportAsset, MetahumanDnaI
         else:
             self.report({'INFO'}, message)
 
+        bpy.ops.meta_human_dna.metrics_collection_consent('INVOKE_DEFAULT') # type: ignore
+
         return {'FINISHED'}
+    
+    @classmethod
+    def poll(cls, context):
+        return utilities.dependencies_are_valid()
     
 class DNA_FH_import_dna(bpy.types.FileHandler):
     bl_idname = "DNA_FH_import_dna"
@@ -206,6 +189,9 @@ class DNA_FH_import_dna(bpy.types.FileHandler):
 
     @classmethod
     def poll_drop(cls, context):
+        if not utilities.dependencies_are_valid():
+            return False
+
         return (
             context.region and context.region.type == 'WINDOW' and # type: ignore
             context.area and context.area.ui_type == 'VIEW_3D' # type: ignore
@@ -311,7 +297,10 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
             new_dna_file_path = str(new_folder / f'{self.new_name}.dna')
             # make the path relative to the blend file if it is saved
             if bpy.data.filepath:
-                new_dna_file_path = bpy.path.relpath(new_dna_file_path, start=os.path.dirname(bpy.data.filepath))
+                try:
+                    new_dna_file_path = bpy.path.relpath(new_dna_file_path, start=os.path.dirname(bpy.data.filepath))
+                except ValueError:
+                    pass
 
             # TODO: look into why a full re-import makes the rig logic instance work again.
             # This is heavy handed and should be avoided if possible.
@@ -326,6 +315,9 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
         
         bpy.ops.meta_human_dna.force_evaluate() # type: ignore
 
+        # Ask the user for consent to collect metrics
+        bpy.ops.meta_human_dna.metrics_collection_consent('INVOKE_DEFAULT') # type: ignore
+
         return {'FINISHED'}
 
     def invoke(self, context, event):
@@ -333,6 +325,9 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
     
     @classmethod
     def poll(cls, context):
+        if not utilities.dependencies_are_valid():
+            return False
+        
         selected_object = context.active_object # type: ignore
         properties = context.scene.meta_human_dna # type: ignore
         if selected_object and selected_object.type == 'MESH' and selected_object.select_get():
@@ -371,7 +366,7 @@ class GenerateMaterial(bpy.types.Operator):
 
 
 class ImportShapeKeys(GenericProgressQueueOperator):
-    """Imports the shape keys from a DNA file associated with the active rig logic instance"""
+    """Imports the shape keys from the DNA file and their deltas"""
     bl_idname = "meta_human_dna.import_shape_keys"
     bl_label = "Import Shape Keys"    
 
@@ -415,6 +410,25 @@ class TestSentry(bpy.types.Operator):
         division_by_zero = 1 / 0
         return {'FINISHED'}
     
+class OpenBuildToolDocumentation(bpy.types.Operator):
+    """Opens the Build Tool documentation in the default web browser"""
+    bl_idname = "meta_human_dna.open_build_tool_documentation"
+    bl_label = "Open Build Tool Documentation"
+
+    def execute(self, context):
+        import webbrowser
+        webbrowser.open(ToolInfo.BUILD_TOOL_DOCUMENTATION)
+        return {'FINISHED'}
+
+class OpenMetricsCollectionAgreement(bpy.types.Operator):
+    """Opens the metrics collection agreement in the default web browser"""
+    bl_idname = "meta_human_dna.open_metrics_collection_agreement"
+    bl_label = "Open Metrics Collection Agreement"
+
+    def execute(self, context):
+        import webbrowser
+        webbrowser.open(ToolInfo.METRICS_COLLECTION_AGREEMENT)
+        return {'FINISHED'}
 
 class SendToUnreal(bpy.types.Operator):
     """Exports the metahuman DNA, SkeletalMesh, and Textures, then imports them into Unreal Engine"""
@@ -751,6 +765,55 @@ class MetaHumanDnaReportError(ShapeKeyOperatorBase):
             row = self.layout.row()
             row.alert = True
             row.label(text=line)
+
+
+class MetricsCollectionConsent(bpy.types.Operator):
+    """Tell the user that we collect metrics and ask for their consent"""
+    bl_idname = "meta_human_dna.metrics_collection_consent"
+    bl_label = "Meta-Human DNA Addon Metrics"
+
+    def execute(self, context):
+        preferences = context.preferences.addons[ToolInfo.NAME].preferences # type: ignore
+        preferences.metrics_collection = True # type: ignore
+        utilities.init_sentry()
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        wm = context.window_manager # type: ignore
+        preferences = context.preferences.addons[ToolInfo.NAME].preferences # type: ignore
+        current_timestamp = datetime.now().timestamp()
+
+        if preferences.metrics_collection: # type: ignore
+            utilities.init_sentry()
+            return {'FINISHED'}
+
+        if bpy.app.online_access and preferences.next_metrics_consent_timestamp < current_timestamp: # type: ignore
+            return wm.invoke_props_dialog(
+                self,
+                confirm_text="Allow",
+                cancel_default=False,
+                width=500
+            )
+        elif bpy.app.online_access and preferences.metrics_collection: # type: ignore
+            utilities.init_sentry()
+        
+        return {'FINISHED'}
+        
+    def cancel(self, context):
+        preferences = context.preferences.addons[ToolInfo.NAME].preferences # type: ignore
+        # wait 30 days before asking again
+        preferences.next_metrics_consent_timestamp = (datetime.now() + timedelta(days=30)).timestamp() # type: ignore
+        preferences.metrics_collection = False # type: ignore
+        return {'CANCELLED'}
+
+    def draw(self, context):
+        row = self.layout.row()
+        row.label(text="We collect anonymous metrics and bug reports to help improve the MetaHuman DNA addon.")
+        row = self.layout.row()
+        row.label(text="No personal data is collected.")
+        row = self.layout.row()
+        row.label(text="Will you allow us to collect bug reports?")
+        row.operator('meta_human_dna.open_metrics_collection_agreement', text='', icon='URL')
     
 
 class SculptThisShapeKey(ShapeKeyOperatorBase):
@@ -832,6 +895,7 @@ class ReImportThisShapeKey(ShapeKeyOperatorBase):
                 reader=instance.dna_reader,
                 name=short_name,
                 prefix=f'{mesh_dna_name}__',
+                is_neutral=instance.generate_neutral_shapes,
                 linear_modifier=face.linear_modifier,
                 delta_threshold=0.0001
             )
@@ -1009,6 +1073,55 @@ class DuplicateRigLogicInstance(bpy.types.Operator):
         layout.prop(self, 'new_folder')
 
 
+class AddRigLogicTextureNode(bpy.types.Operator):
+    """Add a new Rig Logic Texture Node to the active material. This is used to control the wrinkle map blending on Metahuman faces"""
+    bl_idname = 'meta_human_dna.add_rig_logic_texture_node'
+    bl_label = "Add Rig Logic Texture Node"
+
+    @classmethod
+    def get_active_material(cls, context) -> bpy.types.Material | None:
+        space = context.space_data # type: ignore
+        node_tree = space.node_tree # type: ignore                
+        for material in bpy.data.materials:
+            if material.node_tree == node_tree:
+                return material
+
+    @classmethod
+    def poll(cls, context):
+        space = context.space_data # type: ignore
+        node_tree = space.node_tree # type: ignore                
+        if node_tree and node_tree.type == 'SHADER':
+            active_material = cls.get_active_material(context)
+            if not active_material:
+                return False
+
+            if not callbacks.get_texture_logic_node(active_material):
+                return True
+            return False
+        
+    def execute(self, context):
+        space = context.space_data # type: ignore
+        node_tree = space.node_tree # type: ignore
+        cursor_location = cursor_location = space.cursor_location # type: ignore
+
+        active_material = self.get_active_material(context)
+        if not active_material:
+            self.report({'ERROR'}, "Could not find the active material")
+            return {'CANCELLED'}
+        
+        texture_logic_node = utilities.import_texture_logic_node()
+        if not texture_logic_node:
+            self.report({'ERROR'}, "Could not import the Texture Logic Node")
+            return {'CANCELLED'}
+        
+        node = node_tree.nodes.new(type='ShaderNodeGroup')
+        node.name = f'{active_material.name}_{TEXTURE_LOGIC_NODE_NAME}'
+        node.label = f'{active_material.name} {TEXTURE_LOGIC_NODE_LABEL}'
+        node.node_tree = texture_logic_node
+        node.location = cursor_location
+        return {'FINISHED'}
+
+
 class UILIST_ADDON_PREFERENCES_OT_extra_dna_entry_remove(GenericUIListOperator, bpy.types.Operator):
     """Remove the selected entry from the list"""
 
@@ -1077,6 +1190,10 @@ class UILIST_RIG_LOGIC_OT_entry_add(GenericUIListOperator, bpy.types.Operator):
         my_list.move(len(my_list) - 1, to_index)
         context.scene.meta_human_dna.rig_logic_instance_list_active_index = to_index # type: ignore
         return {'FINISHED'}
+    
+    @classmethod
+    def poll(cls, context):
+        return utilities.dependencies_are_valid()
 
 
 class UILIST_RIG_LOGIC_OT_entry_move(GenericUIListOperator, bpy.types.Operator):

@@ -22,7 +22,7 @@ class MetaHumanDnaPreferences(MetahumanDnaAddonProperties, bpy.types.AddonPrefer
     def draw(self, context):
         preferences = context.preferences.addons[ToolInfo.NAME].preferences
         row = self.layout.row()
-        row.prop(self, "metrics_collection")
+        row.prop(self, "metrics_collection", text="Allow Metrics Collection")
         row = self.layout.row()
 
         row.label(text="Extra DNA Folder Paths:")

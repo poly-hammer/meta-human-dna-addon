@@ -1,5 +1,4 @@
 import os
-from enum import Enum
 from pathlib import Path
 from mathutils import Vector
 from typing import Literal
@@ -7,6 +6,8 @@ from typing import Literal
 
 class ToolInfo:
     NAME = "meta_human_dna"
+    BUILD_TOOL_DOCUMENTATION = "https://docs.polyhammer.com/hammer-build-tool/setup/"
+    METRICS_COLLECTION_AGREEMENT = "https://www.polyhammer.com/legal"
 
 Axis = Literal["X", "Y", "Z"]
 
@@ -32,9 +33,9 @@ BONE_TAIL_OFFSET = 1 / (SCALE_FACTOR * SCALE_FACTOR * 10)
 CUSTOM_BONE_SHAPE_SCALE = Vector([0.15] * 3)
 CUSTOM_BONE_SHAPE_NAME = "sphere_control"
 TEXTURE_LOGIC_NODE_NAME = "texture_logic"
+TEXTURE_LOGIC_NODE_LABEL = "Texture Logic"
 UV_MAP_NAME = "DiffuseUV"
 VERTEX_COLOR_ATTRIBUTE_NAME = "Color"
-MAX_BONE_HIERARCHY_DEPTH = 7
 MESH_VERTEX_COLORS_FILE_NAME = "vertex_colors.json"
 FLOATING_POINT_PRECISION = 0.0001
 
@@ -72,10 +73,6 @@ IMAGES_FOLDER = RESOURCES_FOLDER / "images"
 MAPPINGS_FOLDER = RESOURCES_FOLDER / "mappings"
 BASE_DNA_FOLDER = RESOURCES_FOLDER / "dna"
 
-LEAF_BONE_TO_VERTEX_MAPPING_FILE_PATH = MAPPINGS_FOLDER / "leaf_bone_to_vert_index.json"
-LEAF_BONE_IMMEDIATE_PARENT_OFFSETS_FILE_PATH = MAPPINGS_FOLDER / "leaf_bone_immediate_parent_offsets.json"
-LIP_BONE_OFFSETS_FILE_PATH = MAPPINGS_FOLDER / "lip_bone_offsets.json"
-EYE_BONE_OFFSETS_FILE_PATH = MAPPINGS_FOLDER / "eye_bone_offsets.json"
 TOPOLOGY_VERTEX_GROUPS_FILE_PATH = MAPPINGS_FOLDER / "topology_vertex_groups.json"
 MESH_VERTEX_COLORS_FILE_PATH = MAPPINGS_FOLDER / MESH_VERTEX_COLORS_FILE_NAME
 

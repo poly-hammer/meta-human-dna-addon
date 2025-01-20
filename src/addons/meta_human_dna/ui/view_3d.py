@@ -18,10 +18,20 @@ def valid_rig_logic_instance_exists(context, ignore_face_board: bool = False) ->
         elif instance.dna_file_path and instance.face_board:
             return ''
     else:
-        return 'No Rig Logic Instances. Create one.'
+        return 'Missing data. Create/Import DNA data.'
     return ''
 
 def draw_rig_logic_instance_error(layout, error: str):
+    # Validate installed dependencies.
+    from ..utilities import dependencies_are_valid
+    if not dependencies_are_valid():
+        row = layout.row()
+        row.alert = True
+        row.label(text='Dependencies are missing.', icon='ERROR')
+        row = layout.row()
+        row.operator('meta_human_dna.open_build_tool_documentation', icon='URL', text='Show Me How to Fix This?')
+        return
+
     row = layout.row()
     # row.alignment = 'CENTER'
     row.label(text="Rig Logic Instance Error:", icon='ERROR')
@@ -172,19 +182,9 @@ class META_HUMAN_DNA_PT_face_board(bpy.types.Panel):
             )
             row = self.layout.row()
             row.prop(window_manager_properties, "face_pose_previews", text='')
-            row = self.layout.row()
-            grid = self.layout.grid_flow(
-                    row_major=True, 
-                    columns=2, 
-                    even_columns=True, 
-                    even_rows=True, 
-                    align=True
-                )
-            col = grid.column()
-            col.operator('meta_human_dna.import_animation', icon='IMPORT')
-
-            col = grid.column()
-            col.operator('meta_human_dna.export_face_pose', icon='EXPORT', text='Export Animation')
+            # TODO: Implement import from FBX file instead of from just a JSON file
+            # row = self.layout.row()
+            # row.operator('meta_human_dna.import_animation', icon='IMPORT')
         else:
             draw_rig_logic_instance_error(self.layout, error)
 
@@ -288,12 +288,14 @@ class META_HUMAN_DNA_PT_armature_utilities_sub_panel(bpy.types.Panel):
             row = col.row()
             row.prop(instance, 'head_rig_bone_groups', text='')
             row = self.layout.row()
-            row.label(text='Transform and Apply Selected Bones:')
+            row.label(text='Push Bones:')
             row = self.layout.row()
             row.prop(properties, 'push_along_normal_distance', text='Normal Distance')
             split = row.split(factor=0.5, align=True)
             split.operator('meta_human_dna.push_bones_backward_along_normals', text='', icon='REMOVE')
             split.operator('meta_human_dna.push_bones_forward_along_normals', text='', icon='ADD')
+            row = self.layout.row()
+            row.label(text='Transform and Apply Selected Bones:')
             row = self.layout.row()
             row.operator('meta_human_dna.mirror_selected_bones', text='Mirror Selected Bones')
             row = self.layout.row()
@@ -506,6 +508,8 @@ class META_HUMAN_DNA_PT_shape_keys(bpy.types.Panel):
                 insertion_operators=False,
                 move_operators=False # type: ignore
             )
+            row = self.layout.row()
+            row.prop(instance, 'generate_neutral_shapes')
             row = self.layout.row()
             row.operator('meta_human_dna.import_shape_keys', icon='IMPORT', text='Reimport All Shape Keys')
         else:

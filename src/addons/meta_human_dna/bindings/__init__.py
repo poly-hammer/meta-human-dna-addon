@@ -25,13 +25,14 @@ else:
 
 # add the platform specific bindings path to the sys.path if there are not already
 bindings_path = Path(__file__).parent / platform / arch
-if bindings_path not in [Path(i) for i in sys.path]:
-    sys.path.append(str(bindings_path))
-
-# linux and macos need to set the LD_LIBRARY_PATH and DYLD_LIBRARY_PATH and DYLD_FALLBACK_LIBRARY_PATH
-# This is needed to load the shared libraries that are in the bindings folder on linux and macos
 _current_working_directory = os.getcwd()
-os.chdir(str(bindings_path))
+if bindings_path.exists():
+    if bindings_path not in [Path(i) for i in sys.path]:
+        sys.path.append(str(bindings_path))
+
+    # linux and macos need to set the LD_LIBRARY_PATH and DYLD_LIBRARY_PATH and DYLD_FALLBACK_LIBRARY_PATH
+    # This is needed to load the shared libraries that are in the bindings folder on linux and macos
+    os.chdir(str(bindings_path))
 
 try:
     import dna
@@ -44,6 +45,8 @@ except ModuleNotFoundError:
         BinaryStreamReader = object
         JSONStreamReader = object
         FileStream = object
+        BinaryStreamWriter = object
+        JSONStreamWriter = object
 
     class dnacalib:
         __is_fake__ = True

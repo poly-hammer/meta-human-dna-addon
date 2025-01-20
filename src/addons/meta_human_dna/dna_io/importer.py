@@ -433,6 +433,46 @@ class DNAImporter:
 
         self.rig_object = rig_object
         return rig_object
+    
+    def get_bone_matrix(self, bone_name: str) -> Matrix | None:
+        x_locations = self._dna_reader.getNeutralJointTranslationXs()
+        y_locations = self._dna_reader.getNeutralJointTranslationYs()
+        z_locations = self._dna_reader.getNeutralJointTranslationZs()
+        x_rotations = self._dna_reader.getNeutralJointRotationXs()
+        y_rotations = self._dna_reader.getNeutralJointRotationYs()
+        z_rotations = self._dna_reader.getNeutralJointRotationZs()
+
+
+        for index in range(self._dna_reader.getJointCount()):
+            if bone_name == self._dna_reader.getJointName(index):
+                location = Vector((
+                x_locations[index]*self._linear_modifier, 
+                y_locations[index]*self._linear_modifier,
+                z_locations[index]*self._linear_modifier, 
+                ))
+                euler_rotation = Euler((
+                    math.radians(x_rotations[index]),
+                    math.radians(y_rotations[index]),
+                    math.radians(z_rotations[index]),
+                ), "XYZ")
+
+                # The first bone is in object space
+                if index == 0:
+                    rotation_matrix = Matrix.Rotation(math.radians(90), 4, 'X').to_4x4()
+                    global_matrix = (rotation_matrix @ Matrix.Translation(location)) @ euler_rotation.to_matrix().to_4x4()
+
+                # Otherwise they are in parent space
+                else:
+                    parent_index = self._dna_reader.getJointParentIndex(index)
+                    parent_bone_name = self._dna_reader.getJointName(parent_index)
+                    parent_bone = self.rig_object.data.edit_bones[parent_bone_name] # type: ignore
+                    # Calculate the global transformation matrix of the bone
+                    local_matrix = (
+                        Matrix.Translation(location) @ euler_rotation.to_matrix().to_4x4()
+                    )
+                    global_matrix = parent_bone.matrix @ local_matrix
+                
+                return global_matrix
 
     def import_bones(self):
         if not self.rig_object:

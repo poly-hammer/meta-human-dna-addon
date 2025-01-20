@@ -50,10 +50,11 @@ class MetahumanDnaAddonProperties:
     """
     metrics_collection: bpy.props.BoolProperty(
         name="Collect Metrics",
-        default=True,
+        default=False,
         description="This will send anonymous usage data to Poly Hammer to help improve the addon and help catch bugs"
     ) # type: ignore
 
+    next_metrics_consent_timestamp: bpy.props.FloatProperty(default=0.0) # type: ignore
     extra_dna_folder_list: bpy.props.CollectionProperty(type=ExtraDnaFolder) # type: ignore
     extra_dna_folder_list_active_index: bpy.props.IntProperty() # type: ignore
 
