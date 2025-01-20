@@ -1,3 +1,4 @@
+import os
 import re
 import bpy
 import sys
@@ -199,6 +200,14 @@ def set_viewport_shading(mode):
                     space.shading.type = mode # type: ignore
 
 def init_sentry():
+    # Don't collect metrics when in dev mode
+    if os.environ.get('META_HUMAN_DNA_DEV'):
+        return
+    
+    # Don't collect metrics if the user has disabled online access
+    if not bpy.app.online_access:
+        return
+
     # Don't collect metrics if the user has disabled it
     if not bpy.context.preferences.addons[ToolInfo.NAME].preferences.metrics_collection: # type: ignore
         return
@@ -214,13 +223,18 @@ def init_sentry():
             # Set traces_sample_rate to 1.0 to capture 100%
             # of transactions for performance monitoring.
             traces_sample_rate=1.0,
+            # Dont send personal identifiable information
+            send_default_pii=False,
             # Set profiles_sample_rate to 1.0 to profile 100%
             # of sampled transactions.
             # We recommend adjusting this value in production.
             profiles_sample_rate=1.0,
         )
+        sentry_sdk.capture_event({'message': 'Initialized Sentry'})        
     except ImportError:
         logger.warning('The sentry-sdk package is not installed. Un-able to use the Sentry error tracking service.')
+    except Exception as error:
+        logger.error(error)
 
 def link_send2ue_extension():
     addon = bpy.context.preferences.addons.get('send2ue') # type: ignore
@@ -490,3 +504,11 @@ def import_texture_logic_node() -> bpy.types.NodeTree | None:
         )
         return bpy.data.node_groups.get(TEXTURE_LOGIC_NODE_LABEL)
     return node_group
+
+
+def dependencies_are_valid() -> bool:
+    for module_name in ['dna', 'dnacalib', 'riglogic', 'meta_human_dna_core']:
+        module = sys.modules.get(module_name)
+        if module and getattr(module, '__is_fake__', False):
+            return False
+    return True

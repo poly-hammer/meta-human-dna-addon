@@ -1,5 +1,4 @@
 import os
-from enum import Enum
 from pathlib import Path
 from mathutils import Vector
 from typing import Literal
@@ -7,6 +6,8 @@ from typing import Literal
 
 class ToolInfo:
     NAME = "meta_human_dna"
+    BUILD_TOOL_DOCUMENTATION = "https://docs.polyhammer.com/hammer-build-tool/setup/"
+    METRICS_COLLECTION_AGREEMENT = "https://www.polyhammer.com/legal"
 
 Axis = Literal["X", "Y", "Z"]
 

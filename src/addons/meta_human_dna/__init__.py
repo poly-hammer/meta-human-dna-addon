@@ -34,6 +34,9 @@ classes = [
     operators.ImportMetahumanFaceAnimation,
     operators.ImportShapeKeys,
     operators.TestSentry,
+    operators.OpenBuildToolDocumentation,
+    operators.OpenMetricsCollectionAgreement,
+    operators.MetricsCollectionConsent,
     operators.MirrorSelectedBones,
     operators.PushBonesForwardAlongNormals,
     operators.PushBonesBackwardAlongNormals,
@@ -106,9 +109,7 @@ def register():
     except Exception as error:
         logger.error(error)
 
-    # collect metrics when not in dev mode
-    if not os.environ.get('META_HUMAN_DNA_DEV'):
-        utilities.init_sentry()
+    utilities.init_sentry()
 
     # add event handlers
     bpy.app.handlers.load_pre.append(app_handlers['load_pre'])

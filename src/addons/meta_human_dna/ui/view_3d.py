@@ -22,6 +22,16 @@ def valid_rig_logic_instance_exists(context, ignore_face_board: bool = False) ->
     return ''
 
 def draw_rig_logic_instance_error(layout, error: str):
+    # Validate installed dependencies.
+    from ..utilities import dependencies_are_valid
+    if not dependencies_are_valid():
+        row = layout.row()
+        row.alert = True
+        row.label(text='Dependencies are missing.', icon='ERROR')
+        row = layout.row()
+        row.operator('meta_human_dna.open_build_tool_documentation', icon='URL', text='Show Me How to Fix This?')
+        return
+
     row = layout.row()
     # row.alignment = 'CENTER'
     row.label(text="Rig Logic Instance Error:", icon='ERROR')

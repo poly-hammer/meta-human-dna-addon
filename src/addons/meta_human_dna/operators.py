@@ -4,7 +4,7 @@ import queue
 import shutil
 import logging
 from pathlib import Path
-from bpy_extras.io_utils import ExportHelper
+from datetime import datetime, timedelta
 from .face import MetahumanFace
 from .ui import importer, callbacks
 from . import utilities
@@ -173,7 +173,13 @@ class ImportMetahumanDna(bpy.types.Operator, importer.ImportAsset, MetahumanDnaI
         else:
             self.report({'INFO'}, message)
 
+        bpy.ops.meta_human_dna.metrics_collection_consent('INVOKE_DEFAULT') # type: ignore
+
         return {'FINISHED'}
+    
+    @classmethod
+    def poll(cls, context):
+        return utilities.dependencies_are_valid()
     
 class DNA_FH_import_dna(bpy.types.FileHandler):
     bl_idname = "DNA_FH_import_dna"
@@ -183,6 +189,9 @@ class DNA_FH_import_dna(bpy.types.FileHandler):
 
     @classmethod
     def poll_drop(cls, context):
+        if not utilities.dependencies_are_valid():
+            return False
+
         return (
             context.region and context.region.type == 'WINDOW' and # type: ignore
             context.area and context.area.ui_type == 'VIEW_3D' # type: ignore
@@ -306,6 +315,9 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
         
         bpy.ops.meta_human_dna.force_evaluate() # type: ignore
 
+        # Ask the user for consent to collect metrics
+        bpy.ops.meta_human_dna.metrics_collection_consent('INVOKE_DEFAULT') # type: ignore
+
         return {'FINISHED'}
 
     def invoke(self, context, event):
@@ -313,6 +325,9 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
     
     @classmethod
     def poll(cls, context):
+        if not utilities.dependencies_are_valid():
+            return False
+        
         selected_object = context.active_object # type: ignore
         properties = context.scene.meta_human_dna # type: ignore
         if selected_object and selected_object.type == 'MESH' and selected_object.select_get():
@@ -395,6 +410,25 @@ class TestSentry(bpy.types.Operator):
         division_by_zero = 1 / 0
         return {'FINISHED'}
     
+class OpenBuildToolDocumentation(bpy.types.Operator):
+    """Opens the Build Tool documentation in the default web browser"""
+    bl_idname = "meta_human_dna.open_build_tool_documentation"
+    bl_label = "Open Build Tool Documentation"
+
+    def execute(self, context):
+        import webbrowser
+        webbrowser.open(ToolInfo.BUILD_TOOL_DOCUMENTATION)
+        return {'FINISHED'}
+
+class OpenMetricsCollectionAgreement(bpy.types.Operator):
+    """Opens the metrics collection agreement in the default web browser"""
+    bl_idname = "meta_human_dna.open_metrics_collection_agreement"
+    bl_label = "Open Metrics Collection Agreement"
+
+    def execute(self, context):
+        import webbrowser
+        webbrowser.open(ToolInfo.METRICS_COLLECTION_AGREEMENT)
+        return {'FINISHED'}
 
 class SendToUnreal(bpy.types.Operator):
     """Exports the metahuman DNA, SkeletalMesh, and Textures, then imports them into Unreal Engine"""
@@ -731,6 +765,55 @@ class MetaHumanDnaReportError(ShapeKeyOperatorBase):
             row = self.layout.row()
             row.alert = True
             row.label(text=line)
+
+
+class MetricsCollectionConsent(bpy.types.Operator):
+    """Tell the user that we collect metrics and ask for their consent"""
+    bl_idname = "meta_human_dna.metrics_collection_consent"
+    bl_label = "Meta-Human DNA Addon Metrics"
+
+    def execute(self, context):
+        preferences = context.preferences.addons[ToolInfo.NAME].preferences # type: ignore
+        preferences.metrics_collection = True # type: ignore
+        utilities.init_sentry()
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        wm = context.window_manager # type: ignore
+        preferences = context.preferences.addons[ToolInfo.NAME].preferences # type: ignore
+        current_timestamp = datetime.now().timestamp()
+
+        if preferences.metrics_collection: # type: ignore
+            utilities.init_sentry()
+            return {'FINISHED'}
+
+        if bpy.app.online_access and preferences.next_metrics_consent_timestamp < current_timestamp: # type: ignore
+            return wm.invoke_props_dialog(
+                self,
+                confirm_text="Allow",
+                cancel_default=False,
+                width=500
+            )
+        elif bpy.app.online_access and preferences.metrics_collection: # type: ignore
+            utilities.init_sentry()
+        
+        return {'FINISHED'}
+        
+    def cancel(self, context):
+        preferences = context.preferences.addons[ToolInfo.NAME].preferences # type: ignore
+        # wait 30 days before asking again
+        preferences.next_metrics_consent_timestamp = (datetime.now() + timedelta(days=30)).timestamp() # type: ignore
+        preferences.metrics_collection = False # type: ignore
+        return {'CANCELLED'}
+
+    def draw(self, context):
+        row = self.layout.row()
+        row.label(text="We collect anonymous metrics and bug reports to help improve the MetaHuman DNA addon.")
+        row = self.layout.row()
+        row.label(text="No personal data is collected.")
+        row = self.layout.row()
+        row.label(text="Will you allow us to collect bug reports?")
+        row.operator('meta_human_dna.open_metrics_collection_agreement', text='', icon='URL')
     
 
 class SculptThisShapeKey(ShapeKeyOperatorBase):
@@ -1107,6 +1190,10 @@ class UILIST_RIG_LOGIC_OT_entry_add(GenericUIListOperator, bpy.types.Operator):
         my_list.move(len(my_list) - 1, to_index)
         context.scene.meta_human_dna.rig_logic_instance_list_active_index = to_index # type: ignore
         return {'FINISHED'}
+    
+    @classmethod
+    def poll(cls, context):
+        return utilities.dependencies_are_valid()
 
 
 class UILIST_RIG_LOGIC_OT_entry_move(GenericUIListOperator, bpy.types.Operator):
