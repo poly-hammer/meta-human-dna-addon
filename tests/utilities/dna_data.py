@@ -10,14 +10,23 @@ def get_dna_json_data(dna_file_path: Path, json_file_path: Path) -> dict:
     )
     reader = get_dna_reader(dna_file_path, 'binary')
     writer = get_dna_writer(json_file_path, 'json')
-    writer.setFrom(reader)
+    writer.setFrom(
+        reader,
+        riglogic.DataLayer.All,
+        riglogic.UnknownLayerPolicy.Preserve,
+        None
+    )
     writer.write()
     if not riglogic.Status.isOk():
         status = riglogic.Status.get()
         raise RuntimeError(f"Error saving DNA: {status.message}")
     
     with open(json_file_path, 'r') as file:
-        return json.load(file)
+        text = file.read()
+        text = ''.join(text.split())
+        text = text.replace('{"data":{"value":["A","N","D"]}}', '')
+        data = json.loads(text)
+        return data
     
 
 def get_bone_names(dna_file_path: Path) -> list[str]:

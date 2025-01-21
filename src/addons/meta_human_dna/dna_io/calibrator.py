@@ -3,6 +3,7 @@ from mathutils import Vector
 from typing import Callable
 from .importer import DNAImporter
 from .exporter import DNAExporter
+from ..bindings import riglogic
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +92,6 @@ class DNACalibrator(DNAExporter, DNAImporter):
         # ])
 
     def run(self) -> tuple[bool, str, str, Callable| None]:
-        from ..bindings import riglogic
         self.initialize_scene_data()
         valid, title, message, fix = self.validate()
         if not valid:

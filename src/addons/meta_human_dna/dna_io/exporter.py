@@ -5,16 +5,14 @@ import json
 import bmesh
 import logging
 import mathutils
-from typing import Callable, TYPE_CHECKING
+from typing import Callable
 from pathlib import Path
 from mathutils import Vector, Matrix
 from .. import utilities
 from ..rig_logic import RigLogicInstance
 from ..constants import SCALE_FACTOR, TOPO_GROUP_PREFIX
 from .misc import get_dna_writer, get_dna_reader
-
-if TYPE_CHECKING:
-    from ..bindings import riglogic
+from ..bindings import riglogic
 
 logger = logging.getLogger(__name__)
 

@@ -39,8 +39,8 @@ def get_dna_reader(
         raise FileNotFoundError(f"File '{file_path}' does not exist.")
     
     mode = riglogic.OpenMode.Binary
-    if file_format.lower() == 'json':
-        mode = riglogic.OpenMode.Text
+    # if file_format.lower() == 'json':
+    #     mode = riglogic.OpenMode.Text
 
     stream = riglogic.FileStream.create( 
         path=str(file_path),
@@ -83,8 +83,8 @@ def get_dna_writer(
     os.makedirs(file_path.parent, exist_ok=True)
 
     mode = riglogic.OpenMode.Binary
-    if file_format.lower() == 'json':
-        mode = riglogic.OpenMode.Text
+    # if file_format.lower() == 'json':
+    #     mode = riglogic.OpenMode.Text
 
     stream = riglogic.FileStream.create( 
         path=str(file_path),

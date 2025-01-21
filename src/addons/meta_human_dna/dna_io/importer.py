@@ -4,7 +4,6 @@ import bmesh
 import json
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
 from mathutils import Vector, Matrix, Euler
 from .misc import get_dna_reader
 from ..properties import MetahumanDnaImportProperties
@@ -18,8 +17,7 @@ from ..constants import (
     MESH_VERTEX_COLORS_FILE_PATH,
     MESH_VERTEX_COLORS_FILE_NAME
 )
-if TYPE_CHECKING:
-    from ..bindings import riglogic
+from ..bindings import riglogic
 
 logger = logging.getLogger(__name__)
 

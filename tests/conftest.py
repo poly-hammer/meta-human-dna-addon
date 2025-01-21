@@ -4,13 +4,10 @@ import math
 import platform
 import pytest
 import shutil
-from typing import TYPE_CHECKING
+import bpy # import this to ensure that mathutils is available  # noqa: F401
+from mathutils import Vector, Euler
 from pathlib import Path
 from constants import REPO_ROOT
-
-if TYPE_CHECKING:
-    import bpy # import this to ensure that mathutils is available  # noqa: F401
-    from mathutils import Vector, Euler
 
 # Ensure that the riglogic module is not reloaded
 if "riglogic" in sys.modules:
@@ -111,7 +108,7 @@ def changed_bone_name() -> str:
     return 'FACIAL_C_12IPV_Chin3' # has no children
 
 @pytest.fixture(scope='session')
-def changed_bone_location() -> 'tuple[Vector, Vector]':
+def changed_bone_location() -> tuple[Vector, Vector]:
     # change bone location (blender value, dna value)
     return (
         Vector((0.0, 0.005, 0.02)),  # relative change blender value Z-up
@@ -120,7 +117,7 @@ def changed_bone_location() -> 'tuple[Vector, Vector]':
     )
 
 @pytest.fixture(scope='session')
-def changed_bone_rotation() -> 'tuple[Euler, Euler]':
+def changed_bone_rotation() -> tuple[Euler, Euler]:
     # change rotation of bone (blender value, dna value)
     return (
         Euler((
@@ -140,7 +137,7 @@ def changed_vertex_index() -> int:
     return 11955
 
 @pytest.fixture(scope='session')
-def changed_vertex_location() -> 'tuple[Vector, Vector, Vector]':
+def changed_vertex_location() -> tuple[Vector, Vector, Vector]:
     # change vertex location (blender value, dna value)
     # Moves vertex on the back of the head up 0.01 meters
     return (
