@@ -1,4 +1,3 @@
-import os
 import sys
 import bpy
 import bpy.utils.previews

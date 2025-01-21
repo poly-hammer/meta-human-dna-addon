@@ -4,12 +4,12 @@ import bmesh
 import json
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 from mathutils import Vector, Matrix, Euler
 from .misc import get_dna_reader
 from ..properties import MetahumanDnaImportProperties
 from .. import utilities
 from ..rig_logic import RigLogicInstance
-from ..bindings import dna
 from ..constants import (
     UV_MAP_NAME,
     NUMBER_OF_FACE_LODS,
@@ -18,6 +18,8 @@ from ..constants import (
     MESH_VERTEX_COLORS_FILE_PATH,
     MESH_VERTEX_COLORS_FILE_NAME
 )
+if TYPE_CHECKING:
+    from ..bindings import riglogic
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +30,7 @@ class DNAImporter:
         instance: RigLogicInstance,
         import_properties: MetahumanDnaImportProperties,
         linear_modifier: float,
-        reader: dna.BinaryStreamReader | None = None
+        reader: 'riglogic.BinaryStreamReader | None' = None
     ):
         self.rig_object = None
 

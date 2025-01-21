@@ -1,19 +1,19 @@
 import json
 from constants import SAMPLE_DNA_FILE
 from pathlib import Path
-from meta_human_dna.bindings import dna
-from meta_human_dna.dna_io import (
-    get_dna_reader, 
-    get_dna_writer
-)
 
 def get_dna_json_data(dna_file_path: Path, json_file_path: Path) -> dict:
+    from meta_human_dna.bindings import riglogic
+    from meta_human_dna.dna_io import (
+        get_dna_reader, 
+        get_dna_writer
+    )
     reader = get_dna_reader(dna_file_path, 'binary')
     writer = get_dna_writer(json_file_path, 'json')
     writer.setFrom(reader)
     writer.write()
-    if not dna.Status.isOk():
-        status = dna.Status.get()
+    if not riglogic.Status.isOk():
+        status = riglogic.Status.get()
         raise RuntimeError(f"Error saving DNA: {status.message}")
     
     with open(json_file_path, 'r') as file:
@@ -21,6 +21,7 @@ def get_dna_json_data(dna_file_path: Path, json_file_path: Path) -> dict:
     
 
 def get_bone_names(dna_file_path: Path) -> list[str]:
+    from meta_human_dna.dna_io import get_dna_reader
     reader = get_dna_reader(
         file_path=dna_file_path, 
         file_format='binary',
@@ -29,6 +30,7 @@ def get_bone_names(dna_file_path: Path) -> list[str]:
     return [reader.getJointName(index) for index in range(reader.getJointCount())]
 
 def get_mesh_names(dna_file_path: Path) -> list[str]:
+    from meta_human_dna.dna_io import get_dna_reader
     reader = get_dna_reader(
         file_path=dna_file_path, 
         file_format='binary',

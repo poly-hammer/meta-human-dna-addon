@@ -20,7 +20,6 @@ from ..constants import (
     CUSTOM_BONE_SHAPE_NAME, 
     CUSTOM_BONE_SHAPE_SCALE
 )
-from ..bindings import meta_human_dna_core
 
 
 logger = logging.getLogger(__name__)
@@ -358,6 +357,7 @@ def get_topology_group_surface_bones(
 
 def get_mouth_bone_names(armature_object: bpy.types.Object) -> list[str]:
     bones = []
+    from ..bindings import meta_human_dna_core
 
     for bone_name in [meta_human_dna_core.TEETH_UPPER_BONE, meta_human_dna_core.TEETH_LOWER_BONE]:
         bone = armature_object.data.bones.get(bone_name) # type: ignore
@@ -375,9 +375,11 @@ def get_mouth_bone_names(armature_object: bpy.types.Object) -> list[str]:
     return bones
 
 def get_eye_bones_names(side: Literal['l', 'r']) -> list[str]:
+    from ..bindings import meta_human_dna_core
     return meta_human_dna_core.EYE_BALL_L_BONES if side == 'l' else meta_human_dna_core.EYE_BALL_R_BONES
 
 def get_ignored_bones_names(armature_object: bpy.types.Object) -> list[str]:
+    from ..bindings import meta_human_dna_core
     mouth_bone_names = get_mouth_bone_names(armature_object)
     return mouth_bone_names + meta_human_dna_core.EYE_BALL_L_BONES + meta_human_dna_core.EYE_BALL_R_BONES
 

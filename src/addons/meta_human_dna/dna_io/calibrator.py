@@ -1,7 +1,6 @@
 import logging
 from mathutils import Vector
 from typing import Callable
-from ..bindings import dna
 from .importer import DNAImporter
 from .exporter import DNAExporter
 
@@ -92,6 +91,7 @@ class DNACalibrator(DNAExporter, DNAImporter):
         # ])
 
     def run(self) -> tuple[bool, str, str, Callable| None]:
+        from ..bindings import riglogic
         self.initialize_scene_data()
         valid, title, message, fix = self.validate()
         if not valid:
@@ -105,8 +105,8 @@ class DNACalibrator(DNAExporter, DNAImporter):
         logger.info(f'Saving DNA to: "{self._target_dna_file}"...')
         self._dna_writer.write()
 
-        if not dna.Status.isOk():
-            status = dna.Status.get()
+        if not riglogic.Status.isOk():
+            status = riglogic.Status.get()
             raise RuntimeError(f"Error saving DNA: {status.message}")
         logger.info(f'DNA calibrated successfully to: "{self._target_dna_file}"')
         
