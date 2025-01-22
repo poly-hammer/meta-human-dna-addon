@@ -6,7 +6,10 @@ from pathlib import Path
 from mathutils import Matrix, Vector, Euler
 from . import utilities
 from .ui import callbacks
-from .bindings import dna, riglogic
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .bindings import riglogic
 
 
 logger = logging.getLogger(__name__)
@@ -361,32 +364,6 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     data = {}
 
     warning_messages = []
-
-    def _get_rig_logic_dna_reader(self) -> riglogic.BinaryStreamReader:
-        """
-        This is a special dna reader that is used by the riglogic instances to 
-        read the dna file. This is different from the dna reader that is used 
-        for the import/export process.
-        """
-        dna_file_path = Path(bpy.path.abspath(self.dna_file_path))
-        stream = riglogic.FileStream.create( 
-            path=str(dna_file_path),
-            accessMode=riglogic.AccessMode.Read, 
-            openMode=riglogic.OpenMode.Binary, 
-            memRes=None
-        )
-        reader = riglogic.BinaryStreamReader.create( 
-            stream,
-            riglogic.DataLayer.All, 
-            riglogic.UnknownLayerPolicy.Preserve, 
-            0,  # Provide appropriate int value
-            None  # Assuming MemoryResource is None
-        )
-        reader.read()
-        if not riglogic.Status.isOk(): 
-            status = riglogic.Status.get() 
-            raise RuntimeError(f'Error loading DNA: {status.message} from "{dna_file_path}"')
-        return reader
     
     def get_shape_key(self, mesh_index: int) -> bpy.types.Key | None:
         shape_key = self.data.get('shape_key', {}).get(mesh_index)
@@ -499,15 +476,15 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         return mesh_shape_key_index_lookup
     
     @property
-    def manager(self) -> riglogic.RigLogic:
+    def manager(self) -> 'riglogic.RigLogic':
         return self.data.get('manager')
     
     @property
-    def instance(self) -> riglogic.RigInstance:
+    def instance(self) -> 'riglogic.RigInstance':
         return self.data.get('instance')
     
     @property
-    def dna_reader(self) -> dna.BinaryStreamReader:
+    def dna_reader(self) -> 'riglogic.BinaryStreamReader':
         return self.data.get('dna_reader') # type: ignore
     
     @property
@@ -577,8 +554,9 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         if not self.valid:
             return
         
-        # set the dna reader
+        from .bindings import riglogic
         from .dna_io import get_dna_reader
+        # set the dna reader
         self.data['dna_reader'] = get_dna_reader(Path(bpy.path.abspath(self.dna_file_path)).absolute())
 
         # make sure the rig bones are using the correct rotation mode
@@ -589,7 +567,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
         # set the rig logic manager and instance
         self.data['manager'] = riglogic.RigLogic.create(
-            reader=self._get_rig_logic_dna_reader(),
+            reader=self.data['dna_reader'],
             config=riglogic.Configuration()
         )
         self.data['instance'] = riglogic.RigInstance.create(

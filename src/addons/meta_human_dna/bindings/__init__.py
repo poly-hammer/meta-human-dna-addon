@@ -35,45 +35,38 @@ if bindings_path.exists():
     os.chdir(str(bindings_path))
 
 try:
-    import dna
-    import dnacalib
-    import riglogic
-    import meta_human_dna_core
+    riglogic = sys.modules.get("riglogic")
+    if not riglogic:
+        import riglogic
+    meta_human_dna_core = sys.modules.get("meta_human_dna_core")
+    if not meta_human_dna_core:
+        import meta_human_dna_core
 except ModuleNotFoundError:
-    class dna:
+    class riglogic:
         __is_fake__ = True
+        RigLogic = object
+        RigInstance = object
         BinaryStreamReader = object
         JSONStreamReader = object
         FileStream = object
         BinaryStreamWriter = object
         JSONStreamWriter = object
 
-    class dnacalib:
-        __is_fake__ = True
-        pass
-
-    class riglogic:
-        __is_fake__ = True
-        RigLogic = object
-        RigInstance = object
-        BinaryStreamReader = object
-
     class meta_human_dna_core:
         __is_fake__ = True
         pass
 
-    sys.modules["dna"] = dna  # type: ignore
-    sys.modules["dnacalib"] = dnacalib  # type: ignore
     sys.modules["riglogic"] = riglogic  # type: ignore
     sys.modules["meta_human_dna_core"] = meta_human_dna_core  # type: ignore
+
+except ImportError as e:
+    raise e
 
 
 # restore the current working directory
 os.chdir(_current_working_directory)
 
 __all__ = [
-    "dna", 
-    "dnacalib", 
     "riglogic",
     "meta_human_dna_core"
 ]

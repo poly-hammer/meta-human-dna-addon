@@ -11,8 +11,8 @@ from mathutils import Vector, Matrix
 from .. import utilities
 from ..rig_logic import RigLogicInstance
 from ..constants import SCALE_FACTOR, TOPO_GROUP_PREFIX
-from ..bindings import dna
 from .misc import get_dna_writer, get_dna_reader
+from ..bindings import riglogic
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ class DNAExporter:
             bones: bool = True,
             vertex_colors: bool = True,
             file_name: str | None = None,
-            reader: dna.BinaryStreamReader | None = None
+            reader: 'riglogic.BinaryStreamReader | None' = None
         ):
         self._instance = instance
         self._linear_modifier = linear_modifier
@@ -50,7 +50,12 @@ class DNAExporter:
             file_format=self._instance.output_format
         )
         # Populate the writer with the data from the reader
-        self._dna_writer.setFrom(self._dna_reader)
+        self._dna_writer.setFrom(
+            self._dna_reader,
+            riglogic.DataLayer.All,
+            riglogic.UnknownLayerPolicy.Preserve,
+            None
+        )
 
         # The head mesh is always the first mesh in the DNA file
         self._export_lods = {
@@ -545,8 +550,8 @@ class DNAExporter:
                 bmesh_object.free()
         
         self._dna_writer.write()
-        if not dna.Status.isOk():
-            status = dna.Status.get()
+        if not riglogic.Status.isOk():
+            status = riglogic.Status.get()
             raise RuntimeError(f"Error saving DNA: {status.message}")
         logger.info(f'DNA exported successfully to: "{self._target_dna_file}"')
 

@@ -9,6 +9,13 @@ from mathutils import Vector, Euler
 from pathlib import Path
 from constants import REPO_ROOT
 
+# Ensure that the riglogic module is not reloaded
+if "riglogic" in sys.modules:
+    riglogic = sys.modules["riglogic"]
+else:
+    import riglogic
+    sys.modules["riglogic"] = riglogic
+
 def pytest_configure():
     """
     Installs the bindings for the addon.

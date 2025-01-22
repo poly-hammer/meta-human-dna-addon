@@ -9,7 +9,7 @@ import queue
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
-from mathutils import Vector, Matrix, Euler
+from mathutils import Vector, Matrix
 from .dna_io import (
     get_dna_reader, 
     create_shape_key,
@@ -37,7 +37,6 @@ from .constants import (
     UV_MAP_NAME,
     TOPO_GROUP_PREFIX
 )
-from .bindings import meta_human_dna_core
 
 if TYPE_CHECKING:
     from .rig_logic import RigLogicInstance
@@ -108,23 +107,23 @@ class MetahumanFace:
     
     @property
     def linear_modifier(self) -> float:
-        value = self.dna_reader.getTranslationUnit()
+        unit = self.dna_reader.getTranslationUnit()
         # is centimeter
-        if value == 0:
+        if unit.name.lower() == 'cm':
             return 1/SCALE_FACTOR
         # is meter
-        elif value == 1:
+        elif unit.name.lower() == 'm':
             return 1
         return 1
     
     @property
     def angle_modifier(self) -> float:
-        value = self.dna_reader.getRotationUnit()
+        unit = self.dna_reader.getRotationUnit()
         # is degree
-        if value == 0: 
+        if unit.name.lower() == 'degrees':
             return 180 / math.pi
-        # is radian
-        elif value == 1:
+        # is radians
+        elif unit.name.lower() == 'radians':
             return math.pi / 180
         return 1
     
@@ -433,6 +432,7 @@ class MetahumanFace:
 
     @utilities.preserve_context
     def convert(self, mesh_object: bpy.types.Object):
+        from .bindings import meta_human_dna_core
         if self.head_mesh_object and self.face_board_object and self.head_rig_object:
             target_center = utilities.get_bounding_box_center(mesh_object)
             head_center = utilities.get_bounding_box_center(self.head_mesh_object)

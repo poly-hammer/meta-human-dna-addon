@@ -4,8 +4,7 @@ import math
 import logging
 from pathlib import Path
 from mathutils import Vector, Matrix
-from typing import Literal
-from ..bindings import dna
+from typing import Literal, TYPE_CHECKING
 from ..constants import SHAPE_KEY_GROUP_PREFIX
 from ..utilities import (
     exclude_rig_logic_evaluation, 
@@ -13,74 +12,92 @@ from ..utilities import (
     update_mesh
 )
 
+if TYPE_CHECKING:
+    from ..bindings import riglogic
+
 logger = logging.getLogger(__name__)
 
 FileFormat = Literal['binary', 'json']
-
+DataLayer = Literal[
+    'Descriptor', 
+    'Definition', 
+    'Behavior',
+    'Geometry',
+    'GeometryWithoutBlendShapes',
+    'AllWithoutBlendShapes',
+    'All',
+]
 
 def get_dna_reader(
-        file_path: Path, 
+        file_path: Path,
         file_format: FileFormat = 'binary',
-        data_layer: Literal[
-            'Descriptor', 
-            'Definition', 
-            'Behavior',
-            'Geometry',
-            'GeometryWithoutBlendShapes',
-            'AllWithoutBlendShapes',
-            'All',
-        ] = 'All'
-    ) -> dna.BinaryStreamReader | dna.JSONStreamReader:
+        data_layer: DataLayer = 'All'
+    ) -> 'riglogic.BinaryStreamReader':
+    from ..bindings import riglogic # noqa: F811 
     file_path = Path(file_path)
     if not file_path.exists():
         raise FileNotFoundError(f"File '{file_path}' does not exist.")
     
-    mode = dna.FileStream.OpenMode_Binary
+    mode = riglogic.OpenMode.Binary
     # if file_format.lower() == 'json':
-    #     mode = dna.FileStream.OpenMode_Text
+    #     mode = riglogic.OpenMode.Text
 
-    stream = dna.FileStream(
-        str(file_path),
-        dna.FileStream.AccessMode_Read,
-        mode
+    stream = riglogic.FileStream.create( 
+        path=str(file_path),
+        accessMode=riglogic.AccessMode.Read, 
+        openMode=mode, 
+        memRes=None
     )
-    reader = dna.JSONStreamReader(stream)
     if file_format.lower() == 'json':
-        reader = dna.JSONStreamReader(stream)
+        reader = riglogic.JSONStreamReader.create( 
+            stream,
+            getattr(riglogic.DataLayer, data_layer), 
+            riglogic.UnknownLayerPolicy.Preserve, 
+            0,  # Provide appropriate int value
+            None  # Assuming MemoryResource is None
+        )
     elif file_format.lower() == 'binary':
-        reader = dna.BinaryStreamReader(stream, getattr(dna, f'DataLayer_{data_layer}'))
+        reader = riglogic.BinaryStreamReader.create( 
+            stream,
+            getattr(riglogic.DataLayer, data_layer), 
+            riglogic.UnknownLayerPolicy.Preserve, 
+            0,  # Provide appropriate int value
+            None  # Assuming MemoryResource is None
+        )
     else:
         raise ValueError(f"Invalid file format '{file_format}'. Must be 'binary' or 'json'.")
     
     reader.read()
-    if not dna.Status.isOk():
-        status = dna.Status.get()
-        raise RuntimeError(f"Error loading DNA: {status.message}")
-    stream.close()
+    if not riglogic.Status.isOk(): 
+        status = riglogic.Status.get() 
+        raise RuntimeError(f'Error loading DNA: {status.message} from "{file_path}"')
     return reader
+
 
 def get_dna_writer(
         file_path: Path,
         file_format: FileFormat = 'binary'
-    ) -> dna.BinaryStreamWriter | dna.JSONStreamWriter:
+    ) -> 'riglogic.BinaryStreamWriter':
+    from ..bindings import riglogic # noqa: F811 
     file_path = Path(file_path)
     os.makedirs(file_path.parent, exist_ok=True)
 
-    mode = dna.FileStream.OpenMode_Binary
+    mode = riglogic.OpenMode.Binary
     # if file_format.lower() == 'json':
-    #     mode = dna.FileStream.OpenMode_Text
+    #     mode = riglogic.OpenMode.Text
 
-    stream = dna.FileStream(
-        str(file_path),
-        dna.FileStream.AccessMode_Write,
-        mode
+    stream = riglogic.FileStream.create( 
+        path=str(file_path),
+        accessMode=riglogic.AccessMode.Write,
+        openMode=mode,
     )
     if file_format.lower() == 'json':
-        writer = dna.JSONStreamWriter(stream)
+        writer = riglogic.JSONStreamWriter.create(stream)
     elif file_format.lower() == 'binary':
-        writer = dna.BinaryStreamWriter(stream)
+        writer = riglogic.BinaryStreamWriter.create(stream)
     else:
         raise ValueError(f"Invalid file format '{file_format}'. Must be 'binary' or 'json'.")
+    
     return writer
 
 @exclude_rig_logic_evaluation
@@ -88,7 +105,7 @@ def create_shape_key(
         index: int,
         mesh_index: int,
         mesh_object: bpy.types.Object,
-        reader: dna.BinaryStreamReader,
+        reader: 'riglogic.BinaryStreamReader',
         name: str,
         prefix: str = '',
         is_neutral: bool = False,
@@ -146,7 +163,7 @@ def create_shape_key(
             mesh_object.vertex_groups.remove(vertex_group)
         vertex_group = mesh_object.vertex_groups.new(name=vertex_group_name)
         vertex_group.add(
-            index=offset_vertex_indices,
+            index=[int(x) for x in offset_vertex_indices], # type: ignore
             weight=1.0,
             type='REPLACE'
         )
