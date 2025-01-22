@@ -59,19 +59,19 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |
           cd meta-human-dna-addon
-          .github\workflows\pytest.bat
+          .github\workflows\pytest-windows.bat
 
       - name: Run Tests Linux
         if: matrix.os == 'ubuntu-latest'
         run: |
           cd meta-human-dna-addon
-          bash ./.github/workflows/pytest.sh
+          bash ./.github/workflows/pytest-linux.sh
 
       - name: Run Tests MacOS
         if: matrix.os == 'macos-latest'
         run: |
           cd meta-human-dna-addon
-          bash ./.github/workflows/pytest.sh
+          bash ./.github/workflows/pytest-mac.sh
 
       - name: Publish Test Report
         uses: mikepenz/action-junit-report@v4
