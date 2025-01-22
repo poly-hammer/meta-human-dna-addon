@@ -194,7 +194,7 @@ class MetahumanFace:
             utilities.hide_empties()        
             self.head_rig_object.hide_set(True)
 
-    def _set_image_textures(self, materials: list[bpy.types.Material], generate_materials: bool = False):
+    def _set_image_textures(self, materials: list[bpy.types.Material]):
         # set the combined mask image and topology image
         bpy.data.images[MASKS_TEXTURE].filepath = str(MASKS_TEXTURE_FILE_PATH)
         bpy.data.images[TOPOLOGY_TEXTURE].filepath = str(TOPOLOGY_TEXTURE_FILE_PATH)
@@ -202,8 +202,11 @@ class MetahumanFace:
         for material in materials:
             for node in material.node_tree.nodes: # type: ignore
                 if node.type == 'TEX_IMAGE' and node.image:
-                    # set the masks and topology textures
-                    image_file = os.path.basename(node.image.filepath)
+                    # get the image file name without the postfixes for duplicates i.e. .001
+                    image_file = node.image.name
+                    if image_file.count('.') > 1:
+                        image_file = image_file.rsplit('.', 1)[0]
+                    # set the masks and topology textures                    
                     if image_file == MASKS_TEXTURE:
                         node.image = bpy.data.images[MASKS_TEXTURE]
                         continue
@@ -211,19 +214,15 @@ class MetahumanFace:
                         node.image = bpy.data.images[TOPOLOGY_TEXTURE]
                         continue
 
-
                     # update the texture paths to images in the maps folder
-                    new_image_path = os.path.join(self.maps_folder, image_file)
+                    new_image_path = self.maps_folder / image_file
 
-                    if os.path.exists(new_image_path):
-                        node.image.filepath = new_image_path
+                    if new_image_path.exists():
+                        node.image = bpy.data.images.load(str(new_image_path))
 
                         # reloading images defaults the color space, so reset normal map to Non-Color
-                        if os.path.splitext(image_file)[0].endswith('normal_map'):
+                        if new_image_path.stem.endswith('normal_map'):
                             node.image.colorspace_settings.name = 'Non-Color' # type: ignore
-                    else:
-                        if not generate_materials:
-                            logger.warning(f'"{new_image_path}" can not be found on disk using the default image "{node.image.filepath}" instead.')
 
         # remove any extra masks and topology images
         for image in bpy.data.images:
@@ -233,7 +232,7 @@ class MetahumanFace:
                 bpy.data.images.remove(image)
 
 
-    def import_materials(self, generate_materials: bool = False):
+    def import_materials(self):
         if self.dna_import_properties and not self.dna_import_properties.import_materials:
             return
 
@@ -241,70 +240,70 @@ class MetahumanFace:
         sep = '\\'
         if sys.platform != 'win32':
             sep = '/'
-        if self.has_maps or generate_materials:
-            logger.info(f'Importing materials for {self.name}')
-            materials = []
-            directory_path = f'{MATERIALS_FILE_PATH}{sep}Material{sep}'
-            for key, material_name in MESH_SHADER_MAPPING.items():
-                material = bpy.data.materials.get(material_name)
-                if not material:
-                    # import the materials
-                    file_path = f'{MATERIALS_FILE_PATH}{sep}Material{sep}{material_name}'
-                    bpy.ops.wm.append(
-                        filepath=file_path,
-                        filename=material_name,
-                        directory=directory_path
-                    )
-                    material = bpy.data.materials.get(material_name)
-                    if material:
-                        # set the material on the rig logic instance
-                        if material.name == HEAD_MATERIAL_NAME:
-                            self.rig_logic_instance.material = material
-                            node = callbacks.get_texture_logic_node(material)
-                            if node:
-                                node.name = f'{self.name}_{TEXTURE_LOGIC_NODE_NAME}'
-                                node.label = f'{self.name}_{TEXTURE_LOGIC_NODE_NAME}'
-                                if node.node_tree:
-                                    node.node_tree.name = f'{self.name}_{TEXTURE_LOGIC_NODE_NAME}'
+        
+        logger.info(f'Importing materials for {self.name}')
+        materials = []
+        directory_path = f'{MATERIALS_FILE_PATH}{sep}Material{sep}'
 
-                        # rename to match metahuman
-                        material.name = f'{self.name}_{material_name}' # type: ignore
-                        material.use_screen_refraction = True
-
-                        # set the uv maps on the material nodes
-                        for node in material.node_tree.nodes: # type: ignore
-                            if node.type == 'UVMAP':
-                                node.uv_map = UV_MAP_NAME
-                            elif node.type == 'NORMAL_MAP':
-                                node.uv_map = UV_MAP_NAME
-                        for node_group in bpy.data.node_groups:
-                            if node_group.name.startswith('Mask'):
-                                for node in node_group.nodes:
-                                    if node.type == 'UVMAP':
-                                        node.uv_map = UV_MAP_NAME
-
-                        for mesh_object in bpy.data.objects:
-                            if mesh_object.name.startswith(f'{self.name}_{key}'):
-                                if mesh_object.data.materials: # type: ignore
-                                    mesh_object.data.materials[0] = material # type: ignore
-                                else:
-                                    mesh_object.data.materials.append(material) # type: ignore
-                if material:
-                    materials.append(material)
-
-            # switch to material view
-            utilities.set_viewport_shading('MATERIAL')
-
-            # set the image textures to match
-            self._set_image_textures(materials, generate_materials=generate_materials)
-            # prefix the material image names with the metahuman name
-            for material in materials:
-                utilities.prefix_material_image_names(
-                    material=material, 
-                    prefix=self.name
+        for key, material_name in MESH_SHADER_MAPPING.items():
+            material = bpy.data.materials.get(material_name)
+            if not material:
+                # import the materials
+                file_path = f'{MATERIALS_FILE_PATH}{sep}Material{sep}{material_name}'
+                bpy.ops.wm.append(
+                    filepath=file_path,
+                    filename=material_name,
+                    directory=directory_path
                 )
+                material = bpy.data.materials.get(material_name)
+                if material:
+                    # set the material on the rig logic instance
+                    if material.name == HEAD_MATERIAL_NAME:
+                        self.rig_logic_instance.material = material
+                        node = callbacks.get_texture_logic_node(material)
+                        if node:
+                            node.name = f'{self.name}_{TEXTURE_LOGIC_NODE_NAME}'
+                            node.label = f'{self.name}_{TEXTURE_LOGIC_NODE_NAME}'
+                            if node.node_tree:
+                                node.node_tree.name = f'{self.name}_{TEXTURE_LOGIC_NODE_NAME}'
 
-            return materials
+                    # rename to match metahuman
+                    material.name = f'{self.name}_{material_name}' # type: ignore
+
+                    # set the uv maps on the material nodes
+                    for node in material.node_tree.nodes: # type: ignore
+                        if node.type == 'UVMAP':
+                            node.uv_map = UV_MAP_NAME
+                        elif node.type == 'NORMAL_MAP':
+                            node.uv_map = UV_MAP_NAME
+                    for node_group in bpy.data.node_groups:
+                        if node_group.name.startswith('Mask'):
+                            for node in node_group.nodes:
+                                if node.type == 'UVMAP':
+                                    node.uv_map = UV_MAP_NAME
+
+                    for mesh_object in bpy.data.objects:
+                        if mesh_object.name.startswith(f'{self.name}_{key}'):
+                            if mesh_object.data.materials: # type: ignore
+                                mesh_object.data.materials[0] = material # type: ignore
+                            else:
+                                mesh_object.data.materials.append(material) # type: ignore
+            if material:
+                materials.append(material)
+
+        # switch to material view
+        utilities.set_viewport_shading('MATERIAL')
+
+        # set the image textures to match
+        self._set_image_textures(materials)
+        # prefix the material image names with the metahuman name
+        for material in materials:
+            utilities.prefix_material_image_names(
+                material=material, 
+                prefix=self.name
+            )
+
+        return materials
     
     @staticmethod
     def _hide_face_board_widgets():

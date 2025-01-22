@@ -595,6 +595,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         if not self.face_board or not self.dna_reader:
             return
         
+        missing_gui_controls = []
+        
         for index in range(self.dna_reader.getGUIControlCount()):
             full_name = self.dna_reader.getGUIControlName(index)
             control_name, axis = full_name.split('.')
@@ -604,7 +606,15 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                     value = getattr(pose_bone.location, axis.strip('t'))
                     self.instance.setGUIControl(index, value)
                 else:
-                    logger.error(f'The control "{control_name}" was not found in the GUI')
+                    missing_gui_controls.append(control_name)
+
+        if missing_gui_controls and not self.data.get('logged_missing_gui_controls'):
+            logger.warning(f'The following GUI controls are missing on "{self.face_board.name}":\n{pformat(missing_gui_controls)}.')
+            logger.warning(f'You are not listening to {len(missing_gui_controls)} GUI controls')
+            logger.warning('This is most likely due to the DNA file being an older version then what the face board currently supports.')
+            logger.warning('Using a new .dna file created from the latest version of MetaHuman Creator will probably resolve this.')
+            self.data['logged_missing_gui_controls'] = True
+
 
     def update_shape_keys(self):
         # skip if the head mesh is not set
@@ -625,7 +635,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 else:
                     missing_shape_keys.append(index)
 
-        if not self.data.get('logged_missing_shape_keys'):
+        if missing_shape_keys and not self.data.get('logged_missing_shape_keys'):
             name_lookup = {v:k for k,v in self.channel_name_to_index_lookup.items()}
             missing_data = {}
             # group the missing shape keys by mesh object

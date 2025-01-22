@@ -1,8 +1,5 @@
 ## Major Changes
-
-
-## Minor Changes
-
+Initial Beta release version.
 
 ## Tests Passing On
 * Blender `4.2` (installed from blender.org)

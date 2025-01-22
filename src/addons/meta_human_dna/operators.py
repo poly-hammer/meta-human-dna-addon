@@ -354,7 +354,7 @@ class GenerateMaterial(bpy.types.Operator):
     def execute(self, context):
         face = utilities.get_active_face()
         if face and face.head_mesh_object:
-            face.import_materials(generate_materials=True)
+            face.import_materials()
         return {'FINISHED'}
     
     @classmethod

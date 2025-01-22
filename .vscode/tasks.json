@@ -41,6 +41,19 @@
                 "panel": "shared",
                 "focus": true
             }
+        },
+        {
+            "label": "Mkdocs Serve",
+            "command": "mkdocs serve --dev-addr localhost:8080",
+            "type": "shell",
+            "group": {
+                "kind": "build"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            }
         }
     ],
     "inputs": [

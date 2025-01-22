@@ -1,3 +1,10 @@
 site_name: Meta-Human DNA Addon
 nav:
-  - Home: "index.md"
+  - Quick Start: "index.md"
+
+theme:
+  name: material
+
+markdown_extensions:
+  - attr_list
+  - admonition
