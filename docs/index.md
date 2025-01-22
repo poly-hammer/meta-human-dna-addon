@@ -1,7 +1,7 @@
 # Meta-Human DNA Addon
 
 ## Build a Release
-This addon actually uses parts of Unreal Engine compiled into a standalone library as well as our own core module that does some math/auto-fitting algorithms. Because of that, we can't re-distribute all the dependencies. However, you can agree to the Epic EULA and compile a release for yourself. The [Hammer Build Tool](https://docs.polyhammer.com/hammer-build-tool/setup) makes it super easy. Once you have followed those instructions and obtained your addon release from the `.zip` file continue to the next step.
+This addon actually needs parts of Unreal Engine compiled into a standalone library, as well as our own core module. Because of that, we can't re-distribute all the dependencies. However, you can agree to the Epic EULA and compile a release for yourself. The [Hammer Build Tool](https://docs.polyhammer.com/hammer-build-tool/setup) makes it super easy. Once you have followed those instructions and obtained your addon release from the `.zip` file, continue to the next step.
 
 ![](./images/quick-start/1.gif)
 
@@ -10,7 +10,7 @@ To install into Blender, simply drag and drop the `.zip` file that you downloade
 
 ![](./images/quick-start/2.gif)
 
-You will now see a tab on your right-side utility bar called `Meta-Human DNA`. You will notice that the panels are grayed out and have warning messages. These panels become active when there is an active [RigLogic Instance](./definitions).
+You will now see a tab on the right-side of the 3D Viewport bar called `Meta-Human DNA` (Hide/Show with `N` key.). You will notice that the panels are grayed out and have warning messages. These panels become active when there is an active [RigLogic Instance](./terminology/#rig-logic-instance).
 
 ## Option 1: Import a DNA File
 The easiest way to get started, is to just drag and drop a `.dna` file into the blender scene.
