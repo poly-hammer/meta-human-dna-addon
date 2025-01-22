@@ -58,13 +58,14 @@ def pytest_configure():
             dirs_exist_ok=True
         )
         
-        # If running tests on the CI, copy core to the specific destination folder
-        if core_source_folder.exists() and os.environ.get('RUNNING_CI'):
-            shutil.copytree(
-                src=core_source_folder,
-                dst=bindings_specific_destination_folder / 'meta_human_dna_core',
-                dirs_exist_ok=True
-            )   
+    # If running tests on the CI, copy core to the specific destination folder
+    core_destination_folder = bindings_specific_destination_folder / 'meta_human_dna_core'
+    if core_source_folder.exists() and not core_destination_folder.exists() and os.environ.get('RUNNING_CI'):
+        shutil.copytree(
+            src=core_source_folder,
+            dst=core_destination_folder,
+            dirs_exist_ok=True
+        )   
 
     # ensure the addon module is on the python path
     sys.path.append(str(REPO_ROOT / 'src' / 'addons'))
