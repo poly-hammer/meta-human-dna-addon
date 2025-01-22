@@ -1,4 +1,5 @@
 import pytest
+from constants import TOLERANCE
 from mathutils import Euler, Vector
 from utilities.dna_data import (
     get_test_bone_definitions_params, 
@@ -81,5 +82,6 @@ def test_mesh_geometry(
         changed_mesh_name=changed_mesh_name,
         changed_vertex_index=changed_vertex_index,
         changed_vertex_location=changed_vertex_location,
+        tolerance=TOLERANCE[attribute],
         assert_mesh_indices=True
     )

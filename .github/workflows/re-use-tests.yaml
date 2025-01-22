@@ -14,8 +14,7 @@ jobs:
   test:
     strategy:
       matrix:
-        os: [windows-latest, ubuntu-latest]
-        # os: [windows-latest, ubuntu-latest, macos-latest]
+        os: [windows-latest, ubuntu-latest, macos-latest]
     name: Tests
     runs-on: ${{ matrix.os }}
     env:
@@ -64,6 +63,12 @@ jobs:
 
       - name: Run Tests Linux
         if: matrix.os == 'ubuntu-latest'
+        run: |
+          cd meta-human-dna-addon
+          bash ./.github/workflows/pytest.sh
+
+      - name: Run Tests MacOS
+        if: matrix.os == 'macos-latest'
         run: |
           cd meta-human-dna-addon
           bash ./.github/workflows/pytest.sh

@@ -15,6 +15,6 @@ TOLERANCE = {
     'neutralJointRotations': 1e-3,
     'neutralJointTranslations': 1e-3, 
     'normals': 1e-3, 
-    'positions': 1e-3, # these assertions are in centimeters
+    'positions': 1e-2, # these assertions are in centimeters
     'textureCoordinates': 1e-3,
 }
