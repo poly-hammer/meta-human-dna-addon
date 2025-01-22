@@ -62,7 +62,7 @@ def pytest_configure():
         if core_source_folder.exists() and os.environ.get('RUNNING_CI'):
             shutil.copytree(
                 src=core_source_folder,
-                dst=bindings_specific_destination_folder,
+                dst=bindings_specific_destination_folder / 'meta_human_dna_core',
                 dirs_exist_ok=True
             )   
 
