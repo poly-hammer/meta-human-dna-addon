@@ -2,35 +2,51 @@ import os
 import sys
 import math
 import platform
-import pytest
-import shutil
-import bpy # import this to ensure that mathutils is available  # noqa: F401
-from mathutils import Vector, Euler
-from pathlib import Path
-from constants import REPO_ROOT
 
-def install_bindings():
+ARCH = 'x64'
+if 'arm' in platform.processor().lower():
+    ARCH = 'arm64'
+if sys.platform == 'win32' and ARCH == 'x64':
+    ARCH = 'amd64'
+if sys.platform == 'linux' and ARCH == 'x64':
+    ARCH = 'x86_64'
+
+
+OS_NAME = 'windows'
+if sys.platform == 'darwin':
+    OS_NAME = 'mac'
+elif sys.platform == 'linux':
+    OS_NAME = 'linux'
+
+# Ensure that the riglogic module is not reloaded
+sys.path.append(os.path.join(os.getcwd(), os.pardir, 'meta-human-dna-bindings', OS_NAME, ARCH))
+if "riglogic" in sys.modules:
+    riglogic = sys.modules["riglogic"]
+else:
+    import riglogic
+    sys.modules["riglogic"] = riglogic
+
+
+import pytest # noqa: E402
+import shutil # noqa: E402
+import bpy # import this to ensure that mathutils is available  # noqa: E402, F401
+from mathutils import Vector, Euler # noqa: E402
+from pathlib import Path # noqa: E402
+from constants import REPO_ROOT # noqa: E402
+
+def pytest_configure():
+    """
+    Installs the bindings for the addon.
+    """
+
     bindings_source_folder = REPO_ROOT.parent / 'meta-human-dna-bindings'
     core_source_folder = REPO_ROOT.parent / 'meta-human-dna-core'
     bindings_destination_folder = REPO_ROOT / 'src' / 'addons' / 'meta_human_dna' / 'bindings'
 
-    arch = 'x64'
-    if 'arm' in platform.processor().lower():
-        arch = 'arm64'
-    if sys.platform == 'win32' and arch == 'x64':
-        arch = 'amd64'
-    if sys.platform == 'linux' and arch == 'x64':
-        arch = 'x86_64'
+    
 
-
-    os_name = 'windows'
-    if sys.platform == 'darwin':
-        os_name = 'mac'
-    elif sys.platform == 'linux':
-        os_name = 'linux'
-
-    bindings_specific_source_folder = bindings_source_folder / os_name / arch
-    bindings_specific_destination_folder = bindings_destination_folder / os_name / arch
+    bindings_specific_source_folder = bindings_source_folder / OS_NAME / ARCH
+    bindings_specific_destination_folder = bindings_destination_folder / OS_NAME / ARCH
 
     # Copy the bindings folder to the src directory if they doesn't exist
     if not bindings_specific_destination_folder.exists():
@@ -58,21 +74,6 @@ def install_bindings():
 
     # ensure the addon module is on the python path
     sys.path.append(str(REPO_ROOT / 'src' / 'addons'))
-    sys.path.append(str(REPO_ROOT / 'src' / 'addons'/ 'meta_human_dna' / 'bindings' / os_name / arch))
-
-install_bindings()
-# Ensure that the riglogic module is not reloaded
-if "riglogic" in sys.modules:
-    riglogic = sys.modules["riglogic"]
-else:
-    import riglogic
-    sys.modules["riglogic"] = riglogic
-
-def pytest_configure():
-    """
-    Installs the bindings for the addon.
-    """
-    install_bindings()
         
 
 from fixtures.addon import addon  # noqa: E402, F401

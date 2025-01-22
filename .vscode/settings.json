@@ -32,17 +32,17 @@
         "${workspaceFolder}/src/addons/meta_human_dna/bindings/windows/amd64"
     ],
     "terminal.integrated.env.windows": {
-        "PYTHONPATH": "${workspaceFolder}/admin/packages;${workspaceFolder}/.venv/Lib/site-packages;${workspaceFolder}/src/addons;${workspaceFolder}/src/addons/meta_human_dna/bindings/windows/amd64",
+        "PYTHONPATH": "${workspaceFolder}/admin/packages;${workspaceFolder}/.venv/Lib/site-packages;${workspaceFolder}/src/addons",
         "PYTHONUNBUFFERED": "1",
         "BLENDER_SCRIPTS_FOLDERS": "${workspaceFolder}/src"
     },
     "terminal.integrated.env.linux": {
-        "PYTHONPATH": "${workspaceFolder}/admin/packages:${workspaceFolder}/.venv/Lib/site-packages:${workspaceFolder}/src/addons:${workspaceFolder}/src/addons/meta_human_dna/bindings/linux/x86_64",
+        "PYTHONPATH": "${workspaceFolder}/admin/packages:${workspaceFolder}/.venv/Lib/site-packages:${workspaceFolder}/src/addons",
         "PYTHONUNBUFFERED": "1",
         "BLENDER_SCRIPTS_FOLDERS": "${workspaceFolder}/src"
     },
     "terminal.integrated.env.osx": {
-        "PYTHONPATH": "${workspaceFolder}/admin/packages:${workspaceFolder}/.venv/Lib/site-packages:${workspaceFolder}/src/addons:${workspaceFolder}/src/addons/meta_human_dna/bindings/mac/arm64",
+        "PYTHONPATH": "${workspaceFolder}/admin/packages:${workspaceFolder}/.venv/Lib/site-packages:${workspaceFolder}/src/addons",
         "PYTHONUNBUFFERED": "1",
         "BLENDER_SCRIPTS_FOLDERS": "${workspaceFolder}/src"
     },
