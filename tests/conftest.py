@@ -9,18 +9,7 @@ from mathutils import Vector, Euler
 from pathlib import Path
 from constants import REPO_ROOT
 
-# Ensure that the riglogic module is not reloaded
-if "riglogic" in sys.modules:
-    riglogic = sys.modules["riglogic"]
-else:
-    import riglogic
-    sys.modules["riglogic"] = riglogic
-
-def pytest_configure():
-    """
-    Installs the bindings for the addon.
-    """
-
+def install_bindings():
     bindings_source_folder = REPO_ROOT.parent / 'meta-human-dna-bindings'
     core_source_folder = REPO_ROOT.parent / 'meta-human-dna-core'
     bindings_destination_folder = REPO_ROOT / 'src' / 'addons' / 'meta_human_dna' / 'bindings'
@@ -69,6 +58,21 @@ def pytest_configure():
 
     # ensure the addon module is on the python path
     sys.path.append(str(REPO_ROOT / 'src' / 'addons'))
+    sys.path.append(str(REPO_ROOT / 'src' / 'addons'/ 'meta_human_dna' / 'bindings' / os_name / arch))
+
+install_bindings()
+# Ensure that the riglogic module is not reloaded
+if "riglogic" in sys.modules:
+    riglogic = sys.modules["riglogic"]
+else:
+    import riglogic
+    sys.modules["riglogic"] = riglogic
+
+def pytest_configure():
+    """
+    Installs the bindings for the addon.
+    """
+    install_bindings()
         
 
 from fixtures.addon import addon  # noqa: E402, F401

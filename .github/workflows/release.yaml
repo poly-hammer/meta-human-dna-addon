@@ -5,8 +5,8 @@ on:
       - main
     paths:
       - 'src/**'
-      - '.github/workflows/**'
-      
+      - 'tests/**'
+      - '.github/workflows/**'      
 
 jobs:
   tests:
