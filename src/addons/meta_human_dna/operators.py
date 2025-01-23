@@ -431,7 +431,7 @@ class OpenMetricsCollectionAgreement(bpy.types.Operator):
         return {'FINISHED'}
 
 class SendToUnreal(bpy.types.Operator):
-    """Exports the metahuman DNA, SkeletalMesh, and Textures, then imports them into Unreal Engine"""
+    """Exports the metahuman DNA, SkeletalMesh, and Textures, then imports them into Unreal Engine. This requires the Send to Unreal addon to be installed"""
     bl_idname = "meta_human_dna.send_to_unreal"
     bl_label = "Send to Unreal"
 
@@ -521,6 +521,10 @@ class SendToUnreal(bpy.types.Operator):
             self.report({'INFO'}, "Successfully sent to Unreal Engine")
 
         return {'FINISHED'}
+    
+    @classmethod
+    def poll(cls, context):
+        return bool(getattr(context.scene, 'send2ue', False)) # type: ignore
     
 class ExportToDisk(bpy.types.Operator):
     """Exports the metahuman DNA and SkeletalMesh to a folder on disk"""

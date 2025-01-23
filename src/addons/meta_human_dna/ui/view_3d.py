@@ -650,15 +650,6 @@ class META_HUMAN_DNA_PT_buttons_sub_panel(bpy.types.Panel):
     bl_options = {'HIDE_HEADER'}
 
     def draw(self, context):
-        if not getattr(context.scene, 'send2ue', None): # type: ignore
-            row = self.layout.row()
-            row.alert = True
-            row.label(
-                text='Send to Unreal Addon must be installed and enabled', 
-                icon='ERROR'
-            )
-            return
-
         properties = context.scene.meta_human_dna # type: ignore
         error = valid_rig_logic_instance_exists(context, ignore_face_board=True)
         row = self.layout.row()

@@ -238,11 +238,12 @@ def init_sentry():
 
 def link_send2ue_extension():
     addon = bpy.context.preferences.addons.get('send2ue') # type: ignore
-    if addon:
+    send2ue_properties = getattr(bpy.context.scene, 'send2ue', None) # type: ignore
+    if addon and send2ue_properties:
         # check if the extension is already linked and skip the linking logic if it is
         # this allows the user to manually link their own extension if they want. 
         # It has to have the name 'meta_human_dna'.
-        if getattr(bpy.context.scene.send2ue.extensions, ToolInfo.NAME, None): # type: ignore
+        if getattr(send2ue_properties.extensions, ToolInfo.NAME, None): # type: ignore
             bpy.ops.send2ue.reload_extensions() # type: ignore
             return
 

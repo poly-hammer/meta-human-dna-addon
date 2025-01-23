@@ -2,11 +2,12 @@ site_name: Meta-Human DNA Addon
 nav:
   - Quick Start: "index.md"
   - Terminology: "terminology.md"
-  - Face Board: "face-board.md"
-  - View Options: "view-options.md"
-  - Rig Logic: "rig-logic.md"
-  - Shape Keys: "shape-keys.md"
-  - Output: "output.md"
+  - User Interface:
+    - Face Board: "user-interface/face-board.md"
+    - View Options: "user-interface/view-options.md"
+    - Rig Logic: "user-interface/rig-logic.md"
+    - Shape Keys: "user-interface/shape-keys.md"
+    - Output: "user-interface/output.md"
 
 theme:
   name: material

@@ -25,7 +25,7 @@ The best way is to see this in action is by toggling each of these booleans on y
 
 ## Rig Logic Instance
 
-This is a data block that we use in the Blender Addon to ultimately tie together which data belongs to which RigLogic evaluation. This is important, since the addon actually allow you to have multiple "Rig Logic Instances" in your scene at a time, and each Rig Logic Instance reads from a separate DNA file. Also the side bar GUI in the viewport is context sensitive to which "Rig Logic Instance" is actively selected in the list view under the `Rig Logic` panel. So only the active instance will have its properties modified.
+This is a data block that we use in the Blender Addon to ultimately tie together which data belongs to which RigLogic evaluation. This is important, since the addon actually allows you to have multiple "Rig Logic Instances" in your scene at a time, and each Rig Logic Instance reads from a separate DNA file. Also the side bar GUI in the viewport is context sensitive to which "Rig Logic Instance" is actively selected in the list view under the `Rig Logic` panel. So only the active instance will have its properties modified.
 
 ![](./images/terminology/3.gif)
 
