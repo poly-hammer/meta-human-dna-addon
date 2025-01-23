@@ -16,9 +16,9 @@ The Face board drives the following:
 
 * Bone Transforms (It calls these joints, but Blender calls them bones.)
 * Shape Key Values (It calls these Blend Shapes, but Blender calls these Shape Keys.)
-* Wrinkle Map Masks (These are drive by the addon's "[Texture Logic](./#texture-logic)" Node)
+* Wrinkle Map Masks (These are drive by the addon's "[Texture Logic](#texture-logic)" Node)
 
-The best way is to see this in action is by toggling each of these booleans on your [Rig Logic Instance](./#rig-logic-instance). These will enable/disable those particular outputs from the Rig Logic evaluation. This becomes apparent when an animation is playing or you move the Face Board controls.
+The best way is to see this in action is by toggling each of these booleans on your [Rig Logic Instance](#rig-logic-instance). These will enable/disable those particular outputs from the Rig Logic evaluation. This becomes apparent when an animation is playing or you move the Face Board controls.
 
 ![](./images/terminology/2.png)
 

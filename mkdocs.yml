@@ -8,6 +8,13 @@ nav:
     - Rig Logic: "user-interface/rig-logic.md"
     - Shape Keys: "user-interface/shape-keys.md"
     - Output: "user-interface/output.md"
+  - Workflows:
+    - Face Form Wrap: "workflows/face-form-wrap.md"
+  - Contributing:
+    - Development: "contributing/development.md"
+    - Documentation: "contributing/documentation.md"
+    - Testing: "contributing/testing.md"
+
 
 theme:
   name: material

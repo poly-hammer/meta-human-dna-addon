@@ -7,7 +7,7 @@ from typing import Literal
 class ToolInfo:
     NAME = "meta_human_dna"
     BUILD_TOOL_DOCUMENTATION = "https://docs.polyhammer.com/hammer-build-tool/setup/"
-    METRICS_COLLECTION_AGREEMENT = "https://www.polyhammer.com/legal"
+    METRICS_COLLECTION_AGREEMENT = "https://www.polyhammer.com/dpa"
 
 Axis = Literal["X", "Y", "Z"]
 
