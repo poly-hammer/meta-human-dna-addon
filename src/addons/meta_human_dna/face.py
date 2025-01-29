@@ -35,7 +35,8 @@ from .constants import (
     INVALID_NAME_CHARACTERS_REGEX,
     TEXTURE_LOGIC_NODE_NAME,
     UV_MAP_NAME,
-    TOPO_GROUP_PREFIX
+    TOPO_GROUP_PREFIX,
+    EXTRA_BONES
 )
 
 if TYPE_CHECKING:
@@ -722,6 +723,7 @@ class MetahumanFace:
     @utilities.preserve_context
     def revert_bone_transforms_to_dna(self):
         if self.head_rig_object:
+            extra_bone_lookup = dict(EXTRA_BONES)
             # make sure the dna importer has the rig object set
             self.dna_importer.rig_object = self.head_rig_object
             
@@ -730,8 +732,18 @@ class MetahumanFace:
             
             for bone_name in bone_names:
                 edit_bone = self.head_rig_object.data.edit_bones[bone_name] # type: ignore
+                extra_bone = extra_bone_lookup.get(bone_name)
                 if bone_name == 'root':
                     edit_bone.matrix = self.head_rig_object.matrix_world
+                # reverts the default bone transforms back to their default values
+                elif extra_bone:
+                    location = extra_bone['location']
+                    rotation = extra_bone['rotation']
+                    # Scale the location of the bones based on the height scale factor
+                    location.y = location.y * self.dna_importer.get_height_scale_factor()
+                    global_matrix = Matrix.Translation(location) @ rotation.to_matrix().to_4x4()
+                    # default values are stored in Y-up, so convert to Z-up
+                    edit_bone.matrix = Matrix.Rotation(math.radians(90), 4, 'X').to_4x4() @ global_matrix
                 else:
                     bone_matrix = self.dna_importer.get_bone_matrix(bone_name=bone_name)
                     if bone_matrix:

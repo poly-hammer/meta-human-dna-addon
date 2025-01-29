@@ -455,6 +455,7 @@ class SendToUnreal(bpy.types.Operator):
                     instance=face.rig_logic_instance,
                     linear_modifier=face.linear_modifier,
                     meshes=False,
+                    vertex_colors=False,
                     bones=True,
                     file_name=dna_file
                 )              
@@ -463,6 +464,7 @@ class SendToUnreal(bpy.types.Operator):
                     instance=face.rig_logic_instance,
                     linear_modifier=face.linear_modifier,
                     meshes=False,
+                    vertex_colors=False,
                     bones=True,
                     file_name=dna_file
                 )

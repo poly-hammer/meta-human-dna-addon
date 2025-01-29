@@ -1,8 +1,8 @@
 import os
+import math
 from pathlib import Path
-from mathutils import Vector
+from mathutils import Vector, Euler
 from typing import Literal
-
 
 class ToolInfo:
     NAME = "meta_human_dna"
@@ -118,4 +118,36 @@ FACE_GUI_EMPTIES = [
     "headGui_grp",
     "headRigging_grp",
     "eyesSetup_grp"
+]
+
+# Set to Ada's height, but locations will be scaled proportionally to match spine_04 location from DNA file.
+# Also in Y-up coordinate system like the metahuman creator DNA files
+FIRST_BONE_Y_LOCATION = 107.86403
+
+EXTRA_BONES = [
+    ('root', {
+        'parent': None,
+        'location': Vector((0, 0, 0)),
+        'rotation': Euler((0, 0, 0), 'XYZ')
+    }),
+    ('pelvis', {
+        'parent': 'root',
+        'location': Vector((0.0, 0.8707, 0.0209)),
+        'rotation': Euler((math.radians(-90.0), math.radians(-2.053), math.radians(90.0)), 'XYZ')
+    }),
+    ('spine_01', {
+        'parent': 'pelvis',
+        'location': Vector((0.0, 0.8910, 0.0206)),
+        'rotation': Euler((math.radians(-90.0), math.radians(-13.003), math.radians(90.0)), 'XYZ')
+    }),
+    ('spine_02', {
+        'parent': 'spine_01',
+        'location': Vector((0.0, 0.9326, 0.0302)),
+        'rotation': Euler((math.radians(-90.0), math.radians(-5.68216), math.radians(90.0)), 'XYZ')
+    }),
+    ('spine_03', {
+        'parent': 'spine_02',
+        'location': Vector((0.0, 0.9998, 0.0369)),
+        'rotation': Euler((math.radians(-90.0), math.radians(3.82404), math.radians(90.0)), 'XYZ')
+    })
 ]

@@ -4,15 +4,18 @@ import math
 import json
 import bmesh
 import logging
-import mathutils
 from typing import Callable
 from pathlib import Path
 from mathutils import Vector, Matrix
 from .. import utilities
 from ..rig_logic import RigLogicInstance
-from ..constants import SCALE_FACTOR, TOPO_GROUP_PREFIX
 from .misc import get_dna_writer, get_dna_reader
 from ..bindings import riglogic
+from ..constants import (
+    SCALE_FACTOR, 
+    TOPO_GROUP_PREFIX,
+    EXTRA_BONES
+)
 
 logger = logging.getLogger(__name__)
 
@@ -216,15 +219,16 @@ class DNAExporter:
         hierarchy_lookup = {}
 
         # Change the rotation of the bones since DNA expects Y-up
-        rotation_x = mathutils.Matrix.Rotation(math.radians(-90), 4, 'X')
+        rotation_x = Matrix.Rotation(math.radians(-90), 4, 'X')
         global_matrix = rotation_x.to_4x4()
 
         # Switch to edit mode so we can get edit bone data
         armature_object.hide_set(False)
         utilities.switch_to_bone_edit_mode(armature_object)
 
-        # Remove the 'root' bone from the list of bones
-        edit_bones = [i for i in armature_object.data.edit_bones if i.name != 'root'] # type: ignore
+        # Remove the extra bones from the list of bones
+        ignored_bone_names = [i for i, _ in EXTRA_BONES]
+        edit_bones = [i for i in armature_object.data.edit_bones if i.name in ignored_bone_names] # type: ignore
         for index, edit_bone in enumerate(edit_bones): # type: ignore
             if index == 0:
                 # get translation and rotation of the bone globally
@@ -239,8 +243,9 @@ class DNAExporter:
             is_leaf.append(not edit_bone.children)
 
             hierarchy_index = index
-            # If the bone has a parent, get the index of the parent bone
-            if edit_bone.parent and edit_bone.parent.name != 'root': # we don't want to include the root bone
+            # If the bone has a parent, get the index of the parent bone.
+            # We don't want to include the extra bones as parents.
+            if edit_bone.parent and edit_bone.parent.name not in ignored_bone_names:
                 hierarchy_index = hierarchy_lookup[edit_bone.parent.name]
             
             hierarchy.append(hierarchy_index)
@@ -438,14 +443,14 @@ class DNAExporter:
     
     def save_images(self):
         for image, file_name in self._images:
-            new_image_path = self._output_folder / 'maps' / file_name
+            new_image_path = self._target_dna_file.parent / 'maps' / file_name
             os.makedirs(new_image_path.parent, exist_ok=True)
             image.save_render(filepath=str(new_image_path))
             logger.info(f"Image {image.name} exported successfully to: {new_image_path}")
 
     def save_vertex_colors(self):
         if self._include_vertex_colors:
-            vertex_colors_file = self._output_folder / f'{self._prefix}_vertex_colors.json'
+            vertex_colors_file = self._target_dna_file.parent / f'{self._prefix}_vertex_colors.json'
             with open(vertex_colors_file, 'w') as f:
                 json.dump(self._vertex_color_data, f)
                 logger.info(f'Vertex colors exported successfully to: "{vertex_colors_file}"')
