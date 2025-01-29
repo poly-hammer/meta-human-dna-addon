@@ -228,7 +228,7 @@ class DNAExporter:
 
         # Remove the extra bones from the list of bones
         ignored_bone_names = [i for i, _ in EXTRA_BONES]
-        edit_bones = [i for i in armature_object.data.edit_bones if i.name in ignored_bone_names] # type: ignore
+        edit_bones = [i for i in armature_object.data.edit_bones if i.name not in ignored_bone_names] # type: ignore
         for index, edit_bone in enumerate(edit_bones): # type: ignore
             if index == 0:
                 # get translation and rotation of the bone globally
