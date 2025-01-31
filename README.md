@@ -4,6 +4,15 @@
 
 Imports a metahuman from its `.dna` file.
 
+## Get Notified on a New Release
+Never miss a new addon release! Do this:
+1. At the top right of this page select `Watch`
+1. Select `Custom` from the dropdown.
+1. Check `Releases`
+1. Click `Apply`.
+
+You will now get an email notification every time there is a new version of an addon released.
+
 ## Development Dependencies
 
 * [VS Code](https://code.visualstudio.com/download) 
