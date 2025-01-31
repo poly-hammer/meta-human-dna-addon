@@ -15,6 +15,8 @@
 * Fixed bone hierarchy and texture assignment bug [#37](https://github.com/poly-hammer/meta-human-dna-addon/issues/37)
 * Fixed missing material slots bug [#46](https://github.com/poly-hammer/meta-human-dna-addon/issues/46)
 * Fixed disorganization when having pre existing collections bug [#44](https://github.com/poly-hammer/meta-human-dna-addon/issues/44)
+* Added pre DNA conversion mesh clean up logic that separates the mesh, finding the UVs by the unreal material name. [#39](https://github.com/poly-hammer/meta-human-dna-addon/issues/39)
+
 
 ## Tests Passing On
 * Blender `4.2` (installed from blender.org)

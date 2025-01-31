@@ -105,6 +105,9 @@ HEAD_MAPS = {
     "Roughness_MAIN": "head_roughness_map.tga"
 }
 
+UNREAL_EXPORTED_HEAD_MATERIAL_NAMES = [
+    'MI_HeadSynthesized_Baked'
+]
 
 PLATFORM_NAMES = {
     "linux": "Linux",

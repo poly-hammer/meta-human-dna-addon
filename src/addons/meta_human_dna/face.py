@@ -36,7 +36,8 @@ from .constants import (
     TEXTURE_LOGIC_NODE_NAME,
     UV_MAP_NAME,
     TOPO_GROUP_PREFIX,
-    EXTRA_BONES
+    EXTRA_BONES,
+    UNREAL_EXPORTED_HEAD_MATERIAL_NAMES
 )
 
 if TYPE_CHECKING:
@@ -498,23 +499,39 @@ class MetahumanFace:
                 only_selected=False
             )
 
-    def validate_conversion(self, mesh_object: bpy.types.Object):
-        # create an empty BMesh and fill it in from the mesh data
-        bmesh_object = bmesh.new()
-        bmesh_object.from_mesh(mesh=mesh_object.data) # type: ignore
+    def pre_convert_mesh_cleanup(self, mesh_object: bpy.types.Object) -> bpy.types.Object | None:
+        mesh_object_name = mesh_object.name
+        mesh_name = mesh_object.data.name # type: ignore
+        head_material_name = None
+        for material in mesh_object.data.materials: # type: ignore
+            if material.name in UNREAL_EXPORTED_HEAD_MATERIAL_NAMES:
+                head_material_name = material.name
 
-        bmesh_object.verts.ensure_lookup_table()
-        bmesh_object.verts.index_update()
-
-        mush_uvs_indices, mesh_uvs = DNAExporter.get_mesh_vertex_uvs(bmesh_object)
-
-        dna_uvs_indices, dna_uvs = self.dna_importer.get_dna_vertex_uvs(mesh_index=0)
-
-
-        if not len(mesh_uvs) == len(dna_uvs): # type: ignore
-            return False
+        # separate the head mesh by material if it has the a unreal head material
+        if head_material_name:
+            new_mesh_object = None
+            utilities.switch_to_edit_mode(mesh_object)
+            bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.mesh.separate(type='MATERIAL')
+            for separated_mesh in bpy.context.selectable_objects: # type: ignore
+                if head_material_name in [i.name for i in separated_mesh.data.materials]: # type: ignore
+                    new_mesh_object = separated_mesh
+                    new_mesh_object.name = mesh_object_name
+                    new_mesh_object.data.name = mesh_name # type: ignore
+                else:
+                    bpy.data.objects.remove(separated_mesh, do_unlink=True)
+            return new_mesh_object
         
-        return True
+        return mesh_object        
+
+    def validate_conversion(self, mesh_object: bpy.types.Object) -> tuple[bool, str]:
+        # TODO: Create overlapping UVs check
+        overlapping_uvs = []
+
+        if len(overlapping_uvs) > 0: # type: ignore
+            return False, f'The mesh "{mesh_object.name}" has {len(overlapping_uvs)} overlapping UVs! Check your UV layout. It needs to be 1-to-1 with the UV positions of the DNA head mesh.'
+        
+        return True, 'Validation successful!'
         
     def export(self):
         pass
