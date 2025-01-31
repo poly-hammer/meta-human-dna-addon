@@ -11,7 +11,7 @@ Never miss a new addon release! Do this:
 1. Check `Releases`
 1. Click `Apply`.
 
-You will now get an email notification every time there is a new version of an addon released.
+You will now get an email notification every time there is a new version of the addon released.
 
 ## Development Dependencies
 
