@@ -394,10 +394,10 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     def valid(self) -> bool: 
         dna_file_path = Path(bpy.path.abspath(self.dna_file_path))
         if not dna_file_path.exists():
-            logger.error(f'The DNA file path "{dna_file_path}" does not exist. The Rig Logic Instance {self.name} will not be initialized.')
+            logger.warning(f'The DNA file path "{dna_file_path}" does not exist. The Rig Logic Instance {self.name} will not be initialized.')
             return False
         if not self.face_board:
-            logger.error(f'The Face board is not set. The Rig Logic Instance {self.name} will not be initialized.')
+            logger.warning(f'The Face board is not set. The Rig Logic Instance {self.name} will not be initialized.')
             return False
         return True
         
@@ -500,7 +500,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             for mesh_index in self.dna_reader.getMeshIndicesForLOD(0):
                 mesh_object = self.mesh_index_lookup.get(mesh_index)
                 if not mesh_object:
-                    logger.error(f'The mesh object for mesh index "{mesh_index}" was not found')
+                    logger.warning(f'The mesh object for mesh index "{mesh_index}" was not found')
                     continue
 
                 for target_index in range(self.dna_reader.getBlendShapeTargetCount(mesh_index)):
@@ -659,10 +659,10 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 missing_data[mesh_object.name].append(missing_name)
             
             for mesh_name, missing_names in missing_data.items():
-                logger.error(f'The following shape key blocks are missing on "{mesh_name}":\n{pformat(missing_names)}.')
+                logger.warning(f'The following shape key blocks are missing on "{mesh_name}":\n{pformat(missing_names)}.')
 
             if len(missing_data.keys()) > 0:
-                logger.error(f'A total of {len(missing_data.keys())} shape key blocks are not being updated by Rig Logic.')
+                logger.warning(f'A total of {len(missing_data.keys())} shape key blocks are not being updated by Rig Logic.')
             
             self.data['logged_missing_shape_keys'] = True
 
@@ -673,7 +673,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
         # if the texture masks node is not set, we can't update the texture masks
         if not self.texture_masks_node:
-            logger.error(f'The texture masks node was not found on the material "{self.material.name}"')
+            logger.warning(f'The texture masks node was not found on the material "{self.material.name}"')
             return
 
         # update texture masks values
@@ -684,7 +684,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             if mask_slider:
                 mask_slider.default_value = value # type: ignore
             else:
-                logger.error(f'The texture mask slider "{slider_name}" was not found on the material "{self.material.name}"')
+                logger.warning(f'The texture mask slider "{slider_name}" was not found on the material "{self.material.name}"')
 
     def update_bone_transforms(self):
         # skip if the head rig is not set
@@ -736,7 +736,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 if pose_bone.children:
                     pose_bone.rotation_euler = rotation_delta
             else:
-                logger.error(f'The bone "{name}" was not found on "{self.head_rig.name}". Rig Logic will not update the bone.')
+                logger.warning(f'The bone "{name}" was not found on "{self.head_rig.name}". Rig Logic will not update the bone.')
 
     def evaluate(self):
         # this condition prevents constant evaluation

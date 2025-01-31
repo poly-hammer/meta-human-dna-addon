@@ -270,11 +270,18 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
             dna_file_path=Path(self.base_dna),
             dna_import_properties=self.properties # type: ignore
         )
+        # try to separate the selected object by its unreal head material first if it has one
+        selected_object = face.pre_convert_mesh_cleanup(mesh_object=selected_object)
+        if not selected_object:
+            self.report({'ERROR'}, 'The selected object failed to be separated by its head material.')
+            return {'CANCELLED'}
+
         # check if the selected object has the same number of vertices as the base DNA
-        # if not face.validate_conversion(mesh_object=selected_object): # type: ignore
-        #     face.delete()
-        #     self.report({'ERROR'}, f'The selected mesh "{selected_object.name}" does not have the same number of vertices as the base DNA file "{self.base_dna}". Mesh {selected_object.name} can not be converted.')
-        #     return {'CANCELLED'}
+        success, message = face.validate_conversion(mesh_object=selected_object)
+        if not success: # type: ignore
+            face.delete()
+            self.report({'ERROR'}, message)
+            return {'CANCELLED'}
         
         face.ingest()
         callbacks.update_output_items(None, bpy.context)
@@ -455,6 +462,7 @@ class SendToUnreal(bpy.types.Operator):
                     instance=face.rig_logic_instance,
                     linear_modifier=face.linear_modifier,
                     meshes=False,
+                    vertex_colors=False,
                     bones=True,
                     file_name=dna_file
                 )              
@@ -463,6 +471,7 @@ class SendToUnreal(bpy.types.Operator):
                     instance=face.rig_logic_instance,
                     linear_modifier=face.linear_modifier,
                     meshes=False,
+                    vertex_colors=False,
                     bones=True,
                     file_name=dna_file
                 )

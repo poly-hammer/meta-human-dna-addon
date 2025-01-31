@@ -460,9 +460,9 @@ def update_output_items(self, context):
                     new_item.name = file_name
                     new_item.editable_name = False
 
-            # remove any output items that do not have a scene object
+            # remove any output items that do not have a scene object or image object
             for item in instance.output_item_list:
-                if not item.scene_object: # type: ignore
+                if not item.scene_object and not item.image_object: # type: ignore
                     index = instance.output_item_list.find(item.name)
                     instance.output_item_list.remove(index)
 

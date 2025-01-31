@@ -15,7 +15,9 @@ from ..constants import (
     CUSTOM_BONE_SHAPE_SCALE,
     VERTEX_COLOR_ATTRIBUTE_NAME,
     MESH_VERTEX_COLORS_FILE_PATH,
-    MESH_VERTEX_COLORS_FILE_NAME
+    MESH_VERTEX_COLORS_FILE_NAME,
+    FIRST_BONE_Y_LOCATION,
+    EXTRA_BONES
 )
 from ..bindings import riglogic
 
@@ -28,6 +30,7 @@ class DNAImporter:
         instance: RigLogicInstance,
         import_properties: MetahumanDnaImportProperties,
         linear_modifier: float,
+        create_extra_bones: bool = True,
         reader: 'riglogic.BinaryStreamReader | None' = None
     ):
         self.rig_object = None
@@ -49,6 +52,7 @@ class DNAImporter:
         else:
             self._dna_reader = reader
 
+        self._create_extra_bones = create_extra_bones
         self._prefix = self._instance.name
         self._import_lods = {}
         self._index_to_vert = {}
@@ -473,6 +477,36 @@ class DNAImporter:
                     global_matrix = parent_bone.matrix @ local_matrix
                 
                 return global_matrix
+            
+    def get_height_scale_factor(self) -> float:
+        y_locations = self._dna_reader.getNeutralJointTranslationYs()
+        # Determine the height scale factor based of how much the first bone's is moved
+        height_scale_factor = 1.0
+        if len(y_locations) > 0:
+            height_scale_factor = y_locations[0]/FIRST_BONE_Y_LOCATION
+        return height_scale_factor
+            
+    def create_extra_bones(self) -> bpy.types.EditBone | None:
+        last_edit_bone = None
+        if self._create_extra_bones:
+            height_scale_factor = self.get_height_scale_factor()
+            # Create the extra bones for the spine, pelvis, and root
+            for bone_name, bone_data in EXTRA_BONES:
+                location = bone_data['location']
+                rotation = bone_data['rotation']
+
+                # Scale the location of the bones based on the height scale factor
+                location.y = location.y * round(height_scale_factor, 4)
+
+                extra_edit_bone = self.rig_object.data.edit_bones.new(bone_name) # type: ignore
+                extra_edit_bone.length = self._linear_modifier
+                global_matrix = Matrix.Translation(location) @ rotation.to_matrix().to_4x4()
+                extra_edit_bone.matrix = global_matrix
+                extra_edit_bone.parent = self.rig_object.data.edit_bones.get(bone_data['parent'] or '') # type: ignore
+                last_edit_bone = extra_edit_bone
+
+        return last_edit_bone
+
 
     def import_bones(self):
         if not self.rig_object:
@@ -491,15 +525,14 @@ class DNAImporter:
         # remove all existing edit bones
         for edit_bone in self.rig_object.data.edit_bones: # type: ignore
             self.rig_object.data.edit_bones.remove(edit_bone) # type: ignore
-
-        # Create the root bone
-        root_edit_bone = self.rig_object.data.edit_bones.new(name='root') # type: ignore
-        root_edit_bone.length = self._linear_modifier
+            
+        # Create the extra bones below the last bone in the DNA file
+        extra_edit_bone = self.create_extra_bones()
 
         for index in range(self._dna_reader.getJointCount()):
             bone_name = self._dna_reader.getJointName(index)
             location = Vector((
-                x_locations[index]*self._linear_modifier, 
+                x_locations[index]*self._linear_modifier,
                 y_locations[index]*self._linear_modifier,
                 z_locations[index]*self._linear_modifier, 
             ))
@@ -518,7 +551,8 @@ class DNAImporter:
                 edit_bone.matrix = (
                     Matrix.Translation(location) @ euler_rotation.to_matrix().to_4x4()
                 )
-                edit_bone.parent = root_edit_bone
+                # The last extra bone should be the parent of first bone in the DNA file
+                edit_bone.parent = extra_edit_bone
 
             # Otherwise they are in parent space
             else:

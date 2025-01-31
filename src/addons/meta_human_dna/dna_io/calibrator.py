@@ -4,6 +4,7 @@ from typing import Callable
 from .importer import DNAImporter
 from .exporter import DNAExporter
 from ..bindings import riglogic
+from ..constants import EXTRA_BONES
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,8 @@ class DNACalibrator(DNAExporter, DNAImporter):
                 )
         
     def calibrate_bone_transforms(self):
+        ignored_bone_names = [i for i, _ in EXTRA_BONES]
+
         logger.info('Calibrating bones...')
         dna_x_translations = self._dna_reader.getNeutralJointTranslationXs()
         dna_y_translations = self._dna_reader.getNeutralJointTranslationYs()
@@ -57,32 +60,38 @@ class DNACalibrator(DNAExporter, DNAImporter):
 
         _, bone_names, _, _, translations, rotations = self.get_bone_transforms(self._rig_object)
         for bone_name, bone_translation, bone_rotation  in zip(bone_names, translations, rotations):
-            dna_bone_index = self._bone_index_lookup[bone_name]
-            dna_bone_translation = Vector((
-                dna_x_translations[dna_bone_index],
-                dna_y_translations[dna_bone_index],
-                dna_z_translations[dna_bone_index]
-            ))
-            translation_delta = Vector(bone_translation) - dna_bone_translation
+            if bone_name in ignored_bone_names:
+                continue
 
-            # Only modify the bone translations that are different to avoid floating point errors
-            if translation_delta.length > 1e-3:
-                dna_x_translations[dna_bone_index] = bone_translation[0]
-                dna_y_translations[dna_bone_index] = bone_translation[1]
-                dna_z_translations[dna_bone_index] = bone_translation[2]
+            dna_bone_index = self._bone_index_lookup.get(bone_name)
+            if dna_bone_index:
+                dna_bone_translation = Vector((
+                    dna_x_translations[dna_bone_index],
+                    dna_y_translations[dna_bone_index],
+                    dna_z_translations[dna_bone_index]
+                ))
+                translation_delta = Vector(bone_translation) - dna_bone_translation
 
-            # TODO: Implement bone rotation calibration with correct bone space rotation
-            # dna_bone_rotation = Vector((
-            #     dna_x_rotations[dna_bone_index],
-            #     dna_y_rotations[dna_bone_index],
-            #     dna_z_rotations[dna_bone_index]
-            # ))
-            # rotation_delta = Vector(bone_rotation) - dna_bone_rotation
-            # # Only modify the bone rotations that are different to avoid floating point errors
-            # if rotation_delta.length > 1e-3 and not is_leaf:
-            #     dna_x_rotations[dna_bone_index] = bone_rotation[0]
-            #     dna_y_rotations[dna_bone_index] = bone_rotation[1]
-            #     dna_z_rotations[dna_bone_index] = bone_rotation[2]
+                # Only modify the bone translations that are different to avoid floating point errors
+                if translation_delta.length > 1e-3:
+                    dna_x_translations[dna_bone_index] = bone_translation[0]
+                    dna_y_translations[dna_bone_index] = bone_translation[1]
+                    dna_z_translations[dna_bone_index] = bone_translation[2]
+
+                # TODO: Implement bone rotation calibration with correct bone space rotation
+                # dna_bone_rotation = Vector((
+                #     dna_x_rotations[dna_bone_index],
+                #     dna_y_rotations[dna_bone_index],
+                #     dna_z_rotations[dna_bone_index]
+                # ))
+                # rotation_delta = Vector(bone_rotation) - dna_bone_rotation
+                # # Only modify the bone rotations that are different to avoid floating point errors
+                # if rotation_delta.length > 1e-3 and not is_leaf:
+                #     dna_x_rotations[dna_bone_index] = bone_rotation[0]
+                #     dna_y_rotations[dna_bone_index] = bone_rotation[1]
+                #     dna_z_rotations[dna_bone_index] = bone_rotation[2]
+            else:
+                logger.warning(f'No DNA bone index found for bone "{bone_name}". Ignored from calibration...')
         
         self._dna_writer.setNeutralJointTranslations([
             [x, y, z] for x, y, z in zip(dna_x_translations, dna_y_translations, dna_z_translations)
