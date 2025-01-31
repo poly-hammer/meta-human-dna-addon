@@ -10,15 +10,17 @@ def update_material_instance_params(
         content_folder: str
     ):
     for param_name, texture_name in MATERIAL_INSTANCE_PARAMETERS.get(material_instance.get_name(), {}).items():
-        texture = import_texture(
-                file_path=maps_folder / texture_name,
-                content_folder=content_folder
-        )
-        unreal.MaterialEditingLibrary.set_material_instance_texture_parameter_value(
-            instance=material_instance,
-            parameter_name=unreal.Name(param_name),
-            value=texture
-        )
+        file_path = maps_folder / texture_name
+        if file_path.exists():
+            texture = import_texture(
+                    file_path=file_path,
+                    content_folder=content_folder
+            )
+            unreal.MaterialEditingLibrary.set_material_instance_texture_parameter_value(
+                instance=material_instance,
+                parameter_name=unreal.Name(param_name),
+                value=texture
+            )
 
     # the roughness map is a special case where it is a composite texture of the base normal map
     head_roughness_map = unreal.load_asset(f'{content_folder}/head_roughness_map')

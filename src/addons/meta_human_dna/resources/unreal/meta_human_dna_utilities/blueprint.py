@@ -111,7 +111,15 @@ def add_face_component_to_blueprint(
                 component_name='Face',
                 skeletal_mesh=skeletal_mesh
             )
+        # otherwise update the existing skeletal mesh component
+        elif skeletal_mesh:
+            sub_object_data_library = unreal.SubobjectDataBlueprintFunctionLibrary()
+            skeletal_mesh_component = sub_object_data_library.get_object(
+                sub_object_data_library.get_data(face_handle)
+            )
+            skeletal_mesh_component.set_skeletal_mesh_asset(skeletal_mesh) 
 
+        # compile the blueprint to apply the changes
         unreal.BlueprintEditorLibrary.compile_blueprint(blueprint)
     else:
         raise Exception("Could not find root component")

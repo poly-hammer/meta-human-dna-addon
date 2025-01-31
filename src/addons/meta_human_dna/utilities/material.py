@@ -44,4 +44,26 @@ def prefix_material_image_names(material: bpy.types.Material, prefix: str):
     if material.node_tree:
         for node in material.node_tree.nodes:
             if node.type == 'TEX_IMAGE':
-                node.image.name = f'{prefix}_{node.image.name}'
+                name = node.image.name.rstrip('.001')
+                node.image.name = f'{prefix}_{name}'
+
+
+def create_new_material(
+        name: str, 
+        color: tuple[float, float, float, float] | None = None,
+        alpha: float | None = None
+    ) -> bpy.types.Material:
+    material = bpy.data.materials.new(name=name)
+    material.use_nodes = True
+    # Create a Principled BSDF shader node
+    principled_bsdf = material.node_tree.nodes.get("Principled BSDF") # type: ignore
+    if color:
+        principled_bsdf.inputs['Base Color'].default_value = color # type: ignore
+    if alpha is not None:
+        principled_bsdf.inputs['Alpha'].default_value = alpha # type: ignore
+
+
+    # # Connect the Principled BSDF to the Material Output
+    # material_output = material.node_tree.nodes["Material Output"] # type: ignore
+    # material.node_tree.links.new(principled_bsdf.outputs["BSDF"], material_output.inputs["Surface"]) # type: ignore
+    return material

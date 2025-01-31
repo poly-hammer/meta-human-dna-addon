@@ -49,20 +49,22 @@ MESH_SHADER_MAPPING = {
     "eyelashes_lod": "eyelashes_shader",
     "eyelashesShadow_lod": "eyelashesShadow_shader",
     "eyeEdge_lod": "eyeEdge_shader",
-    "cartilage_lod": "eyeEdge_shader",
+    "cartilage_lod": "cartilage_shader",
 }
 
 MATERIAL_SLOT_TO_MATERIAL_INSTANCE_DEFAULTS = {
     "head_shader": "/Game/MetaHumans/Common/Face/Materials/Baked/MI_HeadSynthesized_Baked",
     "teeth_shader": "/Game/MetaHumans/Common/Materials/M_TeethCharacterCreator_Inst",
-    "saliva_shader": "",
+    "saliva_shader": "/Game/MetaHumans/Common/Face/Materials/MI_lacrimal_fluid_Inst",
     "eyeLeft_shader": "/Game/MetaHumans/Common/Face/Materials/MI_EyeRefractive_Inst_L",
     "eyeRight_shader": "/Game/MetaHumans/Common/Face/Materials/MI_EyeRefractive_Inst_R",
-    "eyeshell_shader": "",
-    "eyelashes_shader": "/Game/MetaHumans/Common/Materials/M_EyeLash_HigherLODs_Inst",
+    "eyeshell_shader": "/Game/MetaHumans/Common/Face/Materials/MI_EyeOcclusion_Inst",
+    "eyelashes_shader": "/Game/MetaHumans/Common/Materials/M_EyelashLowerLODs_Inst",
     "eyelashesShadow_shader": "/Game/MetaHumans/Common/Face/Materials/MI_EyeOcclusion_Inst",
     "eyeEdge_shader": "/Game/MetaHumans/Common/Face/Materials/MI_lacrimal_fluid_Inst",
+    "cartilage_shader": "/Game/MetaHumans/Common/Face/Materials/M_Cartilage",
 }
+
 
 RESOURCES_FOLDER = Path(os.path.dirname(__file__), "resources")
 BINDINGS_FOLDER = Path(os.path.dirname(__file__), "bindings")
@@ -91,14 +93,16 @@ SEND2UE_FACE_SETTINGS = RESOURCES_FOLDER / 'send2ue' / "meta-human_dna.json"
 SEND2UE_EXTENSION = RESOURCES_FOLDER / 'send2ue' / "meta_human_dna_extension.py"
 
 HEAD_MAPS = {
-    "cm_base": "head_color_map.tga",
-    "cm1": "head_cm1_color_map.tga",
-    "cm2": "head_cm2_color_map.tga",
-    "cm3": "head_cm3_color_map.tga",
-    "wm_base": "head_normal_map.tga",
-    "wm1": "head_wm1_normal_map.tga",
-    "wm2": "head_wm2_normal_map.tga",
-    "wm3": "head_wm3_normal_map.tga"
+    "Color_MAIN": "head_color_map.tga",
+    "Color_CM1": "head_cm1_color_map.tga",
+    "Color_CM2": "head_cm2_color_map.tga",
+    "Color_CM3": "head_cm3_color_map.tga",
+    "Normal_MAIN": "head_normal_map.tga",
+    "Normal_WM1": "head_wm1_normal_map.tga",
+    "Normal_WM2": "head_wm2_normal_map.tga",
+    "Normal_WM3": "head_wm3_normal_map.tga",
+    "Cavity_MAIN": "head_cavity_map.tga",
+    "Roughness_MAIN": "head_roughness_map.tga"
 }
 
 
