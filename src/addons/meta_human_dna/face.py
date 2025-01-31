@@ -35,7 +35,8 @@ from .constants import (
     INVALID_NAME_CHARACTERS_REGEX,
     TEXTURE_LOGIC_NODE_NAME,
     UV_MAP_NAME,
-    TOPO_GROUP_PREFIX
+    TOPO_GROUP_PREFIX,
+    EXTRA_BONES
 )
 
 if TYPE_CHECKING:
@@ -178,19 +179,6 @@ class MetahumanFace:
                 if mesh_object.type == 'MESH' and 'lod0' not in mesh_object.name:
                     mesh_object.hide_set(True)
 
-                # Todo dont hide these. Figure out materials
-                ignore = []
-                for i in range(NUMBER_OF_FACE_LODS):
-                    ignore.extend([
-                        f'{self.name}_eyeshell_lod{i}_mesh',
-                        f'{self.name}_eyeEdge_lod{i}_mesh',
-                        f'{self.name}_cartilage_lod{i}_mesh',
-                        f'{self.name}_saliva_lod{i}_mesh'
-                    ])
-
-                if mesh_object.name in ignore:
-                    mesh_object.hide_set(True)
-
             utilities.hide_empties()        
             self.head_rig_object.hide_set(True)
 
@@ -200,6 +188,9 @@ class MetahumanFace:
         bpy.data.images[TOPOLOGY_TEXTURE].filepath = str(TOPOLOGY_TEXTURE_FILE_PATH)
 
         for material in materials:
+            if not material.node_tree:
+                continue
+
             for node in material.node_tree.nodes: # type: ignore
                 if node.type == 'TEX_IMAGE' and node.image:
                     # get the image file name without the postfixes for duplicates i.e. .001
@@ -245,6 +236,9 @@ class MetahumanFace:
         materials = []
         directory_path = f'{MATERIALS_FILE_PATH}{sep}Material{sep}'
 
+        # Set the active collection to the scene collection. This ensures that the materials are appended to the scene collection
+        bpy.context.view_layer.active_layer_collection = bpy.context.view_layer.layer_collection # type: ignore
+
         for key, material_name in MESH_SHADER_MAPPING.items():
             material = bpy.data.materials.get(material_name)
             if not material:
@@ -255,39 +249,52 @@ class MetahumanFace:
                     filename=material_name,
                     directory=directory_path
                 )
+
+                # get the imported material
                 material = bpy.data.materials.get(material_name)
-                if material:
-                    # set the material on the rig logic instance
-                    if material.name == HEAD_MATERIAL_NAME:
-                        self.rig_logic_instance.material = material
-                        node = callbacks.get_texture_logic_node(material)
-                        if node:
-                            node.name = f'{self.name}_{TEXTURE_LOGIC_NODE_NAME}'
-                            node.label = f'{self.name}_{TEXTURE_LOGIC_NODE_NAME}'
-                            if node.node_tree:
-                                node.node_tree.name = f'{self.name}_{TEXTURE_LOGIC_NODE_NAME}'
+                if not material:
+                    material = bpy.data.materials.get(f'{self.name}_{material_name}')
+                    # create the transparent materials if they don't exist
+                    # These are for eyes and saliva
+                    if not material:
+                        material = utilities.create_new_material(
+                            name=f'{self.name}_{material_name}', 
+                            color=(1.0, 1.0, 1.0, 0.0),
+                            alpha=0.0
+                        )
 
-                    # rename to match metahuman
-                    material.name = f'{self.name}_{material_name}' # type: ignore
+                # set the material on the rig logic instance
+                if material.name == HEAD_MATERIAL_NAME:
+                    self.rig_logic_instance.material = material
+                    node = callbacks.get_texture_logic_node(material)
+                    if node:
+                        node.name = f'{self.name}_{TEXTURE_LOGIC_NODE_NAME}'
+                        node.label = f'{self.name}_{TEXTURE_LOGIC_NODE_NAME}'
+                        if node.node_tree:
+                            node.node_tree.name = f'{self.name}_{TEXTURE_LOGIC_NODE_NAME}'
 
-                    # set the uv maps on the material nodes
-                    for node in material.node_tree.nodes: # type: ignore
-                        if node.type == 'UVMAP':
-                            node.uv_map = UV_MAP_NAME
-                        elif node.type == 'NORMAL_MAP':
-                            node.uv_map = UV_MAP_NAME
-                    for node_group in bpy.data.node_groups:
-                        if node_group.name.startswith('Mask'):
-                            for node in node_group.nodes:
-                                if node.type == 'UVMAP':
-                                    node.uv_map = UV_MAP_NAME
+                # rename to match metahuman
+                material.name = f'{self.name}_{material_name}' # type: ignore
 
-                    for mesh_object in bpy.data.objects:
-                        if mesh_object.name.startswith(f'{self.name}_{key}'):
-                            if mesh_object.data.materials: # type: ignore
-                                mesh_object.data.materials[0] = material # type: ignore
-                            else:
-                                mesh_object.data.materials.append(material) # type: ignore
+                # set the uv maps on the material nodes
+                for node in material.node_tree.nodes: # type: ignore
+                    if node.type == 'UVMAP':
+                        node.uv_map = UV_MAP_NAME
+                    elif node.type == 'NORMAL_MAP':
+                        node.uv_map = UV_MAP_NAME
+                for node_group in bpy.data.node_groups:
+                    if node_group.name.startswith('Mask'):
+                        for node in node_group.nodes:
+                            if node.type == 'UVMAP':
+                                node.uv_map = UV_MAP_NAME
+
+                for mesh_object in bpy.data.objects:
+                    if mesh_object.name.startswith(f'{self.name}_{key}'):
+                        if mesh_object.data.materials: # type: ignore
+                            mesh_object.data.materials[0] = material # type: ignore
+                        else:
+                            mesh_object.data.materials.append(material) # type: ignore
+
             if material:
                 materials.append(material)
 
@@ -722,6 +729,7 @@ class MetahumanFace:
     @utilities.preserve_context
     def revert_bone_transforms_to_dna(self):
         if self.head_rig_object:
+            extra_bone_lookup = dict(EXTRA_BONES)
             # make sure the dna importer has the rig object set
             self.dna_importer.rig_object = self.head_rig_object
             
@@ -730,8 +738,18 @@ class MetahumanFace:
             
             for bone_name in bone_names:
                 edit_bone = self.head_rig_object.data.edit_bones[bone_name] # type: ignore
+                extra_bone = extra_bone_lookup.get(bone_name)
                 if bone_name == 'root':
                     edit_bone.matrix = self.head_rig_object.matrix_world
+                # reverts the default bone transforms back to their default values
+                elif extra_bone:
+                    location = extra_bone['location']
+                    rotation = extra_bone['rotation']
+                    # Scale the location of the bones based on the height scale factor
+                    location.y = location.y * self.dna_importer.get_height_scale_factor()
+                    global_matrix = Matrix.Translation(location) @ rotation.to_matrix().to_4x4()
+                    # default values are stored in Y-up, so convert to Z-up
+                    edit_bone.matrix = Matrix.Rotation(math.radians(90), 4, 'X').to_4x4() @ global_matrix
                 else:
                     bone_matrix = self.dna_importer.get_bone_matrix(bone_name=bone_name)
                     if bone_matrix:
