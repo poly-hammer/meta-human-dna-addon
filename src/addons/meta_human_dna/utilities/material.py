@@ -61,9 +61,4 @@ def create_new_material(
         principled_bsdf.inputs['Base Color'].default_value = color # type: ignore
     if alpha is not None:
         principled_bsdf.inputs['Alpha'].default_value = alpha # type: ignore
-
-
-    # # Connect the Principled BSDF to the Material Output
-    # material_output = material.node_tree.nodes["Material Output"] # type: ignore
-    # material.node_tree.links.new(principled_bsdf.outputs["BSDF"], material_output.inputs["Surface"]) # type: ignore
     return material

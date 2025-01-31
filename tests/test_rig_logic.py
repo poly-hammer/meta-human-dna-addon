@@ -5,7 +5,12 @@ import pytest
 from mathutils import Vector
 from pathlib import Path
 from pprint import pformat
-from meta_human_dna.constants import POSES_FOLDER, CUSTOM_BONE_SHAPE_NAME, CUSTOM_BONE_SHAPE_SCALE
+from meta_human_dna.constants import (
+    POSES_FOLDER, 
+    CUSTOM_BONE_SHAPE_NAME, 
+    CUSTOM_BONE_SHAPE_SCALE,
+    EXTRA_BONES
+)
 from constants import TEST_FBX_POSES_FOLDER, TEST_JSON_POSES_FOLDER
 from meta_human_dna.utilities import (
     switch_to_pose_mode,
@@ -84,8 +89,8 @@ def get_bone_differences(
     # this is used to test against the saved json files for more speed
     if target_bone_locations:
         for bone_name in source_rig.pose.bones.keys():
-            # skip the root bone
-            if bone_name == 'root':
+            # skip the extra bones
+            if bone_name in [i for i, _ in EXTRA_BONES]:
                 continue
 
             source_bone = source_rig.pose.bones[bone_name]
