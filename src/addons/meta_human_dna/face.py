@@ -223,6 +223,12 @@ class MetahumanFace:
             if any(i in image.name for i in [MASKS_TEXTURE, TOPOLOGY_TEXTURE]):
                 bpy.data.images.remove(image)
 
+    def _purge_existing_materials(self):
+        for material_name in MESH_SHADER_MAPPING.values():
+            material = bpy.data.materials.get(f'{self.name}_{material_name}')
+            if material:
+                bpy.data.materials.remove(material)
+
 
     def import_materials(self):
         if self.dna_import_properties and not self.dna_import_properties.import_materials:
@@ -239,6 +245,9 @@ class MetahumanFace:
 
         # Set the active collection to the scene collection. This ensures that the materials are appended to the scene collection
         bpy.context.view_layer.active_layer_collection = bpy.context.view_layer.layer_collection # type: ignore
+
+        # remove existing matching materials for this face to avoid duplicates being imported
+        self._purge_existing_materials()
 
         for key, material_name in MESH_SHADER_MAPPING.items():
             material = bpy.data.materials.get(material_name)

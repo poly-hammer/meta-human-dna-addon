@@ -536,7 +536,7 @@ class SendToUnreal(bpy.types.Operator):
         return bool(getattr(context.scene, 'send2ue', False)) # type: ignore
     
 class ExportToDisk(bpy.types.Operator):
-    """Exports the metahuman DNA and SkeletalMesh to a folder on disk"""
+    """Exports the metahuman DNA file to a folder on disk"""
     bl_idname = "meta_human_dna.export_to_disk"
     bl_label = "Export to Disk"
 
