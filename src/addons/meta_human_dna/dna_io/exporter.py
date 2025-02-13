@@ -83,7 +83,7 @@ class DNAExporter:
                     if not self._include_meshes:
                         continue
                     mesh_objects.append(output_item.scene_object)
-                elif output_item.image_object and output_item.image_object.type == 'IMAGE':
+                elif output_item.image_object:
                     self._images.append((output_item.image_object, output_item.name))
 
         # Sort the meshes by the order in the ORDER dictionary
@@ -445,7 +445,10 @@ class DNAExporter:
         for image, file_name in self._images:
             new_image_path = self._target_dna_file.parent / 'maps' / file_name
             os.makedirs(new_image_path.parent, exist_ok=True)
-            image.save_render(filepath=str(new_image_path))
+            try:
+                image.save(filepath=str(new_image_path))
+            except Exception:
+                image.save_render(filepath=str(new_image_path))
             logger.info(f"Image {image.name} exported successfully to: {new_image_path}")
 
     def save_vertex_colors(self):
