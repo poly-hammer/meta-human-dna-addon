@@ -3,6 +3,7 @@ import re
 import bpy
 import sys
 import logging
+import addon_utils
 from pathlib import Path
 from mathutils import Vector
 from typing import TYPE_CHECKING, Callable
@@ -236,10 +237,18 @@ def init_sentry():
     except Exception as error:
         logger.error(error)
 
+def send2ue_addon_is_valid() -> bool:
+    for module in addon_utils.modules():
+        if module.__name__ == 'send2ue':    
+            version = module.bl_info.get('version', (0,0,0))
+            if version[0] >= 2 and version[1] >= 6:
+                return True
+    return False
+
 def link_send2ue_extension():
     addon = bpy.context.preferences.addons.get('send2ue') # type: ignore
     send2ue_properties = getattr(bpy.context.scene, 'send2ue', None) # type: ignore
-    if addon and send2ue_properties:
+    if addon and send2ue_properties and send2ue_addon_is_valid():
         # check if the extension is already linked and skip the linking logic if it is
         # this allows the user to manually link their own extension if they want. 
         # It has to have the name 'meta_human_dna'.
@@ -280,6 +289,21 @@ def teardown_scene(*args):
     else:
         logging.info('De-allocated Rig Logic instances...')
 
+def pre_undo(*args):
+    bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False # type: ignore
+    for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list: # type: ignore
+        instance.destroy()
+
+def post_undo(*args):
+    bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True # type: ignore
+    for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list: # type: ignore
+        instance.evaluate()
+
+def pre_render(*args):
+    pre_undo(*args)
+
+def post_render(*args):
+    post_undo(*args)
 
 def create_empty(empty_name):
     empty_object = bpy.data.objects.get(empty_name)
