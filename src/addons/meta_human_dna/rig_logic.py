@@ -695,6 +695,9 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         raw_joint_output = self.instance.getRawJointOutputs()
         # update joint transforms
         for index in range(joint_output.size):
+            if not self.dna_reader:
+                return
+
             # get the bone 
             name = self.dna_reader.getJointName(index)
 

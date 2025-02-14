@@ -81,7 +81,12 @@ classes = [
 
 app_handlers = {
     'load_pre': bpy.app.handlers.persistent(utilities.teardown_scene),
-    'load_post': bpy.app.handlers.persistent(utilities.setup_scene)
+    'load_post': bpy.app.handlers.persistent(utilities.setup_scene),
+    'undo_pre': bpy.app.handlers.persistent(utilities.pre_undo),
+    'undo_post': bpy.app.handlers.persistent(utilities.post_undo),
+    'render_init': bpy.app.handlers.persistent(utilities.pre_render),
+    'render_complete': bpy.app.handlers.persistent(utilities.post_render),
+    'render_cancel': bpy.app.handlers.persistent(utilities.post_render)
 }
 
 def register():
@@ -113,6 +118,11 @@ def register():
     # add event handlers
     bpy.app.handlers.load_pre.append(app_handlers['load_pre'])
     bpy.app.handlers.load_post.append(app_handlers['load_post'])
+    bpy.app.handlers.undo_pre.append(app_handlers['undo_pre'])
+    bpy.app.handlers.undo_post.append(app_handlers['undo_post'])
+    bpy.app.handlers.render_init.append(app_handlers['render_init'])
+    bpy.app.handlers.render_complete.append(app_handlers['render_complete'])
+    bpy.app.handlers.render_cancel.append(app_handlers['render_cancel'])
 
 
 def unregister():
@@ -122,12 +132,20 @@ def unregister():
     utilities.teardown_scene()
 
     # remove event handlers
-    # if app_handlers['undo_pre'] in bpy.app.handlers.undo_pre:
-    #     bpy.app.handlers.undo_pre.remove(app_handlers['undo_pre'])
+    if app_handlers['undo_pre'] in bpy.app.handlers.undo_pre:
+        bpy.app.handlers.undo_pre.remove(app_handlers['undo_pre'])
+    if app_handlers['undo_post'] in bpy.app.handlers.undo_post:
+        bpy.app.handlers.undo_post.remove(app_handlers['undo_post'])
     if app_handlers['load_pre'] in bpy.app.handlers.load_pre:
         bpy.app.handlers.load_pre.remove(app_handlers['load_pre'])
     if app_handlers['load_post'] in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.remove(app_handlers['load_post'])
+    if app_handlers['render_init'] in bpy.app.handlers.render_init:
+        bpy.app.handlers.render_init.remove(app_handlers['render_init'])
+    if app_handlers['render_complete'] in bpy.app.handlers.render_complete:
+        bpy.app.handlers.render_complete.remove(app_handlers['render_complete'])
+    if app_handlers['render_cancel'] in bpy.app.handlers.render_cancel:
+        bpy.app.handlers.render_cancel.remove(app_handlers['render_cancel'])
 
     try:
         # remove menu items
