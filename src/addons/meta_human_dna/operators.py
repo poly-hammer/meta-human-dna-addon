@@ -321,6 +321,11 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
         
         bpy.ops.meta_human_dna.force_evaluate() # type: ignore
 
+        # now hide the head rig and switch it back to object mode and change the 
+        # active object to the face board
+        utilities.switch_to_object_mode()
+        bpy.context.view_layer.objects.active = face.face_board_object # type: ignore
+        utilities.switch_to_pose_mode(face.face_board_object)
         face.head_rig_object.hide_set(True) # type: ignore
 
         # Ask the user for consent to collect metrics
