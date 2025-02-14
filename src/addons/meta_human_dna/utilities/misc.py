@@ -290,17 +290,13 @@ def teardown_scene(*args):
         logging.info('De-allocated Rig Logic instances...')
 
 def pre_undo(*args):
-    from ..ui.callbacks import get_active_rig_logic
     bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False # type: ignore
-    instance = get_active_rig_logic()
-    if instance:
+    for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list: # type: ignore
         instance.destroy()
 
 def post_undo(*args):
-    from ..ui.callbacks import get_active_rig_logic
     bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True # type: ignore
-    instance = get_active_rig_logic()
-    if instance:
+    for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list: # type: ignore
         instance.evaluate()
 
 def pre_render(*args):
