@@ -309,18 +309,19 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
                 except ValueError:
                     pass
 
-            # TODO: look into why a full re-import makes the rig logic instance work again.
-            # This is heavy handed and should be avoided if possible.
-            # re-import from the new DNA file
-            bpy.ops.meta_human_dna.import_dna( # type: ignore
-                filepath=new_dna_file_path,
-                **kwargs
-            )
+            # NOTE: Some dependency graph weirdness here. This is necessary to ensure that the rig logic 
+            # evaluates the pose bones, otherwise bone transform updates won't be applied when the face 
+            # board updates.
+            face.head_rig_object.hide_set(False) # type: ignore
+            bpy.context.view_layer.objects.active = face.head_rig_object # type: ignore
+            utilities.switch_to_pose_mode(face.head_rig_object)
 
         # now we can evaluate the dependency graph again
         window_manager_properties.evaluate_dependency_graph = True
         
         bpy.ops.meta_human_dna.force_evaluate() # type: ignore
+
+        face.head_rig_object.hide_set(True) # type: ignore
 
         # Ask the user for consent to collect metrics
         bpy.ops.meta_human_dna.metrics_collection_consent('INVOKE_DEFAULT') # type: ignore

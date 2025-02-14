@@ -31,7 +31,7 @@ class DNACalibrator(DNAExporter, DNAImporter):
                     vertex_position = Vector(vertex_positions[vertex_index])
                     dna_vertex_position = Vector((x_values[vertex_index], y_values[vertex_index], z_values[vertex_index]))
                     delta = vertex_position - dna_vertex_position
-                    # This ensures that we only modify the vertex positions that are different to avoid floating point errors
+                    # This ensures that we only modify the vertex positions that are different to avoid floating value drift
                     if delta.length > 1e-6:
                         x_values[vertex_index] = vertex_position.x
                         y_values[vertex_index] = vertex_position.y
@@ -64,7 +64,7 @@ class DNACalibrator(DNAExporter, DNAImporter):
                 continue
 
             dna_bone_index = self._bone_index_lookup.get(bone_name)
-            if dna_bone_index:
+            if dna_bone_index is not None:
                 dna_bone_translation = Vector((
                     dna_x_translations[dna_bone_index],
                     dna_y_translations[dna_bone_index],
@@ -72,7 +72,7 @@ class DNACalibrator(DNAExporter, DNAImporter):
                 ))
                 translation_delta = Vector(bone_translation) - dna_bone_translation
 
-                # Only modify the bone translations that are different to avoid floating point errors
+                # Only modify the bone translations that are different to avoid floating point value drift
                 if translation_delta.length > 1e-3:
                     dna_x_translations[dna_bone_index] = bone_translation[0]
                     dna_y_translations[dna_bone_index] = bone_translation[1]

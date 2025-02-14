@@ -1,6 +1,8 @@
 ## Patch Changes
 * Fixed existing material duplication on import [#54](https://github.com/poly-hammer/meta-human-dna-addon/issues/54)
 * Fixed save multilayer image error [#55](https://github.com/poly-hammer/meta-human-dna-addon/issues/55)
+* Fixed Convert to DNA bug with height change [#58](https://github.com/poly-hammer/meta-human-dna-addon/issues/58)
+* Added validation to check the Send to Unreal Addon version.
 
 ## Tests Passing On
 * Blender `4.2` (installed from blender.org)
