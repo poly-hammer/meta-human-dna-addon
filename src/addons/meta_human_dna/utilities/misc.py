@@ -289,6 +289,21 @@ def teardown_scene(*args):
     else:
         logging.info('De-allocated Rig Logic instances...')
 
+def pre_undo(*args):
+    bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False # type: ignore
+    for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list: # type: ignore
+        instance.destroy()
+
+def post_undo(*args):
+    bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True # type: ignore
+    for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list: # type: ignore
+        instance.evaluate()
+
+def pre_render(*args):
+    pre_undo(*args)
+
+def post_render(*args):
+    post_undo(*args)
 
 def create_empty(empty_name):
     empty_object = bpy.data.objects.get(empty_name)
