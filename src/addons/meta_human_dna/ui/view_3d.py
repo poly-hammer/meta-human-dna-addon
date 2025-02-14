@@ -582,11 +582,21 @@ class META_HUMAN_DNA_PT_send2ue_settings_sub_panel(bpy.types.Panel):
     bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
+        from ..utilities import send2ue_addon_is_valid
         if not getattr(context.scene, 'send2ue', None): # type: ignore
             row = self.layout.row()
             row.alert = True
             row.label(
                 text='Send to Unreal Addon must be installed and enabled', 
+                icon='ERROR'
+            )
+            return        
+        
+        if not send2ue_addon_is_valid(): # type: ignore
+            row = self.layout.row()
+            row.alert = True
+            row.label(
+                text='Send to Unreal Addon version 2.6.0 or greater is required.', 
                 icon='ERROR'
             )
             return
