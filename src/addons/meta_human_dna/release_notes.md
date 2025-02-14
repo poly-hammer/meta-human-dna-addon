@@ -10,3 +10,5 @@
 * Unreal `5.4`
 * Metahuman Preset `3.1.0`
 * Metahuman Creator Version `1.3.0`
+
+@poly-hammer/meta_human_dna_addon_early_access
