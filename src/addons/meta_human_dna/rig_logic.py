@@ -543,7 +543,10 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             for pose_bone in self.head_rig.pose.bones:
                 pose_bone.rotation_mode = "XYZ"
                 # save the rest pose and their parent space matrix so we don't have to calculate it again
-                rest_pose[pose_bone.name] = utilities.get_bone_rest_transformations(pose_bone.bone)
+                try:
+                    rest_pose[pose_bone.name] = utilities.get_bone_rest_transformations(pose_bone.bone)
+                except ValueError:
+                    return {}
         
         # save the rest pose so we don't have to calculate it again
         self.data['rest_pose'] = rest_pose
@@ -689,6 +692,11 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     def update_bone_transforms(self):
         # skip if the head rig is not set
         if not self.head_rig or not self.dna_reader:
+            return
+        
+        # skip if the rest pose is not initialized
+        # https://github.com/poly-hammer/meta-human-dna-addon/issues/58
+        if not self.rest_pose:
             return
         
         joint_output = self.instance.getJointOutputs()
