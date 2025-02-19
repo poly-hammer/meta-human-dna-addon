@@ -43,30 +43,39 @@ def set_keys_on_bone(
         keyframe_point.co[0] = frame
         keyframe_point.co[1] = value * scale_factor
 
-def get_animation_curves_from_fbx(file_path: Path) -> dict:
+
+def import_action_from_fbx(file_path: Path, armature: bpy.types.Object):
+    file_path = Path(file_path)
+
+    # remove the action if it already exists
+    face_board_action = bpy.data.actions.get(file_path.stem)
+    if face_board_action:
+        bpy.data.actions.remove(face_board_action)
+    face_board_action = bpy.data.actions.new(name=file_path.stem)
+
+    # remember the current actions and objects
     current_actions = [action for action in bpy.data.actions]
     current_objects = [scene_object for scene_object in bpy.data.objects]
+    # then import the fbx
     bpy.ops.import_scene.fbx(filepath=str(file_path))
-    
-    post_fix = '|Unreal Take|Base Layer'
-    curves = {}
 
-    axis_lookup = {
-         0:'x',
-         1:'y',
-         2:'z'
-    }
-
+    # copy all the fcurves from the imported action to the new one
     for action in bpy.data.actions:
-        if action.name.endswith(post_fix):
-            curve_name = action.name.replace(post_fix, '').split('.')[0]
-            curves[curve_name] = {}
-            for fcurve in action.fcurves:
-                curves[curve_name][fcurve.data_path] = curves[curve_name].get(fcurve.data_path, {})
-                axis = axis_lookup.get(fcurve.array_index)
-                curves[curve_name][fcurve.data_path][axis] = [
-                    (keyframe.co[0], keyframe.co[1]) for keyframe in fcurve.keyframe_points
-                ]
+        if action in current_actions:
+            continue
+
+        curve_name = action.name.split('.')[0]
+        for source_fcurve in action.fcurves:
+            target_fcurve = face_board_action.fcurves.new(
+                data_path=f'pose.bones["{curve_name}"].{source_fcurve.data_path}',
+                index=source_fcurve.array_index
+            )
+            # then add as many points as keyframes
+            target_fcurve.keyframe_points.add(len(source_fcurve.keyframe_points))
+            # then set all all their values
+            for index, keyframe in enumerate(source_fcurve.keyframe_points):
+                target_fcurve.keyframe_points[index].co = keyframe.co
+                target_fcurve.keyframe_points[index].interpolation = keyframe.interpolation
 
     # remove the imported objects
     for scene_object in bpy.data.objects:
@@ -77,34 +86,10 @@ def get_animation_curves_from_fbx(file_path: Path) -> dict:
         if action not in current_actions:
             bpy.data.actions.remove(action)
 
-    return curves
-
-
-def import_action_from_fbx(file_path: Path, armature: bpy.types.Object):
-    file_path = Path(file_path)
-    curves = get_animation_curves_from_fbx(file_path)
-
-    # remove the action if it already exists
-    action = bpy.data.actions.get(file_path.stem)
-    if action:
-        bpy.data.actions.remove(action)
-    action = bpy.data.actions.new(name=file_path.stem)
-
-    for curve_name, curve_data in curves.items():
-        for data_path, axis_data in curve_data.items():
-            for axis, keys in axis_data.items():
-                set_keys_on_bone(
-                    action=action, 
-                    bone_name=curve_name, 
-                    data_path=data_path, 
-                    axis=axis, 
-                    keys=keys
-                )
-
+    # assign the new action to the face board
     if not armature.animation_data:
         armature.animation_data_create()
-
-    armature.animation_data.action = action
+    armature.animation_data.action = face_board_action
 
 
 def import_action_from_json(file_path: Path, armature: bpy.types.Object):

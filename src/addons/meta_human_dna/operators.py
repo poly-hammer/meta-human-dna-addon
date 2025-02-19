@@ -98,14 +98,14 @@ class GenericProgressQueueOperator(bpy.types.Operator):
         pass   
 
 
-class ImportMetahumanFaceAnimation(bpy.types.Operator, importer.ImportAsset, MetahumanDnaImportProperties):
-    """Import an animation for the metahuman face board"""
+class ImportAnimation(bpy.types.Operator, importer.ImportAsset):
+    """Import an animation for the metahuman face board exported from an Unreal Engine Level Sequence"""
     bl_idname = "meta_human_dna.import_animation"
     bl_label = "Import Animation"
-    filename_ext = ".json"
+    filename_ext = ".fbx"
 
     filter_glob: bpy.props.StringProperty(
-        default="*.json",
+        default="*.fbx",
         options={"HIDDEN"},
         subtype="FILE_PATH",
     ) # type: ignore
@@ -114,8 +114,34 @@ class ImportMetahumanFaceAnimation(bpy.types.Operator, importer.ImportAsset, Met
         logger.info(f'Importing animation {self.filepath}')  # type: ignore
         face = utilities.get_active_face()
         if face:
-            face.import_animation(self.filepath)  # type: ignore
+            face.import_action(Path(self.filepath))  # type: ignore
         return {'FINISHED'}
+    
+class BakeAnimation(bpy.types.Operator):
+    """Bakes the active face board action to the pose bones, shape key values, and texture logic mask values. Useful for rendering, simulations, etc. where rig logic evaluation is not available"""
+    bl_idname = "meta_human_dna.bake_animation"
+    bl_label = "Bake Animation"
+
+    def execute(self, context):
+        face = utilities.get_active_face()
+        if face:
+            face.bake_active_action()  # type: ignore
+        return {'FINISHED'}
+    
+    @classmethod
+    def poll(cls, context):
+        instance = callbacks.get_active_rig_logic()
+        if not instance:
+            return False
+        if not instance.head_rig:
+            return False
+        if not instance.face_board:
+            return False
+        if not instance.face_board.animation_data:
+            return False
+        if not instance.face_board.animation_data.action:
+            return False
+        return True
 
 
 class ImportMetahumanDna(bpy.types.Operator, importer.ImportAsset, MetahumanDnaImportProperties):

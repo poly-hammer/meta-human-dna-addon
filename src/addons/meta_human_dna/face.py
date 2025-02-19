@@ -344,6 +344,13 @@ class MetahumanFace:
                         collection.objects.unlink(empty) # type: ignore
                     empty.use_fake_user = True
                 
+    def _purge_face_board_components(self):
+        with bpy.data.libraries.load(str(FACE_BOARD_FILE_PATH)) as (data_from, data_to):
+            if data_from.objects:
+                for name in data_from.objects:
+                    scene_object = bpy.data.objects.get(name)
+                    if scene_object:
+                        bpy.data.objects.remove(scene_object, do_unlink=True)
 
     def _import_face_board(self) -> bpy.types.Object | None:
         if not self.dna_import_properties.import_face_board:
@@ -352,6 +359,9 @@ class MetahumanFace:
         sep = '\\'
         if sys.platform != 'win32':
             sep = '/'
+
+        # delete all face board objects in the scene that already exist
+        self._purge_face_board_components()
 
         bpy.ops.wm.append(
             filepath=f'{FACE_BOARD_FILE_PATH}{sep}Object{sep}{FACE_BOARD_NAME}',
@@ -389,11 +399,19 @@ class MetahumanFace:
         face_board_object.data.relation_line_position = 'HEAD' # type: ignore
         return face_board_object
 
-    def import_animation(self, file_path):
+    def import_action(self, file_path: Path):
+        file_path = Path(file_path)
         if not self.face_board_object:
             return
         
-        utilities.import_action_from_json(file_path, self.face_board_object)    
+        if file_path.suffix.lower() == '.json':
+            utilities.import_action_from_json(file_path, self.face_board_object)    
+        elif file_path.suffix.lower() == '.fbx':
+            utilities.import_action_from_fbx(file_path, self.face_board_object)
+
+    def bake_active_action(self):
+        if self.face_board_object:
+            self.face_board_object.animation_data.action = None
 
     def ingest(self) -> tuple[bool, str]:        
         valid, message = self.dna_importer.run()
