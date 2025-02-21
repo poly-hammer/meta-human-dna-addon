@@ -2,8 +2,16 @@ import os
 import bpy
 import json
 import logging
+from typing import TYPE_CHECKING
 from pathlib import Path
 from ..constants import Axis
+from . import (
+    switch_to_pose_mode,
+    switch_to_object_mode
+)
+
+if TYPE_CHECKING:
+    from ..rig_logic import RigLogicInstance
 
 logger = logging.getLogger(__name__)
 
@@ -139,3 +147,119 @@ def import_action_from_json(file_path: Path, armature: bpy.types.Object):
                 logger.error(f'failed to parse args from curve {curve_name}')
 
     armature.animation_data.action = action
+
+def bake_control_curve_values_for_frame(
+        instance: 'RigLogicInstance', 
+        texture_logic_node: bpy.types.ShaderNodeGroup | None,
+        action: bpy.types.Action, 
+        frame: int,
+        masks: bool = True,
+        shape_keys: bool = True
+    ):
+    index_lookup = {
+        0: 'x',
+        1: 'y',
+        2: 'z'
+    }
+    control_curve_values = {}
+
+    for fcurve in action.fcurves:
+        # type: ignore
+        control_curve_name, transform = fcurve.data_path.split('"].')
+        if transform == 'location' and fcurve.array_index != 2:
+            control_curve_name = control_curve_name.replace('pose.bones["', '')
+            axis = index_lookup[fcurve.array_index]
+            
+            control_curve_values[control_curve_name] = control_curve_values.get(control_curve_name, {})
+            control_curve_values[control_curve_name].update({
+                axis: fcurve.evaluate(frame)
+            })
+
+    # set and update the control curve values based on the fcurve values
+    instance.update_gui_control_values(override_values=control_curve_values)
+    
+    # now get the calculated values and bake them to the shape keys value
+    if shape_keys:
+        for shape_key, value in instance.update_shape_keys():
+            shape_key.value = value
+            shape_key.keyframe_insert(data_path="value", frame=frame)
+
+    # now bake the texture mask values
+    if texture_logic_node and masks:
+        for slider_name, value in instance.update_texture_masks():
+            texture_logic_node.inputs[slider_name].default_value = value # type: ignore
+            texture_logic_node.inputs[slider_name].keyframe_insert(
+                data_path="default_value", 
+                frame=frame
+            )
+
+def bake_to_action(
+        armature_object: bpy.types.Object,
+        action_name: str,
+        start_frame: int,
+        end_frame: int,
+        step: int = 1,
+        clean_curves: bool = True,
+        channel_types: set | None = None,
+        masks: bool = True,
+        shape_keys: bool = True
+    ):
+    from ..ui.callbacks import get_active_rig_logic, get_texture_logic_node
+
+    instance = get_active_rig_logic()
+    if instance:
+        if channel_types is None:
+            channel_types = {"LOCATION", "ROTATION", "SCALE"}
+
+        if instance.face_board and instance.face_board.animation_data:
+            action = instance.face_board.animation_data.action
+            if not action:
+                return
+            
+            instance.auto_evaluate = True            
+            switch_to_object_mode()
+            armature_object.hide_set(False)
+            bpy.context.view_layer.objects.active = armature_object # type: ignore
+            switch_to_pose_mode(armature_object)
+            
+            # select all facial bones that are effected by rig logic
+            for bone in armature_object.data.bones: # type: ignore
+                if bone.name.startswith('FACIAL_'):
+                    bone.select = True
+                    bone.select_head = True
+                    bone.select_tail = True
+                else:
+                    bone.select = False
+                    bone.select_head = False
+                    bone.select_tail = False
+
+            # bake the visual keying of the pose bones
+            bpy.ops.nla.bake(
+                frame_start=start_frame,
+                frame_end=end_frame,
+                step=step,
+                only_selected=True,
+                visual_keying=True,
+                use_current_action=True,
+                bake_types={'POSE'},
+                clean_curves=clean_curves,
+                channel_types=channel_types
+            )
+            instance.auto_evaluate = False
+
+            bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False # type: ignore
+            texture_logic_node = get_texture_logic_node(instance.material)
+            for frame in range(start_frame, end_frame + 1): # type: ignore
+                # modulo the step to only bake every nth frame
+                if frame % step == 0:
+                    bake_control_curve_values_for_frame(
+                        instance=instance,
+                        texture_logic_node=texture_logic_node,
+                        action=action,
+                        frame=frame,
+                        shape_keys=shape_keys,
+                        masks=masks
+                    )
+
+            action.name = action_name
+            bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True # type: ignore
