@@ -102,10 +102,10 @@ class ImportAnimation(bpy.types.Operator, importer.ImportAsset):
     """Import an animation for the metahuman face board exported from an Unreal Engine Level Sequence"""
     bl_idname = "meta_human_dna.import_animation"
     bl_label = "Import Animation"
-    filename_ext = ".fbx,.json"
+    filename_ext = ".fbx"
 
     filter_glob: bpy.props.StringProperty(
-        default="*.fbx;*.json",
+        default="*.fbx",
         options={"HIDDEN"},
         subtype="FILE_PATH",
     ) # type: ignore
