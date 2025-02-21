@@ -98,14 +98,14 @@ class GenericProgressQueueOperator(bpy.types.Operator):
         pass   
 
 
-class ImportMetahumanFaceAnimation(bpy.types.Operator, importer.ImportAsset, MetahumanDnaImportProperties):
-    """Import an animation for the metahuman face board"""
+class ImportAnimation(bpy.types.Operator, importer.ImportAsset):
+    """Import an animation for the metahuman face board exported from an Unreal Engine Level Sequence"""
     bl_idname = "meta_human_dna.import_animation"
     bl_label = "Import Animation"
-    filename_ext = ".json"
+    filename_ext = ".fbx"
 
     filter_glob: bpy.props.StringProperty(
-        default="*.json",
+        default="*.fbx",
         options={"HIDDEN"},
         subtype="FILE_PATH",
     ) # type: ignore
@@ -114,8 +114,137 @@ class ImportMetahumanFaceAnimation(bpy.types.Operator, importer.ImportAsset, Met
         logger.info(f'Importing animation {self.filepath}')  # type: ignore
         face = utilities.get_active_face()
         if face:
-            face.import_animation(self.filepath)  # type: ignore
+            face.import_action(Path(self.filepath))  # type: ignore
         return {'FINISHED'}
+    
+class BakeAnimation(bpy.types.Operator):
+    """Bakes the active face board action to the pose bones, shape key values, and texture logic mask values. Useful for rendering, simulations, etc. where rig logic evaluation is not available"""
+    bl_idname = "meta_human_dna.bake_animation"
+    bl_label = "Bake Animation"
+
+    action_name: bpy.props.StringProperty(
+        name="Action Name",
+        default="baked_action",
+        description="The name of the action that will be created to store the baked animation data"
+    ) # type: ignore
+
+    start_frame: bpy.props.IntProperty(
+        name="Start Frame",
+        default=bpy.context.scene.frame_start, # type: ignore
+        min=1,
+        description="The frame to start baking the animation on"
+    ) # type: ignore
+
+    end_frame: bpy.props.IntProperty(
+        name="End Frame",
+        default=bpy.context.scene.frame_end, # type: ignore
+        min=1,
+        description="The frame to end baking the animation on"
+    ) # type: ignore
+
+    step: bpy.props.IntProperty(
+        name="Step",
+        default=1,
+        min=1,
+        description="The frame step to bake the animation on. Essentially add a keyframe every nth frame"
+    ) # type: ignore
+
+    masks: bpy.props.BoolProperty(
+        name="Masks",
+        default=True,
+        description="Bakes the values of the wrinkle map masks over time"
+    ) # type: ignore
+
+    shape_keys: bpy.props.BoolProperty(
+        name="Shape Keys",
+        default=True,
+        description="Bakes the values of the shape keys over time"
+    ) # type: ignore
+
+    clean_curves: bpy.props.BoolProperty(
+        name="Clean Curves",
+        default=False,
+        description="Clean Curves, After baking curves, remove redundant keys"
+    ) # type: ignore
+
+    bone_location: bpy.props.BoolProperty(
+        name="Bone Location",
+        default=True,
+        description="Bakes the location of the bones"
+    ) # type: ignore
+    bone_rotation: bpy.props.BoolProperty(
+        name="Bone Rotation",
+        default=True,
+        description="Bakes the rotation of the bones"
+    ) # type: ignore
+    bone_scale: bpy.props.BoolProperty(
+        name="Bone Scale",
+        default=True,
+        description="Bakes the scale of the bones"
+    ) # type: ignore
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self, width = 250) # type: ignore
+
+    def draw(self, context):
+        row = self.layout.row()
+        row.prop(self, 'action_name', text="Name")
+        row = self.layout.row()
+        row.prop(self, 'start_frame')
+        row.prop(self, 'end_frame')
+        row = self.layout.row()
+        row.prop(self, 'step')
+        row = self.layout.row()
+        row.prop(self, 'shape_keys')
+        row = self.layout.row()
+        row.prop(self, 'masks')
+        row = self.layout.row()
+        row.label(text="Bones:")
+        row = self.layout.row()
+        row.prop(self, 'bone_location', text="Location")
+        row = self.layout.row()
+        row.prop(self, 'bone_rotation', text="Rotation")
+        row = self.layout.row()
+        row.prop(self, 'bone_scale', text="Scale")
+
+    def execute(self, context):
+        face = utilities.get_active_face()
+        if face and face.head_rig_object:
+            channel_types = set()
+            if self.bone_location:
+                channel_types.add('LOCATION')
+            if self.bone_rotation:
+                channel_types.add('ROTATION')
+            if self.bone_scale:
+                channel_types.add('SCALE')
+
+            utilities.bake_to_action(
+                armature_object=face.head_rig_object,
+                action_name=self.action_name,
+                start_frame=self.start_frame, # type: ignore
+                end_frame=self.end_frame, # type: ignore
+                step=self.step,
+                channel_types=channel_types,
+                clean_curves=self.clean_curves,
+                masks=self.masks,
+                shape_keys=self.shape_keys   
+            )
+        return {'FINISHED'}
+    
+    @classmethod
+    def poll(cls, context):
+        instance = callbacks.get_active_rig_logic()
+        if not instance:
+            return False
+        if not instance.head_rig:
+            return False
+        if not instance.face_board:
+            return False
+        if not instance.face_board.animation_data:
+            return False
+        if not instance.face_board.animation_data.action:
+            return False
+        return True
 
 
 class ImportMetahumanDna(bpy.types.Operator, importer.ImportAsset, MetahumanDnaImportProperties):

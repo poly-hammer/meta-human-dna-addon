@@ -182,9 +182,11 @@ class META_HUMAN_DNA_PT_face_board(bpy.types.Panel):
             )
             row = self.layout.row()
             row.prop(window_manager_properties, "face_pose_previews", text='')
-            # TODO: Implement import from FBX file instead of from just a JSON file
-            # row = self.layout.row()
-            # row.operator('meta_human_dna.import_animation', icon='IMPORT')
+            row = self.layout.row()
+            row.label(text='Animation:')
+            split = self.layout.split(factor=0.5)
+            split.operator('meta_human_dna.import_animation', icon='IMPORT', text='Import')
+            split.operator('meta_human_dna.bake_animation', icon='ACTION', text='Bake')
         else:
             draw_rig_logic_instance_error(self.layout, error)
 
