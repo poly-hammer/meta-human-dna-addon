@@ -38,6 +38,7 @@ classes = [
     operators.OpenMetricsCollectionAgreement,
     operators.MetricsCollectionConsent,
     operators.MirrorSelectedBones,
+    operators.SyncWithBodyBonesInBlueprint,
     operators.PushBonesForwardAlongNormals,
     operators.PushBonesBackwardAlongNormals,
     operators.ShrinkWrapVertexGroup,

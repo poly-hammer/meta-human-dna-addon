@@ -23,6 +23,18 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
+def get_start_frame() -> int:
+    try:
+        return bpy.context.scene.frame_start # type: ignore
+    except AttributeError:
+        return 1
+
+def get_end_frame() -> int:
+    try:
+        return bpy.context.scene.frame_end # type: ignore
+    except AttributeError:
+        return 250
     
 def get_active_rig_logic() -> 'RigLogicInstance | None':
     """
