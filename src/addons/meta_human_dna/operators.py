@@ -130,14 +130,14 @@ class BakeAnimation(bpy.types.Operator):
 
     start_frame: bpy.props.IntProperty(
         name="Start Frame",
-        default=bpy.context.scene.frame_start, # type: ignore
+        default=1, # type: ignore
         min=1,
         description="The frame to start baking the animation on"
     ) # type: ignore
 
     end_frame: bpy.props.IntProperty(
         name="End Frame",
-        default=bpy.context.scene.frame_end, # type: ignore
+        default=250, # type: ignore
         min=1,
         description="The frame to end baking the animation on"
     ) # type: ignore

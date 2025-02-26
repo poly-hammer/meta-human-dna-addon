@@ -1,6 +1,7 @@
 import bpy # type: ignore
 from bpy_extras.io_utils import ImportHelper # type: ignore
 from ..constants import NUMBER_OF_FACE_LODS
+from ..dna_io import ( get_dna_reader )
 
 
 class META_HUMAN_DNA_MESH_DATA_PT_panel(bpy.types.Panel):
@@ -57,6 +58,27 @@ class META_HUMAN_DNA_LODS_PT_panel(bpy.types.Panel):
                 row.enabled = False
             row.prop(operator, f"import_lod{i}")
             row = layout.row()
+
+
+class META_HUMAN_DNA_FILE_VERSION_PT_panel(bpy.types.Panel):
+    # self.dna_reader.getRotationUnit().name
+    # self.dna_reader.getTranslationUnit().name
+
+    bl_space_type = 'FILE_BROWSER'
+    bl_region_type = 'TOOL_PROPS'
+    bl_label = "DNA File Info"
+    bl_parent_id = "FILE_PT_operator"
+    bl_options = {'HEADER_LAYOUT_EXPAND'}
+
+    def draw(self, context):
+        operator = context.space_data.active_operator # type: ignore
+        layout = self.layout
+        if operator.filepath.endswith(".dna"):
+            dna_reader = get_dna_reader(operator.filepath)
+            row = layout.row()
+            row.label(text=f"Rotation Units: {dna_reader.getRotationUnit().name}")
+            row = layout.row()
+            row.label(text=f"Translation Units: {dna_reader.getTranslationUnit().name}")
 
 
 class ImportAsset(ImportHelper):
