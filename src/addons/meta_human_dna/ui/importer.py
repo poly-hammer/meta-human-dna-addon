@@ -1,8 +1,11 @@
 import bpy # type: ignore
 from bpy_extras.io_utils import ImportHelper # type: ignore
 from ..constants import NUMBER_OF_FACE_LODS
-from ..dna_io import ( get_dna_reader )
+from ..dna_io import get_dna_reader
 
+# Global variables to track the current file path and the dna reader
+_previous_file_path = ""
+_dna_reader = None
 
 class META_HUMAN_DNA_MESH_DATA_PT_panel(bpy.types.Panel):
     bl_space_type = 'FILE_BROWSER'
@@ -61,9 +64,6 @@ class META_HUMAN_DNA_LODS_PT_panel(bpy.types.Panel):
 
 
 class META_HUMAN_DNA_FILE_VERSION_PT_panel(bpy.types.Panel):
-    # self.dna_reader.getRotationUnit().name
-    # self.dna_reader.getTranslationUnit().name
-
     bl_space_type = 'FILE_BROWSER'
     bl_region_type = 'TOOL_PROPS'
     bl_label = "DNA File Info"
@@ -71,14 +71,24 @@ class META_HUMAN_DNA_FILE_VERSION_PT_panel(bpy.types.Panel):
     bl_options = {'HEADER_LAYOUT_EXPAND'}
 
     def draw(self, context):
+        global _previous_file_path, _dna_reader
         operator = context.space_data.active_operator # type: ignore
         layout = self.layout
-        if operator.filepath.endswith(".dna"):
-            dna_reader = get_dna_reader(operator.filepath)
-            row = layout.row()
-            row.label(text=f"Rotation Units: {dna_reader.getRotationUnit().name}")
-            row = layout.row()
-            row.label(text=f"Translation Units: {dna_reader.getTranslationUnit().name}")
+
+        if operator.filepath.endswith(".dna") and operator.filepath != _previous_file_path:
+            print(_previous_file_path)
+            _previous_file_path = operator.filepath
+            print(_previous_file_path)
+            _dna_reader = get_dna_reader(
+                file_path=operator.filepath,
+                file_format='binary',
+                data_layer='Descriptor'
+            )
+
+        row = layout.row()
+        row.label(text=f"Rotation Units: {_dna_reader.getRotationUnit().name}") # type: ignore
+        row = layout.row()
+        row.label(text=f"Translation Units: {_dna_reader.getTranslationUnit().name}") # type: ignore
 
 
 class ImportAsset(ImportHelper):
@@ -88,5 +98,5 @@ class ImportAsset(ImportHelper):
     bl_idname = "meta_human_dna.import_dna"
     bl_options = {'UNDO', 'PRESET'}
 
-    def draw(self, context):
+    def draw(self, context):\
         pass
