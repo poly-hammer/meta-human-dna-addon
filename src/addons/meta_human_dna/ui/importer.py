@@ -98,5 +98,5 @@ class ImportAsset(ImportHelper):
     bl_idname = "meta_human_dna.import_dna"
     bl_options = {'UNDO', 'PRESET'}
 
-    def draw(self, context):\
+    def draw(self, context):
         pass
