@@ -76,9 +76,7 @@ class META_HUMAN_DNA_FILE_VERSION_PT_panel(bpy.types.Panel):
         layout = self.layout
 
         if operator.filepath.endswith(".dna") and operator.filepath != _previous_file_path:
-            print(_previous_file_path)
             _previous_file_path = operator.filepath
-            print(_previous_file_path)
             _dna_reader = get_dna_reader(
                 file_path=operator.filepath,
                 file_format='binary',
