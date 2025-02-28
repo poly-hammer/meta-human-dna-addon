@@ -4,6 +4,7 @@ nav:
   - Terminology: "terminology.md"
   - User Interface:
     - Face Board: "user-interface/face-board.md"
+    - Utilities: "user-interface/utilities.md"
     - View Options: "user-interface/view-options.md"
     - Rig Logic: "user-interface/rig-logic.md"
     - Shape Keys: "user-interface/shape-keys.md"

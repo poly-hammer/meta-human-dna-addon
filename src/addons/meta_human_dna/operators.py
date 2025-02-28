@@ -717,7 +717,7 @@ class ExportToDisk(bpy.types.Operator):
         return {'FINISHED'}
 
 class SyncWithBodyBonesInBlueprint(bpy.types.Operator):
-    """Syncs the spine bone positions with the body mesh in the unreal blueprint. This can help ensure that your head matches the body height. You must have the blueprint asset path set in your Send to Unreal Settings so it knows where to look for the bone positions"""
+    """Syncs the spine bone positions with the body skeleton in the unreal blueprint. This can help ensure that your head matches the body height. You must have the blueprint asset path set in your Send to Unreal Settings so it knows where to look for the bone positions"""
     bl_idname = "meta_human_dna.sync_with_body_in_blueprint"
     bl_label = "Sync with Body in Blueprint"
 
