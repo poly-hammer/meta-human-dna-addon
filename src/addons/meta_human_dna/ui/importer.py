@@ -2,6 +2,7 @@ import bpy # type: ignore
 from bpy_extras.io_utils import ImportHelper # type: ignore
 from ..constants import NUMBER_OF_FACE_LODS
 from ..dna_io import get_dna_reader
+from pathlib import Path
 
 # Global variables to track the current file path and the dna reader
 _previous_file_path = ""
@@ -71,22 +72,22 @@ class META_HUMAN_DNA_FILE_VERSION_PT_panel(bpy.types.Panel):
     bl_options = {'HEADER_LAYOUT_EXPAND'}
 
     def draw(self, context):
-        global _previous_file_path, _dna_reader
         operator = context.space_data.active_operator # type: ignore
         layout = self.layout
+        wm = bpy.context.window_manager.meta_human_dna.dna_info # type: ignore
 
-        if operator.filepath.endswith(".dna") and operator.filepath != _previous_file_path:
-            _previous_file_path = operator.filepath
-            _dna_reader = get_dna_reader(
-                file_path=operator.filepath,
-                file_format='binary',
-                data_layer='Descriptor'
-            )
-
-        row = layout.row()
-        row.label(text=f"Rotation Units: {_dna_reader.getRotationUnit().name}") # type: ignore
-        row = layout.row()
-        row.label(text=f"Translation Units: {_dna_reader.getTranslationUnit().name}") # type: ignore
+        if operator.filepath.endswith(".dna"):
+            if not wm['_dna_reader'] or operator.filepath != wm['_previous_file_path']:
+                wm['_previous_file_path'] = operator.filepath
+                wm['_dna_reader'] = get_dna_reader(
+                    file_path=Path(operator.filepath),
+                    file_format='binary',
+                    data_layer='Descriptor'
+                )
+        
+            dna_reader = wm['_dna_reader']
+            layout.label(text=f"Rotation Units: {dna_reader.getRotationUnit().name}")
+            layout.label(text=f"Translation Units: {dna_reader.getTranslationUnit().name}")
 
 
 class ImportAsset(ImportHelper):

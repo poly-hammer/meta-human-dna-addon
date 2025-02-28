@@ -109,6 +109,10 @@ class MetahumanWindowMangerProperties(bpy.types.PropertyGroup, MetahumanDnaImpor
     """
     assets = {}
     errors = {}
+    dna_info = {
+        '_previous_file_path': None,
+        '_dna_reader': None
+    }
 
     error_message: bpy.props.StringProperty(default='') # type: ignore
     progress: bpy.props.FloatProperty(default=1.0) # type: ignore
