@@ -4,10 +4,6 @@ from ..constants import NUMBER_OF_FACE_LODS
 from ..dna_io import get_dna_reader
 from pathlib import Path
 
-# Global variables to track the current file path and the dna reader
-_previous_file_path = ""
-_dna_reader = None
-
 class META_HUMAN_DNA_MESH_DATA_PT_panel(bpy.types.Panel):
     bl_space_type = 'FILE_BROWSER'
     bl_region_type = 'TOOL_PROPS'
