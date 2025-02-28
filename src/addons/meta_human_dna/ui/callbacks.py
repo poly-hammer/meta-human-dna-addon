@@ -24,17 +24,17 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def get_start_frame() -> int:
+def get_bake_start_frame(self) -> int:
     try:
-        return bpy.context.scene.frame_start # type: ignore
+        return self.get('bake_start_frame', bpy.context.scene.frame_start) # type: ignore
     except AttributeError:
-        return 1
+        return self.get('bake_start_frame', 1)
 
-def get_end_frame() -> int:
+def get_bake_end_frame(self) -> int:
     try:
-        return bpy.context.scene.frame_end # type: ignore
+        return self.get('bake_end_frame', bpy.context.scene.frame_end) # type: ignore
     except AttributeError:
-        return 250
+        return self.get('bake_end_frame', 250)
     
 def get_active_rig_logic() -> 'RigLogicInstance | None':
     """
@@ -265,6 +265,12 @@ def set_highlight_matching_active_bone(self, value):
 def get_highlight_matching_active_bone(self):
     return self.get('highlight_matching_active_bone', False)
 
+
+def set_bake_start_frame(self, value):
+    self['bake_start_frame'] = value
+
+def set_bake_end_frame(self, value):
+    self['bake_end_frame'] = value
 
 def set_active_lod(self, value):
     self['active_lod'] = value

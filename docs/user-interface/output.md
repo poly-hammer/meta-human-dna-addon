@@ -22,7 +22,7 @@ This displays a list of all the mesh objects, the armature objects, and images t
     Mesh names should follow the LOD naming convention that Metahuman's use. This is how the exporter will know which LOD level to assign a mesh to.
 
 #### Output Folder
-This is a single path to the folder where all the data will be exported. The `.dna` file will be put in this folder, using the name of the [Rig Logic Instance](./../terminology#rig-logic-instance), as well as the `vertex_colors.json`.
+This is a single path to the folder where all the data will be exported. The `.dna` file will be put in this folder, using the name of the [Rig Logic Instance](../terminology.md#rig-logic-instance), as well as the `vertex_colors.json`.
 
 Textures are exported to a `maps` folder within this directory.
 
@@ -44,13 +44,16 @@ The [Send to Unreal Addon](https://github.com/poly-hammer/BlenderTools) is a fre
 Please read the [Quick Start](https://poly-hammer.github.io/BlenderTools/send2ue/introduction/quickstart/) on their documentation and get it all setup and working before continuing further.
 
 ### Copy Supporting Unreal Assets
-Enable this to copy the referenced unreal assets (Control Rig, Anim BP, Materials Instances etc.) to the same folder as the face skeletal mesh asset if they dont already exist. This should be preferred as it is not a good idea to import on top of the original metahuman common assets. However, if you have a custom setup with different asset references, you can disable this option.
+Enable this to copy the referenced unreal assets (Control Rig, Anim BP, Materials Instances etc.) to the same folder as the face skeletal mesh asset if they don't already exist. This should be preferred as it is not a good idea to import on top of the original metahuman common assets. However, if you have a custom setup with different asset references, you can disable this option.
 
 ### Content Folder
 The content folder in your Unreal project where the assets will be imported. All data is copied or imported here.
 
 ### Blueprint Asset
 The asset path to the Metahuman Blueprint asset that the SkeletalMesh data will be bound to. If left empty, the blueprint will be created in the same folder as the SkeletalMesh asset.
+
+### Auto-Sync Head with Body
+Whether to automatically sync the head spine bone positions with the body spine bone positions. This uses the blueprint asset path to find the body skeleton. This will modify the objects in your blender scene.
 
 ### Level Sequence Asset
 The asset path to the Level Sequence that the blueprint actor will be added too. If the level sequence does not exist, it will be created. If left empty the blueprint will not be spawned into a level sequence.

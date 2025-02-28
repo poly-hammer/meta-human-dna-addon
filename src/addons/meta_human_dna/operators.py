@@ -130,15 +130,19 @@ class BakeAnimation(bpy.types.Operator):
 
     start_frame: bpy.props.IntProperty(
         name="Start Frame",
-        default=callbacks.get_start_frame(),
+        default=1,
         min=1,
+        get=callbacks.get_bake_start_frame,
+        set=callbacks.set_bake_start_frame,
         description="The frame to start baking the animation on"
     ) # type: ignore
 
     end_frame: bpy.props.IntProperty(
         name="End Frame",
-        default=callbacks.get_end_frame(),
+        default=250,
         min=1,
+        get=callbacks.get_bake_end_frame,
+        set=callbacks.set_bake_end_frame,
         description="The frame to end baking the animation on"
     ) # type: ignore
 
@@ -208,6 +212,10 @@ class BakeAnimation(bpy.types.Operator):
         row.prop(self, 'bone_scale', text="Scale")
 
     def execute(self, context):
+        if not self.start_frame > self.end_frame:
+            self.report({'ERROR'}, 'The start frame must be less than the end frame')
+            return {'CANCELLED'}
+
         face = utilities.get_active_face()
         if face and face.head_rig_object:
             channel_types = set()

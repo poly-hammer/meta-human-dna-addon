@@ -41,7 +41,7 @@ def sync_spine_with_body_skeleton(instance: 'RigLogicInstance'):
         remote_get_body_bone_transforms = make_remote(get_body_bone_transforms)
         bone_transforms = remote_get_body_bone_transforms(str(instance.unreal_blueprint_asset_path))
         
-        # switch_to_bone_edit_mode(instance.head_rig)
+        instance.head_rig.hide_set(False)
         switch_to_pose_mode(instance.head_rig)
 
         # deselect all bones

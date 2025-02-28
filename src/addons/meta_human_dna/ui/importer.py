@@ -60,7 +60,7 @@ class META_HUMAN_DNA_LODS_PT_panel(bpy.types.Panel):
             row = layout.row()
 
 
-class META_HUMAN_DNA_FILE_VERSION_PT_panel(bpy.types.Panel):
+class META_HUMAN_DNA_FILE_INFO_PT_panel(bpy.types.Panel):
     bl_space_type = 'FILE_BROWSER'
     bl_region_type = 'TOOL_PROPS'
     bl_label = "DNA File Info"
@@ -69,7 +69,6 @@ class META_HUMAN_DNA_FILE_VERSION_PT_panel(bpy.types.Panel):
 
     def draw(self, context):
         operator = context.space_data.active_operator # type: ignore
-        layout = self.layout
         wm = bpy.context.window_manager.meta_human_dna.dna_info # type: ignore
 
         if operator.filepath.endswith(".dna"):
@@ -82,8 +81,10 @@ class META_HUMAN_DNA_FILE_VERSION_PT_panel(bpy.types.Panel):
                 )
         
             dna_reader = wm['_dna_reader']
-            layout.label(text=f"Rotation Units: {dna_reader.getRotationUnit().name}")
-            layout.label(text=f"Translation Units: {dna_reader.getTranslationUnit().name}")
+            row = self.layout.row()
+            row.label(text=f"Rotation Units: {dna_reader.getRotationUnit().name}")
+            row = self.layout.row()
+            row.label(text=f"Translation Units: {dna_reader.getTranslationUnit().name}")
 
 
 class ImportAsset(ImportHelper):
