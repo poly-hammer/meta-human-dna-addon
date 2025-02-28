@@ -49,6 +49,7 @@ These are the high-level controls. The pose bones on the face board object.
 
 ## Raw Controls
 These are the low-level controls on the head rig and head mesh:
+
 * Pose Bones
 * Shape Keys
 * Wrinkle Map Masks

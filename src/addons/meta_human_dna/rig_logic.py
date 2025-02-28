@@ -320,6 +320,15 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             'be created in the same folder as the SkeletalMesh asset'
         )
     ) # type: ignore
+    auto_sync_spine_with_body: bpy.props.BoolProperty(
+        default=True,
+        name='Auto-Sync Head with Body',
+        description=(
+            'Whether to automatically sync the head spine bone positions with '
+            'the body spine bone positions. This uses the blueprint asset path to '
+            'find the body skeleton. This will modify the objects in your blender scene'
+        )
+    ) # type: ignore
     unreal_level_sequence_asset_path: bpy.props.StringProperty(
         default='',
         name='Level Sequence Asset',

@@ -72,3 +72,15 @@ def update_meta_human_face(asset_path: str, dna_file_path: str, head_material_na
 
     # recompile the control rig asset
     face_control_rig_asset.recompile_vm() # type: ignore
+
+
+def get_body_bone_transforms(blueprint_asset_path: str) -> dict:
+    import unreal
+    from meta_human_dna_utilities.blueprint import get_body_skinned_mesh_component
+    from meta_human_dna_utilities.skeleton import get_bone_transforms
+
+    blueprint = unreal.load_asset(blueprint_asset_path)
+    if blueprint:
+        skeletal_mesh = get_body_skinned_mesh_component(blueprint=blueprint)
+        return get_bone_transforms(skeletal_mesh)
+    return {}
