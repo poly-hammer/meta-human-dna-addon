@@ -212,7 +212,7 @@ class BakeAnimation(bpy.types.Operator):
         row.prop(self, 'bone_scale', text="Scale")
 
     def execute(self, context):
-        if not self.start_frame > self.end_frame:
+        if self.start_frame > self.end_frame:
             self.report({'ERROR'}, 'The start frame must be less than the end frame')
             return {'CANCELLED'}
 
