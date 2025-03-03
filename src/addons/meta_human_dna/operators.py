@@ -98,14 +98,14 @@ class GenericProgressQueueOperator(bpy.types.Operator):
         pass   
 
 
-class ImportMetahumanFaceAnimation(bpy.types.Operator, importer.ImportAsset, MetahumanDnaImportProperties):
-    """Import an animation for the metahuman face board"""
+class ImportAnimation(bpy.types.Operator, importer.ImportAsset):
+    """Import an animation for the metahuman face board exported from an Unreal Engine Level Sequence"""
     bl_idname = "meta_human_dna.import_animation"
     bl_label = "Import Animation"
-    filename_ext = ".json"
+    filename_ext = ".fbx"
 
     filter_glob: bpy.props.StringProperty(
-        default="*.json",
+        default="*.fbx",
         options={"HIDDEN"},
         subtype="FILE_PATH",
     ) # type: ignore
@@ -114,8 +114,145 @@ class ImportMetahumanFaceAnimation(bpy.types.Operator, importer.ImportAsset, Met
         logger.info(f'Importing animation {self.filepath}')  # type: ignore
         face = utilities.get_active_face()
         if face:
-            face.import_animation(self.filepath)  # type: ignore
+            face.import_action(Path(self.filepath))  # type: ignore
         return {'FINISHED'}
+    
+class BakeAnimation(bpy.types.Operator):
+    """Bakes the active face board action to the pose bones, shape key values, and texture logic mask values. Useful for rendering, simulations, etc. where rig logic evaluation is not available"""
+    bl_idname = "meta_human_dna.bake_animation"
+    bl_label = "Bake Animation"
+
+    action_name: bpy.props.StringProperty(
+        name="Action Name",
+        default="baked_action",
+        description="The name of the action that will be created to store the baked animation data"
+    ) # type: ignore
+
+    start_frame: bpy.props.IntProperty(
+        name="Start Frame",
+        default=1,
+        min=1,
+        get=callbacks.get_bake_start_frame,
+        set=callbacks.set_bake_start_frame,
+        description="The frame to start baking the animation on"
+    ) # type: ignore
+
+    end_frame: bpy.props.IntProperty(
+        name="End Frame",
+        default=250,
+        min=1,
+        get=callbacks.get_bake_end_frame,
+        set=callbacks.set_bake_end_frame,
+        description="The frame to end baking the animation on"
+    ) # type: ignore
+
+    step: bpy.props.IntProperty(
+        name="Step",
+        default=1,
+        min=1,
+        description="The frame step to bake the animation on. Essentially add a keyframe every nth frame"
+    ) # type: ignore
+
+    masks: bpy.props.BoolProperty(
+        name="Masks",
+        default=True,
+        description="Bakes the values of the wrinkle map masks over time"
+    ) # type: ignore
+
+    shape_keys: bpy.props.BoolProperty(
+        name="Shape Keys",
+        default=True,
+        description="Bakes the values of the shape keys over time"
+    ) # type: ignore
+
+    clean_curves: bpy.props.BoolProperty(
+        name="Clean Curves",
+        default=False,
+        description="Clean Curves, After baking curves, remove redundant keys"
+    ) # type: ignore
+
+    bone_location: bpy.props.BoolProperty(
+        name="Bone Location",
+        default=True,
+        description="Bakes the location of the bones"
+    ) # type: ignore
+    bone_rotation: bpy.props.BoolProperty(
+        name="Bone Rotation",
+        default=True,
+        description="Bakes the rotation of the bones"
+    ) # type: ignore
+    bone_scale: bpy.props.BoolProperty(
+        name="Bone Scale",
+        default=True,
+        description="Bakes the scale of the bones"
+    ) # type: ignore
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self, width = 250) # type: ignore
+
+    def draw(self, context):
+        row = self.layout.row()
+        row.prop(self, 'action_name', text="Name")
+        row = self.layout.row()
+        row.prop(self, 'start_frame')
+        row.prop(self, 'end_frame')
+        row = self.layout.row()
+        row.prop(self, 'step')
+        row = self.layout.row()
+        row.prop(self, 'shape_keys')
+        row = self.layout.row()
+        row.prop(self, 'masks')
+        row = self.layout.row()
+        row.label(text="Bones:")
+        row = self.layout.row()
+        row.prop(self, 'bone_location', text="Location")
+        row = self.layout.row()
+        row.prop(self, 'bone_rotation', text="Rotation")
+        row = self.layout.row()
+        row.prop(self, 'bone_scale', text="Scale")
+
+    def execute(self, context):
+        if not self.start_frame > self.end_frame:
+            self.report({'ERROR'}, 'The start frame must be less than the end frame')
+            return {'CANCELLED'}
+
+        face = utilities.get_active_face()
+        if face and face.head_rig_object:
+            channel_types = set()
+            if self.bone_location:
+                channel_types.add('LOCATION')
+            if self.bone_rotation:
+                channel_types.add('ROTATION')
+            if self.bone_scale:
+                channel_types.add('SCALE')
+
+            utilities.bake_to_action(
+                armature_object=face.head_rig_object,
+                action_name=self.action_name,
+                start_frame=self.start_frame, # type: ignore
+                end_frame=self.end_frame, # type: ignore
+                step=self.step,
+                channel_types=channel_types,
+                clean_curves=self.clean_curves,
+                masks=self.masks,
+                shape_keys=self.shape_keys   
+            )
+        return {'FINISHED'}
+    
+    @classmethod
+    def poll(cls, context):
+        instance = callbacks.get_active_rig_logic()
+        if not instance:
+            return False
+        if not instance.head_rig:
+            return False
+        if not instance.face_board:
+            return False
+        if not instance.face_board.animation_data:
+            return False
+        if not instance.face_board.animation_data.action:
+            return False
+        return True
 
 
 class ImportMetahumanDna(bpy.types.Operator, importer.ImportAsset, MetahumanDnaImportProperties):
@@ -309,13 +446,6 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
                 except ValueError:
                     pass
 
-            # NOTE: Some dependency graph weirdness here. This is necessary to ensure that the rig logic 
-            # evaluates the pose bones, otherwise bone transform updates won't be applied when the face 
-            # board updates.
-            face.head_rig_object.hide_set(False) # type: ignore
-            bpy.context.view_layer.objects.active = face.head_rig_object # type: ignore
-            utilities.switch_to_pose_mode(face.head_rig_object)
-
         # now we can evaluate the dependency graph again
         window_manager_properties.evaluate_dependency_graph = True
         
@@ -407,6 +537,14 @@ class ForceEvaluate(bpy.types.Operator):
         instance = callbacks.get_active_rig_logic()
         if instance:
             instance.evaluate()
+            # NOTE: Some dependency graph weirdness here. This is necessary to ensure that the rig logic 
+            # evaluates the pose bones, otherwise bone transform updates won't be applied when the face 
+            # board updates.
+            current_context = utilities.get_current_context()
+            instance.head_rig.hide_set(False) # type: ignore
+            bpy.context.view_layer.objects.active = instance.head_rig # type: ignore
+            utilities.switch_to_pose_mode(instance.head_rig)
+            utilities.set_context(current_context)
         else:
             self.report({'ERROR'}, 'No active Rig Logic Instance found!')
 
@@ -460,6 +598,10 @@ class SendToUnreal(bpy.types.Operator):
             instance = face.rig_logic_instance
             dna_io_instance: DNAExporter = None # type: ignore
 
+            # sync the spine bones with the body skeleton in the unreal blueprint
+            if instance.auto_sync_spine_with_body:
+                utilities.sync_spine_with_body_skeleton(instance)
+
             # export a separate DNA file since we are only going to export bone 
             # transforms, mesh are sent across via FBX
             dna_file = f'export/{face.rig_logic_instance.name}.dna'
@@ -498,8 +640,8 @@ class SendToUnreal(bpy.types.Operator):
             utilities.link_send2ue_extension()
             # Ensure the RPC response timeout is at least long enough to 
             # import the metahuman meshes since they can be quite large.
-            if send2ue_addon_preferences.preferences.rpc_response_timeout < 120: # type: ignore
-                send2ue_addon_preferences.preferences.rpc_response_timeout = 120 # type: ignore
+            if send2ue_addon_preferences.preferences.rpc_response_timeout < 180: # type: ignore
+                send2ue_addon_preferences.preferences.rpc_response_timeout = 180 # type: ignore
             
             # set the active settings template to the face settings if it is not already set
             if bpy.context.scene.send2ue.active_settings_template != instance.send2ue_settings_template: # type: ignore
@@ -549,15 +691,21 @@ class ExportToDisk(bpy.types.Operator):
     def execute(self, context):
         face = utilities.get_active_face()
         if face and face.rig_logic_instance:
+            instance = face.rig_logic_instance
+            
+            if not bpy.path.abspath(instance.output_folder_path) and not bpy.data.filepath:
+                self.report({'ERROR'}, 'File must be saved to use a relative path')
+                return {'CANCELLED'}
+
             dna_io_instance: DNAExporter = None # type: ignore
-            if face.rig_logic_instance.output_method == 'calibrate':
+            if instance.output_method == 'calibrate':
                 dna_io_instance = DNACalibrator(
-                    instance=face.rig_logic_instance,
+                    instance=instance,
                     linear_modifier=face.linear_modifier
                 )              
-            elif face.rig_logic_instance.output_method == 'overwrite':
+            elif instance.output_method == 'overwrite':
                 dna_io_instance = DNAExporter(
-                    instance=face.rig_logic_instance,
+                    instance=instance,
                     linear_modifier=face.linear_modifier
                 )
 
@@ -575,7 +723,29 @@ class ExportToDisk(bpy.types.Operator):
                 self.report({'INFO'}, message)
             
         return {'FINISHED'}
+
+class SyncWithBodyBonesInBlueprint(bpy.types.Operator):
+    """Syncs the spine bone positions with the body skeleton in the unreal blueprint. This can help ensure that your head matches the body height. You must have the blueprint asset path set in your Send to Unreal Settings so it knows where to look for the bone positions"""
+    bl_idname = "meta_human_dna.sync_with_body_in_blueprint"
+    bl_label = "Sync with Body in Blueprint"
+
+    def execute(self, context):
+        instance = callbacks.get_active_rig_logic()
+        if instance:
+            utilities.sync_spine_with_body_skeleton(instance)
+        return {'FINISHED'}
     
+    @classmethod
+    def poll(cls, context):
+        from .utilities import send2ue_addon_is_valid
+        if not send2ue_addon_is_valid():
+            return False
+
+        instance = callbacks.get_active_rig_logic()
+        if instance:
+            if instance.unreal_blueprint_asset_path:
+                return True
+        return False
     
 class MirrorSelectedBones(bpy.types.Operator):
     """Mirrors the selected bone positions to the other side of the head mesh"""
@@ -795,6 +965,7 @@ class MetricsCollectionConsent(bpy.types.Operator):
         preferences = context.preferences.addons[ToolInfo.NAME].preferences # type: ignore
         preferences.metrics_collection = True # type: ignore
         utilities.init_sentry()
+        bpy.ops.meta_human_dna.force_evaluate() # type: ignore
         return {'FINISHED'}
 
     def invoke(self, context, event):
@@ -823,6 +994,7 @@ class MetricsCollectionConsent(bpy.types.Operator):
         # wait 30 days before asking again
         preferences.next_metrics_consent_timestamp = (datetime.now() + timedelta(days=30)).timestamp() # type: ignore
         preferences.metrics_collection = False # type: ignore
+        bpy.ops.meta_human_dna.force_evaluate() # type: ignore
         return {'CANCELLED'}
 
     def draw(self, context):

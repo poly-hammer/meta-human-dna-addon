@@ -198,13 +198,6 @@ class MetahumanFace:
                     image_file = node.image.name
                     if image_file.count('.') > 1:
                         image_file = image_file.rsplit('.', 1)[0]
-                    # set the masks and topology textures                    
-                    if image_file == MASKS_TEXTURE:
-                        node.image = bpy.data.images[MASKS_TEXTURE]
-                        continue
-                    if image_file == TOPOLOGY_TEXTURE:
-                        node.image = bpy.data.images[TOPOLOGY_TEXTURE]
-                        continue
 
                     # update the texture paths to images in the maps folder
                     new_image_path = self.maps_folder / image_file
@@ -223,11 +216,29 @@ class MetahumanFace:
             if any(i in image.name for i in [MASKS_TEXTURE, TOPOLOGY_TEXTURE]):
                 bpy.data.images.remove(image)
 
+        # set the masks and topology textures for all node groups
+        for node_group in bpy.data.node_groups:
+            for node in node_group.nodes:
+                if node.type == 'TEX_IMAGE' and node.image:
+                    # set the masks and topology textures
+                    if node.image.name == MASKS_TEXTURE:
+                        node.image = bpy.data.images[MASKS_TEXTURE]
+                    if node.image.name == TOPOLOGY_TEXTURE:
+                        node.image = bpy.data.images[TOPOLOGY_TEXTURE]
+
     def _purge_existing_materials(self):
         for material_name in MESH_SHADER_MAPPING.values():
             material = bpy.data.materials.get(f'{self.name}_{material_name}')
             if material:
                 bpy.data.materials.remove(material)
+
+        masks_image = bpy.data.images.get(MASKS_TEXTURE)
+        if masks_image:
+            bpy.data.images.remove(masks_image)
+        
+        topology_image = bpy.data.images.get(TOPOLOGY_TEXTURE)
+        if topology_image:
+            bpy.data.images.remove(topology_image)
 
 
     def import_materials(self):
@@ -344,6 +355,13 @@ class MetahumanFace:
                         collection.objects.unlink(empty) # type: ignore
                     empty.use_fake_user = True
                 
+    def _purge_face_board_components(self):
+        with bpy.data.libraries.load(str(FACE_BOARD_FILE_PATH)) as (data_from, data_to):
+            if data_from.objects:
+                for name in data_from.objects:
+                    scene_object = bpy.data.objects.get(name)
+                    if scene_object:
+                        bpy.data.objects.remove(scene_object, do_unlink=True)
 
     def _import_face_board(self) -> bpy.types.Object | None:
         if not self.dna_import_properties.import_face_board:
@@ -352,6 +370,9 @@ class MetahumanFace:
         sep = '\\'
         if sys.platform != 'win32':
             sep = '/'
+
+        # delete all face board objects in the scene that already exist
+        self._purge_face_board_components()
 
         bpy.ops.wm.append(
             filepath=f'{FACE_BOARD_FILE_PATH}{sep}Object{sep}{FACE_BOARD_NAME}',
@@ -389,11 +410,15 @@ class MetahumanFace:
         face_board_object.data.relation_line_position = 'HEAD' # type: ignore
         return face_board_object
 
-    def import_animation(self, file_path):
+    def import_action(self, file_path: Path):
+        file_path = Path(file_path)
         if not self.face_board_object:
             return
         
-        utilities.import_action_from_json(file_path, self.face_board_object)    
+        if file_path.suffix.lower() == '.json':
+            utilities.import_action_from_json(file_path, self.face_board_object)    
+        elif file_path.suffix.lower() == '.fbx':
+            utilities.import_action_from_fbx(file_path, self.face_board_object)
 
     def ingest(self) -> tuple[bool, str]:        
         valid, message = self.dna_importer.run()

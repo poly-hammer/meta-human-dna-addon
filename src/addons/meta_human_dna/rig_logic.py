@@ -320,6 +320,15 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             'be created in the same folder as the SkeletalMesh asset'
         )
     ) # type: ignore
+    auto_sync_spine_with_body: bpy.props.BoolProperty(
+        default=True,
+        name='Auto-Sync Head with Body',
+        description=(
+            'Whether to automatically sync the head spine bone positions with '
+            'the body spine bone positions. This uses the blueprint asset path to '
+            'find the body skeleton. This will modify the objects in your blender scene'
+        )
+    ) # type: ignore
     unreal_level_sequence_asset_path: bpy.props.StringProperty(
         default='',
         name='Level Sequence Asset',
@@ -593,7 +602,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         self.data['initialized'] = False
 
 
-    def update_gui_control_values(self):
+    def update_gui_control_values(self, override_values: dict[str, dict[str, float]] | None = None):
         # skip if the face board is not set
         if not self.face_board or not self.dna_reader:
             return
@@ -603,13 +612,21 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         for index in range(self.dna_reader.getGUIControlCount()):
             full_name = self.dna_reader.getGUIControlName(index)
             control_name, axis = full_name.split('.')
+            axis = axis.rsplit('t',-1)[-1].lower()
             if self.face_board:
-                pose_bone = self.face_board.pose.bones.get(control_name)
-                if pose_bone:
-                    value = getattr(pose_bone.location, axis.strip('t'))
-                    self.instance.setGUIControl(index, value)
+                # override the values can be provided to update values based on them vs current face board bone locations 
+                # This can be used for baking the values to an action
+                if override_values:
+                    value = override_values.get(control_name, {}).get(axis)
+                    if value is not None:
+                        self.instance.setGUIControl(index, value)
                 else:
-                    missing_gui_controls.append(control_name)
+                    pose_bone = self.face_board.pose.bones.get(control_name)
+                    if pose_bone:
+                        value = getattr(pose_bone.location, axis)
+                        self.instance.setGUIControl(index, value)
+                    else:
+                        missing_gui_controls.append(control_name)
 
         if missing_gui_controls and not self.data.get('logged_missing_gui_controls'):
             logger.warning(f'The following GUI controls are missing on "{self.face_board.name}":\n{pformat(missing_gui_controls)}.')
@@ -618,23 +635,29 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             logger.warning('Using a new .dna file created from the latest version of MetaHuman Creator will probably resolve this.')
             self.data['logged_missing_gui_controls'] = True
 
+        # calculate the changes
+        self.manager.mapGUIToRawControls(self.instance)
+        self.manager.calculate(self.instance)
 
-    def update_shape_keys(self):
+
+    def update_shape_keys(self) -> list[tuple[bpy.types.ShapeKey, float]]:
         # skip if the head mesh is not set
         if not self.head_mesh or not self.dna_reader:
-            return
+            return []
         
         # skip if there are no shape keys
         if len(bpy.data.shape_keys) == 0:
-            return
+            return []
         
         missing_shape_keys = []
+        shape_key_values = []
     
         # update blend shapes
         for index, value in enumerate(self.instance.getBlendShapeOutputs()):  
             for shape_key in self.shape_key_blocks.get(index, []):
                 if shape_key:
                     shape_key.value = value
+                    shape_key_values.append((shape_key, value))
                 else:
                     missing_shape_keys.append(index)
 
@@ -669,15 +692,19 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             
             self.data['logged_missing_shape_keys'] = True
 
-    def update_texture_masks(self):
+        return shape_key_values
+
+    def update_texture_masks(self) -> list[tuple[str, float]]:
         # skip if the material is not set
         if not self.material or not self.dna_reader:
-            return
+            return []
 
         # if the texture masks node is not set, we can't update the texture masks
         if not self.texture_masks_node:
             logger.warning(f'The texture masks node was not found on the material "{self.material.name}"')
-            return
+            return []
+        
+        texture_mask_values = []
 
         # update texture masks values
         for index, value in enumerate(self.instance.getAnimatedMapOutputs()):
@@ -686,8 +713,11 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             mask_slider = self.texture_masks_node.inputs.get(slider_name)
             if mask_slider:
                 mask_slider.default_value = value # type: ignore
+                texture_mask_values.append((slider_name, value))
             else:
                 logger.warning(f'The texture mask slider "{slider_name}" was not found on the material "{self.material.name}"')
+
+        return texture_mask_values
 
     def update_bone_transforms(self):
         # skip if the head rig is not set
@@ -763,10 +793,6 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False # type: ignore
             
             self.update_gui_control_values()
-
-            # calculate the changes
-            self.manager.mapGUIToRawControls(self.instance)
-            self.manager.calculate(self.instance)
 
             # apply the changes
             if self.evaluate_bones: 

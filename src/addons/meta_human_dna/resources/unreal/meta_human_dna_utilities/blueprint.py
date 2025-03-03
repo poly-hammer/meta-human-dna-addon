@@ -123,3 +123,14 @@ def add_face_component_to_blueprint(
         unreal.BlueprintEditorLibrary.compile_blueprint(blueprint)
     else:
         raise Exception("Could not find root component")
+    
+
+def get_body_skinned_mesh_component(blueprint: unreal.Blueprint) -> Optional[unreal.Skeleton]:
+    sub_object_data_library = unreal.SubobjectDataBlueprintFunctionLibrary()
+    body_handle = get_handle(blueprint, 'Body')
+    if body_handle:
+        skeletal_mesh_component = sub_object_data_library.get_object(
+            sub_object_data_library.get_data(body_handle)
+        )
+        return skeletal_mesh_component
+    return None
