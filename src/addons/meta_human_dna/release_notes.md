@@ -1,5 +1,8 @@
-## Patch Changes
-* Fixed bake frame range validation bug
+## Minor Changes
+* Add support for Mac x86_64 [#72](https://github.com/poly-hammer/meta-human-dna-addon/issues/72)
+
+## Note:
+Must use [poly-hammer-build-tool-workflow](https://github.com/poly-hammer/poly-hammer-build-tool-workflow) `0.5.1` or higher. If you have an older version, you will need to re-copy the template repo and [follow the setup tutorial again](https://www.youtube.com/watch?v=BAyCV8GwmCM)
 
 ## Tests Passing On
 * Blender `4.2` (installed from blender.org)
