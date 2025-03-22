@@ -12,6 +12,8 @@ if sys.platform == 'win32' and arch == 'x64':
     arch = 'amd64'
 if sys.platform == 'linux' and arch == 'x64':
     arch = 'x86_64'
+if sys.platform == 'mac' and arch == 'x64':
+    arch = 'x86_64'
 
 platform = None
 if sys.platform == "win32":

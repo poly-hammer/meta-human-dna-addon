@@ -92,6 +92,24 @@ SEND2UE_FACE_SETTINGS = RESOURCES_FOLDER / 'send2ue' / "meta-human_dna.json"
 
 SEND2UE_EXTENSION = RESOURCES_FOLDER / 'send2ue' / "meta_human_dna_extension.py"
 
+ALTERNATE_TEXTURE_FILE_EXTENSIONS = [
+    ".tga",
+    ".png"   
+]
+
+ALTERNATE_TEXTURE_FILE_NAMES = {
+    "head_color_map.tga": "FaceColor_MAIN",
+    "head_cm1_color_map.tga": "FaceColor_CM1",
+    "head_cm2_color_map.tga": "FaceColor_CM2",
+    "head_cm3_color_map.tga": "FaceColor_CM3",
+    "head_normal_map.tga": "FaceNormal_MAIN",
+    "head_wm1_normal_map.tga": "FaceNormal_WM1",
+    "head_wm2_normal_map.tga": "FaceNormal_WM2",
+    "head_wm3_normal_map.tga": "FaceNormal_WM3",
+    "head_cavity_map.tga": "FaceCavity_MAIN",
+    "head_roughness_map.tga": "FaceRoughness_MAIN"
+}
+
 HEAD_MAPS = {
     "Color_MAIN": "head_color_map.tga",
     "Color_CM1": "head_cm1_color_map.tga",

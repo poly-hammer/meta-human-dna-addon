@@ -283,7 +283,6 @@ class ImportMetahumanDna(bpy.types.Operator, importer.ImportAsset, MetahumanDnaI
         if not file_path.is_file():
             self.report({'ERROR'}, f'"{file_path}" is a folder. Please select a DNA file.')
             return {'CANCELLED'}
-        # if file_path.suffix not in ['.dna', '.json']:
         if file_path.suffix not in ['.dna']:
             self.report({'ERROR'}, f'The file "{file_path}" is not a DNA file')
             return {'CANCELLED'}

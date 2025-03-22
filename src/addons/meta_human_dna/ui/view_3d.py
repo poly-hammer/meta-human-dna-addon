@@ -547,11 +547,6 @@ class META_HUMAN_DNA_PT_output_panel(bpy.types.Panel):
             row = col.row()
             row.prop(instance, 'output_method', text='')
 
-            # col = grid.column()
-            # col.label(text='Format:')
-            # row = col.row()
-            # row.prop(instance, 'output_format', text='')
-
             row = self.layout.row()           
             draw_ui_list(
                 row,
@@ -584,6 +579,14 @@ class META_HUMAN_DNA_PT_send2ue_settings_sub_panel(bpy.types.Panel):
     bl_region_type = 'UI'
     bl_category = 'Meta-Human DNA'
     bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        from ..utilities import send2ue_addon_is_valid
+        error = valid_rig_logic_instance_exists(context, ignore_face_board=True)
+        if not error and send2ue_addon_is_valid():
+            return True
+        return False
 
     def draw(self, context):
         from ..utilities import send2ue_addon_is_valid
