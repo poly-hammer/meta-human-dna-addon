@@ -37,6 +37,8 @@ from .constants import (
     UV_MAP_NAME,
     TOPO_GROUP_PREFIX,
     EXTRA_BONES,
+    ALTERNATE_TEXTURE_FILE_NAMES,
+    ALTERNATE_TEXTURE_FILE_EXTENSIONS,
     UNREAL_EXPORTED_HEAD_MATERIAL_NAMES
 )
 
@@ -92,7 +94,11 @@ class MetahumanFace:
 
             self.rig_logic_instance.dna_file_path = str(dna_file_path)
 
-        self.maps_folder = self.dna_file_path.parent / 'maps'
+        if not self.dna_import_properties:
+            self.maps_folder = self.dna_file_path.parent / 'maps'
+        else:
+            self.maps_folder = Path(self.dna_import_properties.alternate_maps_folder)
+
         self.asset_root_folder = self.dna_file_path.parent.parent.parent.parent.parent.parent
 
         file_format = 'binary' if self.dna_file_path.suffix.lower() == ".dna" else 'json'
@@ -169,7 +175,7 @@ class MetahumanFace:
     
     @property
     def has_maps(self) -> bool:
-        return self.maps_folder.exists() and any(i.endswith('.tga') for i in os.listdir(self.maps_folder))
+        return self.maps_folder.exists() and any(i.lower().endswith('.tga') for i in os.listdir(self.maps_folder))
 
     def _get_lods_settings(self):
         return [(i, getattr(self.dna_import_properties, f'import_lod{i}')) for i in range(NUMBER_OF_FACE_LODS)]
@@ -182,6 +188,24 @@ class MetahumanFace:
 
             utilities.hide_empties()        
             self.head_rig_object.hide_set(True)
+
+    def _get_alternate_image_path(self, image_file: Path) -> Path:
+        # Check for alternate image file names
+        if not image_file.exists():
+            # check for alternate file names with different extensions
+            for extension in ALTERNATE_TEXTURE_FILE_EXTENSIONS:
+                alternate_file_name = ALTERNATE_TEXTURE_FILE_NAMES.get(image_file.name, None)
+                if alternate_file_name:
+                    # check for lowercase extension
+                    alternate_image_path = self.maps_folder / f"{alternate_file_name}{extension.lower()}"
+                    if alternate_image_path.exists():
+                        return alternate_image_path
+                    
+                    # check for uppercase extension
+                    alternate_image_path = self.maps_folder / f"{alternate_file_name}{extension.upper()}"
+                    if alternate_image_path.exists():
+                        return alternate_image_path
+        return image_file
 
     def _set_image_textures(self, materials: list[bpy.types.Material]):
         # set the combined mask image and topology image
@@ -201,6 +225,9 @@ class MetahumanFace:
 
                     # update the texture paths to images in the maps folder
                     new_image_path = self.maps_folder / image_file
+
+                    # Check for alternate image file names
+                    new_image_path = self._get_alternate_image_path(new_image_path)
 
                     if new_image_path.exists():
                         node.image = bpy.data.images.load(str(new_image_path))
