@@ -356,6 +356,12 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
         default="",
         subtype='DIR_PATH',
     ) # type: ignore
+    maps_folder: bpy.props.StringProperty(
+        default='',
+        name='Maps Folder',
+        description='Optionally, this can be set to a folder location for the face wrinkle maps. Textures following the same naming convention as the metahuman source files will be found and set on the materials automatically.',
+        subtype='DIR_PATH'
+    ) # type: ignore
     run_calibration: bpy.props.BoolProperty(
         name="Run Calibration",
         default=True,
@@ -389,7 +395,8 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
             'import_bones': True,
             'import_mesh': True,
             'import_normals': False,
-            'import_shape_keys': False
+            'import_shape_keys': False,
+            'alternate_maps_folder': self.maps_folder,
         }
         
         for lod_index in range(NUMBER_OF_FACE_LODS):
@@ -481,12 +488,36 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
                 return True
         return False
     
+    def _get_path_error(self, folder_path: str) -> str:
+        if not folder_path:
+            return ''
+
+        if not os.path.exists(folder_path):
+            return "Folder does not exist"
+        if not os.path.isdir(folder_path):
+            return "Path is not a folder"
+        return ''
+    
     def draw(self, context):
-        layout = self.layout
-        layout.prop(self, 'base_dna')
-        layout.prop(self, 'new_name')
-        layout.prop(self, 'new_folder')
-        layout.prop(self, 'run_calibration')
+        row = self.layout.row()
+        row.prop(self, 'base_dna')
+        row = self.layout.row()
+        row.prop(self, 'new_name')
+        row = self.layout.row()
+        row.prop(self, 'new_folder')
+        row = self.layout.row()
+        path_error = self._get_path_error(self.maps_folder)
+        if path_error:
+            row.alert = True
+        row.prop(self, 'maps_folder')
+
+        if path_error:
+            row = self.layout.row()
+            row.alert = True
+            row.label(text=path_error, icon='ERROR')
+
+        row = self.layout.row()
+        row.prop(self, 'run_calibration')
 
 class GenerateMaterial(bpy.types.Operator):
     """Generates a material for the head mesh object that you can then customize"""
