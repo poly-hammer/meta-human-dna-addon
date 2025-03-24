@@ -101,6 +101,11 @@ class MetahumanDnaImportProperties(get_dna_import_property_group_base_class()):
         name='Face Board',
         description='Whether to import the face board that drive the rig logic'
     ) # type: ignore
+    alternate_maps_folder: bpy.props.StringProperty(
+        default='',
+        name='Maps Folder',
+        description='This can be set to an alternate folder location for the face wrinkle maps. If no folder is set, the importer looks for a "maps" folder next to the .dna file',
+    ) # type: ignore
 
 
 class MetahumanWindowMangerProperties(bpy.types.PropertyGroup, MetahumanDnaImportProperties):
