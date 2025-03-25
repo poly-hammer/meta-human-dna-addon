@@ -94,7 +94,7 @@ class MetahumanFace:
 
             self.rig_logic_instance.dna_file_path = str(dna_file_path)
 
-        if not self.dna_import_properties:
+        if not self.dna_import_properties.alternate_maps_folder:
             self.maps_folder = self.dna_file_path.parent / 'maps'
         else:
             self.maps_folder = Path(self.dna_import_properties.alternate_maps_folder)

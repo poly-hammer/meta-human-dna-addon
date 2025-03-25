@@ -63,7 +63,8 @@
             "default": "4.2",
             "options": [
                 "4.2",
-                "4.3"
+                "4.3",
+                "4.4"
             ],
             "description": "What blender version to launch"
         },
