@@ -30,5 +30,5 @@ You will now get an email notification every time there is a new version of the 
 
 
 ## Credits
-* Demo asset from [3D Scan Store](https://www.3dscanstore.com/).
-* Facial ROMS provided by [Bryan Steagall](https://www.linkedin.com/in/bryan-steagall-kks).
+* Demo asset in GIFs from [3D Scan Store](https://www.3dscanstore.com/).
+* Facial ROMS in GIFs provided by [Bryan Steagall](https://www.linkedin.com/in/bryan-steagall-kks).
