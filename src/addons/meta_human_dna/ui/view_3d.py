@@ -113,6 +113,7 @@ class META_HUMAN_DNA_UL_shape_keys(bpy.types.UIList):
         sub = row.row(align=True)
         sub.alignment = 'RIGHT'
         sub.prop(item, "value", text="", emboss=False)
+        sub.operator('meta_human_dna.solo_this_shape_key', text='', icon='SOLO_ON' if item.value == 1.0 else 'SOLO_OFF').shape_key_name = item.name
         sub.operator('meta_human_dna.sculpt_this_shape_key', text='', icon='SCULPTMODE_HLT').shape_key_name = item.name
         sub.operator('meta_human_dna.edit_this_shape_key', text='', icon='EDITMODE_HLT').shape_key_name = item.name
         sub.operator("meta_human_dna.reimport_this_shape_key", text='', icon='IMPORT').shape_key_name = item.name
@@ -477,6 +478,8 @@ class META_HUMAN_DNA_PT_shape_keys(bpy.types.Panel):
                 if context.window_manager.meta_human_dna.progress == 1: # type: ignore
                     row = self.layout.row()
                     row.label(text=f'No shape keys on {instance.name}', icon='ERROR')
+                    row = self.layout.row()
+                    row.prop(instance, 'generate_neutral_shapes')
                     row = self.layout.row()
                     row.operator('meta_human_dna.import_shape_keys', icon='IMPORT')
                     return
