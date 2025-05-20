@@ -1036,25 +1036,6 @@ class MetricsCollectionConsent(bpy.types.Operator):
         row.label(text="Will you allow us to collect bug reports?")
         row.operator('meta_human_dna.open_metrics_collection_agreement', text='', icon='URL')
 
-class SoloThisShapeKey(ShapeKeyOperatorBase):
-    """Solo this shape key value so that it is 1 and all others are 0"""
-    bl_idname = "meta_human_dna.solo_this_shape_key"
-    bl_label = "Solo this Shape Key"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    def execute(self, context):
-        instance = callbacks.get_active_rig_logic()
-        if instance and instance.head_rig:
-            result = self.validate(context, instance)
-            if not result:
-                return {'CANCELLED'}
-            
-            _, key_block, _, mesh_object = result # type: ignore
-            instance.solo_shape_key_value(shape_key=key_block)
-            self.lock_all_other_shape_keys(mesh_object, key_block)
-
-        return {'FINISHED'}
-
 class SculptThisShapeKey(ShapeKeyOperatorBase):
     """Sculpt this shape key"""
     bl_idname = "meta_human_dna.sculpt_this_shape_key"
@@ -1068,6 +1049,11 @@ class SculptThisShapeKey(ShapeKeyOperatorBase):
                 return {'CANCELLED'}
             
             _, key_block, _, mesh_object = result # type: ignore
+
+            # solo the shape key before sculpting if the solo option is enabled
+            if instance.solo_shape_key:
+                instance.solo_shape_key_value(shape_key=key_block)
+
             self.lock_all_other_shape_keys(mesh_object, key_block)
             utilities.switch_to_sculpt_mode(mesh_object)
             mesh_object.show_only_shape_key = False
@@ -1087,6 +1073,11 @@ class EditThisShapeKey(ShapeKeyOperatorBase):
                 return {'CANCELLED'}
             
             _, key_block, _, mesh_object = result # type: ignore
+
+            # solo the shape key before editing if the solo option is enabled
+            if instance.solo_shape_key:
+                instance.solo_shape_key_value(shape_key=key_block)
+
             self.lock_all_other_shape_keys(mesh_object, key_block)
             short_name = self.shape_key_name.split("__", 1)[-1]
             utilities.switch_to_edit_mode(mesh_object)

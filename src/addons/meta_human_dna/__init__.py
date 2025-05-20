@@ -48,7 +48,6 @@ classes = [
     operators.SendToUnreal,
     operators.ExportToDisk,
     operators.GenerateMaterial,
-    operators.SoloThisShapeKey,
     operators.SculptThisShapeKey,
     operators.EditThisShapeKey,
     operators.ReImportThisShapeKey,

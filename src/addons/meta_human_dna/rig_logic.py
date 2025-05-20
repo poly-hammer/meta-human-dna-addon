@@ -259,9 +259,14 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         options={'ANIMATABLE'},
         items=callbacks.get_active_shape_key_mesh_names
     ) # type: ignore
+    solo_shape_key: bpy.props.BoolProperty(
+        name="Solo Shape Key",
+        description="If this is enabled, every time you sculpt/edit a shape key, it will set all other shape keys to 0 and the selected shape key to 1",
+        default=False
+    ) # type: ignore
     generate_neutral_shapes: bpy.props.BoolProperty(
         name="Generate Neutral Shapes",
-        description="Use this to generate neutral shape keys that match the names in the DNA file. This is useful when you can't import the deltas because vert ids are not the same, or you just want to use just neutral shapes as a starting point",
+        description="Use this to generate neutral shape keys that match the names in the DNA file. This is useful when you can't import the deltas because vert ids are not the same, or you just want to use neutral shapes as a starting point",
         default=False
     ) # type: ignore
 
