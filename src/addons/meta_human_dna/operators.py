@@ -461,7 +461,7 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
         # active object to the face board
         utilities.switch_to_object_mode()
         bpy.context.view_layer.objects.active = face.face_board_object # type: ignore
-        utilities.switch_to_pose_mode(face.face_board_object)
+        utilities.switch_to_pose_mode(face.face_board_object) # type: ignore
         face.head_rig_object.hide_set(True) # type: ignore
 
         # Ask the user for consent to collect metrics
@@ -573,7 +573,7 @@ class ForceEvaluate(bpy.types.Operator):
             current_context = utilities.get_current_context()
             instance.head_rig.hide_set(False) # type: ignore
             bpy.context.view_layer.objects.active = instance.head_rig # type: ignore
-            utilities.switch_to_pose_mode(instance.head_rig)
+            utilities.switch_to_pose_mode(instance.head_rig) # type: ignore
             utilities.set_context(current_context)
         else:
             self.report({'ERROR'}, 'No active Rig Logic Instance found!')
@@ -1035,7 +1035,6 @@ class MetricsCollectionConsent(bpy.types.Operator):
         row = self.layout.row()
         row.label(text="Will you allow us to collect bug reports?")
         row.operator('meta_human_dna.open_metrics_collection_agreement', text='', icon='URL')
-    
 
 class SculptThisShapeKey(ShapeKeyOperatorBase):
     """Sculpt this shape key"""
@@ -1050,6 +1049,11 @@ class SculptThisShapeKey(ShapeKeyOperatorBase):
                 return {'CANCELLED'}
             
             _, key_block, _, mesh_object = result # type: ignore
+
+            # solo the shape key before sculpting if the solo option is enabled
+            if instance.solo_shape_key:
+                instance.solo_shape_key_value(shape_key=key_block)
+
             self.lock_all_other_shape_keys(mesh_object, key_block)
             utilities.switch_to_sculpt_mode(mesh_object)
             mesh_object.show_only_shape_key = False
@@ -1069,6 +1073,11 @@ class EditThisShapeKey(ShapeKeyOperatorBase):
                 return {'CANCELLED'}
             
             _, key_block, _, mesh_object = result # type: ignore
+
+            # solo the shape key before editing if the solo option is enabled
+            if instance.solo_shape_key:
+                instance.solo_shape_key_value(shape_key=key_block)
+
             self.lock_all_other_shape_keys(mesh_object, key_block)
             short_name = self.shape_key_name.split("__", 1)[-1]
             utilities.switch_to_edit_mode(mesh_object)
@@ -1310,7 +1319,7 @@ class AddRigLogicTextureNode(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         space = context.space_data # type: ignore
-        node_tree = space.node_tree # type: ignore                
+        node_tree = getattr(space, 'node_tree', None) # type: ignore
         if node_tree and node_tree.type == 'SHADER':
             active_material = cls.get_active_material(context)
             if not active_material:

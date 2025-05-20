@@ -259,9 +259,14 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         options={'ANIMATABLE'},
         items=callbacks.get_active_shape_key_mesh_names
     ) # type: ignore
+    solo_shape_key: bpy.props.BoolProperty(
+        name="Solo Shape Key",
+        description="If this is enabled, every time you sculpt/edit a shape key, it will set all other shape keys to 0 and the selected shape key to 1",
+        default=False
+    ) # type: ignore
     generate_neutral_shapes: bpy.props.BoolProperty(
         name="Generate Neutral Shapes",
-        description="Use this to generate neutral shape keys that match the names in the DNA file. This is useful when you can't import the deltas because vert count is not the same",
+        description="Use this to generate neutral shape keys that match the names in the DNA file. This is useful when you can't import the deltas because vert ids are not the same, or you just want to use neutral shapes as a starting point",
         default=False
     ) # type: ignore
 
@@ -639,6 +644,23 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         self.manager.mapGUIToRawControls(self.instance)
         self.manager.calculate(self.instance)
 
+    def solo_shape_key_value(self, shape_key: bpy.types.ShapeKey):
+        # skip if the head mesh is not set
+        if not self.head_mesh or not self.dna_reader:
+            return
+        
+        # skip if there are no shape keys
+        if len(bpy.data.shape_keys) == 0:
+            return
+        
+        # make all other shape keys 0.0
+        for index, _ in enumerate(self.instance.getBlendShapeOutputs()):
+            for _shape_key in self.shape_key_blocks.get(index, []):
+                if _shape_key and _shape_key != shape_key:
+                    _shape_key.value = 0.0
+
+        # set the provided shape key value to 1.0
+        shape_key.value = 1.0
 
     def update_shape_keys(self) -> list[tuple[bpy.types.ShapeKey, float]]:
         # skip if the head mesh is not set

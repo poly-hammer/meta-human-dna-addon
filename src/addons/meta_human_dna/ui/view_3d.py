@@ -478,6 +478,8 @@ class META_HUMAN_DNA_PT_shape_keys(bpy.types.Panel):
                     row = self.layout.row()
                     row.label(text=f'No shape keys on {instance.name}', icon='ERROR')
                     row = self.layout.row()
+                    row.prop(instance, 'generate_neutral_shapes')
+                    row = self.layout.row()
                     row.operator('meta_human_dna.import_shape_keys', icon='IMPORT')
                     return
                 
@@ -512,6 +514,8 @@ class META_HUMAN_DNA_PT_shape_keys(bpy.types.Panel):
                 insertion_operators=False,
                 move_operators=False # type: ignore
             )
+            row = self.layout.row()
+            row.prop(instance, 'solo_shape_key', text='Solo selected shape key')
             row = self.layout.row()
             row.prop(instance, 'generate_neutral_shapes')
             row = self.layout.row()

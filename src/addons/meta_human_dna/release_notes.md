@@ -1,5 +1,8 @@
+## Minor Changes
+* Add an option to solo shape key value when switching to sculpt/edit it's shape  [#105](https://github.com/poly-hammer/meta-human-dna-addon/issues/105)
+
 ## Patch Changes
-* fixed default maps folder bug introduced by new alternate textures feature
+* 
 
 > [!WARNING]  
 > You must use [poly-hammer-build-tool-workflow](https://github.com/poly-hammer/poly-hammer-build-tool-workflow) `0.5.2` or higher. If you have an older version, you will need to re-copy the template repo and [follow the setup tutorial again](https://www.youtube.com/watch?v=BAyCV8GwmCM). This is essential for your compiled dependencies to work correctly.
@@ -14,5 +17,3 @@
 [ConsoleVariables]
 Interchange.FeatureFlags.Import.FBX=False
 ```
-
-@poly-hammer/meta_human_dna_addon_early_access

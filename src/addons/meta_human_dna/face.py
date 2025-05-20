@@ -4,7 +4,6 @@ import sys
 import bpy
 import json
 import math
-import bmesh
 import queue
 import logging
 from pathlib import Path
@@ -17,6 +16,7 @@ from .dna_io import (
     DNAExporter
 )
 from . import utilities
+from .utilities import preserve_context
 from .constants import (
     ToolInfo,
     HEAD_MATERIAL_NAME,
@@ -425,7 +425,7 @@ class MetahumanFace:
             face_board_object.location.x = x_value
 
             # apply the translation to the face gui object
-            utilities.apply_transforms(face_board_object, location=True)
+            utilities.apply_transforms(face_board_object, location=True) # type: ignore
 
         # parent rig to face gui
         if self.head_rig_object:
@@ -494,11 +494,11 @@ class MetahumanFace:
         # switch to pose mode on the face gui object
         if face_board_object:
             bpy.context.view_layer.objects.active = face_board_object # type: ignore
-            utilities.switch_to_pose_mode(face_board_object)
+            utilities.switch_to_pose_mode(face_board_object) # type: ignore
         
         return valid, message
 
-    @utilities.preserve_context
+    @preserve_context
     def convert(self, mesh_object: bpy.types.Object):
         from .bindings import meta_human_dna_core
         if self.head_mesh_object and self.face_board_object and self.head_rig_object:
@@ -752,7 +752,7 @@ class MetahumanFace:
                     bone.select = True
 
             self.rig_logic_instance.head_rig.hide_set(False)
-            utilities.switch_to_pose_mode(self.rig_logic_instance.head_rig)
+            utilities.switch_to_pose_mode(self.rig_logic_instance.head_rig) # type: ignore
 
     def set_face_pose(self):        
         for instance in self.scene_properties.rig_logic_instance_list:
@@ -804,7 +804,7 @@ class MetahumanFace:
                 vertex_group_name=self.rig_logic_instance.head_mesh_topology_groups
             )
 
-    @utilities.preserve_context
+    @preserve_context
     def revert_bone_transforms_to_dna(self):
         if self.head_rig_object:
             extra_bone_lookup = dict(EXTRA_BONES)
