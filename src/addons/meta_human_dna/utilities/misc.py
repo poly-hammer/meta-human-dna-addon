@@ -240,6 +240,7 @@ def init_sentry():
 
             from .. import bl_info
             event["tags"]["blender_version"] = bpy.app.version_string
+            event["tags"]["blender_mode"] = bpy.context.mode # type: ignore
             event["tags"]["addon_version"] = ".".join([str(i) for i in bl_info.get('version', [])])
             event["tags"]["platform"] = sys.platform
 

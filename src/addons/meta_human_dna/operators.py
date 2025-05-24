@@ -416,6 +416,7 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
         # try to separate the selected object by its unreal head material first if it has one
         selected_object = face.pre_convert_mesh_cleanup(mesh_object=selected_object)
         if not selected_object:
+            window_manager_properties.evaluate_dependency_graph = True
             self.report({'ERROR'}, 'The selected object failed to be separated by its head material.')
             return {'CANCELLED'}
 
@@ -423,6 +424,7 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
         success, message = face.validate_conversion(mesh_object=selected_object)
         if not success: # type: ignore
             face.delete()
+            window_manager_properties.evaluate_dependency_graph = True
             self.report({'ERROR'}, message)
             return {'CANCELLED'}
         
