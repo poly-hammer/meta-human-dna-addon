@@ -375,6 +375,8 @@ class META_HUMAN_DNA_PT_view_options(bpy.types.Panel):
             row = col.row()
             row.prop(instance, 'active_lod', text='')
             row = self.layout.row()
+            row.prop(instance, 'show_bones')
+            row = self.layout.row()
             row.prop(properties, 'highlight_matching_active_bone')
         else:
             draw_rig_logic_instance_error(self.layout, error)

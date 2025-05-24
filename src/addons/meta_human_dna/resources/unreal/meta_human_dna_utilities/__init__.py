@@ -67,7 +67,7 @@ def update_meta_human_face(asset_path: str, dna_file_path: str, head_material_na
         add_asset_to_level_sequence(
             asset=blueprint,
             level_sequence=level_sequence,
-            label=asset_path.split('/')[-1]
+            label=blueprint.get_name()
         )
 
     # recompile the control rig asset

@@ -413,7 +413,7 @@ class DNAImporter:
 
         # Rotate the mesh and apply to Z-up
         mesh_object.rotation_euler.x = math.radians(90)
-        utilities.apply_transforms(mesh_object, rotation=True)
+        utilities.apply_transforms(mesh_object, rotation=True) # type: ignore
         return mesh_object
     
     def create_rig_object(self) -> bpy.types.Object | None:
@@ -576,7 +576,7 @@ class DNAImporter:
 
         # Rotate the armature and apply to Z-up
         self.rig_object.rotation_euler.x = math.radians(90)
-        utilities.apply_transforms(self.rig_object, rotation=True)
+        utilities.apply_transforms(self.rig_object, rotation=True) # type: ignore
 
     def set_armature_modifier(self, mesh_object: bpy.types.Object):
         armature_modifier = mesh_object.modifiers.get("Armature")

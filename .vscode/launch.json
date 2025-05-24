@@ -30,7 +30,7 @@
       "request": "attach",
       "connect": {
         "host": "localhost",
-        "port": 5678
+        "port": "${input:debug-port-number}"
       }
     }
   ],
@@ -47,6 +47,16 @@
         "tests/test_rig_logic.py"
       ],
       "description": "What test suite do you want to run?"
+    },
+    {
+      "id": "debug-port-number",
+      "type": "pickString",
+      "default": "5678",
+      "options": [
+        "5678",
+        "5679"
+      ],
+      "description": "What debug port to attach to?"
     },
     {
       "id": "test-case",

@@ -8,6 +8,7 @@ from typing import Callable
 from pathlib import Path
 from mathutils import Vector, Matrix
 from .. import utilities
+from ..utilities import preserve_context
 from ..rig_logic import RigLogicInstance
 from .misc import get_dna_writer, get_dna_reader
 from ..bindings import riglogic
@@ -198,7 +199,7 @@ class DNAExporter:
         ]
     
     @staticmethod
-    @utilities.preserve_context
+    @preserve_context
     def get_bone_transforms(
             armature_object: bpy.types.Object
         ) -> tuple[

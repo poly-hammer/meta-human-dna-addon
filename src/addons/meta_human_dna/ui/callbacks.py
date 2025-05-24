@@ -193,6 +193,11 @@ def get_send2ue_settings_templates(self, context):
 def get_active_lod(self) -> int:
     return self.get('active_lod', 0)
 
+def get_show_bones(self) -> bool:
+    if self.head_rig:
+        return not self.head_rig.hide_get() # type: ignore
+    return False
+
 def get_shape_key_value(self) -> float:
     instance = get_active_rig_logic()
     if instance:
@@ -285,6 +290,10 @@ def set_active_lod(self, value):
             scene_object.hide_set(True)
             if scene_object.name.endswith(f'_lod{value}_mesh') and scene_object.name not in ignored_names:
                 scene_object.hide_set(False)
+
+def set_show_bones(self, value):
+    if self.head_rig:
+        self.head_rig.hide_set(not value)
 
 def set_copied_rig_logic_instance_name(self, value):
     self['copied_rig_logic_instance_name'] = value

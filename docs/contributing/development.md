@@ -66,3 +66,11 @@ If blender was launched from VS Code, then you should be able to run this snippe
 from poly_hammer_utils.helpers import reload_addon_source_code
 reload_addon_source_code(['meta_human_dna'])
 ```
+
+In a similar way, when launching unreal from vscode, you can reload the supporting unreal utilities with:
+
+```python
+import meta_human_dna_utilities
+from poly_hammer_utils.helpers import deep_reload
+deep_reload(meta_human_dna_utilities)
+```
