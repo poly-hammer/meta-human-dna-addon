@@ -15,18 +15,14 @@
 // "python.analysis.disabled": ["unresolved-import"],
     "python.autoComplete.extraPaths": [
         "${workspaceFolder}/src/addons",
-        "${workspaceFolder}/admin/packages",
         "${workspaceFolder}/.stubs-venv/Lib/site-packages",
-        "${workspaceFolder}/admin/stubs",
         "${workspaceFolder}/src/addons/meta_human_dna/resources/packages",
         "${workspaceFolder}/src/addons/meta_human_dna/resources/unreal",
         "${workspaceFolder}/src/addons/meta_human_dna/bindings/windows/amd64"
     ],
     "python.analysis.extraPaths": [
         "${workspaceFolder}/src/addons",
-        "${workspaceFolder}/admin/packages",
         "${workspaceFolder}/.stubs-venv/Lib/site-packages",
-        "${workspaceFolder}/admin/stubs",
         "${workspaceFolder}/src/addons/meta_human_dna/resources/packages",
         "${workspaceFolder}/src/addons/meta_human_dna/resources/unreal",
         "${workspaceFolder}/src/addons/meta_human_dna/bindings/windows/amd64"

@@ -1,0 +1,5 @@
+unreal-stub
+fake-bpy-module-latest
+
+# python -m venv .stubs-venv
+# .\.stubs-venv\Scripts\pip.exe install -r stubs-requirements.txt

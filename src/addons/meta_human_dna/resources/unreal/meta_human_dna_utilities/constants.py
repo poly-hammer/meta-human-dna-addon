@@ -39,3 +39,12 @@ MATERIAL_INSTANCE_PARAMETERS = {
         "Roughness_MAIN": "head_roughness_map.tga"
     }
 }
+
+FACE_GROOM_NAMES = [
+    "Eyelashes",
+    "Fuzz",
+    "Eyebrows",
+    "Hair",
+    "Mustache",
+    "Beard"
+]
