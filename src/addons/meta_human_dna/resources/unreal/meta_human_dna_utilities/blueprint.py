@@ -134,3 +134,34 @@ def get_body_skinned_mesh_component(blueprint: unreal.Blueprint) -> Optional[unr
         )
         return skeletal_mesh_component
     return None
+
+
+def create_child_anim_blueprint(
+        parent_anim_blueprint: unreal.AnimBlueprint,
+        target_skeleton: unreal.Skeleton,
+        asset_path: str
+) -> unreal.AnimBlueprint:
+    """
+    Create a child animation blueprint from a parent animation blueprint.
+    """
+    asset_subsystem = unreal.get_editor_subsystem(unreal.EditorAssetSubsystem)
+    
+    if not asset_subsystem.does_asset_exist(asset_path): # type: ignore
+        # Create the factory for animation blueprints
+        anim_blueprint_factory = unreal.AnimBlueprintFactory()
+        
+        # Set the parent class to the parent animation blueprint's generated class
+        anim_blueprint_factory.set_editor_property("parent_class", parent_anim_blueprint.generated_class())
+        
+        # Set the target skeleton
+        anim_blueprint_factory.set_editor_property("target_skeleton", target_skeleton)
+        
+        # Create the asset
+        return asset.create_asset(
+            asset_path=asset_path,
+            asset_class=unreal.AnimBlueprint,
+            asset_factory=anim_blueprint_factory,
+            unique_name=False
+        )
+    else:
+        return unreal.load_asset(asset_path)
