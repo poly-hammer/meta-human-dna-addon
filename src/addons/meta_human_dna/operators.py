@@ -367,14 +367,17 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
         default=True,
         description="Runs the calibration process after converting the selected mesh. This export the DNA to disk and re-loads it into the rig logic instance."
     ) # type: ignore
+    # this can be used when invoking the operator programmatically to set the rig logic instance name
+    new_instance_name: bpy.props.StringProperty(default="") # type: ignore
 
     def execute(self, context):
         selected_object = context.active_object # type: ignore
         new_folder = Path(bpy.path.abspath(self.new_folder))
+        new_name = self.new_name or self.new_instance_name
         if not selected_object or not selected_object.type == 'MESH':
             self.report({'ERROR'}, 'You must select a mesh to convert.')
             return {'CANCELLED'}
-        if not self.new_name:
+        if not new_name:
             self.report({'ERROR'}, 'You must set a new name.')
             return {'CANCELLED'}
         if not self.new_folder:
@@ -409,7 +412,7 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
         # we don't want to evaluate the dependency graph while importing the DNA
         window_manager_properties.evaluate_dependency_graph = False
         face = MetahumanFace(
-            name=self.new_name,
+            name=new_name,
             dna_file_path=Path(self.base_dna),
             dna_import_properties=self.properties # type: ignore
         )
@@ -446,7 +449,7 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
             )        
             calibrator.run()
             
-            new_dna_file_path = str(new_folder / f'{self.new_name}.dna')
+            new_dna_file_path = str(new_folder / f'{new_name}.dna')
             # make the path relative to the blend file if it is saved
             if bpy.data.filepath:
                 try:
