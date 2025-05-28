@@ -4,7 +4,6 @@
 ## Patch Changes
 * Fixed bug with duplicate actor when re-importing actor into level and level sequence
 * Fixed bug Send to Unreal Validation for Shape Key Import [#95](https://github.com/poly-hammer/meta-human-dna-addon/issues/95)
-* Fixed bug Send to Unreal Validation for Shape Key Import [#95](https://github.com/poly-hammer/meta-human-dna-addon/issues/95)
 * Added extra Send to Unreal validations for asset paths [#96](https://github.com/poly-hammer/meta-human-dna-addon/issues/96)
 * Fixed DNA calibration bone rotations bug [#100](https://github.com/poly-hammer/meta-human-dna-addon/issues/100)
 
