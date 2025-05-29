@@ -218,6 +218,33 @@ def init_sentry():
     
     try:
         import sentry_sdk # type: ignore
+        from sentry_sdk.types import Event, Hint
+
+        def before_send(event: Event, hint: Hint) -> Event | None:
+            # Filter based on module origin. We only want to send errors related 
+            # to the Meta-Human DNA addon and the send2ue addon.
+            if event.get("exception") and event["exception"].get("values"): # type: ignore
+                exception = event["exception"]["values"][0] # type: ignore
+                if exception.get("stacktrace") and exception["stacktrace"].get("frames"):
+                    # Check if the exception originated from one of the whitelisted modules
+                    for frame in exception["stacktrace"]["frames"]:
+                        module_name = frame.get("module")
+                        if module_name and (module_name.startswith(ToolInfo.NAME) or module_name.startswith('send2ue')):
+                            break
+                    else:
+                        return None
+                    
+            # Add tags to the event
+            if "tags" not in event:
+                event["tags"] = {}
+
+            from .. import bl_info
+            event["tags"]["blender_version"] = bpy.app.version_string
+            event["tags"]["blender_mode"] = bpy.context.mode # type: ignore
+            event["tags"]["addon_version"] = ".".join([str(i) for i in bl_info.get('version', [])])
+            event["tags"]["platform"] = sys.platform
+
+            return event
 
         sentry_sdk.init(
             dsn=SENTRY_DSN,
@@ -230,6 +257,9 @@ def init_sentry():
             # of sampled transactions.
             # We recommend adjusting this value in production.
             profiles_sample_rate=1.0,
+            # Do some client-side filtering to avoid sending
+            # events that are not relevant to us.
+            before_send=before_send
         )
         sentry_sdk.capture_event({'message': 'Initialized Sentry'})        
     except ImportError:

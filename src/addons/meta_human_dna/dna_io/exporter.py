@@ -8,6 +8,7 @@ from typing import Callable
 from pathlib import Path
 from mathutils import Vector, Matrix
 from .. import utilities
+from ..utilities import preserve_context
 from ..rig_logic import RigLogicInstance
 from .misc import get_dna_writer, get_dna_reader
 from ..bindings import riglogic
@@ -198,7 +199,7 @@ class DNAExporter:
         ]
     
     @staticmethod
-    @utilities.preserve_context
+    @preserve_context
     def get_bone_transforms(
             armature_object: bpy.types.Object
         ) -> tuple[
@@ -435,10 +436,17 @@ class DNAExporter:
         for index, bone_name in zip(indices, bone_names):
             self._dna_writer.setJointName(index=index, name=bone_name)
             self._bone_index_lookup[bone_name] = index
+
+            # TODO: Currently we only set the bone rotations for the facial bones.
+            # We need to investigate why the local rotations of other bones are not matching.
+            if bone_name.startswith('FACIAL_'):
+                dna_x_rotations[index] = rotations[index][0]
+                dna_y_rotations[index] = rotations[index][1]
+                dna_z_rotations[index] = rotations[index][2]
         
         self._dna_writer.setJointHierarchy(hierarchy)
         self._dna_writer.setNeutralJointTranslations(translations)
-        # TODO: Implement bone rotation export with correct bone space rotation. For now, just set using the original values
+        # TODO: Implement bone rotation export with correct bone space rotation. For now, just set using the original values plus the changes made to the facial bones.
         self._dna_writer.setNeutralJointRotations([[x, y, z] for x, y, z in zip(dna_x_rotations, dna_y_rotations, dna_z_rotations)])
     
     def save_images(self):

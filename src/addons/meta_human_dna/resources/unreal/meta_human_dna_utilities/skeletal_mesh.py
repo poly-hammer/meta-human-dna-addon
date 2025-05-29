@@ -2,6 +2,7 @@ import unreal
 from pathlib import Path
 from meta_human_dna_utilities.material import update_material_instance_params
 from meta_human_dna_utilities.content_browser import copy_asset_to_folder
+from meta_human_dna_utilities.blueprint import create_child_anim_blueprint
 from meta_human_dna_utilities.constants import (
     RecomputeTangentsVertexMaskChannel,
     SKELETAL_MESH_LOD_INFO_PROPERTIES
@@ -136,14 +137,19 @@ def get_head_mesh_assets(
             overwrite=False,
             post_fix=post_fix
         )
-
         # Todo: https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/class/ControlRigBlueprint?application_version=5.4#unreal.ControlRigBlueprint.set_preview_mesh
+
         face_anim_bp_asset = copy_asset_to_folder(
             asset_path=face_anim_bp_asset_path,
             content_folder=content_folder,
             overwrite=False,
             post_fix=post_fix
         )
+        # face_anim_bp_asset = create_child_anim_blueprint(
+        #     parent_anim_blueprint=unreal.load_asset(face_anim_bp_asset_path),
+        #     target_skeleton=skeletal_mesh.skeleton,
+        #     asset_path=f"{content_folder}/ABP_{skeletal_mesh.get_name()}_FaceMesh_PostProcess"
+        # )
 
         material_instances = {}
         for material_slot, material_asset_path in material_slot_to_instance_mapping.items():

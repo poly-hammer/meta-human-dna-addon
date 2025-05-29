@@ -1,6 +1,6 @@
 # Rig Logic
 
-[Rig Logic](../terminology.md/#rig-logic) and [Rig Logic Instances](../terminology.md/#rig-logic-instance) and how they interact with DNA are at the heart of this addon. This addon utilizes the same RigLogic evaluation module as Unreal Engine, making the math match 1-to-1 with blender. Rig Logic Instances and their related data are managed under the `Rig Logic` Panel.
+[Rig Logic](../terminology.md/#riglogic) and [Rig Logic Instances](../terminology.md/#rig-logic-instance) and how they interact with DNA are at the heart of this addon. This addon utilizes the same RigLogic evaluation module as Unreal Engine, making the math match 1-to-1 with blender. Rig Logic Instances and their related data are managed under the `Rig Logic` Panel.
 
 ![](../images/rig-logic/1.gif){: class="rounded-image center-image" style="width:370px"}
 ![](../images/rig-logic/2.png){: class="rounded-image center-image" style="width:335px"}

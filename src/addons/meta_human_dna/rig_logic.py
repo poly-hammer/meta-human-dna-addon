@@ -204,6 +204,13 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         set=callbacks.set_active_material_preview,
         get=callbacks.get_active_material_preview
     ) # type: ignore
+    show_bones: bpy.props.BoolProperty(
+        name="Show Bones",
+        default=False,
+        description="Whether to show or hide the bones that belong to this RigLogic instance in the 3D view",
+        set=callbacks.set_show_bones,
+        get=callbacks.get_show_bones
+    ) # type: ignore
 
     # --------------------- Mesh Utilities Properties ------------------
     head_mesh_topology_groups: bpy.props.EnumProperty(
@@ -281,8 +288,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         description='The output method to use when creating the dna file',
         default='calibrate',
         items=[
-            ('calibrate', 'Calibrate', 'Uses the original dna file and calibrates the included bones and mesh changes into a new dna file. Use this method if your vert indices and bone names are the same as the original DNA. This is the recommended method'),
-            ('overwrite', 'Overwrite', 'Uses the original dna file and overwrites the dna data based on the current mesh and armature data in the scene. Use this method if your vert indices and bone names are different from the original DNA. Only use this method when calibration method is not possible'),
+            ('calibrate', 'Calibrate', 'Uses the original dna file and calibrates the included bones and mesh changes into a new dna file. Use this method if your vert indices and bone names are the same as the original DNA. This is the recommended method', 'NONE', 0),
+            ('overwrite', 'Overwrite', '(Experimental, and not fully functional yet) Uses the original dna file and overwrites the dna data based on the current mesh and armature data in the scene. Use this method if your vert indices and bone names are different from the original DNA. Only use this method when calibration method is not possible', 'ERROR', 1),
         ]
     ) # type: ignore
     output_format: bpy.props.EnumProperty(

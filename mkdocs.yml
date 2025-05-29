@@ -2,6 +2,7 @@ site_name: Meta-Human DNA Addon
 nav:
   - Quick Start: "index.md"
   - Terminology: "terminology.md"
+  - Helpful Resources: "helpful-resources.md"
   - User Interface:
     - Face Board: "user-interface/face-board.md"
     - Utilities: "user-interface/utilities.md"

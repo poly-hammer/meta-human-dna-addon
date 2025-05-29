@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 bl_info = {
     "name": "Meta-Human DNA",
     "author": "Poly Hammer",
-    "version": (0, 3, 1),
+    "version": (0, 3, 2),
     "blender": (4, 2, 0),
     "location": "File > Import > Metahuman DNA",
     "description": "Imports a Metahuman head from a DNA file, lets you customize it, then send it back to unreal.",

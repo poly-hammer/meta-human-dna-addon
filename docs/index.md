@@ -10,7 +10,7 @@ To install into Blender, simply drag and drop the `.zip` file that you downloade
 
 ![](./images/quick-start/2.gif){: class="rounded-image"}
 
-You will now see a tab on the right-side of the 3D Viewport bar called `Meta-Human DNA` (Hide/Show with `N` key.). You will notice that the panels are grayed out and have warning messages. These panels become active when there is an active [RigLogic Instance](./terminology/#rig-logic-instance).
+You will now see a tab on the right-side of the 3D Viewport bar called `Meta-Human DNA` (Hide/Show with `N` key.). You will notice that the panels are grayed out and have warning messages. These panels become active when there is an active [RigLogic Instance](./terminology.md/#rig-logic-instance).
 
 ## Option 1: Import a DNA File
 The easiest way to get started, is to just drag and drop a `.dna` file into the blender scene.

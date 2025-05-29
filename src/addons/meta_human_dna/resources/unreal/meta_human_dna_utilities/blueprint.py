@@ -1,6 +1,7 @@
 import unreal
 from typing import Optional
 from meta_human_dna_utilities import asset
+from meta_human_dna_utilities.constants import FACE_GROOM_NAMES
 
 
 def create_actor_blueprint(asset_path: str) -> unreal.Blueprint:
@@ -28,6 +29,32 @@ def get_handle(blueprint: unreal.Blueprint, name: str) -> Optional[unreal.Subobj
         variable_name = sub_object_data_library.get_variable_name(data)
         if variable_name == name:
             return handle
+        
+def update_groom_components(
+        blueprint: unreal.Blueprint,
+        skeletal_mesh: unreal.SkeletalMesh,
+        groom_names: Optional[list[str]] = None
+    ):
+    if not groom_names:
+        return
+
+    sub_object_data_subsystem = unreal.get_engine_subsystem(unreal.SubobjectDataSubsystem)
+    sub_object_data_library = unreal.SubobjectDataBlueprintFunctionLibrary()
+    sub_object_data_handles = sub_object_data_subsystem.k2_gather_subobject_data_for_blueprint( # type: ignore
+        context=blueprint
+    ) or [] 
+    for handle in sub_object_data_handles:
+        data = sub_object_data_library.get_data(handle)
+        component_object = sub_object_data_library.get_object(data)
+        # Check if it's a groom component
+        if isinstance(component_object, unreal.GroomComponent):
+            groom_name = sub_object_data_library.get_variable_name(data)
+            if groom_name in groom_names:
+                # update the binding asset for the groom component
+                if component_object.binding_asset:
+                    component_object.binding_asset.set_editor_property(
+                        "target_skeletal_mesh", skeletal_mesh
+                    )
         
 def add_skeletal_mesh_component_to_blueprint(
         blueprint: unreal.Blueprint,
@@ -119,6 +146,14 @@ def add_face_component_to_blueprint(
             )
             skeletal_mesh_component.set_skeletal_mesh_asset(skeletal_mesh) 
 
+        # update the groom bindings to be the face skeletal mesh
+        if skeletal_mesh:
+            update_groom_components(
+                blueprint=blueprint,
+                skeletal_mesh=skeletal_mesh,
+                groom_names=FACE_GROOM_NAMES
+            )
+
         # compile the blueprint to apply the changes
         unreal.BlueprintEditorLibrary.compile_blueprint(blueprint)
     else:
@@ -134,3 +169,34 @@ def get_body_skinned_mesh_component(blueprint: unreal.Blueprint) -> Optional[unr
         )
         return skeletal_mesh_component
     return None
+
+
+def create_child_anim_blueprint(
+        parent_anim_blueprint: unreal.AnimBlueprint,
+        target_skeleton: unreal.Skeleton,
+        asset_path: str
+) -> unreal.AnimBlueprint:
+    """
+    Create a child animation blueprint from a parent animation blueprint.
+    """
+    asset_subsystem = unreal.get_editor_subsystem(unreal.EditorAssetSubsystem)
+    
+    if not asset_subsystem.does_asset_exist(asset_path): # type: ignore
+        # Create the factory for animation blueprints
+        anim_blueprint_factory = unreal.AnimBlueprintFactory()
+        
+        # Set the parent class to the parent animation blueprint's generated class
+        anim_blueprint_factory.set_editor_property("parent_class", parent_anim_blueprint.generated_class())
+        
+        # Set the target skeleton
+        anim_blueprint_factory.set_editor_property("target_skeleton", target_skeleton)
+        
+        # Create the asset
+        return asset.create_asset(
+            asset_path=asset_path,
+            asset_class=unreal.AnimBlueprint,
+            asset_factory=anim_blueprint_factory,
+            unique_name=False
+        )
+    else:
+        return unreal.load_asset(asset_path)

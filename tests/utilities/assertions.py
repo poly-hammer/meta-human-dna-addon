@@ -24,14 +24,17 @@ def assert_bone_definitions(
     current_value = current_data['definition'][attribute][f'{axis_name}s'][current_bone_index]
 
     # this ensures that we don't assert that the bone was moved in the dna if it was not moved in blender
-    changed = getattr(changed_bone_rotation[0], axis_name) != 0.0 
+    changed_location = False
     if attribute == 'neutralJointTranslations':
-        changed = getattr(changed_bone_location[0], axis_name) != 0.0
+        changed_location = getattr(changed_bone_location[0], axis_name) != 0.0
 
-    if bone_name == changed_bone_name and changed:
-        if attribute == 'neutralJointRotations':
-            pytest.skip('Skipping test since we do not support exporting bone rotations yet.')
+    changed_rotation = False
+    if attribute == 'neutralJointRotations':
+        changed_rotation = getattr(changed_bone_rotation[0], axis_name) != 0.0
+        # reduce the tolerance for joint rotations since they are in degrees
+        tolerance = 1e-2
 
+    if bone_name == changed_bone_name and (changed_rotation or changed_location):
         assert current_value != pytest.approx(expected_value, abs=tolerance), \
             f'{axis_name} bone {bone_name} {attribute} should not match, since it was moved in blender.'
     else:

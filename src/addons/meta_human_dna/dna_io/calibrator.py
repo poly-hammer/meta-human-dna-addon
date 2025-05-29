@@ -49,9 +49,9 @@ class DNACalibrator(DNAExporter, DNAImporter):
         dna_x_translations = self._dna_reader.getNeutralJointTranslationXs()
         dna_y_translations = self._dna_reader.getNeutralJointTranslationYs()
         dna_z_translations = self._dna_reader.getNeutralJointTranslationZs()
-        # dna_x_rotations = self._dna_reader.getNeutralJointRotationXs()
-        # dna_y_rotations = self._dna_reader.getNeutralJointRotationYs()
-        # dna_z_rotations = self._dna_reader.getNeutralJointRotationZs()
+        dna_x_rotations = self._dna_reader.getNeutralJointRotationXs()
+        dna_y_rotations = self._dna_reader.getNeutralJointRotationYs()
+        dna_z_rotations = self._dna_reader.getNeutralJointRotationZs()
 
         self._bone_index_lookup = {
             self._dna_reader.getJointName(index): index
@@ -78,27 +78,27 @@ class DNACalibrator(DNAExporter, DNAImporter):
                     dna_y_translations[dna_bone_index] = bone_translation[1]
                     dna_z_translations[dna_bone_index] = bone_translation[2]
 
-                # TODO: Implement bone rotation calibration with correct bone space rotation
-                # dna_bone_rotation = Vector((
-                #     dna_x_rotations[dna_bone_index],
-                #     dna_y_rotations[dna_bone_index],
-                #     dna_z_rotations[dna_bone_index]
-                # ))
-                # rotation_delta = Vector(bone_rotation) - dna_bone_rotation
-                # # Only modify the bone rotations that are different to avoid floating point errors
-                # if rotation_delta.length > 1e-3 and not is_leaf:
-                #     dna_x_rotations[dna_bone_index] = bone_rotation[0]
-                #     dna_y_rotations[dna_bone_index] = bone_rotation[1]
-                #     dna_z_rotations[dna_bone_index] = bone_rotation[2]
+                dna_bone_rotation = Vector((
+                    dna_x_rotations[dna_bone_index],
+                    dna_y_rotations[dna_bone_index],
+                    dna_z_rotations[dna_bone_index]
+                ))
+                rotation_delta = Vector(bone_rotation) - dna_bone_rotation
+                # Only modify the bone rotations that are different to avoid floating point value drift
+                # TODO: Currently, we only calibrate facial bones we need to investigate why the local rotations of other bones are not matching
+                if bone_name.startswith('FACIAL_') and rotation_delta.length > 1e-3: # and not is_leaf:
+                    dna_x_rotations[dna_bone_index] = bone_rotation[0]
+                    dna_y_rotations[dna_bone_index] = bone_rotation[1]
+                    dna_z_rotations[dna_bone_index] = bone_rotation[2]
             else:
                 logger.warning(f'No DNA bone index found for bone "{bone_name}". Ignored from calibration...')
         
         self._dna_writer.setNeutralJointTranslations([
             [x, y, z] for x, y, z in zip(dna_x_translations, dna_y_translations, dna_z_translations)
         ])
-        # self._dna_writer.setNeutralJointRotations([
-        #     [x, y, z] for x, y, z in zip(dna_x_rotations, dna_y_rotations, dna_z_rotations)
-        # ])
+        self._dna_writer.setNeutralJointRotations([
+            [x, y, z] for x, y, z in zip(dna_x_rotations, dna_y_rotations, dna_z_rotations)
+        ])
 
     def run(self) -> tuple[bool, str, str, Callable| None]:
         self.initialize_scene_data()
