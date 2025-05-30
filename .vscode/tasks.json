@@ -31,7 +31,7 @@
         },
         {
             "label": "Run Pytest With Coverage",
-            "command": "pytest ${input:test-suite} ${input:test-case} --cov-config=.coveragerc --cov=src/addons/meta_human_dna --cov-report=xml:reports/coverage/results.xml",
+            "command": "pytest ${input:test-suite} ${input:test-case} --cov-config=.coveragerc --cov=src/addons/meta_human_dna --cov-report=xml:reports/coverage/results.xml --cov-report=html:reports/coverage/html",
             "type": "shell",
             "group": {
                 "kind": "build"

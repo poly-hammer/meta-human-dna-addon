@@ -3,6 +3,8 @@ nav:
   - Quick Start: "index.md"
   - Terminology: "terminology.md"
   - Helpful Resources: "helpful-resources.md"
+  - Unreal Configuration: "unreal-configuration.md"
+  - Textures: "textures.md"
   - User Interface:
     - Face Board: "user-interface/face-board.md"
     - Utilities: "user-interface/utilities.md"

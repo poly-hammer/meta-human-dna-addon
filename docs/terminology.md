@@ -10,7 +10,7 @@ This is the runtime evaluation system that powers Metahuman face rigs. The sourc
 
 However for the purposes of this addon, the most important thing to understand is that RigLogic ties together the relationships between 4 things. 1 input that drives 3 outputs.
 
-* Face Board GUI Controls (Ultimately these are the "Expressions" or "[Control Curves](https://dev.epicgames.com/documentation/en-us/metahuman/control-curves-driven-by-metahuman-animator?application_version=1.0)")
+* Face Board GUI Controls (Ultimately these are the "Expressions" or "[Control Curves](https://dev.epicgames.com/documentation/en-us/metahuman/control-curves-driven-by-metahuman-animator)")
 
 The Face board drives the following:
 

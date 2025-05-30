@@ -43,8 +43,7 @@ The [Send to Unreal Addon](https://github.com/poly-hammer/BlenderTools) is a fre
 
 Please read the [Quick Start](https://poly-hammer.github.io/BlenderTools/send2ue/introduction/quickstart/) on their documentation and get it all setup and working before continuing further.
 
-### Copy Supporting Unreal Assets
-Enable this to copy the referenced unreal assets (Control Rig, Anim BP, Materials Instances etc.) to the same folder as the face skeletal mesh asset if they don't already exist. This should be preferred as it is not a good idea to import on top of the original metahuman common assets. However, if you have a custom setup with different asset references, you can disable this option.
+
 
 ### Content Folder
 The content folder in your Unreal project where the assets will be imported. All data is copied or imported here.
@@ -52,21 +51,30 @@ The content folder in your Unreal project where the assets will be imported. All
 ### Blueprint Asset
 The asset path to the Metahuman Blueprint asset that the SkeletalMesh data will be bound to. If left empty, the blueprint will be created in the same folder as the SkeletalMesh asset.
 
-### Auto-Sync Head with Body
-Whether to automatically sync the head spine bone positions with the body spine bone positions. This uses the blueprint asset path to find the body skeleton. This will modify the objects in your blender scene.
-
 ### Level Sequence Asset
 The asset path to the Level Sequence that the blueprint actor will be added too. If the level sequence does not exist, it will be created. If left empty the blueprint will not be spawned into a level sequence.
 
+### Auto-Sync Head with Body
+Whether to automatically sync the head spine bone positions with the body spine bone positions. This uses the blueprint asset path to find the body skeleton. This will modify the objects in your blender scene.
+
+### Copy Supporting Unreal Assets
+Enable this to copy the referenced unreal assets (Control Rig, Anim BP, Materials Instances etc.) to the same folder as the face skeletal mesh asset if they don't already exist. This should be preferred as it is not a good idea to import on top of the original metahuman common assets. However, if you have a custom setup with different asset references, you can disable this option.
+
 ### Face Control Rig Asset
-The asset path to the Metahuman Face Board Control Rig asset that will drive the SkeletalMesh data. Note: if [Copy](#copy-supporting-unreal-assets) is on, this is the location to copy from and into the [Content Folder](#content-folder) rather than the actual path to the asset.
+The asset path to the Metahuman Face Board Control Rig asset that will drive the SkeletalMesh data. 
+
+!!! Note 
+    If [Copy Supporting Unreal Assets](#copy-supporting-unreal-assets) is on, this is the location to copy from and into the [Content Folder](#content-folder) rather than the actual path to the Control Rig asset.
 
 ### Face Anim BP Asset
-The asset path to the Face Post Process Animation Blueprint asset that will drive the SkeletalMesh data. Note: if [Copy](#copy-supporting-unreal-assets) is on, this is the location to copy from and into the [Content Folder](#content-folder) rather than the actual path to the asset.
+The asset path to the Face Post Process Animation Blueprint asset that will drive the SkeletalMesh data. 
+
+!!! Note
+    If [Copy Supporting Unreal Assets](#copy-supporting-unreal-assets) is on, this is the location to copy from and into the [Content Folder](#content-folder) rather than the actual path to the Anim BP asset.
 
 
 ### Material Slot to Unreal Material Instance
 This is a mapping between the material slot name in Blender and the respective Material (or Material Instance) asset path in the Unreal Project. The refresh button on the side can be used to update the list if you re-named materials in Blender. Also each material asset path can be customized. 
 
 !!! Note
-    If [Copy](#copy-supporting-unreal-assets) is on, this is the location to copy materials from and into the [Content Folder](#content-folder) rather than referencing these actual paths to the material asset.
+    If [Copy Supporting Unreal Assets](#copy-supporting-unreal-assets) is on, this is the location to copy materials from and into the [Content Folder](#content-folder) rather than referencing these actual paths to the material asset.
