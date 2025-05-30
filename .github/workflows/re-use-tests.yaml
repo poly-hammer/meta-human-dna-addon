@@ -114,6 +114,7 @@ jobs:
       - name: Upload Badges
         uses: EndBug/add-and-commit@v9
         with:
+          cwd: './meta-human-dna-addon'
           message: 'Updated badges for ${{ matrix.os }}'
           add: 'docs/images/badges/*.svg'
           push: true
