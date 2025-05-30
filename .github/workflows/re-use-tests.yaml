@@ -105,7 +105,6 @@ jobs:
           junitxml-title: Tests Summary ${{ matrix.os }}
 
       - name: Generate Badges
-        if: matrix.os == 'macos-latest'
         run: |
           cd meta-human-dna-addon
           genbadge tests --name "Tests (${{ matrix.os }})" --input-file reports/pytest/results.xml --output-file docs/images/badges/tests-${{ matrix.os }}.svg
