@@ -103,3 +103,18 @@ jobs:
           unique-id-for-comment: ${{ matrix.os }}
           junitxml-path: ./meta-human-dna-addon/reports/pytest/results.xml
           junitxml-title: Tests Summary ${{ matrix.os }}
+
+      - name: Generate Badges
+        if: matrix.os == 'macos-latest'
+        run: |
+          cd meta-human-dna-addon
+          genbadge tests --name "Tests (${{ matrix.os }})" --input-file reports/pytest/results.xml --output-file docs/images/badges/tests-${{ matrix.os }}.svg
+          genbadge coverage --name "Coverage (${{ matrix.os }})" --input-file reports/coverage/results.xml --output-file docs/images/badges/coverage-${{ matrix.os }}.svg
+
+      - name: Upload Badges
+        uses: EndBug/add-and-commit@v9
+        with:
+          cwd: './meta-human-dna-addon'
+          message: 'Updated badges for ${{ matrix.os }}'
+          add: 'docs/images/badges/*.svg'
+          push: true
