@@ -4,21 +4,18 @@ import json
 import math
 import bmesh
 import logging
-from typing import Literal
 from mathutils import Vector, Matrix
 from bpy_extras.bmesh_utils import bmesh_linked_uv_islands
 from .misc import (
     exclude_rig_logic_evaluation,
     switch_to_edit_mode,
     switch_to_object_mode,
-    preserve_context,
-    select_only
+    preserve_context
 )
 from ..constants import (
     LOD_REGEX,
     Axis,
-    TOPOLOGY_VERTEX_GROUPS_FILE_PATH,
-    FLOATING_POINT_PRECISION
+    TOPOLOGY_VERTEX_GROUPS_FILE_PATH
 )
 
 
@@ -37,6 +34,10 @@ def initialize_basis_shape_key(mesh_object: bpy.types.Object) -> bpy.types.Key:
     Returns:
         bpy.types.Key: The shape key that has the mesh as its user.
     """
+    if not mesh_object:
+        logger.warning("Mesh object not found in scene that matches DNA. Skipping initialization of basis shape key.")
+        return
+
     # clear all shape keys
     mesh_object.shape_key_clear()
         

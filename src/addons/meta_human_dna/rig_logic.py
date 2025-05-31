@@ -158,27 +158,27 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         type=bpy.types.Object, # type: ignore
         name='Face Board',
         description='The face board that rig logic reads control positions from',
-        poll=callbacks.poll_face_boards
+        poll=callbacks.poll_face_boards # type: ignore
     ) # type: ignore
     head_mesh: bpy.props.PointerProperty(
         type=bpy.types.Object, # type: ignore
         name='Head Mesh',
         description='The head mesh with the shape keys that rig logic will evaluate',
-        poll=callbacks.poll_head_mesh,
+        poll=callbacks.poll_head_mesh, # type: ignore
         update=callbacks.update_output_items
     ) # type: ignore
     head_rig: bpy.props.PointerProperty(
         type=bpy.types.Object, # type: ignore
         name='Head Rig',
         description='The armature object that rig logic will evaluate',
-        poll=callbacks.poll_head_rig,
+        poll=callbacks.poll_head_rig, # type: ignore
         update=callbacks.update_output_items
     ) # type: ignore
     material: bpy.props.PointerProperty(
         type=bpy.types.Material, # type: ignore
         name='Material',
         description='The head material that has a node with wrinkle map sliders that rig logic will evaluate',
-        poll=callbacks.poll_head_materials,
+        poll=callbacks.poll_head_materials, # type: ignore
         update=callbacks.update_output_items
     ) # type: ignore
 
@@ -233,7 +233,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         type=bpy.types.Object, # type: ignore
         name='Material',
         description='The head mesh that the shrink wrap modifier will target. This is the mesh that you will wrap the head topology to',
-        poll=callbacks.poll_shrink_wrap_target
+        poll=callbacks.poll_shrink_wrap_target # type: ignore
     ) # type: ignore
 
     # --------------------- Armature Utilities Properties ------------------

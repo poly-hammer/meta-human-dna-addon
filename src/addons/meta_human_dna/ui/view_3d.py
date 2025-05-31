@@ -168,6 +168,9 @@ class META_HUMAN_DNA_PT_face_board(bpy.types.Panel):
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
+        if not self.layout:
+            return
+
         error = valid_rig_logic_instance_exists(context)
         if not error:
             window_manager_properties = context.window_manager.meta_human_dna # type: ignore
@@ -214,6 +217,9 @@ class META_HUMAN_DNA_PT_mesh_utilities_sub_panel(bpy.types.Panel):
     def draw(self, context):
         properties = context.scene.meta_human_dna # type: ignore
         error = valid_rig_logic_instance_exists(context)
+        if not self.layout:
+            return
+        
         if not error:
             active_index = properties.rig_logic_instance_list_active_index
             instance = properties.rig_logic_instance_list[active_index]
@@ -262,6 +268,10 @@ class META_HUMAN_DNA_PT_armature_utilities_sub_panel(bpy.types.Panel):
     def draw(self, context):
         properties = context.scene.meta_human_dna # type: ignore
         error = valid_rig_logic_instance_exists(context)
+
+        if not self.layout:
+            return
+        
         if not error:
             active_index = properties.rig_logic_instance_list_active_index
             instance = properties.rig_logic_instance_list[active_index]
@@ -320,6 +330,9 @@ class META_HUMAN_DNA_PT_materials_utilities_sub_panel(bpy.types.Panel):
     bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
+        if not self.layout:
+            return
+        
         error = valid_rig_logic_instance_exists(context)
         if not error:
             row = self.layout.row()
@@ -338,6 +351,8 @@ class META_HUMAN_DNA_PT_utilities_sub_panel(bpy.types.Panel):
     bl_options = {'HIDE_HEADER'}
 
     def draw(self, context):
+        if not self.layout:
+            return
         row = self.layout.row()
         row.scale_y = 1.5
         row.operator('meta_human_dna.convert_selected_to_dna', icon='RNA_ADD')
@@ -351,6 +366,9 @@ class META_HUMAN_DNA_PT_view_options(bpy.types.Panel):
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
+        if not self.layout:
+            return
+        
         properties = context.scene.meta_human_dna # type: ignore
         error = valid_rig_logic_instance_exists(context)
         if not error:
@@ -390,6 +408,9 @@ class META_HUMAN_DNA_PT_rig_logic(bpy.types.Panel):
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
+        if not self.layout:
+            return
+        
         properties = context.scene.meta_human_dna # type: ignore
         row = self.layout.row()
         row = self.layout.row()
@@ -470,6 +491,9 @@ class META_HUMAN_DNA_PT_shape_keys(bpy.types.Panel):
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
+        if not self.layout:
+            return
+        
         instance = None
         properties = context.scene.meta_human_dna # type: ignore
         active_index = properties.rig_logic_instance_list_active_index
@@ -536,6 +560,9 @@ class META_HUMAN_DNA_PT_output_panel(bpy.types.Panel):
     bl_category = 'Meta-Human DNA'
 
     def draw(self, context):
+        if not self.layout:
+            return
+        
         properties = bpy.context.scene.meta_human_dna # type: ignore
         error = valid_rig_logic_instance_exists(context, ignore_face_board=True)
         if not error:
@@ -596,6 +623,9 @@ class META_HUMAN_DNA_PT_send2ue_settings_sub_panel(bpy.types.Panel):
 
     def draw(self, context):
         from ..utilities import send2ue_addon_is_valid
+        if not self.layout:
+            return
+        
         if not getattr(context.scene, 'send2ue', None): # type: ignore
             row = self.layout.row()
             row.alert = True
@@ -675,6 +705,9 @@ class META_HUMAN_DNA_PT_buttons_sub_panel(bpy.types.Panel):
     bl_options = {'HIDE_HEADER'}
 
     def draw(self, context):
+        if not self.layout:
+            return
+        
         properties = context.scene.meta_human_dna # type: ignore
         error = valid_rig_logic_instance_exists(context, ignore_face_board=True)
         row = self.layout.row()

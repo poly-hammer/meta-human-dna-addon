@@ -113,7 +113,7 @@ def create_shape_key(
         delta_threshold: float = 0.0001
     ) -> bpy.types.ShapeKey:
     if not mesh_object:
-        logger.error(f"Mesh object not found for shape key {name}.")
+        logger.error(f"Mesh object not found for shape key {name}. Skipping creation.")
         return
 
     bpy.context.window_manager.meta_human_dna.progress_mesh_name = mesh_object.name # type: ignore
