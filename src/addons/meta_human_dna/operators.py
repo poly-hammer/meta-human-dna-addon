@@ -577,7 +577,7 @@ class ForceEvaluate(bpy.types.Operator):
             # board updates.
             current_context = utilities.get_current_context()
             instance.head_rig.hide_set(False) # type: ignore
-            bpy.context.view_layer.objects.active = instance.head_rig # type: ignore
+            instance.head_rig.hide_viewport = False # type: ignore
             utilities.switch_to_pose_mode(instance.head_rig) # type: ignore
             utilities.set_context(current_context)
         else:

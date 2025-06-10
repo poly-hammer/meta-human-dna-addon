@@ -37,7 +37,8 @@ from .constants import (
     UV_MAP_NAME,
     TOPO_GROUP_PREFIX,
     EXTRA_BONES,
-    ALTERNATE_TEXTURE_FILE_NAMES,
+    ALTERNATE_HEAD_TEXTURE_FILE_NAMES,
+    LEGACY_ALTERNATE_HEAD_TEXTURE_FILE_NAMES,
     ALTERNATE_TEXTURE_FILE_EXTENSIONS,
     UNREAL_EXPORTED_HEAD_MATERIAL_NAMES
 )
@@ -95,7 +96,9 @@ class MetahumanFace:
             self.rig_logic_instance.dna_file_path = str(dna_file_path)
 
         if not self.dna_import_properties or not self.dna_import_properties.alternate_maps_folder:
-            self.maps_folder = self.dna_file_path.parent / 'maps'
+            self.maps_folder = self.dna_file_path.parent / 'Maps'
+            if not self.maps_folder.exists():
+                self.maps_folder = self.dna_file_path.parent / 'maps'
         else:
             self.maps_folder = Path(self.dna_import_properties.alternate_maps_folder)
 
@@ -189,12 +192,16 @@ class MetahumanFace:
             utilities.hide_empties()        
             self.head_rig_object.hide_set(True)
 
-    def _get_alternate_image_path(self, image_file: Path) -> Path:
+    def _get_alternate_image_path(
+            self, 
+            image_file: Path, 
+            mapping: dict
+        ) -> Path:
         # Check for alternate image file names
         if not image_file.exists():
             # check for alternate file names with different extensions
             for extension in ALTERNATE_TEXTURE_FILE_EXTENSIONS:
-                alternate_file_name = ALTERNATE_TEXTURE_FILE_NAMES.get(image_file.name, None)
+                alternate_file_name = mapping.get(image_file.name, None)
                 if alternate_file_name:
                     # check for lowercase extension
                     alternate_image_path = self.maps_folder / f"{alternate_file_name}{extension.lower()}"
@@ -217,9 +224,9 @@ class MetahumanFace:
                 continue
 
             for node in material.node_tree.nodes: # type: ignore
-                if node.type == 'TEX_IMAGE' and node.image:
+                if node.type == 'TEX_IMAGE' and node.image: # type: ignore
                     # get the image file name without the postfixes for duplicates i.e. .001
-                    image_file = node.image.name
+                    image_file = node.image.name # type: ignore
                     if image_file.count('.') > 1:
                         image_file = image_file.rsplit('.', 1)[0]
 
@@ -227,13 +234,22 @@ class MetahumanFace:
                     new_image_path = self.maps_folder / image_file
 
                     # Check for alternate image file names
-                    new_image_path = self._get_alternate_image_path(new_image_path)
+                    new_image_path = self._get_alternate_image_path(
+                        new_image_path,
+                        mapping=ALTERNATE_HEAD_TEXTURE_FILE_NAMES
+                    )
+                    if not new_image_path.exists():
+                        new_image_path = self._get_alternate_image_path(
+                            new_image_path,
+                            mapping=LEGACY_ALTERNATE_HEAD_TEXTURE_FILE_NAMES
+                        )
 
                     if new_image_path.exists():
-                        node.image = bpy.data.images.load(str(new_image_path))
+                        node.image = bpy.data.images.load(str(new_image_path)) # type: ignore
 
                         # reloading images defaults the color space, so reset normal map to Non-Color
-                        if new_image_path.stem.endswith('normal_map'):
+                        stem = new_image_path.stem.lower()
+                        if stem.endswith('normal_map') or stem.endswith('normal') or '_Normal_Animated_' in stem:
                             node.image.colorspace_settings.name = 'Non-Color' # type: ignore
 
         # remove any extra masks and topology images
@@ -246,12 +262,12 @@ class MetahumanFace:
         # set the masks and topology textures for all node groups
         for node_group in bpy.data.node_groups:
             for node in node_group.nodes:
-                if node.type == 'TEX_IMAGE' and node.image:
+                if node.type == 'TEX_IMAGE' and node.image: # type: ignore
                     # set the masks and topology textures
-                    if node.image.name == MASKS_TEXTURE:
-                        node.image = bpy.data.images[MASKS_TEXTURE]
-                    if node.image.name == TOPOLOGY_TEXTURE:
-                        node.image = bpy.data.images[TOPOLOGY_TEXTURE]
+                    if node.image.name == MASKS_TEXTURE: # type: ignore
+                        node.image = bpy.data.images[MASKS_TEXTURE] # type: ignore
+                    if node.image.name == TOPOLOGY_TEXTURE: # type: ignore
+                        node.image = bpy.data.images[TOPOLOGY_TEXTURE] # type: ignore
 
     def _purge_existing_materials(self):
         for material_name in MESH_SHADER_MAPPING.values():
@@ -327,14 +343,14 @@ class MetahumanFace:
                 # set the uv maps on the material nodes
                 for node in material.node_tree.nodes: # type: ignore
                     if node.type == 'UVMAP':
-                        node.uv_map = UV_MAP_NAME
+                        node.uv_map = UV_MAP_NAME # type: ignore
                     elif node.type == 'NORMAL_MAP':
-                        node.uv_map = UV_MAP_NAME
+                        node.uv_map = UV_MAP_NAME # type: ignore
                 for node_group in bpy.data.node_groups:
                     if node_group.name.startswith('Mask'):
                         for node in node_group.nodes:
                             if node.type == 'UVMAP':
-                                node.uv_map = UV_MAP_NAME
+                                node.uv_map = UV_MAP_NAME # type: ignore
 
                 for mesh_object in bpy.data.objects:
                     if mesh_object.name.startswith(f'{self.name}_{key}'):
@@ -565,8 +581,8 @@ class MetahumanFace:
         mesh_name = mesh_object.data.name # type: ignore
         head_material_name = None
         for material in mesh_object.data.materials: # type: ignore
-            if material.name in UNREAL_EXPORTED_HEAD_MATERIAL_NAMES:
-                head_material_name = material.name
+            if material.name in UNREAL_EXPORTED_HEAD_MATERIAL_NAMES: # type: ignore
+                head_material_name = material.name # type: ignore
 
         # separate the head mesh by material if it has the a unreal head material
         if head_material_name:
@@ -639,7 +655,7 @@ class MetahumanFace:
             to_bone_name: str
         ) -> bpy.types.PoseBone | None:
         if self.head_rig_object:
-            to_bone = self.head_rig_object.pose.bones.get(to_bone_name)
+            to_bone = self.head_rig_object.pose.bones.get(to_bone_name) # type: ignore
             location = from_bone.matrix.to_translation()
             location.x *= -1
             if to_bone:

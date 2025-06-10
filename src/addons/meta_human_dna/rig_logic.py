@@ -510,6 +510,9 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     
     @property
     def shape_key_blocks(self) -> dict[int, list[bpy.types.ShapeKey]]:
+        if not self.dna_reader:
+            return {}
+
         shape_key_blocks = self.data.get('shape_key_blocks')
         if shape_key_blocks is None:
             self.shape_key_list.clear()
@@ -562,7 +565,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         # make sure the rig bone are using the correct rotation mode
         if self.head_rig and self.head_rig.pose:
             for pose_bone in self.head_rig.pose.bones:
-                pose_bone.rotation_mode = "XYZ"
+                if pose_bone.name.startswith('FACIAL_'):
+                    pose_bone.rotation_mode = "XYZ"
                 # save the rest pose and their parent space matrix so we don't have to calculate it again
                 try:
                     rest_pose[pose_bone.name] = utilities.get_bone_rest_transformations(pose_bone.bone)
