@@ -2,6 +2,7 @@ import os
 import re
 import bpy
 import sys
+import math
 import logging
 import addon_utils
 from pathlib import Path
@@ -15,6 +16,7 @@ from ..constants import (
     PACKAGES_FOLDER,
     NUMBER_OF_FACE_LODS,
     INVALID_NAME_CHARACTERS_REGEX,
+    DEFAULT_UV_TOLERANCE,
     ToolInfo
 )
 if TYPE_CHECKING:
@@ -570,3 +572,29 @@ def dependencies_are_valid() -> bool:
         if module and getattr(module, '__is_fake__', False):
             return False
     return True
+
+
+def reduce_close_floats(float_list: list[float], tolerance: float = DEFAULT_UV_TOLERANCE) -> list[float]:
+    """
+    Reduces a list of floats by removing values that are too close to each other.
+
+    Args:
+        float_list: The list of floats to reduce.
+        tolerance: The maximum allowed difference for two floats to be considered "close".
+
+    Returns:
+        A new list with close values reduced.
+    """
+    if not float_list:
+        return []
+
+    sorted_list = sorted(list(set(float_list))) # Sort and remove exact duplicates first
+    if not sorted_list:
+        return []
+
+    reduced_list = [sorted_list[0]]
+    for i in range(1, len(sorted_list)):
+        # Compare with the last added element in the reduced_list
+        if not math.isclose(sorted_list[i], reduced_list[-1], abs_tol=tolerance):
+            reduced_list.append(sorted_list[i])
+    return reduced_list

@@ -3,12 +3,24 @@
 ## Importing Textures
 When importing or converting a mesh to/from a DNA file, you are given an extra option to specify the `maps` folder location. By default, if a `maps` folder exists alongside the `.dna` file, the importer will use that, otherwise you can explicitly set the `maps` folder to your desired location.
 
-![](../images/textures/1.png){: class="rounded-image center-image" style="width:500px"}
-![](../images/textures/2.png){: class="rounded-image center-image" style="width:500px"}
+![](./images/textures/1.png){: class="rounded-image center-image" style="width:500px"}
+![](./images/textures/2.png){: class="rounded-image center-image" style="width:500px"}
 
 The importer will link any `.tga` or `.png` textures to the [Texture Logic](./terminology.md#texture-logic) node inputs that follow these patterns:
 
 ### Pattern 1
+```
+Head_Basecolor.png  -> Color_MAIN
+Head_Basecolor_Animated_CM1.png -> Color_CM1
+Head_Basecolor_Animated_CM2.png -> Color_CM2
+Head_Basecolor_Animated_CM3.png -> Color_CM3
+Head_Normal.png -> Normal_MAIN
+Head_Normal_Animated_WM1.png -> Normal_WM1
+Head_Normal_Animated_WM2.png -> Normal_WM2
+Head_Normal_Animated_WM3.png -> Normal_WM3
+```
+
+### Pattern 2
 ```
 Color_MAIN.tga -> Color_MAIN
 Color_CM1.tga -> Color_CM1
@@ -21,7 +33,7 @@ Normal_WM3.tga -> Normal_WM3
 Cavity_MAIN.tga -> Cavity_MAIN
 Roughness_MAIN.tga -> Roughness_MAIN
 ```
-### Pattern 2
+### Pattern 3
 ```
 head_color_map.tga -> Color_MAIN
 head_cm1_color_map.tga -> Color_CM1
@@ -39,9 +51,9 @@ head_roughness_map.tga -> Roughness_MAIN
 You can make a totally custom material node tree if you want. All you need to do is add a single
 [Texture Logic](./terminology.md#texture-logic) node to the graph, then link your material in the [Rig Logic Instance](./terminology.md#rig-logic-instance) outputs.
 
-![](../images/textures/3.gif){: class="rounded-image center-image"}
+![](./images/textures/3.gif){: class="rounded-image center-image"}
 
-With this set, now [RigLogic](./terminology.md#riglogic) will update the wrinkle map masks for you as the GUI control are evaluated.
+With this set, now [RigLogic](./terminology.md#riglogic) will update the wrinkle map masks for you as the GUI controls are evaluated.
 
 ## Send to Unreal Integration
 
@@ -60,5 +72,5 @@ The Texture Logic Node Input Names are 1-to-1 with Unreal Material Instance Para
 * `Cavity_MAIN`
 * `Roughness_MAIN`
 
-![](../images/textures/4.png){: class="rounded-image center-image" style="height:400px"}
-![](../images/textures/5.png){: class="rounded-image center-image" style="height:400px"}
+![](./images/textures/4.png){: class="rounded-image center-image" style="height:400px"}
+![](./images/textures/5.png){: class="rounded-image center-image" style="height:400px"}

@@ -3,7 +3,7 @@ import bpy
 import bpy.utils.previews
 import logging
 
-from . import operators, properties, utilities
+from . import operators, properties, utilities, manual_map
 from .ui import menus, importer, view_3d, addon_preferences, callbacks
 from .resources.unreal import meta_human_dna_utilities
 
@@ -22,7 +22,7 @@ bl_info = {
     "location": "File > Import > Metahuman DNA",
     "description": "Imports a Metahuman head from a DNA file, lets you customize it, then send it back to unreal.",
     "warning": "",
-    "wiki_url": "https://docs.polyhammer.com/meta-human-dna-blender-addon",
+    "wiki_url": "https://docs.polyhammer.com/meta-human-dna-addon/",
     "category": "Rigging",
 }
 
@@ -100,6 +100,8 @@ def register():
     logging.basicConfig(level=logging.INFO)
 
     try:
+        # register the manual map
+        bpy.utils.register_manual_map(manual_map.manual_map)
 
         # register the properties
         addon_preferences.register()
@@ -108,7 +110,6 @@ def register():
         # register the classes
         for cls in classes:
             bpy.utils.register_class(cls)
-
 
         # add menu items
         menus.add_dna_import_menu()
@@ -152,6 +153,9 @@ def unregister():
         bpy.app.handlers.render_cancel.remove(app_handlers['render_cancel'])
 
     try:
+        # unregister the manual map
+        bpy.utils.unregister_manual_map(manual_map.manual_map)
+
         # remove menu items
         menus.remove_dna_import_menu()
         menus.remove_rig_logic_texture_node_menu()

@@ -40,7 +40,8 @@ from .constants import (
     ALTERNATE_HEAD_TEXTURE_FILE_NAMES,
     LEGACY_ALTERNATE_HEAD_TEXTURE_FILE_NAMES,
     ALTERNATE_TEXTURE_FILE_EXTENSIONS,
-    UNREAL_EXPORTED_HEAD_MATERIAL_NAMES
+    UNREAL_EXPORTED_HEAD_MATERIAL_NAMES,
+    DEFAULT_UV_TOLERANCE
 )
 
 if TYPE_CHECKING:
@@ -576,6 +577,7 @@ class MetahumanFace:
                 only_selected=False
             )
 
+    @preserve_context
     def pre_convert_mesh_cleanup(self, mesh_object: bpy.types.Object) -> bpy.types.Object | None:
         mesh_object_name = mesh_object.name
         mesh_name = mesh_object.data.name # type: ignore
@@ -601,12 +603,39 @@ class MetahumanFace:
         
         return mesh_object        
 
-    def validate_conversion(self, mesh_object: bpy.types.Object) -> tuple[bool, str]:
-        # TODO: Create overlapping UVs check
-        overlapping_uvs = []
+    def validate_conversion(
+            self, 
+            mesh_object: bpy.types.Object, 
+            tolerance: float = DEFAULT_UV_TOLERANCE
+        ) -> tuple[bool, str]:
+        if not mesh_object.data:
+            return False, f'The mesh "{mesh_object.name}" has no data! Please provide a valid mesh object.'
+        
+        uv_layers = mesh_object.data.uv_layers # type: ignore
+        if not len(uv_layers) == 1: # type: ignore
+            return False, f'The mesh "{mesh_object.name}" must have exactly one UV layer! Please ensure the mesh has a single UV map.'
+        
+        uv_layer = uv_layers.active
+        if uv_layer is None:
+            return False, f'The mesh "{mesh_object.name}" has no active UV layer! Please ensure the mesh has an active UV map.'
 
-        if len(overlapping_uvs) > 0: # type: ignore
-            return False, f'The mesh "{mesh_object.name}" has {len(overlapping_uvs)} overlapping UVs! Check your UV layout. It needs to be 1-to-1 with the UV positions of the DNA head mesh.'
+        # the first mesh index is always the head mesh or body mesh
+        dna_u_values = utilities.reduce_close_floats(float_list=[float(i) for i in self.dna_reader.getVertexTextureCoordinateUs(0)], tolerance=tolerance)
+        dna_v_values = utilities.reduce_close_floats(float_list=[float(i) for i in self.dna_reader.getVertexTextureCoordinateVs(0)], tolerance=tolerance)
+
+        u_values, v_values = utilities.get_uv_values(mesh_object=mesh_object)
+        u_values = utilities.reduce_close_floats(float_list=u_values, tolerance=tolerance)
+        v_values = utilities.reduce_close_floats(float_list=v_values, tolerance=tolerance)
+
+        if len(u_values) != len(dna_u_values) or len(v_values) != len(dna_v_values):
+            uv_differences = abs(len(u_values)-len(dna_u_values)) + abs(len(v_values)-len(dna_v_values))
+            return False, (
+                f'UV validation failed! The mesh "{mesh_object.name}" has {uv_differences} UV values '
+                'that do not match the layout in the template DNA file. Right-click the '
+                '"Convert Selected to DNA" button to see the online manual that shows '
+                'the correct UV layout. Otherwise, disable the UV validation or adjust '
+                'the tolerance value.'
+            )
         
         return True, 'Validation successful!'
         

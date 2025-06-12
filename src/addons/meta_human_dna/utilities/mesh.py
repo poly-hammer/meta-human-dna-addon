@@ -509,3 +509,21 @@ def auto_unwrap_uvs(mesh_objects: list[bpy.types.Object]):
             margin_method="SCALED",
             margin=0.001
         )
+
+
+def get_uv_values(mesh_object: bpy.types.Object) -> tuple[list[float], list[float]]:
+    bmesh_object = bmesh.new()
+    bmesh_object.from_mesh(mesh_object.data) # type: ignore
+    bmesh_object.faces.ensure_lookup_table()
+    
+    uv_layer = bmesh_object.loops.layers.uv.active
+    if not uv_layer:
+        bmesh_object.free()
+        return [], []
+    
+    u_values = [loop[uv_layer].uv[0] for face in bmesh_object.faces for loop in face.loops]
+    v_values = [loop[uv_layer].uv[1] for face in bmesh_object.faces for loop in face.loops]
+    
+    bmesh_object.free()
+
+    return u_values, v_values
