@@ -16,7 +16,8 @@ from .constants import (
     TEXTURE_LOGIC_NODE_LABEL,
     ToolInfo,
     NUMBER_OF_FACE_LODS,
-    SHAPE_KEY_GROUP_PREFIX
+    SHAPE_KEY_GROUP_PREFIX,
+    DEFAULT_UV_TOLERANCE
 )
 
 logger = logging.getLogger(__name__)
@@ -362,6 +363,17 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
         description='Optionally, this can be set to a folder location for the face wrinkle maps. Textures following the same naming convention as the metahuman source files will be found and set on the materials automatically.',
         subtype='DIR_PATH'
     ) # type: ignore
+    validate_uvs: bpy.props.BoolProperty(
+        name="Validate UVs",
+        default=True,
+        description="Validates the selected mesh's UVs before trying to perform the conversion. This helps prevent issues with the conversion process, but can be disabled if you are sure the mesh is valid and want to skip this step."
+    ) # type: ignore
+    uv_tolerance: bpy.props.FloatProperty(
+        name="UV Tolerance",
+        default=DEFAULT_UV_TOLERANCE,
+        description="The tolerance distance used when considering if 2 UV points are in the same position. This is used when validating if the selected mesh has the same UV layout as the template DNA mesh.",
+        precision= 5,
+    ) # type: ignore
     run_calibration: bpy.props.BoolProperty(
         name="Run Calibration",
         default=True,
@@ -424,12 +436,16 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
             return {'CANCELLED'}
 
         # check if the selected object has the same number of vertices as the base DNA
-        success, message = face.validate_conversion(mesh_object=selected_object)
-        if not success: # type: ignore
-            face.delete()
-            window_manager_properties.evaluate_dependency_graph = True
-            self.report({'ERROR'}, message)
-            return {'CANCELLED'}
+        if self.validate_uvs:
+            success, message = face.validate_conversion(
+                mesh_object=selected_object,
+                tolerance=self.uv_tolerance
+            )
+            if not success: # type: ignore
+                face.delete()
+                window_manager_properties.evaluate_dependency_graph = True
+                self.report({'ERROR'}, message)
+                return {'CANCELLED'}
         
         face.ingest()
         callbacks.update_output_items(None, bpy.context)
@@ -504,6 +520,9 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
         return ''
     
     def draw(self, context):
+        if not self.layout:
+            return
+        
         row = self.layout.row()
         row.prop(self, 'base_dna')
         row = self.layout.row()
@@ -521,6 +540,12 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
             row.alert = True
             row.label(text=path_error, icon='ERROR')
 
+        row = self.layout.row()
+        column = row.column()
+        column.prop(self, 'validate_uvs')
+        column = row.column()
+        column.enabled = self.validate_uvs
+        column.prop(self, 'uv_tolerance')
         row = self.layout.row()
         row.prop(self, 'run_calibration')
 
@@ -577,7 +602,7 @@ class ForceEvaluate(bpy.types.Operator):
             # board updates.
             current_context = utilities.get_current_context()
             instance.head_rig.hide_set(False) # type: ignore
-            bpy.context.view_layer.objects.active = instance.head_rig # type: ignore
+            instance.head_rig.hide_viewport = False # type: ignore
             utilities.switch_to_pose_mode(instance.head_rig) # type: ignore
             utilities.set_context(current_context)
         else:

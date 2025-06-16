@@ -38,6 +38,7 @@ UV_MAP_NAME = "DiffuseUV"
 VERTEX_COLOR_ATTRIBUTE_NAME = "Color"
 MESH_VERTEX_COLORS_FILE_NAME = "vertex_colors.json"
 FLOATING_POINT_PRECISION = 0.0001
+DEFAULT_UV_TOLERANCE = 0.001
 
 MESH_SHADER_MAPPING = {
     "head_lod": "head_shader",
@@ -97,7 +98,23 @@ ALTERNATE_TEXTURE_FILE_EXTENSIONS = [
     ".png"   
 ]
 
-ALTERNATE_TEXTURE_FILE_NAMES = {
+ALTERNATE_HEAD_TEXTURE_FILE_NAMES = {
+    "head_color_map.tga": "Head_Basecolor",
+    "head_cm1_color_map.tga": "Head_Basecolor_Animated_CM1",
+    "head_cm2_color_map.tga": "Head_Basecolor_Animated_CM2",
+    "head_cm3_color_map.tga": "Head_Basecolor_Animated_CM3",
+    "head_normal_map.tga": "Head_Normal",
+    "head_wm1_normal_map.tga": "Head_Normal_Animated_WM1",
+    "head_wm2_normal_map.tga": "Head_Normal_Animated_WM2",
+    "head_wm3_normal_map.tga": "Head_Normal_Animated_WM3",
+    "eyes_color_map.tga": "Eyes_Color",
+    "eyes_normal_map.tga": "Eyes_Normal",
+    "teeth_color_map.tga": "Teeth_Color",
+    "teeth_normal_map.tga": "Teeth_Normal",
+    "eyelashes_color_map.tga": "Eyelashes_Color"
+}
+
+LEGACY_ALTERNATE_HEAD_TEXTURE_FILE_NAMES = {
     "head_color_map.tga": "FaceColor_MAIN",
     "head_cm1_color_map.tga": "FaceColor_CM1",
     "head_cm2_color_map.tga": "FaceColor_CM2",

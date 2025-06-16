@@ -1,4 +1,3 @@
-import os
 import re
 import sys
 import bpy
@@ -37,9 +36,11 @@ from .constants import (
     UV_MAP_NAME,
     TOPO_GROUP_PREFIX,
     EXTRA_BONES,
-    ALTERNATE_TEXTURE_FILE_NAMES,
+    ALTERNATE_HEAD_TEXTURE_FILE_NAMES,
+    LEGACY_ALTERNATE_HEAD_TEXTURE_FILE_NAMES,
     ALTERNATE_TEXTURE_FILE_EXTENSIONS,
-    UNREAL_EXPORTED_HEAD_MATERIAL_NAMES
+    UNREAL_EXPORTED_HEAD_MATERIAL_NAMES,
+    DEFAULT_UV_TOLERANCE
 )
 
 if TYPE_CHECKING:
@@ -70,7 +71,10 @@ class MetahumanFace:
 
         self._linear_modifier = None
         self._angle_modifier = None
-            
+
+        self.asset_root_folder = None
+        if dna_file_path:    
+            self.asset_root_folder = dna_file_path.parent
         self.rig_logic_instance: 'RigLogicInstance' = rig_logic_instance # type: ignore
         self.addon_properties = bpy.context.preferences.addons[ToolInfo.NAME].preferences # type: ignore
         self.window_manager_properties: MetahumanWindowMangerProperties = bpy.context.window_manager.meta_human_dna # type: ignore
@@ -79,7 +83,7 @@ class MetahumanFace:
 
         # if no rig_logic_instance is provided, create a new one and supply the dna_file_path to it
         if not self.rig_logic_instance and dna_file_path:
-            name = re.sub(INVALID_NAME_CHARACTERS_REGEX, "_",  name or dna_file_path.stem.strip())
+            name = self._get_name(name=name, dna_file_path=dna_file_path)
             # find a rig logic instance with the same name and use it if it exists
             for instance in self.scene_properties.rig_logic_instance_list:
                 if instance.name == name:
@@ -95,11 +99,11 @@ class MetahumanFace:
             self.rig_logic_instance.dna_file_path = str(dna_file_path)
 
         if not self.dna_import_properties or not self.dna_import_properties.alternate_maps_folder:
-            self.maps_folder = self.dna_file_path.parent / 'maps'
+            self.maps_folder = self.dna_file_path.parent / 'Maps'
+            if not self.maps_folder.exists():
+                self.maps_folder = self.dna_file_path.parent / 'maps'
         else:
             self.maps_folder = Path(self.dna_import_properties.alternate_maps_folder)
-
-        self.asset_root_folder = self.dna_file_path.parent.parent.parent.parent.parent.parent
 
         file_format = 'binary' if self.dna_file_path.suffix.lower() == ".dna" else 'json'
         self.dna_reader = get_dna_reader(
@@ -157,25 +161,36 @@ class MetahumanFace:
 
     @property
     def metadata(self) -> dict:
-        for file_name in os.listdir(self.asset_root_folder):
-            _, extension = os.path.splitext(file_name)
-            file_path = os.path.join(self.asset_root_folder, file_name)
-            if extension == '.json':
-                with open(file_path, 'r') as file:
-                    return json.load(file)
-        logger.warning(f'Could not load metahuman metadata file! The file "{self.dna_file_path}" must not be in a metahuman directory.')
+        if not self.asset_root_folder:
+            return {}
+        
+        export_manifest = self.asset_root_folder / 'ExportManifest.json'
+        if export_manifest.exists():
+            with open(export_manifest, 'r') as file:
+                return json.load(file)            
+        logger.warning('Could not load metahuman metadata file! Must not be in a metahuman directory.')
         return {}
 
     @property
     def thumbnail(self) -> Path | None:
-        for file_name in os.listdir(self.asset_root_folder):
-            _, extension = os.path.splitext(file_name)
-            if extension == '.png':
-                return self.asset_root_folder / file_name
-    
-    @property
-    def has_maps(self) -> bool:
-        return self.maps_folder.exists() and any(i.lower().endswith('.tga') for i in os.listdir(self.maps_folder))
+        if not self.asset_root_folder:
+            return None
+        
+        name = self.metadata.get('metaHumanName')
+        if name:
+            thumbnail_path = self.asset_root_folder / f'{name}.png'
+            if thumbnail_path.exists():
+                return thumbnail_path
+            
+    def _get_name(
+            self, name: str | None = None, 
+            dna_file_path: Path | None = None
+        ) -> str:
+        if name:
+            return re.sub(INVALID_NAME_CHARACTERS_REGEX, "_",  name)
+        elif dna_file_path:
+            name = re.sub(INVALID_NAME_CHARACTERS_REGEX, "_",  name or dna_file_path.stem.strip())
+        return self.metadata.get('metaHumanName', name)
 
     def _get_lods_settings(self):
         return [(i, getattr(self.dna_import_properties, f'import_lod{i}')) for i in range(NUMBER_OF_FACE_LODS)]
@@ -189,12 +204,16 @@ class MetahumanFace:
             utilities.hide_empties()        
             self.head_rig_object.hide_set(True)
 
-    def _get_alternate_image_path(self, image_file: Path) -> Path:
+    def _get_alternate_image_path(
+            self, 
+            image_file: Path, 
+            mapping: dict
+        ) -> Path:
         # Check for alternate image file names
         if not image_file.exists():
             # check for alternate file names with different extensions
             for extension in ALTERNATE_TEXTURE_FILE_EXTENSIONS:
-                alternate_file_name = ALTERNATE_TEXTURE_FILE_NAMES.get(image_file.name, None)
+                alternate_file_name = mapping.get(image_file.name, None)
                 if alternate_file_name:
                     # check for lowercase extension
                     alternate_image_path = self.maps_folder / f"{alternate_file_name}{extension.lower()}"
@@ -217,9 +236,9 @@ class MetahumanFace:
                 continue
 
             for node in material.node_tree.nodes: # type: ignore
-                if node.type == 'TEX_IMAGE' and node.image:
+                if node.type == 'TEX_IMAGE' and node.image: # type: ignore
                     # get the image file name without the postfixes for duplicates i.e. .001
-                    image_file = node.image.name
+                    image_file = node.image.name # type: ignore
                     if image_file.count('.') > 1:
                         image_file = image_file.rsplit('.', 1)[0]
 
@@ -227,13 +246,22 @@ class MetahumanFace:
                     new_image_path = self.maps_folder / image_file
 
                     # Check for alternate image file names
-                    new_image_path = self._get_alternate_image_path(new_image_path)
+                    new_image_path = self._get_alternate_image_path(
+                        new_image_path,
+                        mapping=ALTERNATE_HEAD_TEXTURE_FILE_NAMES
+                    )
+                    if not new_image_path.exists():
+                        new_image_path = self._get_alternate_image_path(
+                            new_image_path,
+                            mapping=LEGACY_ALTERNATE_HEAD_TEXTURE_FILE_NAMES
+                        )
 
                     if new_image_path.exists():
-                        node.image = bpy.data.images.load(str(new_image_path))
+                        node.image = bpy.data.images.load(str(new_image_path)) # type: ignore
 
                         # reloading images defaults the color space, so reset normal map to Non-Color
-                        if new_image_path.stem.endswith('normal_map'):
+                        stem = new_image_path.stem.lower()
+                        if stem.endswith('normal_map') or stem.endswith('normal') or '_normal_animated_' in stem:
                             node.image.colorspace_settings.name = 'Non-Color' # type: ignore
 
         # remove any extra masks and topology images
@@ -246,12 +274,12 @@ class MetahumanFace:
         # set the masks and topology textures for all node groups
         for node_group in bpy.data.node_groups:
             for node in node_group.nodes:
-                if node.type == 'TEX_IMAGE' and node.image:
+                if node.type == 'TEX_IMAGE' and node.image: # type: ignore
                     # set the masks and topology textures
-                    if node.image.name == MASKS_TEXTURE:
-                        node.image = bpy.data.images[MASKS_TEXTURE]
-                    if node.image.name == TOPOLOGY_TEXTURE:
-                        node.image = bpy.data.images[TOPOLOGY_TEXTURE]
+                    if node.image.name == MASKS_TEXTURE: # type: ignore
+                        node.image = bpy.data.images[MASKS_TEXTURE] # type: ignore
+                    if node.image.name == TOPOLOGY_TEXTURE: # type: ignore
+                        node.image = bpy.data.images[TOPOLOGY_TEXTURE] # type: ignore
 
     def _purge_existing_materials(self):
         for material_name in MESH_SHADER_MAPPING.values():
@@ -327,14 +355,14 @@ class MetahumanFace:
                 # set the uv maps on the material nodes
                 for node in material.node_tree.nodes: # type: ignore
                     if node.type == 'UVMAP':
-                        node.uv_map = UV_MAP_NAME
+                        node.uv_map = UV_MAP_NAME # type: ignore
                     elif node.type == 'NORMAL_MAP':
-                        node.uv_map = UV_MAP_NAME
+                        node.uv_map = UV_MAP_NAME # type: ignore
                 for node_group in bpy.data.node_groups:
                     if node_group.name.startswith('Mask'):
                         for node in node_group.nodes:
                             if node.type == 'UVMAP':
-                                node.uv_map = UV_MAP_NAME
+                                node.uv_map = UV_MAP_NAME # type: ignore
 
                 for mesh_object in bpy.data.objects:
                     if mesh_object.name.startswith(f'{self.name}_{key}'):
@@ -560,13 +588,14 @@ class MetahumanFace:
                 only_selected=False
             )
 
+    @preserve_context
     def pre_convert_mesh_cleanup(self, mesh_object: bpy.types.Object) -> bpy.types.Object | None:
         mesh_object_name = mesh_object.name
         mesh_name = mesh_object.data.name # type: ignore
         head_material_name = None
         for material in mesh_object.data.materials: # type: ignore
-            if material.name in UNREAL_EXPORTED_HEAD_MATERIAL_NAMES:
-                head_material_name = material.name
+            if material.name in UNREAL_EXPORTED_HEAD_MATERIAL_NAMES: # type: ignore
+                head_material_name = material.name # type: ignore
 
         # separate the head mesh by material if it has the a unreal head material
         if head_material_name:
@@ -585,12 +614,39 @@ class MetahumanFace:
         
         return mesh_object        
 
-    def validate_conversion(self, mesh_object: bpy.types.Object) -> tuple[bool, str]:
-        # TODO: Create overlapping UVs check
-        overlapping_uvs = []
+    def validate_conversion(
+            self, 
+            mesh_object: bpy.types.Object, 
+            tolerance: float = DEFAULT_UV_TOLERANCE
+        ) -> tuple[bool, str]:
+        if not mesh_object.data:
+            return False, f'The mesh "{mesh_object.name}" has no data! Please provide a valid mesh object.'
+        
+        uv_layers = mesh_object.data.uv_layers # type: ignore
+        if not len(uv_layers) == 1: # type: ignore
+            return False, f'The mesh "{mesh_object.name}" must have exactly one UV layer! Please ensure the mesh has a single UV map.'
+        
+        uv_layer = uv_layers.active
+        if uv_layer is None:
+            return False, f'The mesh "{mesh_object.name}" has no active UV layer! Please ensure the mesh has an active UV map.'
 
-        if len(overlapping_uvs) > 0: # type: ignore
-            return False, f'The mesh "{mesh_object.name}" has {len(overlapping_uvs)} overlapping UVs! Check your UV layout. It needs to be 1-to-1 with the UV positions of the DNA head mesh.'
+        # the first mesh index is always the head mesh or body mesh
+        dna_u_values = utilities.reduce_close_floats(float_list=[float(i) for i in self.dna_reader.getVertexTextureCoordinateUs(0)], tolerance=tolerance)
+        dna_v_values = utilities.reduce_close_floats(float_list=[float(i) for i in self.dna_reader.getVertexTextureCoordinateVs(0)], tolerance=tolerance)
+
+        u_values, v_values = utilities.get_uv_values(mesh_object=mesh_object)
+        u_values = utilities.reduce_close_floats(float_list=u_values, tolerance=tolerance)
+        v_values = utilities.reduce_close_floats(float_list=v_values, tolerance=tolerance)
+
+        if len(u_values) != len(dna_u_values) or len(v_values) != len(dna_v_values):
+            uv_differences = abs(len(u_values)-len(dna_u_values)) + abs(len(v_values)-len(dna_v_values))
+            return False, (
+                f'UV validation failed! The mesh "{mesh_object.name}" has {uv_differences} UV values '
+                'that do not match the layout in the template DNA file. Right-click the '
+                '"Convert Selected to DNA" button to see the online manual that shows '
+                'the correct UV layout. Otherwise, disable the UV validation or adjust '
+                'the tolerance value.'
+            )
         
         return True, 'Validation successful!'
         
@@ -639,7 +695,7 @@ class MetahumanFace:
             to_bone_name: str
         ) -> bpy.types.PoseBone | None:
         if self.head_rig_object:
-            to_bone = self.head_rig_object.pose.bones.get(to_bone_name)
+            to_bone = self.head_rig_object.pose.bones.get(to_bone_name) # type: ignore
             location = from_bone.matrix.to_translation()
             location.x *= -1
             if to_bone:

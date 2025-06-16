@@ -2,6 +2,7 @@ import os
 import re
 import bpy
 import sys
+import math
 import logging
 import addon_utils
 from pathlib import Path
@@ -15,6 +16,7 @@ from ..constants import (
     PACKAGES_FOLDER,
     NUMBER_OF_FACE_LODS,
     INVALID_NAME_CHARACTERS_REGEX,
+    DEFAULT_UV_TOLERANCE,
     ToolInfo
 )
 if TYPE_CHECKING:
@@ -41,6 +43,7 @@ def get_current_context():
 
         object_contexts[scene_object.name] = {
             'hide': scene_object.hide_get(),
+            'hide_viewport': scene_object.hide_viewport,
             'select': scene_object.select_get(),
             'active_action': active_action_name,
             'show_instancer_for_render': scene_object.show_instancer_for_render
@@ -67,10 +70,11 @@ def set_context(context):
         scene_object = bpy.data.objects.get(object_name)
         if scene_object:
             scene_object.hide_set(attributes.get('hide', False))
+            scene_object.hide_viewport = attributes.get('hide_viewport', False)
             scene_object.select_set(attributes.get('select', False))
 
             active_action = attributes.get('active_action')
-            if active_action:
+            if active_action and scene_object.animation_data:
                 scene_object.animation_data.action = bpy.data.actions.get(active_action)
 
             scene_object.show_instancer_for_render = attributes.get('show_instancer_for_render', False)
@@ -130,6 +134,7 @@ def switch_to_edit_mode(*scene_object):
 
 def switch_to_sculpt_mode(*scene_object):
     select_only(*scene_object)
+    switch_to_object_mode()
     bpy.ops.object.mode_set(mode='SCULPT')
 
 def switch_to_bone_edit_mode(*armature_object):
@@ -567,3 +572,29 @@ def dependencies_are_valid() -> bool:
         if module and getattr(module, '__is_fake__', False):
             return False
     return True
+
+
+def reduce_close_floats(float_list: list[float], tolerance: float = DEFAULT_UV_TOLERANCE) -> list[float]:
+    """
+    Reduces a list of floats by removing values that are too close to each other.
+
+    Args:
+        float_list: The list of floats to reduce.
+        tolerance: The maximum allowed difference for two floats to be considered "close".
+
+    Returns:
+        A new list with close values reduced.
+    """
+    if not float_list:
+        return []
+
+    sorted_list = sorted(list(set(float_list))) # Sort and remove exact duplicates first
+    if not sorted_list:
+        return []
+
+    reduced_list = [sorted_list[0]]
+    for i in range(1, len(sorted_list)):
+        # Compare with the last added element in the reduced_list
+        if not math.isclose(sorted_list[i], reduced_list[-1], abs_tol=tolerance):
+            reduced_list.append(sorted_list[i])
+    return reduced_list

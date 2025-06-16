@@ -4,21 +4,18 @@ import json
 import math
 import bmesh
 import logging
-from typing import Literal
 from mathutils import Vector, Matrix
 from bpy_extras.bmesh_utils import bmesh_linked_uv_islands
 from .misc import (
     exclude_rig_logic_evaluation,
     switch_to_edit_mode,
     switch_to_object_mode,
-    preserve_context,
-    select_only
+    preserve_context
 )
 from ..constants import (
     LOD_REGEX,
     Axis,
-    TOPOLOGY_VERTEX_GROUPS_FILE_PATH,
-    FLOATING_POINT_PRECISION
+    TOPOLOGY_VERTEX_GROUPS_FILE_PATH
 )
 
 
@@ -37,6 +34,10 @@ def initialize_basis_shape_key(mesh_object: bpy.types.Object) -> bpy.types.Key:
     Returns:
         bpy.types.Key: The shape key that has the mesh as its user.
     """
+    if not mesh_object:
+        logger.warning("Mesh object not found in scene that matches DNA. Skipping initialization of basis shape key.")
+        return
+
     # clear all shape keys
     mesh_object.shape_key_clear()
         
@@ -508,3 +509,21 @@ def auto_unwrap_uvs(mesh_objects: list[bpy.types.Object]):
             margin_method="SCALED",
             margin=0.001
         )
+
+
+def get_uv_values(mesh_object: bpy.types.Object) -> tuple[list[float], list[float]]:
+    bmesh_object = bmesh.new()
+    bmesh_object.from_mesh(mesh_object.data) # type: ignore
+    bmesh_object.faces.ensure_lookup_table()
+    
+    uv_layer = bmesh_object.loops.layers.uv.active
+    if not uv_layer:
+        bmesh_object.free()
+        return [], []
+    
+    u_values = [loop[uv_layer].uv[0] for face in bmesh_object.faces for loop in face.loops]
+    v_values = [loop[uv_layer].uv[1] for face in bmesh_object.faces for loop in face.loops]
+    
+    bmesh_object.free()
+
+    return u_values, v_values

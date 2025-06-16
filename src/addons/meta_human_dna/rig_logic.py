@@ -158,27 +158,27 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         type=bpy.types.Object, # type: ignore
         name='Face Board',
         description='The face board that rig logic reads control positions from',
-        poll=callbacks.poll_face_boards
+        poll=callbacks.poll_face_boards # type: ignore
     ) # type: ignore
     head_mesh: bpy.props.PointerProperty(
         type=bpy.types.Object, # type: ignore
         name='Head Mesh',
         description='The head mesh with the shape keys that rig logic will evaluate',
-        poll=callbacks.poll_head_mesh,
+        poll=callbacks.poll_head_mesh, # type: ignore
         update=callbacks.update_output_items
     ) # type: ignore
     head_rig: bpy.props.PointerProperty(
         type=bpy.types.Object, # type: ignore
         name='Head Rig',
         description='The armature object that rig logic will evaluate',
-        poll=callbacks.poll_head_rig,
+        poll=callbacks.poll_head_rig, # type: ignore
         update=callbacks.update_output_items
     ) # type: ignore
     material: bpy.props.PointerProperty(
         type=bpy.types.Material, # type: ignore
         name='Material',
         description='The head material that has a node with wrinkle map sliders that rig logic will evaluate',
-        poll=callbacks.poll_head_materials,
+        poll=callbacks.poll_head_materials, # type: ignore
         update=callbacks.update_output_items
     ) # type: ignore
 
@@ -233,7 +233,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         type=bpy.types.Object, # type: ignore
         name='Material',
         description='The head mesh that the shrink wrap modifier will target. This is the mesh that you will wrap the head topology to',
-        poll=callbacks.poll_shrink_wrap_target
+        poll=callbacks.poll_shrink_wrap_target # type: ignore
     ) # type: ignore
 
     # --------------------- Armature Utilities Properties ------------------
@@ -510,6 +510,9 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     
     @property
     def shape_key_blocks(self) -> dict[int, list[bpy.types.ShapeKey]]:
+        if not self.dna_reader:
+            return {}
+
         shape_key_blocks = self.data.get('shape_key_blocks')
         if shape_key_blocks is None:
             self.shape_key_list.clear()
@@ -562,7 +565,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         # make sure the rig bone are using the correct rotation mode
         if self.head_rig and self.head_rig.pose:
             for pose_bone in self.head_rig.pose.bones:
-                pose_bone.rotation_mode = "XYZ"
+                if pose_bone.name.startswith('FACIAL_'):
+                    pose_bone.rotation_mode = "XYZ"
                 # save the rest pose and their parent space matrix so we don't have to calculate it again
                 try:
                     rest_pose[pose_bone.name] = utilities.get_bone_rest_transformations(pose_bone.bone)
