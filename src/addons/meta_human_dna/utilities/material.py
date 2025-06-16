@@ -25,18 +25,18 @@ def copy_materials(
             if new_material.node_tree:
                 for node in new_material.node_tree.nodes:
                     if node.type == 'TEX_IMAGE':
-                        new_image = node.image.copy()
-                        new_image.name = f'{new_prefix}_{node.image.name}'.replace(f'{old_prefix}_', '')
+                        new_image = node.image.copy() # type: ignore
+                        new_image.name = f'{new_prefix}_{node.image.name}'.replace(f'{old_prefix}_', '') # type: ignore
                         # copy the image files to the new folder
                         if new_image.filepath and not new_image.packed_file:
                             image_file_path = Path(bpy.path.abspath(new_image.filepath))
                             if image_file_path.exists():
-                                new_image_file_path = new_folder / 'maps' / image_file_path.name
+                                new_image_file_path = new_folder / 'Maps' / image_file_path.name
                                 new_image_file_path.parent.mkdir(parents=True, exist_ok=True)
                                 shutil.copy(image_file_path, new_image_file_path)
                                 new_image.filepath = str(new_image_file_path)
                         # assign the new image to the node
-                        node.image = new_image                    
+                        node.image = new_image # type: ignore
     return first_new_mesh_material
     
 
@@ -44,8 +44,8 @@ def prefix_material_image_names(material: bpy.types.Material, prefix: str):
     if material.node_tree:
         for node in material.node_tree.nodes:
             if node.type == 'TEX_IMAGE':
-                name = node.image.name.rstrip('.001')
-                node.image.name = f'{prefix}_{name}'
+                name = node.image.name.rstrip('.001') # type: ignore
+                node.image.name = f'{prefix}_{name}' # type: ignore
 
 
 def create_new_material(

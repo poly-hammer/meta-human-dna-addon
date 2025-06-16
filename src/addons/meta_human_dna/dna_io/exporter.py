@@ -451,7 +451,7 @@ class DNAExporter:
     
     def save_images(self):
         for image, file_name in self._images:
-            new_image_path = self._target_dna_file.parent / 'maps' / file_name
+            new_image_path = self._target_dna_file.parent / 'Maps' / file_name
             os.makedirs(new_image_path.parent, exist_ok=True)
             if not image.packed_file and not image.filepath:
                 logger.warning(f"Image {image.name} is not packed or saved. Skipping export.")

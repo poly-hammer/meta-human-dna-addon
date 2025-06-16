@@ -67,7 +67,12 @@ def get_dna_reader(
     else:
         raise ValueError(f"Invalid file format '{file_format}'. Must be 'binary' or 'json'.")
     
-    reader.read()
+    try:
+        reader.read()
+    except IndexError as error:
+        logger.debug(f"Error reading DNA file '{file_path}': {error}")
+        return
+
     if not riglogic.Status.isOk(): 
         status = riglogic.Status.get() 
         raise RuntimeError(f'Error loading DNA: {status.message} from "{file_path}"')

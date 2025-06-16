@@ -1,4 +1,3 @@
-import os
 import re
 import sys
 import bpy
@@ -72,7 +71,10 @@ class MetahumanFace:
 
         self._linear_modifier = None
         self._angle_modifier = None
-            
+
+        self.asset_root_folder = None
+        if dna_file_path:    
+            self.asset_root_folder = dna_file_path.parent
         self.rig_logic_instance: 'RigLogicInstance' = rig_logic_instance # type: ignore
         self.addon_properties = bpy.context.preferences.addons[ToolInfo.NAME].preferences # type: ignore
         self.window_manager_properties: MetahumanWindowMangerProperties = bpy.context.window_manager.meta_human_dna # type: ignore
@@ -81,7 +83,7 @@ class MetahumanFace:
 
         # if no rig_logic_instance is provided, create a new one and supply the dna_file_path to it
         if not self.rig_logic_instance and dna_file_path:
-            name = re.sub(INVALID_NAME_CHARACTERS_REGEX, "_",  name or dna_file_path.stem.strip())
+            name = self._get_name(name=name, dna_file_path=dna_file_path)
             # find a rig logic instance with the same name and use it if it exists
             for instance in self.scene_properties.rig_logic_instance_list:
                 if instance.name == name:
@@ -102,8 +104,6 @@ class MetahumanFace:
                 self.maps_folder = self.dna_file_path.parent / 'maps'
         else:
             self.maps_folder = Path(self.dna_import_properties.alternate_maps_folder)
-
-        self.asset_root_folder = self.dna_file_path.parent.parent.parent.parent.parent.parent
 
         file_format = 'binary' if self.dna_file_path.suffix.lower() == ".dna" else 'json'
         self.dna_reader = get_dna_reader(
@@ -161,25 +161,36 @@ class MetahumanFace:
 
     @property
     def metadata(self) -> dict:
-        for file_name in os.listdir(self.asset_root_folder):
-            _, extension = os.path.splitext(file_name)
-            file_path = os.path.join(self.asset_root_folder, file_name)
-            if extension == '.json':
-                with open(file_path, 'r') as file:
-                    return json.load(file)
-        logger.warning(f'Could not load metahuman metadata file! The file "{self.dna_file_path}" must not be in a metahuman directory.')
+        if not self.asset_root_folder:
+            return {}
+        
+        export_manifest = self.asset_root_folder / 'ExportManifest.json'
+        if export_manifest.exists():
+            with open(export_manifest, 'r') as file:
+                return json.load(file)            
+        logger.warning('Could not load metahuman metadata file! Must not be in a metahuman directory.')
         return {}
 
     @property
     def thumbnail(self) -> Path | None:
-        for file_name in os.listdir(self.asset_root_folder):
-            _, extension = os.path.splitext(file_name)
-            if extension == '.png':
-                return self.asset_root_folder / file_name
-    
-    @property
-    def has_maps(self) -> bool:
-        return self.maps_folder.exists() and any(i.lower().endswith('.tga') for i in os.listdir(self.maps_folder))
+        if not self.asset_root_folder:
+            return None
+        
+        name = self.metadata.get('metaHumanName')
+        if name:
+            thumbnail_path = self.asset_root_folder / f'{name}.png'
+            if thumbnail_path.exists():
+                return thumbnail_path
+            
+    def _get_name(
+            self, name: str | None = None, 
+            dna_file_path: Path | None = None
+        ) -> str:
+        if name:
+            return re.sub(INVALID_NAME_CHARACTERS_REGEX, "_",  name)
+        elif dna_file_path:
+            name = re.sub(INVALID_NAME_CHARACTERS_REGEX, "_",  name or dna_file_path.stem.strip())
+        return self.metadata.get('metaHumanName', name)
 
     def _get_lods_settings(self):
         return [(i, getattr(self.dna_import_properties, f'import_lod{i}')) for i in range(NUMBER_OF_FACE_LODS)]
@@ -250,7 +261,7 @@ class MetahumanFace:
 
                         # reloading images defaults the color space, so reset normal map to Non-Color
                         stem = new_image_path.stem.lower()
-                        if stem.endswith('normal_map') or stem.endswith('normal') or '_Normal_Animated_' in stem:
+                        if stem.endswith('normal_map') or stem.endswith('normal') or '_normal_animated_' in stem:
                             node.image.colorspace_settings.name = 'Non-Color' # type: ignore
 
         # remove any extra masks and topology images

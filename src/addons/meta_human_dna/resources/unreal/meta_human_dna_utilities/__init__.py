@@ -29,13 +29,13 @@ def update_meta_human_face(asset_path: str, dna_file_path: str, head_material_na
         face_control_rig_asset=face_control_rig_asset, # type: ignore
         face_anim_bp_asset=face_anim_bp_asset, # type: ignore
         material_instances=material_instances,
-        texture_disk_folder=dna_file_path.parent / 'maps',
+        texture_disk_folder=dna_file_path.parent / 'Maps',
         texture_content_folder=F"{asset_path.rsplit('/', 1)[0]}/Textures"
     )
     # then import the dna file onto the head mesh
     import_dna_file(
-        dna_file_path,
-        asset_path
+        file_path=dna_file_path,
+        skeletal_mesh_asset_path=asset_path
     )
 
     if not blueprint_asset_path:

@@ -61,7 +61,7 @@ classes = [
     operators.UILIST_RIG_LOGIC_OT_entry_remove,
     operators.UILIST_ADDON_PREFERENCES_OT_extra_dna_entry_add,
     operators.UILIST_ADDON_PREFERENCES_OT_extra_dna_entry_remove,
-    importer.META_HUMAN_DNA_MESH_DATA_PT_panel,
+    importer.META_HUMAN_DNA_FILE_DATA_PT_panel,
     importer.META_HUMAN_DNA_LODS_PT_panel,
     importer.META_HUMAN_DNA_EXTRAS_PT_panel,
     importer.META_HUMAN_DNA_FILE_INFO_PT_panel,
