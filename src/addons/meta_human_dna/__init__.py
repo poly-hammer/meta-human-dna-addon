@@ -39,8 +39,6 @@ classes = [
     operators.MetricsCollectionConsent,
     operators.MirrorSelectedBones,
     operators.SyncWithBodyBonesInBlueprint,
-    operators.PushBonesForwardAlongNormals,
-    operators.PushBonesBackwardAlongNormals,
     operators.ShrinkWrapVertexGroup,
     operators.AutoFitSelectedBones,
     operators.RevertBoneTransformsToDna,
@@ -97,8 +95,6 @@ def register():
     """
     Registers the addon classes when the addon is enabled.
     """
-    logging.basicConfig(level=logging.INFO)
-
     try:
         # register the manual map
         bpy.utils.register_manual_map(manual_map.manual_map)

@@ -1,0 +1,372 @@
+import bpy
+import json
+import math
+import queue
+import logging
+from pathlib import Path
+from mathutils import Vector, Matrix
+from .base import MetaHumanComponentBase
+from .. import utilities
+from ..utilities import preserve_context
+from ..dna_io import (
+    create_shape_key,
+    DNAExporter
+)
+from ..constants import (
+    TOPOLOGY_VERTEX_GROUPS_FILE_PATH,
+    TOPO_GROUP_PREFIX,
+    EXTRA_BONES,
+    UNREAL_EXPORTED_HEAD_MATERIAL_NAMES
+)
+
+logger = logging.getLogger(__name__)
+
+
+class MetaHumanComponentHead(MetaHumanComponentBase):
+    def import_action(self, file_path: Path):
+        file_path = Path(file_path)
+        if not self.face_board_object:
+            return
+        
+        if file_path.suffix.lower() == '.json':
+            utilities.import_action_from_json(file_path, self.face_board_object)    
+        elif file_path.suffix.lower() == '.fbx':
+            utilities.import_action_from_fbx(file_path, self.face_board_object)
+
+    def ingest(self) -> tuple[bool, str]:        
+        valid, message = self.dna_importer.run()
+        self.rig_logic_instance.head_rig = self.dna_importer.rig_object
+
+        self._organize_viewport()
+        self.import_materials()
+        # import the face board if one does not already exist in the scene
+        if not any(i.face_board for i in self.scene_properties.rig_logic_instance_list):
+            face_board_object = self._import_face_board()
+        else:
+            face_board_object = next(i.face_board for i in self.scene_properties.rig_logic_instance_list if i.face_board)
+
+        # Note that the topology vertex groups are only valid for the default metahuman head mesh with 24408 vertices
+        if len(self.dna_reader.getVertexLayoutPositionIndices(0)) == 24408:
+            self.create_topology_vertex_groups()
+
+        # set the references on the rig logic instance
+        self.rig_logic_instance.head_mesh = self.head_mesh_object
+        self.rig_logic_instance.head_rig = self.head_rig_object
+        self.rig_logic_instance.face_board = face_board_object
+
+        if self.head_rig_object and self.head_mesh_object:
+            utilities.set_bone_collections(
+                mesh_object=self.head_mesh_object,
+                rig_object=self.head_rig_object,
+            )
+
+            # if this isn't the first rig, move it to the right of the last head mesh
+            if len(self.scene_properties.rig_logic_instance_list) > 1:
+                last_instance = self.scene_properties.rig_logic_instance_list[-2] # type: ignore
+                if last_instance.head_mesh:
+                    self.head_rig_object.location.x = utilities.get_bounding_box_right_x(self.head_rig_object) - 0.5
+
+            # then parent the rig to the face board
+            self.head_rig_object.parent = face_board_object
+
+        # focus the view on head object
+        if self.rig_logic_instance.head_mesh:
+            utilities.select_only(self.rig_logic_instance.head_mesh)
+            utilities.focus_on_selected()
+
+        # collapse the outliner
+        utilities.toggle_expand_in_outliner()
+
+        # switch to pose mode on the face gui object
+        if face_board_object:
+            bpy.context.view_layer.objects.active = face_board_object # type: ignore
+            utilities.switch_to_pose_mode(face_board_object) # type: ignore
+        
+        return valid, message
+
+    @preserve_context
+    def convert(self, mesh_object: bpy.types.Object):
+        from ..bindings import meta_human_dna_core
+        if self.head_mesh_object and self.face_board_object and self.head_rig_object:
+            target_center = utilities.get_bounding_box_center(mesh_object)
+            head_center = utilities.get_bounding_box_center(self.head_mesh_object)
+            delta = target_center - head_center
+
+            # translate the head rig and the face board
+            self.face_board_object.location += delta
+
+            # must be unhidden to switch to edit bone mode
+            self.head_rig_object.hide_set(False) # type: ignore
+            utilities.switch_to_bone_edit_mode(self.head_rig_object)
+            # adjust the root bone so the root bone is still at zero
+            root_bone = self.head_rig_object.data.edit_bones.get('root') # type: ignore
+            if root_bone:
+                root_bone.head.z -= delta.z
+                root_bone.tail.z -= delta.z
+
+            # adjust the head rig origin to zero
+            utilities.switch_to_object_mode() # type: ignore
+            # select all the objects and set their origins to the 3d cursor
+            utilities.deselect_all()
+            for item in self.rig_logic_instance.output_item_list:
+                if item.scene_object:
+                    item.scene_object.hide_set(False)
+                    item.scene_object.select_set(True)
+                    bpy.context.view_layer.objects.active = item.scene_object # type: ignore
+            self.face_board_object.select_set(True)
+
+            bpy.context.scene.cursor.location = Vector((target_center.x, 0, 0)) # type: ignore
+            bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
+
+            from_bmesh_object = DNAExporter.get_bmesh(mesh_object=mesh_object, rotation=0)
+            from_data = {
+                'name': mesh_object.name,
+                'uv_data': DNAExporter.get_mesh_vertex_uvs(from_bmesh_object),
+                'vertex_data': DNAExporter.get_mesh_vertex_positions(from_bmesh_object)
+            }
+            to_bmesh_object = DNAExporter.get_bmesh(mesh_object=mesh_object, rotation=0)
+            to_data = {
+                'name': self.head_mesh_object.name,
+                'uv_data': DNAExporter.get_mesh_vertex_uvs(to_bmesh_object),
+                'vertex_data': DNAExporter.get_mesh_vertex_positions(to_bmesh_object),
+                'dna_reader': self.dna_reader
+            }
+
+            from_bmesh_object.free()
+            to_bmesh_object.free()
+
+            vertex_positions = meta_human_dna_core.calculate_dna_mesh_vertex_positions(from_data, to_data)
+            self.head_mesh_object.data.vertices.foreach_set("co", vertex_positions.ravel()) # type: ignore
+            self.head_mesh_object.data.update() # type: ignore
+
+            utilities.auto_fit_bones(
+                armature_object=self.head_rig_object,
+                mesh_object=self.head_mesh_object,
+                dna_reader=self.dna_reader,
+                only_selected=False
+            )
+
+    @preserve_context
+    def pre_convert_mesh_cleanup(self, mesh_object: bpy.types.Object) -> bpy.types.Object | None:
+        mesh_object_name = mesh_object.name
+        mesh_name = mesh_object.data.name # type: ignore
+        head_material_name = None
+        for material in mesh_object.data.materials: # type: ignore
+            if material.name in UNREAL_EXPORTED_HEAD_MATERIAL_NAMES: # type: ignore
+                head_material_name = material.name # type: ignore
+
+        # separate the head mesh by material if it has the a unreal head material
+        if head_material_name:
+            new_mesh_object = None
+            utilities.switch_to_edit_mode(mesh_object)
+            bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.mesh.separate(type='MATERIAL')
+            for separated_mesh in bpy.context.selectable_objects: # type: ignore
+                if head_material_name in [i.name for i in separated_mesh.data.materials]: # type: ignore
+                    new_mesh_object = separated_mesh
+                    new_mesh_object.name = mesh_object_name
+                    new_mesh_object.data.name = mesh_name # type: ignore
+                else:
+                    bpy.data.objects.remove(separated_mesh, do_unlink=True)
+            return new_mesh_object
+        
+        return mesh_object
+        
+    def export(self):
+        pass
+
+    def delete(self):
+        for item in self.rig_logic_instance.output_item_list:
+            if item.scene_object:
+                bpy.data.objects.remove(item.scene_object, do_unlink=True)
+            if item.image_object:
+                bpy.data.images.remove(item.image_object, do_unlink=True)
+
+        my_list = self.scene_properties.rig_logic_instance_list
+        active_index = self.scene_properties.rig_logic_instance_list_active_index
+        my_list.remove(active_index)
+        to_index = min(active_index, len(my_list) - 1)
+        self.scene_properties.rig_logic_instance_list_active_index = to_index # type: ignore
+
+    def create_topology_vertex_groups(self):
+        if not self.dna_import_properties.import_mesh:
+            return
+
+        if self.head_mesh_object:
+            with open(TOPOLOGY_VERTEX_GROUPS_FILE_PATH, 'r') as file:
+                data = json.load(file)
+                logger.info("Creating topology vertex groups...")
+                for vertex_group_name, vertex_indexes in data.items():
+                    # get the existing vertex_group or create a new one
+                    vertex_group = self.head_mesh_object.vertex_groups.get(vertex_group_name)
+                    if not vertex_group:
+                        vertex_group = self.head_mesh_object.vertex_groups.new(name=vertex_group_name)
+
+                    vertex_group.add(
+                        index=vertex_indexes,
+                        weight=1.0,
+                        type='REPLACE'
+                    )
+
+    def select_vertex_group(self):
+        if self.rig_logic_instance and self.rig_logic_instance.head_mesh:
+            utilities.select_vertex_group(
+                mesh_object=self.rig_logic_instance.head_mesh,
+                vertex_group_name=self.rig_logic_instance.head_mesh_topology_groups,
+                add=self.rig_logic_instance.head_mesh_topology_selection_mode == 'add'
+            )
+
+    def select_bone_group(self):
+        if self.rig_logic_instance and self.rig_logic_instance.head_rig:
+            if self.rig_logic_instance.head_rig_bone_group_selection_mode != 'add':
+                # deselect all bones first
+                for bone in self.rig_logic_instance.head_rig.data.bones: # type: ignore
+                    bone.select = False
+            
+            from ..bindings import meta_human_dna_core
+            for bone_name in meta_human_dna_core.BONE_SELECTION_GROUPS.get(self.rig_logic_instance.head_rig_bone_groups, []): # type: ignore
+                bone = self.rig_logic_instance.head_rig.data.bones.get(bone_name) # type: ignore
+                if bone:
+                    bone.select = True
+
+            if self.rig_logic_instance.head_rig_bone_groups.startswith(TOPO_GROUP_PREFIX):
+                for bone in utilities.get_topology_group_surface_bones(
+                    mesh_object=self.rig_logic_instance.head_mesh,
+                    armature_object=self.rig_logic_instance.head_rig,
+                    vertex_group_name=self.rig_logic_instance.head_rig_bone_groups,
+                    dna_reader=self.dna_reader
+                ):
+                    bone.select = True
+
+            self.rig_logic_instance.head_rig.hide_set(False)
+            utilities.switch_to_pose_mode(self.rig_logic_instance.head_rig) # type: ignore
+
+    def set_face_pose(self):        
+        for instance in self.scene_properties.rig_logic_instance_list:
+            thumbnail_file = Path(bpy.context.window_manager.meta_human_dna.face_pose_previews) # type: ignore
+            json_file_path = thumbnail_file.parent / 'pose.json'
+            if json_file_path.exists():
+                logger.info(f'Applying face pose from {json_file_path}')
+                # dont evaluate while updating the face board transforms
+                self.window_manager_properties.evaluate_dependency_graph = False
+                with open(json_file_path, 'r') as file:
+                    data = json.load(file)
+                                        
+                    # clear the pose location for all the control bones
+                    for pose_bone in instance.face_board.pose.bones:
+                        if not pose_bone.bone.children and pose_bone.name.startswith('CTRL_'):
+                            pose_bone.location = Vector((0.0, 0.0, 0.0))
+
+                    for bone_name, transform_data in data.items():
+                        pose_bone = instance.face_board.pose.bones.get(bone_name) # type: ignore
+                        if pose_bone:
+                            pose_bone.location = Vector(transform_data['location'])
+
+                self.window_manager_properties.evaluate_dependency_graph = True
+                # now evaluate the face board
+                instance.evaluate()
+                
+    def shrink_wrap_vertex_group(self):
+        if self.rig_logic_instance and self.rig_logic_instance.head_mesh:
+            modifier = self.rig_logic_instance.head_mesh.modifiers.get(self.rig_logic_instance.head_mesh_topology_groups)
+            if not modifier:
+                modifier = self.rig_logic_instance.head_mesh.modifiers.new(name=self.rig_logic_instance.head_mesh_topology_groups, type='SHRINKWRAP')
+                modifier.show_viewport = False
+                modifier.wrap_method = 'PROJECT'
+                modifier.use_negative_direction = True
+
+            modifier.target = self.rig_logic_instance.shrink_wrap_target
+            modifier.vertex_group = self.rig_logic_instance.head_mesh_topology_groups
+            # toggle the visibility of the modifier
+            modifier.show_viewport = not modifier.show_viewport
+
+            utilities.set_vertex_selection(
+                mesh_object=self.rig_logic_instance.head_mesh, 
+                vertex_indexes=[],
+                add=False
+            )
+            utilities.select_vertex_group(
+                mesh_object=self.rig_logic_instance.head_mesh,
+                vertex_group_name=self.rig_logic_instance.head_mesh_topology_groups
+            )
+
+    @preserve_context
+    def revert_bone_transforms_to_dna(self):
+        if self.head_rig_object:
+            extra_bone_lookup = dict(EXTRA_BONES)
+            # make sure the dna importer has the rig object set
+            self.dna_importer.rig_object = self.head_rig_object
+            
+            bone_names = [pose_bone.name for pose_bone in bpy.context.selected_pose_bones] # type: ignore
+            utilities.switch_to_bone_edit_mode(self.rig_logic_instance.head_rig)
+            
+            for bone_name in bone_names:
+                edit_bone = self.head_rig_object.data.edit_bones[bone_name] # type: ignore
+                extra_bone = extra_bone_lookup.get(bone_name)
+                if bone_name == 'root':
+                    edit_bone.matrix = self.head_rig_object.matrix_world
+                # reverts the default bone transforms back to their default values
+                elif extra_bone:
+                    location = extra_bone['location']
+                    rotation = extra_bone['rotation']
+                    # Scale the location of the bones based on the height scale factor
+                    location.y = location.y * self.dna_importer.get_height_scale_factor()
+                    global_matrix = Matrix.Translation(location) @ rotation.to_matrix().to_4x4()
+                    # default values are stored in Y-up, so convert to Z-up
+                    edit_bone.matrix = Matrix.Rotation(math.radians(90), 4, 'X').to_4x4() @ global_matrix
+                else:
+                    bone_matrix = self.dna_importer.get_bone_matrix(bone_name=bone_name)
+                    if bone_matrix:
+                        edit_bone.matrix = bone_matrix
+
+    @utilities.exclude_rig_logic_evaluation
+    def import_shape_keys(self, commands_queue: queue.Queue) -> list:
+        if not self.head_mesh_object:
+            raise ValueError('Head mesh object not found!')
+        
+        commands = []
+
+        def get_initialize_kwargs(index: int, mesh_index: int):
+            mesh_dna_name = self.dna_reader.getMeshName(mesh_index)
+            mesh_object = bpy.data.objects.get(f'{self.name}_{mesh_dna_name}')
+            return {
+                'mesh_object': mesh_object,
+            }
+
+        def get_create_kwargs(index: int, mesh_index: int):
+            channel_index = self.dna_reader.getBlendShapeChannelIndex(mesh_index, index)
+            shape_key_name = self.dna_reader.getBlendShapeChannelName(channel_index)
+            mesh_dna_name = self.dna_reader.getMeshName(mesh_index)
+            mesh_object = bpy.data.objects.get(f'{self.name}_{mesh_dna_name}')
+            return {
+                'index': index,
+                'mesh_index': mesh_index,
+                'mesh_object': mesh_object,
+                'reader': self.dna_reader,
+                'name': shape_key_name,
+                'is_neutral': self.rig_logic_instance.generate_neutral_shapes,
+                'linear_modifier': self.linear_modifier,
+                'prefix': f'{mesh_dna_name}__'
+            }
+
+        for mesh_index in range(self.dna_reader.getMeshCount()):
+            count = self.dna_reader.getBlendShapeTargetCount(mesh_index)
+            if count > 0:
+                commands_queue.put((
+                    0, 
+                    mesh_index,
+                    'Initializing basis shape...',
+                    get_initialize_kwargs,
+                    lambda **kwargs: utilities.initialize_basis_shape_key(**kwargs)
+                ))
+                
+            for index in range(count):
+                commands_queue.put((
+                    index, 
+                    mesh_index,
+                    f'{index}/{count}' + ' {name} ...',
+                    get_create_kwargs,
+                    lambda **kwargs: create_shape_key(**kwargs)
+                ))
+        
+        return commands

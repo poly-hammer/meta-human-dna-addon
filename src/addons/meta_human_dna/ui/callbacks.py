@@ -369,18 +369,31 @@ def poll_face_boards(self, scene_object: bpy.types.Object) -> bool:
     if scene_object.type == 'ARMATURE':
         # Check if this is the right armature by checking one bone name
         # We don't check all bone names to avoid performance issues
-        if scene_object.pose.bones.get('CTRL_rigLogic'):
+        if scene_object.pose.bones.get('CTRL_rigLogic'): # type: ignore
             return True
     return False
 
 def poll_head_rig(self, scene_object: bpy.types.Object) -> bool:
     if scene_object.type == 'ARMATURE':
         # This check will filter out the face boards
-        if not scene_object.pose.bones.get('CTRL_rigLogic'):
+        if not scene_object.pose.bones.get('CTRL_rigLogic'): # type: ignore
+            return True
+    return False
+
+def poll_body_rig(self, scene_object: bpy.types.Object) -> bool:
+    if scene_object.type == 'ARMATURE':
+        # This check will filter out the face boards
+        if not scene_object.pose.bones.get('CTRL_rigLogic'): # type: ignore
             return True
     return False
 
 def poll_head_mesh(self, scene_object: bpy.types.Object) -> bool:
+    if scene_object.type == 'MESH':
+        if scene_object.name in bpy.context.scene.objects: # type: ignore
+            return True
+    return False
+
+def poll_body_mesh(self, scene_object: bpy.types.Object) -> bool:
     if scene_object.type == 'MESH':
         if scene_object.name in bpy.context.scene.objects: # type: ignore
             return True
@@ -396,22 +409,22 @@ def poll_shrink_wrap_target(self, scene_object: bpy.types.Object) -> bool:
     return False
 
 def update_head_topology_selection(self, context):
-    from ..utilities import get_active_face
-    face = get_active_face()
-    if face:
-        face.select_vertex_group()
+    from ..utilities import get_active_head
+    head = get_active_head()
+    if head:
+        head.select_vertex_group()
 
 def update_head_rig_bone_group_selection(self, context):
-    from ..utilities import get_active_face
-    face = get_active_face()
-    if face:
-        face.select_bone_group()
+    from ..utilities import get_active_head
+    head = get_active_head()
+    if head:
+        head.select_bone_group()
 
 def update_face_pose(self, context):
-    from ..utilities import get_active_face
-    face = get_active_face()
-    if face:
-        face.set_face_pose()
+    from ..utilities import get_active_head
+    head = get_active_head()
+    if head:
+        head.set_face_pose()
 
 def get_mesh_output_items(instance: 'RigLogicInstance') -> list[bpy.types.Object]:
     mesh_objects =[]

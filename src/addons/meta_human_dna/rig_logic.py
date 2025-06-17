@@ -174,6 +174,20 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         poll=callbacks.poll_head_rig, # type: ignore
         update=callbacks.update_output_items
     ) # type: ignore
+    body_mesh: bpy.props.PointerProperty(
+        type=bpy.types.Object, # type: ignore
+        name='Body Mesh',
+        description='The body mesh',
+        poll=callbacks.poll_body_mesh, # type: ignore
+        update=callbacks.update_output_items
+    ) # type: ignore
+    body_rig: bpy.props.PointerProperty(
+        type=bpy.types.Object, # type: ignore
+        name='Body Rig',
+        description='The armature object for the body that RBF will evaluate',
+        poll=callbacks.poll_body_rig, # type: ignore
+        update=callbacks.update_output_items
+    ) # type: ignore
     material: bpy.props.PointerProperty(
         type=bpy.types.Material, # type: ignore
         name='Material',

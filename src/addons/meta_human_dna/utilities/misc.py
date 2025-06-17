@@ -20,7 +20,7 @@ from ..constants import (
     ToolInfo
 )
 if TYPE_CHECKING:
-    from ..face import MetahumanFace
+    from ..components.head import MetaHumanComponentHead
     from ..rig_logic import RigLogicInstance
 
 logger = logging.getLogger(__name__)
@@ -382,26 +382,26 @@ def focus_on_selected():
                             with bpy.context.temp_override(area=area, region=region): # type: ignore
                                 bpy.ops.view3d.view_selected()
 
-def get_face(name: str) -> 'MetahumanFace | None':
+def get_head(name: str) -> 'MetaHumanComponentHead | None':
     # avoid circular import
-    from ..face import MetahumanFace
+    from ..components.head import MetaHumanComponentHead
     
     properties = bpy.context.scene.meta_human_dna # type: ignore
     for instance in properties.rig_logic_instance_list:
         if instance.name == name:
-            return MetahumanFace(rig_logic_instance=instance)
+            return MetaHumanComponentHead(rig_logic_instance=instance)
         
     logger.error(f'No existing face "{name}" was found')
 
-def get_active_face() -> 'MetahumanFace | None':
+def get_active_head() -> 'MetaHumanComponentHead | None':
     """
-    Gets the active face object.
+    Gets the active head object.
     """
     properties = bpy.context.scene.meta_human_dna # type: ignore
     if len(properties.rig_logic_instance_list) > 0:
         index = properties.rig_logic_instance_list_active_index
         instance = properties.rig_logic_instance_list[index]
-        return get_face(instance.name)
+        return get_head(instance.name)
     
 def move_to_collection(
         scene_objects: list[bpy.types.Object], 

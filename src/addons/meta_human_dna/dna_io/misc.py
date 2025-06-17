@@ -105,6 +105,26 @@ def get_dna_writer(
     
     return writer
 
+def get_dna_component_type(
+        file_path: Path,
+    ) -> Literal['head', 'body'] | None:
+    """
+    Determine the DNA component type based on the mesh names in the DNA file.
+    """
+    dna_reader = get_dna_reader(
+        file_path=file_path, 
+        file_format='binary', 
+        data_layer='Definition'
+    )
+    if dna_reader:
+        for index in range(dna_reader.getMeshCount()):
+            mesh_name = dna_reader.getMeshName(index)
+            if 'head' in mesh_name.lower():
+                return 'head'
+            elif 'body' in mesh_name.lower():
+                return 'body'
+    return None
+
 @exclude_rig_logic_evaluation
 def create_shape_key(
         index: int,
