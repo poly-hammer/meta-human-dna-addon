@@ -16,8 +16,8 @@ from .components import (
 )
 from .constants import (
     SEND2UE_FACE_SETTINGS,
-    TEXTURE_LOGIC_NODE_NAME,
-    TEXTURE_LOGIC_NODE_LABEL,
+    HEAD_TEXTURE_LOGIC_NODE_NAME,
+    HEAD_TEXTURE_LOGIC_NODE_LABEL,
     ToolInfo,
     NUMBER_OF_FACE_LODS,
     SHAPE_KEY_GROUP_PREFIX,
@@ -570,7 +570,7 @@ class GenerateMaterial(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         instance = callbacks.get_active_rig_logic()
-        if instance and instance.head_mesh and not instance.material and bpy.context.mode == 'OBJECT': # type: ignore
+        if instance and instance.head_mesh and not instance.head_material and bpy.context.mode == 'OBJECT': # type: ignore
             return True
         return False
 
@@ -1227,9 +1227,9 @@ class DuplicateRigLogicInstance(bpy.types.Operator):
                 )
                 # duplicate the texture logic node
                 if new_head_mesh_material:
-                    texture_logic_node = callbacks.get_texture_logic_node(new_head_mesh_material)
+                    texture_logic_node = callbacks.get_head_texture_logic_node(new_head_mesh_material)
                     if texture_logic_node and texture_logic_node.node_tree:
-                        new_name = f'{self.new_name}_{TEXTURE_LOGIC_NODE_NAME}'
+                        new_name = f'{self.new_name}_{HEAD_TEXTURE_LOGIC_NODE_NAME}'
                         texture_logic_node.label = new_name
                         texture_logic_node_tree_copy = texture_logic_node.node_tree.copy() # type: ignore
                         texture_logic_node_tree_copy.name = new_name
@@ -1298,7 +1298,7 @@ class DuplicateRigLogicInstance(bpy.types.Operator):
                 new_instance.face_board = instance.face_board
                 new_instance.head_mesh = new_head_mesh_object
                 new_instance.head_rig = new_rig_object
-                new_instance.material = new_head_mesh_material
+                new_instance.head_material = new_head_mesh_material
                 new_instance.output_folder_path = self.new_folder
 
                 # set the new instance as the active one
@@ -1344,7 +1344,7 @@ class AddRigLogicTextureNode(bpy.types.Operator):
             if not active_material:
                 return False
 
-            if not callbacks.get_texture_logic_node(active_material):
+            if not callbacks.get_head_texture_logic_node(active_material):
                 return True
             return False
         
@@ -1358,14 +1358,14 @@ class AddRigLogicTextureNode(bpy.types.Operator):
             self.report({'ERROR'}, "Could not find the active material")
             return {'CANCELLED'}
         
-        texture_logic_node = utilities.import_texture_logic_node()
+        texture_logic_node = utilities.import_head_texture_logic_node()
         if not texture_logic_node:
             self.report({'ERROR'}, "Could not import the Texture Logic Node")
             return {'CANCELLED'}
         
         node = node_tree.nodes.new(type='ShaderNodeGroup')
-        node.name = f'{active_material.name}_{TEXTURE_LOGIC_NODE_NAME}'
-        node.label = f'{active_material.name} {TEXTURE_LOGIC_NODE_LABEL}'
+        node.name = f'{active_material.name}_{HEAD_TEXTURE_LOGIC_NODE_NAME}'
+        node.label = f'{active_material.name} {HEAD_TEXTURE_LOGIC_NODE_LABEL}'
         node.node_tree = texture_logic_node
         node.location = cursor_location
         return {'FINISHED'}

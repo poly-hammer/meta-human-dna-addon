@@ -204,7 +204,7 @@ def bake_to_action(
         masks: bool = True,
         shape_keys: bool = True
     ):
-    from ..ui.callbacks import get_active_rig_logic, get_texture_logic_node
+    from ..ui.callbacks import get_active_rig_logic, get_head_texture_logic_node
 
     instance = get_active_rig_logic()
     if instance:
@@ -248,7 +248,7 @@ def bake_to_action(
             instance.auto_evaluate = False
 
             bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False # type: ignore
-            texture_logic_node = get_texture_logic_node(instance.material)
+            texture_logic_node = get_head_texture_logic_node(instance.head_material)
             for frame in range(start_frame, end_frame + 1): # type: ignore
                 # modulo the step to only bake every nth frame
                 if frame % step == 0:

@@ -17,19 +17,24 @@ from .. import utilities
 from ..constants import (
     ToolInfo,
     HEAD_MATERIAL_NAME,
-    MESH_SHADER_MAPPING,
+    BODY_MATERIAL_NAME,
+    HEAD_MESH_SHADER_MAPPING,
+    BODY_MESH_SHADER_MAPPING,
     MASKS_TEXTURE_FILE_PATH,
-    TOPOLOGY_TEXTURE_FILE_PATH,
+    HEAD_TOPOLOGY_TEXTURE_FILE_PATH,
+    BODY_TOPOLOGY_TEXTURE_FILE_PATH,
     MATERIALS_FILE_PATH,
     FACE_BOARD_FILE_PATH,
     FACE_BOARD_NAME,
     MASKS_TEXTURE,
-    TOPOLOGY_TEXTURE,
+    HEAD_TOPOLOGY_TEXTURE,
+    BODY_TOPOLOGY_TEXTURE,
     NUMBER_OF_FACE_LODS,
     FACE_GUI_EMPTIES, 
     SCALE_FACTOR,
     INVALID_NAME_CHARACTERS_REGEX,
-    TEXTURE_LOGIC_NODE_NAME,
+    HEAD_TEXTURE_LOGIC_NODE_NAME,
+    BODY_TEXTURE_LOGIC_NODE_NAME,
     UV_MAP_NAME,
     ALTERNATE_HEAD_TEXTURE_FILE_NAMES,
     LEGACY_ALTERNATE_HEAD_TEXTURE_FILE_NAMES,
@@ -259,8 +264,11 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
 
     def _set_image_textures(self, materials: list[bpy.types.Material]):
         # set the combined mask image and topology image
-        bpy.data.images[MASKS_TEXTURE].filepath = str(MASKS_TEXTURE_FILE_PATH)
-        bpy.data.images[TOPOLOGY_TEXTURE].filepath = str(TOPOLOGY_TEXTURE_FILE_PATH)
+        if self.component_type == 'head':
+            bpy.data.images[MASKS_TEXTURE].filepath = str(MASKS_TEXTURE_FILE_PATH)
+            bpy.data.images[HEAD_TOPOLOGY_TEXTURE].filepath = str(HEAD_TOPOLOGY_TEXTURE_FILE_PATH)
+        elif self.component_type == 'body':
+            bpy.data.images[BODY_TOPOLOGY_TEXTURE].filepath = str(BODY_TOPOLOGY_TEXTURE_FILE_PATH)
 
         for material in materials:
             if not material.node_tree:
@@ -297,9 +305,9 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
 
         # remove any extra masks and topology images
         for image in bpy.data.images:
-            if image.name in [MASKS_TEXTURE, TOPOLOGY_TEXTURE]:
+            if image.name in [MASKS_TEXTURE, HEAD_TOPOLOGY_TEXTURE, BODY_TOPOLOGY_TEXTURE]:
                 continue
-            if any(i in image.name for i in [MASKS_TEXTURE, TOPOLOGY_TEXTURE]):
+            if any(i in image.name for i in [MASKS_TEXTURE, HEAD_TOPOLOGY_TEXTURE, BODY_TOPOLOGY_TEXTURE]):
                 bpy.data.images.remove(image)
 
         # set the masks and topology textures for all node groups
@@ -307,13 +315,18 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
             for node in node_group.nodes:
                 if node.type == 'TEX_IMAGE' and node.image: # type: ignore
                     # set the masks and topology textures
-                    if node.image.name == MASKS_TEXTURE: # type: ignore
-                        node.image = bpy.data.images[MASKS_TEXTURE] # type: ignore
-                    if node.image.name == TOPOLOGY_TEXTURE: # type: ignore
-                        node.image = bpy.data.images[TOPOLOGY_TEXTURE] # type: ignore
+                    if self.component_type == 'head':
+                        if node.image.name == MASKS_TEXTURE: # type: ignore
+                            node.image = bpy.data.images[MASKS_TEXTURE] # type: ignore
+                        if node.image.name == HEAD_TOPOLOGY_TEXTURE: # type: ignore
+                            node.image = bpy.data.images[HEAD_TOPOLOGY_TEXTURE] # type: ignore
+                    elif self.component_type == 'body':
+                        if node.image.name == BODY_TOPOLOGY_TEXTURE: # type: ignore
+                            node.image = bpy.data.images[BODY_TOPOLOGY_TEXTURE] # type: ignore
 
     def _purge_existing_materials(self):
-        for material_name in MESH_SHADER_MAPPING.values():
+        shader_mapping = HEAD_MESH_SHADER_MAPPING if self.component_type == 'head' else BODY_MESH_SHADER_MAPPING
+        for material_name in shader_mapping.values():
             material = bpy.data.materials.get(f'{self.name}_{material_name}')
             if material:
                 bpy.data.materials.remove(material)
@@ -322,9 +335,13 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
         if masks_image:
             bpy.data.images.remove(masks_image)
         
-        topology_image = bpy.data.images.get(TOPOLOGY_TEXTURE)
-        if topology_image:
-            bpy.data.images.remove(topology_image)
+        head_topology_image = bpy.data.images.get(HEAD_TOPOLOGY_TEXTURE)
+        if head_topology_image:
+            bpy.data.images.remove(head_topology_image)
+        
+        body_topology_image = bpy.data.images.get(BODY_TOPOLOGY_TEXTURE)
+        if body_topology_image:
+            bpy.data.images.remove(body_topology_image)
                 
     def _purge_face_board_components(self):
         with bpy.data.libraries.load(str(FACE_BOARD_FILE_PATH)) as (data_from, data_to):
@@ -415,7 +432,8 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
         # remove existing matching materials for this face to avoid duplicates being imported
         self._purge_existing_materials()
 
-        for key, material_name in MESH_SHADER_MAPPING.items():
+        shader_mapping = HEAD_MESH_SHADER_MAPPING if self.component_type == 'head' else BODY_MESH_SHADER_MAPPING
+        for key, material_name in shader_mapping.items():
             material = bpy.data.materials.get(material_name)
             if not material:
                 # import the materials
@@ -439,15 +457,25 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
                             alpha=0.0
                         )
 
-                # set the material on the rig logic instance
+                # set the material on the head texture logic instance
                 if material.name == HEAD_MATERIAL_NAME:
-                    self.rig_logic_instance.material = material
-                    node = callbacks.get_texture_logic_node(material)
+                    self.rig_logic_instance.head_material = material
+                    node = callbacks.get_head_texture_logic_node(material)
                     if node:
-                        node.name = f'{self.name}_{TEXTURE_LOGIC_NODE_NAME}'
-                        node.label = f'{self.name}_{TEXTURE_LOGIC_NODE_NAME}'
+                        node.name = f'{self.name}_{HEAD_TEXTURE_LOGIC_NODE_NAME}'
+                        node.label = f'{self.name}_{HEAD_TEXTURE_LOGIC_NODE_NAME}'
                         if node.node_tree:
-                            node.node_tree.name = f'{self.name}_{TEXTURE_LOGIC_NODE_NAME}'
+                            node.node_tree.name = f'{self.name}_{HEAD_TEXTURE_LOGIC_NODE_NAME}'
+
+                # set the material on the body texture logic instance
+                if material.name == BODY_MATERIAL_NAME:
+                    self.rig_logic_instance.body_material = material
+                    node = callbacks.get_body_texture_logic_node(material)
+                    if node:
+                        node.name = f'{self.name}_{BODY_TEXTURE_LOGIC_NODE_NAME}'
+                        node.label = f'{self.name}_{BODY_TEXTURE_LOGIC_NODE_NAME}'
+                        if node.node_tree:
+                            node.node_tree.name = f'{self.name}_{BODY_TEXTURE_LOGIC_NODE_NAME}'
 
                 # rename to match metahuman
                 material.name = f'{self.name}_{material_name}' # type: ignore

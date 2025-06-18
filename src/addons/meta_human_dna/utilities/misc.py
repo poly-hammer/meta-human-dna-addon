@@ -8,7 +8,7 @@ import addon_utils
 from pathlib import Path
 from mathutils import Vector
 from typing import TYPE_CHECKING, Callable
-from ..constants import MATERIALS_FILE_PATH, TEXTURE_LOGIC_NODE_LABEL
+from ..constants import MATERIALS_FILE_PATH, HEAD_TEXTURE_LOGIC_NODE_LABEL
 from ..rig_logic import start_listening
 from ..constants import (
     SENTRY_DSN,
@@ -452,7 +452,7 @@ def re_create_rig_logic_instance(
     face_board = instance.face_board
     head_mesh = instance.head_mesh
     head_rig = instance.head_rig
-    material = instance.material
+    head_material = instance.head_material
 
     # clear data dictionary from the old instance so underlying data can be garbage collected
     instance.data.clear()
@@ -467,7 +467,7 @@ def re_create_rig_logic_instance(
     new_instance.face_board = face_board
     new_instance.head_mesh = head_mesh
     new_instance.head_rig = head_rig
-    new_instance.material = material
+    new_instance.head_material = head_material
     
     # set the new instance as the active instance
     index = bpy.context.scene.meta_human_dna.rig_logic_instance_list.find(new_instance.name) # type: ignore
@@ -487,8 +487,8 @@ def rename_rig_logic_instance(
         instance.head_mesh.name = instance.head_mesh.name.replace(old_name, new_name)
     if instance.head_rig:
         instance.head_rig.name = instance.head_rig.name.replace(old_name, new_name)
-    if instance.material:
-        instance.material.name = instance.material.name.replace(old_name, new_name)
+    if instance.head_material:
+        instance.head_material.name = instance.head_material.name.replace(old_name, new_name)
 
     for item in instance.output_item_list:
         if item.scene_object:
@@ -548,21 +548,21 @@ def report_error(
     ) # type: ignore
 
 
-def import_texture_logic_node() -> bpy.types.NodeTree | None:
+def import_head_texture_logic_node() -> bpy.types.NodeTree | None:
     sep = '\\'
     if sys.platform != 'win32':
         sep = '/'
 
-    node_group = bpy.data.node_groups.get(TEXTURE_LOGIC_NODE_LABEL)
+    node_group = bpy.data.node_groups.get(HEAD_TEXTURE_LOGIC_NODE_LABEL)
     if not node_group:
         directory_path = f'{MATERIALS_FILE_PATH}{sep}NodeTree{sep}'
-        file_path = f'{MATERIALS_FILE_PATH}{sep}NodeTree{sep}{TEXTURE_LOGIC_NODE_LABEL}'
+        file_path = f'{MATERIALS_FILE_PATH}{sep}NodeTree{sep}{HEAD_TEXTURE_LOGIC_NODE_LABEL}'
         bpy.ops.wm.append(
             filepath=file_path,
-            filename=TEXTURE_LOGIC_NODE_LABEL,
+            filename=HEAD_TEXTURE_LOGIC_NODE_LABEL,
             directory=directory_path
         )
-        return bpy.data.node_groups.get(TEXTURE_LOGIC_NODE_LABEL)
+        return bpy.data.node_groups.get(HEAD_TEXTURE_LOGIC_NODE_LABEL)
     return node_group
 
 

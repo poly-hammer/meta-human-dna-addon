@@ -21,6 +21,7 @@ class META_HUMAN_DNA_FILE_DATA_PT_panel(bpy.types.Panel):
             return
         
         operator = context.space_data.active_operator # type: ignore
+        stem = Path(operator.filepath).stem.lower()
         layout = self.layout
         row = layout.row()
         row.prop(operator, "import_mesh")
@@ -29,17 +30,19 @@ class META_HUMAN_DNA_FILE_DATA_PT_panel(bpy.types.Panel):
         # row.prop(operator, "import_normals")
         row = layout.row()
         row.prop(operator, "import_bones")
-        row = layout.row()
+        # row = layout.row()
         # TODO: See if we what to import shape keys during initial import
         # row.prop(operator, "import_shape_keys")
-        # row = layout.row()
-        row.prop(operator, "import_vertex_groups")
         row = layout.row()
-        row.prop(operator, "import_vertex_colors")
+        row.prop(operator, "import_vertex_groups")
+        if stem != "body":
+            row = layout.row()
+            row.prop(operator, "import_vertex_colors")
         row = layout.row()
         row.prop(operator, "import_materials")
-        row = layout.row()
-        row.prop(operator, "import_face_board")
+        if stem != "body":
+            row = layout.row()
+            row.prop(operator, "import_face_board")
 
 
 class META_HUMAN_DNA_LODS_PT_panel(bpy.types.Panel):
@@ -58,11 +61,15 @@ class META_HUMAN_DNA_LODS_PT_panel(bpy.types.Panel):
             return
         
         operator = context.space_data.active_operator # type: ignore
+        stem = Path(operator.filepath).stem.lower()
         layout = self.layout
         row = layout.row()
         for i in range(NUMBER_OF_FACE_LODS):
             if i == 0:
                 row.enabled = False
+            # bodies only have one LOD, so we don't need to show the LODs for them
+            if stem == "body" and i > 0:
+                return
             row.prop(operator, f"import_lod{i}")
             row = layout.row()
 
@@ -94,7 +101,7 @@ class META_HUMAN_DNA_EXTRAS_PT_panel(bpy.types.Panel):
         operator = context.space_data.active_operator # type: ignore
         layout = self.layout
         row = layout.row()
-        row.label(text="Wrinkle Maps Folder:")
+        row.label(text="Alternate Maps Folder:")
         row = layout.row()
         path_error = self._get_path_error(operator.alternate_maps_folder)
         

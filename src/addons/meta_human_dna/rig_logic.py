@@ -174,6 +174,13 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         poll=callbacks.poll_head_rig, # type: ignore
         update=callbacks.update_output_items
     ) # type: ignore
+    head_material: bpy.props.PointerProperty(
+        type=bpy.types.Material, # type: ignore
+        name='Head Material',
+        description='The head material that has a node with wrinkle map sliders that rig logic will evaluate',
+        poll=callbacks.poll_head_materials, # type: ignore
+        update=callbacks.update_output_items
+    ) # type: ignore
     body_mesh: bpy.props.PointerProperty(
         type=bpy.types.Object, # type: ignore
         name='Body Mesh',
@@ -188,11 +195,11 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         poll=callbacks.poll_body_rig, # type: ignore
         update=callbacks.update_output_items
     ) # type: ignore
-    material: bpy.props.PointerProperty(
+    body_material: bpy.props.PointerProperty(
         type=bpy.types.Material, # type: ignore
-        name='Material',
-        description='The head material that has a node with wrinkle map sliders that rig logic will evaluate',
-        poll=callbacks.poll_head_materials, # type: ignore
+        name='Body Material',
+        description='The body material',
+        poll=callbacks.poll_body_materials, # type: ignore
         update=callbacks.update_output_items
     ) # type: ignore
 
@@ -445,7 +452,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         elif texture_masks_node is not None:
             return texture_masks_node
         else:
-            node = callbacks.get_texture_logic_node(self.material)
+            node = callbacks.get_head_texture_logic_node(self.head_material)
             if node:
                 self.data['texture_masks_node'] = node
                 return self.data['texture_masks_node']
@@ -743,12 +750,12 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
     def update_texture_masks(self) -> list[tuple[str, float]]:
         # skip if the material is not set
-        if not self.material or not self.dna_reader:
+        if not self.head_material or not self.dna_reader:
             return []
 
         # if the texture masks node is not set, we can't update the texture masks
         if not self.texture_masks_node:
-            logger.warning(f'The texture masks node was not found on the material "{self.material.name}"')
+            logger.warning(f'The texture masks node was not found on the material "{self.head_material.name}"')
             return []
         
         texture_mask_values = []
@@ -762,7 +769,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 mask_slider.default_value = value # type: ignore
                 texture_mask_values.append((slider_name, value))
             else:
-                logger.warning(f'The texture mask slider "{slider_name}" was not found on the material "{self.material.name}"')
+                logger.warning(f'The texture mask slider "{slider_name}" was not found on the material "{self.head_material.name}"')
 
         return texture_mask_values
 

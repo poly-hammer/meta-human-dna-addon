@@ -45,7 +45,7 @@ def get_active_rig_logic() -> 'RigLogicInstance | None':
         index = properties.rig_logic_instance_list_active_index
         return properties.rig_logic_instance_list[index]
     
-def get_texture_logic_node(material: bpy.types.Material) -> bpy.types.ShaderNodeGroup | None:
+def get_head_texture_logic_node(material: bpy.types.Material) -> bpy.types.ShaderNodeGroup | None:
     if not material or not material.node_tree:
         return None
     for node in material.node_tree.nodes:
@@ -53,7 +53,17 @@ def get_texture_logic_node(material: bpy.types.Material) -> bpy.types.ShaderNode
             # Check if this is the right group node by checking one input name
             # We don't check all to avoid performance issues
             if node.inputs.get('head_wm1_jawOpen_msk'):
-                return node
+                return node # type: ignore
+            
+def get_body_texture_logic_node(material: bpy.types.Material) -> bpy.types.ShaderNodeGroup | None:
+    if not material or not material.node_tree:
+        return None
+    for node in material.node_tree.nodes:
+        if node.type == 'GROUP':
+            # Check if this is the right group node by checking one input name
+            # We don't check all to avoid performance issues
+            if node.inputs.get('body_color') and node.inputs.get('body_normal'):
+                return node # type: ignore
 
 def get_active_material_preview(self) -> int:
     return self.get('active_material_preview', 0)
@@ -324,31 +334,34 @@ def set_active_material_preview(self, value):
     self['active_material_preview'] = value
     input_name = 'Factor'
 
-    node_group = get_texture_logic_node(self.material)
-    if not node_group or not node_group.node_tree:
-        return
+    head_node_group = get_head_texture_logic_node(self.head_material)
+    body_node_group = get_body_texture_logic_node(self.body_material)
 
-    # combined
-    if value == 0:
-        node_group.node_tree.nodes['show_color_or_other'].inputs[input_name].default_value = 0 # type: ignore
-        node_group.node_tree.nodes['show_mask_or_normal'].inputs[input_name].default_value = 0 # type: ignore
-        node_group.node_tree.nodes['show_color_or_topology'].inputs[input_name].default_value = 0 # type: ignore
-    # masks
-    elif value == 1:
-        node_group.node_tree.nodes['show_color_or_other'].inputs[input_name].default_value = 1 # type: ignore
-        node_group.node_tree.nodes['show_mask_or_normal'].inputs[input_name].default_value = 1 # type: ignore
-        node_group.node_tree.nodes['show_color_or_topology'].inputs[input_name].default_value = 0 # type: ignore
-    # normals
-    elif value == 2:
-        node_group.node_tree.nodes['show_color_or_other'].inputs[input_name].default_value = 1 # type: ignore
-        node_group.node_tree.nodes['show_mask_or_normal'].inputs[input_name].default_value = 0 # type: ignore
-        node_group.node_tree.nodes['show_color_or_topology'].inputs[input_name].default_value = 0 # type: ignore
-    
-    # topology
-    elif value == 3:
-        node_group.node_tree.nodes['show_color_or_other'].inputs[input_name].default_value = 0 # type: ignore
-        node_group.node_tree.nodes['show_mask_or_normal'].inputs[input_name].default_value = 0 # type: ignore
-        node_group.node_tree.nodes['show_color_or_topology'].inputs[input_name].default_value = 1 # type: ignore
+    for node_group in [head_node_group, body_node_group]:
+        if not node_group or not node_group.node_tree:
+            return
+
+        # combined
+        if value == 0:
+            node_group.node_tree.nodes['show_color_or_other'].inputs[input_name].default_value = 0 # type: ignore
+            node_group.node_tree.nodes['show_mask_or_normal'].inputs[input_name].default_value = 0 # type: ignore
+            node_group.node_tree.nodes['show_color_or_topology'].inputs[input_name].default_value = 0 # type: ignore
+        # masks
+        elif value == 1:
+            node_group.node_tree.nodes['show_color_or_other'].inputs[input_name].default_value = 1 # type: ignore
+            node_group.node_tree.nodes['show_mask_or_normal'].inputs[input_name].default_value = 1 # type: ignore
+            node_group.node_tree.nodes['show_color_or_topology'].inputs[input_name].default_value = 0 # type: ignore
+        # normals
+        elif value == 2:
+            node_group.node_tree.nodes['show_color_or_other'].inputs[input_name].default_value = 1 # type: ignore
+            node_group.node_tree.nodes['show_mask_or_normal'].inputs[input_name].default_value = 0 # type: ignore
+            node_group.node_tree.nodes['show_color_or_topology'].inputs[input_name].default_value = 0 # type: ignore
+        
+        # topology
+        elif value == 3:
+            node_group.node_tree.nodes['show_color_or_other'].inputs[input_name].default_value = 0 # type: ignore
+            node_group.node_tree.nodes['show_mask_or_normal'].inputs[input_name].default_value = 0 # type: ignore
+            node_group.node_tree.nodes['show_color_or_topology'].inputs[input_name].default_value = 1 # type: ignore
 
 
 def poll_head_rig_bone_selection(cls, context):
@@ -360,7 +373,13 @@ def poll_head_rig_bone_selection(cls, context):
     )
 
 def poll_head_materials(self, material: bpy.types.Material) -> bool:
-    node = get_texture_logic_node(material)
+    node = get_head_texture_logic_node(material)
+    if node:
+        return True
+    return False
+
+def poll_body_materials(self, material: bpy.types.Material) -> bool:
+    node = get_body_texture_logic_node(material)
     if node:
         return True
     return False
@@ -441,16 +460,16 @@ def get_mesh_output_items(instance: 'RigLogicInstance') -> list[bpy.types.Object
 
 def get_image_output_items(instance: 'RigLogicInstance') -> list[tuple[bpy.types.Image, str]]:
     image_nodes = []
-    if instance.material:
+    if instance.head_material:
         # Todo: Change this to be all the textures in all the materials
-        texture_logic_node = get_texture_logic_node(instance.material)
-        if texture_logic_node:
+        head_texture_logic_node = get_head_texture_logic_node(instance.head_material)
+        if head_texture_logic_node:
             for input_name, file_name in HEAD_MAPS.items():
-                node_input = texture_logic_node.inputs.get(input_name)
+                node_input = head_texture_logic_node.inputs.get(input_name)
                 if node_input and node_input.links:
                     image_node = node_input.links[0].from_node
-                    if image_node.type == 'TEX_IMAGE':
-                        image_nodes.append((image_node.image, file_name))
+                    if image_node and image_node.type == 'TEX_IMAGE':
+                        image_nodes.append((image_node.image, file_name)) # type: ignore
     return image_nodes
 
 def get_instance_name(self):
@@ -566,7 +585,7 @@ def draw_sphere(position, color, radius=0.001):
     x_rotation_matrix = rotation_matrix.to_4x4()
     gpu.matrix.multiply_matrix(x_rotation_matrix)
     draw_circle_2d(
-        position=Vector((0, 0, 0)),
+        position=Vector((0, 0, 0)), # type: ignore
         color=color, 
         radius=radius, 
         segments=segments
@@ -576,7 +595,7 @@ def draw_sphere(position, color, radius=0.001):
     z_rotation_matrix = rotation_matrix.to_4x4()
     gpu.matrix.multiply_matrix(z_rotation_matrix)
     draw_circle_2d(
-        position=Vector((0, 0, 0)),
+        position=Vector((0, 0, 0)), # type: ignore
         color=color, 
         radius=radius, 
         segments=segments

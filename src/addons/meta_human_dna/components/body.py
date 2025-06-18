@@ -17,7 +17,7 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
         self.rig_logic_instance.body_rig = self.dna_importer.rig_object
 
         self._organize_viewport()
-        # self.import_materials()
+        self.import_materials()
 
         # Note that the topology vertex groups are only valid for the default metahuman head mesh with 24408 vertices
         # if len(self.dna_reader.getVertexLayoutPositionIndices(0)) == 24408:

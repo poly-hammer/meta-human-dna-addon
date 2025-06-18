@@ -1,3 +1,4 @@
+import os
 import sys
 import bpy
 import bpy.utils.previews
@@ -95,6 +96,9 @@ def register():
     """
     Registers the addon classes when the addon is enabled.
     """
+    if os.environ.get('META_HUMAN_DNA_DEV'):
+        logging.basicConfig(level=logging.DEBUG)
+        
     try:
         # register the manual map
         bpy.utils.register_manual_map(manual_map.manual_map)
