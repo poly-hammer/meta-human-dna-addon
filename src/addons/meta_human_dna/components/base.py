@@ -6,7 +6,7 @@ import math
 import logging
 from pathlib import Path
 from abc import ABCMeta, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 from mathutils import Vector, Matrix
 from ..dna_io import (
     get_dna_reader, 
@@ -55,7 +55,8 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
             name: str | None = None,
             rig_logic_instance: 'RigLogicInstance | None' = None,
             dna_file_path: Path | None = None,
-            dna_import_properties: 'MetahumanDnaImportProperties | None' = None
+            dna_import_properties: 'MetahumanDnaImportProperties | None' = None,
+            component_type: Literal['head', 'body'] = 'head'
         ):
         # make sure dna file path is a Path object
         dna_file_path = Path(dna_file_path) if dna_file_path else None
@@ -65,6 +66,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
 
         self._linear_modifier = None
         self._angle_modifier = None
+        self._component_type = component_type
 
         self.asset_root_folder = None
         if dna_file_path:    
@@ -108,8 +110,13 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
             instance=self.rig_logic_instance, 
             import_properties=self.dna_import_properties,
             linear_modifier=self.linear_modifier,
-            reader=self.dna_reader
+            reader=self.dna_reader,
+            component_type=self.component_type
         )
+
+    @property
+    def component_type(self) -> Literal['head', 'body']:
+        return self._component_type # type: ignore
     
     @property
     def linear_modifier(self) -> float:
@@ -151,7 +158,15 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
     
     @property
     def head_rig_object(self) -> bpy.types.Object | None:
-        return self.rig_logic_instance.head_rig or bpy.data.objects.get(f'{self.name}_rig')
+        return self.rig_logic_instance.head_rig or bpy.data.objects.get(f'{self.name}_head_rig')
+    
+    @property
+    def body_mesh_object(self) -> bpy.types.Object | None:
+        return self.rig_logic_instance.body_mesh or bpy.data.objects.get(f'{self.name}_body_lod0_mesh')
+    
+    @property
+    def body_rig_object(self) -> bpy.types.Object | None:
+        return self.rig_logic_instance.body_rig or bpy.data.objects.get(f'{self.name}_body_rig')
 
     @property
     def metadata(self) -> dict:

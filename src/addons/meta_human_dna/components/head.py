@@ -16,7 +16,8 @@ from ..constants import (
     TOPOLOGY_VERTEX_GROUPS_FILE_PATH,
     TOPO_GROUP_PREFIX,
     EXTRA_BONES,
-    UNREAL_EXPORTED_HEAD_MATERIAL_NAMES
+    UNREAL_EXPORTED_HEAD_MATERIAL_NAMES,
+    DEFAULT_HEAD_MESH_VERTEX_POSITION_COUNT
 )
 
 logger = logging.getLogger(__name__)
@@ -46,7 +47,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
             face_board_object = next(i.face_board for i in self.scene_properties.rig_logic_instance_list if i.face_board)
 
         # Note that the topology vertex groups are only valid for the default metahuman head mesh with 24408 vertices
-        if len(self.dna_reader.getVertexLayoutPositionIndices(0)) == 24408:
+        if len(self.dna_reader.getVertexLayoutPositionIndices(0)) == DEFAULT_HEAD_MESH_VERTEX_POSITION_COUNT:
             self.create_topology_vertex_groups()
 
         # set the references on the rig logic instance
