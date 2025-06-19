@@ -111,6 +111,7 @@ def get_dna_component_type(
     """
     Determine the DNA component type based on the mesh names in the DNA file.
     """
+    component_type = None
     dna_reader = get_dna_reader(
         file_path=file_path, 
         file_format='binary', 
@@ -120,10 +121,10 @@ def get_dna_component_type(
         for index in range(dna_reader.getMeshCount()):
             mesh_name = dna_reader.getMeshName(index)
             if 'head' in mesh_name.lower():
-                return 'head'
+                component_type = 'head'
             elif 'body' in mesh_name.lower():
-                return 'body'
-    return None
+                component_type = 'body'
+    return component_type
 
 @exclude_rig_logic_evaluation
 def create_shape_key(

@@ -304,18 +304,35 @@ class ImportMetahumanDna(bpy.types.Operator, importer.ImportAsset, MetahumanDnaI
             file_path=file_path,
             properties=self.properties # type: ignore
         )
-        valid, message = component.ingest()
-        # populate the output items based on what was imported
-        callbacks.update_output_items(None, bpy.context)
-        logger.info(f'Finished importing "{self.filepath}"') # type: ignore
-        # now we can evaluate the dependency graph again
-        window_manager_properties.evaluate_dependency_graph = True
+        # if the component is a head, we import the body first if the user has selected the option
+        body_file = file_path.parent / 'body.dna'
+        if self.properties.include_body and component.component_type == 'head' and body_file.exists(): # type: ignore
+            body_component = get_meta_human_component(
+                file_path=body_file,
+                properties=self.properties, # type: ignore
+                rig_logic_instance=component.rig_logic_instance
+            )
+            valid, message = body_component.ingest()
+            logger.info(f'Finished importing "{body_file}"')
+            if not valid:
+                self.report({'ERROR'}, message)
+                return {'CANCELLED'}
+            else:
+                self.report({'INFO'}, message)
 
+        # now we can import the chosen .dna file
+        valid, message = component.ingest()
+        logger.info(f'Finished importing "{self.filepath}"') # type: ignore
         if not valid:
             self.report({'ERROR'}, message)
             return {'CANCELLED'}
         else:
             self.report({'INFO'}, message)
+
+        # populate the output items based on what was imported
+        callbacks.update_output_items(None, bpy.context)
+        # now we can evaluate the dependency graph again
+        window_manager_properties.evaluate_dependency_graph = True
 
         bpy.ops.meta_human_dna.metrics_collection_consent('INVOKE_DEFAULT') # type: ignore
 

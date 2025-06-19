@@ -99,7 +99,11 @@ class META_HUMAN_DNA_EXTRAS_PT_panel(bpy.types.Panel):
             return
         
         operator = context.space_data.active_operator # type: ignore
+        body_file = Path(operator.filepath).parent / 'body.dna'
         layout = self.layout
+        row = layout.row()
+        row.enabled = body_file.exists()
+        row.prop(operator, "include_body")
         row = layout.row()
         row.label(text="Alternate Maps Folder:")
         row = layout.row()

@@ -101,6 +101,11 @@ class MetahumanDnaImportProperties(get_dna_import_property_group_base_class()):
         name='Face Board',
         description='Whether to import the face board that drive the rig logic'
     ) # type: ignore
+    include_body: bpy.props.BoolProperty(
+        default=False,
+        name='Include Body',
+        description='If true, this will try to find a body.dna file in the same folder as this .dna file. If the body.dna file is found, it will be imported as well',
+    ) # type: ignore
     alternate_maps_folder: bpy.props.StringProperty(
         default='',
         name='Maps Folder',

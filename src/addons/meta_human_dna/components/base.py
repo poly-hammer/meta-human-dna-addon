@@ -108,7 +108,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
 
         file_format = 'binary' if self.dna_file_path.suffix.lower() == ".dna" else 'json'
         self.dna_reader = get_dna_reader(
-            file_path=self.dna_file_path,
+            file_path=dna_file_path or self.dna_file_path,
             file_format=file_format
         )
         self.dna_importer = DNAImporter(
