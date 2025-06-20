@@ -338,10 +338,6 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
         head_topology_image = bpy.data.images.get(HEAD_TOPOLOGY_TEXTURE)
         if head_topology_image:
             bpy.data.images.remove(head_topology_image)
-        
-        body_topology_image = bpy.data.images.get(BODY_TOPOLOGY_TEXTURE)
-        if body_topology_image:
-            bpy.data.images.remove(body_topology_image)
                 
     def _purge_face_board_components(self):
         with bpy.data.libraries.load(str(FACE_BOARD_FILE_PATH)) as (data_from, data_to):

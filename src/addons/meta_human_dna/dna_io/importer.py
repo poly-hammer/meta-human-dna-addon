@@ -632,4 +632,4 @@ class DNAImporter:
         if errors:
             return False, "\n".join(errors)
         
-        return True, f'Imported "{self._prefix}.dna" successfully!'
+        return True, f'Imported "{self._source_dna_file.stem}.dna" successfully!'
