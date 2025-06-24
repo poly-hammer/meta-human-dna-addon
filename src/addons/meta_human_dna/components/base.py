@@ -480,12 +480,14 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
                 for node in material.node_tree.nodes: # type: ignore
                     if node.type == 'UVMAP':
                         node.uv_map = UV_MAP_NAME # type: ignore
-                    elif node.type == 'NORMAL_MAP':
-                        node.uv_map = UV_MAP_NAME # type: ignore
                 for node_group in bpy.data.node_groups:
                     if node_group.name.startswith('Mask'):
                         for node in node_group.nodes:
                             if node.type == 'UVMAP':
+                                node.uv_map = UV_MAP_NAME # type: ignore
+                    if node_group.name.lower().endswith('_texture_logic'):
+                        for node in node_group.nodes:
+                            if node.type == 'NORMAL_MAP':
                                 node.uv_map = UV_MAP_NAME # type: ignore
 
                 for mesh_object in bpy.data.objects:

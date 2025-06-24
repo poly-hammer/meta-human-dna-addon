@@ -611,7 +611,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         # make sure the rig bones are using the correct rotation mode
         if self.head_rig and self.head_rig.pose:
             for pose_bone in self.head_rig.pose.bones:
-                if not pose_bone.name.startswith('FACIAL_'):
+                if pose_bone.name.startswith('FACIAL_'):
                     pose_bone.rotation_mode = "XYZ"
 
         # set the rig logic manager and instance

@@ -131,6 +131,9 @@ class META_HUMAN_DNA_FILE_INFO_PT_panel(bpy.types.Panel):
     def poll(cls, context):
         operator = context.space_data.active_operator # type: ignore
         is_dna_importer = context.space_data.active_operator.bl_idname == "META_HUMAN_DNA_OT_import_dna" # type: ignore
+        if not hasattr(operator, 'filepath'):
+            return False
+
         is_dna_file = operator.filepath.lower().endswith(".dna") and os.path.exists(operator.filepath)
         return is_dna_importer and is_dna_file
 

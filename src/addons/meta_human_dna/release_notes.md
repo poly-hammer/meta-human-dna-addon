@@ -1,6 +1,5 @@
 ## Patch Changes
-* Added support for unreal 5.6 MetaHuman creator texture naming conventions [#123](https://github.com/poly-hammer/meta-human-dna-addon/issues/123)
-* Added UV validation option for "Convert to DNA" operator. This should give more info to the user in cases like this where their UVs don't match[#119](https://github.com/poly-hammer/meta-human-dna-addon/issues/119)
+* Fixed Normal UV Map name on import [#126](https://github.com/poly-hammer/meta-human-dna-addon/issues/126)
 
 
 > [!WARNING]  
