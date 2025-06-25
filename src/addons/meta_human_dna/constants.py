@@ -3,6 +3,7 @@ import math
 from pathlib import Path
 from mathutils import Vector, Euler
 from typing import Literal
+from enum import Enum
 
 class ToolInfo:
     NAME = "meta_human_dna"
@@ -173,6 +174,13 @@ FACE_GUI_EMPTIES = [
     "headRigging_grp",
     "eyesSetup_grp"
 ]
+
+class BodyBoneCollection(Enum):
+    TWIST_BONES = 'Twist Bones'
+    CORRECTIVE_ROOT_BONES = 'Corrective Root Bones'
+    DRIVER_BONES = 'Driver Bones'
+    DRIVER_LEAF_BONES = 'Driver Leaf Bones'
+    TWIST_CORRECTIVE_BONES = 'Twist Corrective Bones'
 
 # Set to Ada's height, but locations will be scaled proportionally to match spine_04 location from DNA file.
 # Also in Y-up coordinate system like the metahuman creator DNA files

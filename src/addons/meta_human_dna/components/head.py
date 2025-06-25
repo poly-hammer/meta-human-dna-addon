@@ -56,19 +56,29 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
         self.rig_logic_instance.face_board = face_board_object
 
         if self.head_rig_object and self.head_mesh_object:
-            utilities.set_bone_collections(
+            utilities.set_head_bone_collections(
                 mesh_object=self.head_mesh_object,
                 rig_object=self.head_rig_object,
             )
+            
+            if self.body_rig_object:
+                # TODO: Align the head rig with the body rig if it exists
+                pass
+            else:
+                # if this isn't the first rig, move it to the right of the last head mesh
+                if len(self.scene_properties.rig_logic_instance_list) > 1:
+                    last_instance = self.scene_properties.rig_logic_instance_list[-2] # type: ignore
+                    if last_instance.head_mesh:
+                        self.head_rig_object.location.x = utilities.get_bounding_box_right_x(self.head_rig_object) - 0.5
 
-            # if this isn't the first rig, move it to the right of the last head mesh
-            if len(self.scene_properties.rig_logic_instance_list) > 1:
-                last_instance = self.scene_properties.rig_logic_instance_list[-2] # type: ignore
-                if last_instance.head_mesh:
-                    self.head_rig_object.location.x = utilities.get_bounding_box_right_x(self.head_rig_object) - 0.5
-
-            # then parent the rig to the face board
+            # then parent the head rig to the face board
             self.head_rig_object.parent = face_board_object
+            # if the body rig exists, parent the body rig to the face board as well
+            if self.body_rig_object:
+                self.body_rig_object.parent = face_board_object
+
+        # constrain the head rig to the body rig if it exists
+        self.constrain_to_body()
 
         # focus the view on head object
         if self.rig_logic_instance.head_mesh:
@@ -172,7 +182,23 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
             return new_mesh_object
         
         return mesh_object
-        
+    
+    def constrain_to_body(self):
+        if not self.rig_logic_instance.head_rig or not self.rig_logic_instance.body_rig:
+            logger.warning("Head rig or body rig not found. Cannot constrain head rig to body rig.")
+            return
+
+        body_bone_names = [pose_bone.name for pose_bone in self.rig_logic_instance.body_rig.pose.bones] # type: ignore
+
+        # add copy transforms constraint to the head rig
+        for pose_bone in self.rig_logic_instance.head_rig.pose.bones:
+            if pose_bone.name in body_bone_names:
+                constraint = pose_bone.constraints.new(type='COPY_TRANSFORMS')
+                constraint.target = self.rig_logic_instance.body_rig
+                constraint.subtarget = pose_bone.name
+                constraint.target_space = 'WORLD'
+                constraint.owner_space = 'WORLD'
+
     def export(self):
         pass
 

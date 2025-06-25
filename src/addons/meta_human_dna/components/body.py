@@ -27,6 +27,12 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
         self.rig_logic_instance.body_mesh = self.body_mesh_object
         self.rig_logic_instance.body_rig = self.body_rig_object
 
+        if self.body_rig_object and self.body_mesh_object:
+            utilities.set_body_bone_collections(
+                mesh_object=self.body_mesh_object,
+                rig_object=self.body_rig_object,
+            )
+
         # Todo: handle offsetting positions for multiple metahumans
         # if self.body_rig_object and self.body_mesh_object:
         #     utilities.set_bone_collections(

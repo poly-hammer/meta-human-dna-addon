@@ -34,6 +34,7 @@ class DNAImporter:
         component_type: Literal['head', 'body'] = 'head',
         create_extra_bones: bool = True,
         reader: 'riglogic.BinaryStreamReader | None' = None,
+        dna_file_path: Path | None = None
     ):
         self.rig_object = None
 
@@ -41,7 +42,7 @@ class DNAImporter:
         self._import_properties = import_properties
         self._linear_modifier = linear_modifier
 
-        self._source_dna_file = Path(bpy.path.abspath(instance.dna_file_path))
+        self._source_dna_file = Path(bpy.path.abspath(str(dna_file_path) or instance.dna_file_path))
         # Determine the file format of the DNA file
         file_format = 'binary' if self._source_dna_file.suffix.lower() == ".dna" else 'json'
         

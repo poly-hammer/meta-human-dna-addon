@@ -116,7 +116,8 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
             import_properties=self.dna_import_properties,
             linear_modifier=self.linear_modifier,
             reader=self.dna_reader,
-            component_type=self.component_type
+            component_type=self.component_type,
+            dna_file_path=dna_file_path
         )
 
     @property
@@ -305,9 +306,14 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
 
         # remove any extra masks and topology images
         for image in bpy.data.images:
-            if image.name in [MASKS_TEXTURE, HEAD_TOPOLOGY_TEXTURE, BODY_TOPOLOGY_TEXTURE]:
+            if self.component_type == 'head':
+                image_names = [MASKS_TEXTURE, HEAD_TOPOLOGY_TEXTURE]
+            if self.component_type == 'body':
+                image_names = [BODY_TOPOLOGY_TEXTURE]
+
+            if image.name in image_names:
                 continue
-            if any(i in image.name for i in [MASKS_TEXTURE, HEAD_TOPOLOGY_TEXTURE, BODY_TOPOLOGY_TEXTURE]):
+            if any(i in image.name for i in image_names):
                 bpy.data.images.remove(image)
 
         # set the masks and topology textures for all node groups
@@ -331,14 +337,20 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
             if material:
                 bpy.data.materials.remove(material)
 
-        masks_image = bpy.data.images.get(MASKS_TEXTURE)
-        if masks_image:
-            bpy.data.images.remove(masks_image)
-        
-        head_topology_image = bpy.data.images.get(HEAD_TOPOLOGY_TEXTURE)
-        if head_topology_image:
-            bpy.data.images.remove(head_topology_image)
-                
+        if self.component_type == 'head':
+            masks_image = bpy.data.images.get(MASKS_TEXTURE)
+            if masks_image:
+                bpy.data.images.remove(masks_image)
+            
+            head_topology_image = bpy.data.images.get(HEAD_TOPOLOGY_TEXTURE)
+            if head_topology_image:
+                bpy.data.images.remove(head_topology_image)
+
+        elif self.component_type == 'body':
+            body_topology_image = bpy.data.images.get(BODY_TOPOLOGY_TEXTURE)
+            if body_topology_image:
+                bpy.data.images.remove(body_topology_image)
+
     def _purge_face_board_components(self):
         with bpy.data.libraries.load(str(FACE_BOARD_FILE_PATH)) as (data_from, data_to):
             if data_from.objects:
@@ -485,7 +497,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
                         for node in node_group.nodes:
                             if node.type == 'UVMAP':
                                 node.uv_map = UV_MAP_NAME # type: ignore
-                    if node_group.name.lower().endswith('_texture_logic'):
+                    if node_group.name.lower().rsplit('.', 1)[0].endswith('_texture_logic'):
                         for node in node_group.nodes:
                             if node.type == 'NORMAL_MAP':
                                 node.uv_map = UV_MAP_NAME # type: ignore
