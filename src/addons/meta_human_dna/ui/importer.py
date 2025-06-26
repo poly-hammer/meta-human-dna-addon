@@ -1,7 +1,7 @@
 import os
 import bpy
 from bpy_extras.io_utils import ImportHelper # type: ignore
-from ..constants import NUMBER_OF_FACE_LODS
+from ..constants import NUMBER_OF_HEAD_LODS
 from ..dna_io import get_dna_reader
 from pathlib import Path
 
@@ -64,7 +64,7 @@ class META_HUMAN_DNA_LODS_PT_panel(bpy.types.Panel):
         stem = Path(operator.filepath).stem.lower()
         layout = self.layout
         row = layout.row()
-        for i in range(NUMBER_OF_FACE_LODS):
+        for i in range(NUMBER_OF_HEAD_LODS):
             if i == 0:
                 row.enabled = False
             # bodies only have one LOD, so we don't need to show the LODs for them
@@ -99,11 +99,16 @@ class META_HUMAN_DNA_EXTRAS_PT_panel(bpy.types.Panel):
             return
         
         operator = context.space_data.active_operator # type: ignore
+        stem = Path(operator.filepath).stem.lower()
         body_file = Path(operator.filepath).parent / 'body.dna'
         layout = self.layout
-        row = layout.row()
-        row.enabled = body_file.exists()
-        row.prop(operator, "include_body")
+        if stem == "head":
+            row = layout.row()
+            row.enabled = body_file.exists()
+            row.prop(operator, "include_body")
+            row = layout.row()
+            row.enabled = operator.import_face_board
+            row.prop(operator, "reuse_face_board")
         row = layout.row()
         row.label(text="Alternate Maps Folder:")
         row = layout.row()

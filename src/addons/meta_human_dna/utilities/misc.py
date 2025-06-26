@@ -14,7 +14,7 @@ from ..constants import (
     SENTRY_DSN,
     SEND2UE_EXTENSION,
     PACKAGES_FOLDER,
-    NUMBER_OF_FACE_LODS,
+    NUMBER_OF_HEAD_LODS,
     INVALID_NAME_CHARACTERS_REGEX,
     DEFAULT_UV_TOLERANCE,
     ToolInfo
@@ -120,7 +120,7 @@ def select_only(*scene_object):
     deselect_all()
     for _scene_object in scene_object:
         _scene_object.select_set(True)
-    bpy.context.view_layer.objects.active = _scene_object # type: ignore
+        bpy.context.view_layer.objects.active = _scene_object # type: ignore
 
 
 def switch_to_object_mode():
@@ -500,7 +500,7 @@ def rename_rig_logic_instance(
     instance.unreal_blueprint_asset_path = instance.unreal_blueprint_asset_path.replace(old_name, new_name)
 
     # rename the face LOD collections
-    for index in range(NUMBER_OF_FACE_LODS):
+    for index in range(NUMBER_OF_HEAD_LODS):
         collection = bpy.data.collections.get(f'{old_name}_lod{index}')
         if collection:
             collection.name = collection.name.replace(old_name, new_name)

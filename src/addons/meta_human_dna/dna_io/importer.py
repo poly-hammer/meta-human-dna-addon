@@ -12,7 +12,7 @@ from .. import utilities
 from ..rig_logic import RigLogicInstance
 from ..constants import (
     UV_MAP_NAME,
-    NUMBER_OF_FACE_LODS,
+    NUMBER_OF_HEAD_LODS,
     CUSTOM_BONE_SHAPE_SCALE,
     VERTEX_COLOR_ATTRIBUTE_NAME,
     MESH_VERTEX_COLORS_FILE_PATH,
@@ -72,7 +72,7 @@ class DNAImporter:
     def _get_lod_settings(self):
         return [
             (i, getattr(self._import_properties, f"import_lod{i}"))
-            for i in range(NUMBER_OF_FACE_LODS)
+            for i in range(NUMBER_OF_HEAD_LODS)
         ]
 
     def get_material(self, scene_object: bpy.types.Object, material_name: str):

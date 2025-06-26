@@ -225,12 +225,19 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         set=callbacks.set_active_material_preview,
         get=callbacks.get_active_material_preview
     ) # type: ignore
-    show_bones: bpy.props.BoolProperty(
-        name="Show Bones",
+    show_head_bones: bpy.props.BoolProperty(
+        name="Show Head Bones",
         default=False,
-        description="Whether to show or hide the bones that belong to this RigLogic instance in the 3D view",
-        set=callbacks.set_show_bones,
-        get=callbacks.get_show_bones
+        description="Whether to show or hide the head bones that belong to this MetaHuman instance in the 3D view",
+        set=callbacks.set_show_head_bones,
+        get=callbacks.get_show_head_bones
+    ) # type: ignore
+    show_body_bones: bpy.props.BoolProperty(
+        name="Show Body Bones",
+        default=False,
+        description="Whether to show or hide the body bones that belong to this MetaHuman instance in the 3D view",
+        set=callbacks.set_show_body_bones,
+        get=callbacks.get_show_body_bones
     ) # type: ignore
 
     # --------------------- Mesh Utilities Properties ------------------

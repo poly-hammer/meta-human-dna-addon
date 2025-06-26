@@ -10,7 +10,7 @@ from gpu_extras.presets import draw_circle_2d
 from ..constants import (
     HEAD_MAPS,
     POSES_FOLDER,
-    NUMBER_OF_FACE_LODS,
+    NUMBER_OF_HEAD_LODS,
     MATERIAL_SLOT_TO_MATERIAL_INSTANCE_DEFAULTS,
     SEND2UE_FACE_SETTINGS,
     BASE_DNA_FOLDER,
@@ -203,9 +203,14 @@ def get_send2ue_settings_templates(self, context):
 def get_active_lod(self) -> int:
     return self.get('active_lod', 0)
 
-def get_show_bones(self) -> bool:
+def get_show_head_bones(self) -> bool:
     if self.head_rig:
         return not self.head_rig.hide_get() # type: ignore
+    return False
+
+def get_show_body_bones(self) -> bool:
+    if self.body_rig:
+        return not self.body_rig.hide_get() # type: ignore
     return False
 
 def get_shape_key_value(self) -> float:
@@ -270,6 +275,15 @@ def set_highlight_matching_active_bone(self, value):
                                     color=(1,0,1,1), 
                                     radius=0.001
                                 )
+                        if instance and instance.body_rig and pose_bone.id_data != instance.body_rig:
+                            source_pose_bone = instance.body_rig.pose.bones.get(pose_bone.name)
+                            if source_pose_bone:
+                                world_location = instance.body_rig.matrix_world @ source_pose_bone.matrix.to_translation()
+                                draw_sphere(
+                                    position=world_location,
+                                    color=(1,0,1,1), 
+                                    radius=0.001
+                                )
 
         gpu_draw_handler = bpy.types.SpaceView3D.draw_handler_add(draw, (), 'WINDOW', 'POST_VIEW') # type: ignore
         self.context['gpu_draw_highlight_matching_active_bone_handler'] = gpu_draw_handler
@@ -301,9 +315,13 @@ def set_active_lod(self, value):
             if scene_object.name.endswith(f'_lod{value}_mesh') and scene_object.name not in ignored_names:
                 scene_object.hide_set(False)
 
-def set_show_bones(self, value):
+def set_show_head_bones(self, value):
     if self.head_rig:
         self.head_rig.hide_set(not value)
+
+def set_show_body_bones(self, value):
+    if self.body_rig:
+        self.body_rig.hide_set(not value)
 
 def set_copied_rig_logic_instance_name(self, value):
     self['copied_rig_logic_instance_name'] = value
@@ -557,7 +575,7 @@ def get_head_mesh_lod_items(self, context):
         # get the lods for the active face
         instance = get_active_rig_logic()
         if instance:
-            for i in range(NUMBER_OF_FACE_LODS):
+            for i in range(NUMBER_OF_HEAD_LODS):
                 head_mesh = bpy.data.objects.get(f'{instance.name}_head_lod{i}_mesh')
                 if head_mesh:
                     items.append((f'lod{i}', f'LOD {i}', f'Displays only LOD {i}'))

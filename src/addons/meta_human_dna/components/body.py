@@ -32,22 +32,14 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
                 mesh_object=self.body_mesh_object,
                 rig_object=self.body_rig_object,
             )
-
-        # Todo: handle offsetting positions for multiple metahumans
-        # if self.body_rig_object and self.body_mesh_object:
-        #     utilities.set_bone_collections(
-        #         mesh_object=self.body_mesh_object,
-        #         rig_object=self.body_rig_object,
-        #     )
-
-        #     # if this isn't the first rig, move it to the right of the last head mesh
-        #     if len(self.scene_properties.rig_logic_instance_list) > 1:
-        #         last_instance = self.scene_properties.rig_logic_instance_list[-2] # type: ignore
-        #         if last_instance.head_mesh:
-        #             self.head_rig_object.location.x = utilities.get_bounding_box_right_x(self.head_rig_object) - 0.5
+            # if this isn't the first rig, move it to the right of the last head mesh
+            if len(self.scene_properties.rig_logic_instance_list) > 1:
+                last_instance = self.scene_properties.rig_logic_instance_list[-2] # type: ignore
+                if last_instance.body_mesh:
+                    self.body_rig_object.location.x = utilities.get_bounding_box_left_x(last_instance.body_mesh) - (utilities.get_bounding_box_width(last_instance.body_mesh) / 2)
 
 
-        # focus the view on head object
+        # focus the view on body object
         if self.rig_logic_instance.body_mesh:
             utilities.select_only(self.rig_logic_instance.body_mesh)
             utilities.focus_on_selected()

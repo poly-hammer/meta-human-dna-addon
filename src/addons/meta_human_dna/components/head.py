@@ -43,6 +43,8 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
         # import the face board if one does not already exist in the scene
         if not any(i.face_board for i in self.scene_properties.rig_logic_instance_list):
             face_board_object = self._import_face_board()
+        elif not self.rig_logic_instance.face_board and not self.dna_import_properties.reuse_face_board:
+            face_board_object = self._duplicate_face_board()
         else:
             face_board_object = next(i.face_board for i in self.scene_properties.rig_logic_instance_list if i.face_board)
 
@@ -62,20 +64,22 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
             )
             
             if self.body_rig_object:
-                # TODO: Align the head rig with the body rig if it exists
-                pass
+                # Align the head rig with the body rig if it exists
+                body_object_head_bone = self.body_rig_object.pose.bones.get('head') # type: ignore
+                head_object_head_bone = self.head_rig_object.pose.bones.get('head') # type: ignore
+                if body_object_head_bone and head_object_head_bone:
+                    # get the location offset between the body head bone and the head head bone
+                    body_head_location = body_object_head_bone.matrix @ Vector((0, 0, 0))
+                    head_head_location = head_object_head_bone.matrix @ Vector((0, 0, 0))
+                    delta = body_head_location - head_head_location
+                    # move the head rig object to align with the body rig head bone
+                    self.head_rig_object.location += delta
             else:
                 # if this isn't the first rig, move it to the right of the last head mesh
                 if len(self.scene_properties.rig_logic_instance_list) > 1:
                     last_instance = self.scene_properties.rig_logic_instance_list[-2] # type: ignore
                     if last_instance.head_mesh:
-                        self.head_rig_object.location.x = utilities.get_bounding_box_right_x(self.head_rig_object) - 0.5
-
-            # then parent the head rig to the face board
-            self.head_rig_object.parent = face_board_object
-            # if the body rig exists, parent the body rig to the face board as well
-            if self.body_rig_object:
-                self.body_rig_object.parent = face_board_object
+                        self.head_rig_object.location.x = utilities.get_bounding_box_left_x(last_instance.head_mesh) - (utilities.get_bounding_box_width(last_instance.head_mesh) / 2)
 
         # constrain the head rig to the body rig if it exists
         self.constrain_to_body()
@@ -87,6 +91,15 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
 
         # collapse the outliner
         utilities.toggle_expand_in_outliner()
+
+        # position the face board to match the head since the head was moved
+        if self.face_board_object:
+            self._position_face_board(self.face_board_object)
+            utilities.move_to_collection(
+                scene_objects=[self.face_board_object],
+                collection_name=self.name,
+                exclusively=True
+            )
 
         # switch to pose mode on the face gui object
         if face_board_object:
@@ -269,7 +282,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
             utilities.switch_to_pose_mode(self.rig_logic_instance.head_rig) # type: ignore
 
     def set_face_pose(self):        
-        for instance in self.scene_properties.rig_logic_instance_list:
+        if self.rig_logic_instance.face_board:
             thumbnail_file = Path(bpy.context.window_manager.meta_human_dna.face_pose_previews) # type: ignore
             json_file_path = thumbnail_file.parent / 'pose.json'
             if json_file_path.exists():
@@ -280,19 +293,19 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
                     data = json.load(file)
                                         
                     # clear the pose location for all the control bones
-                    for pose_bone in instance.face_board.pose.bones:
+                    for pose_bone in self.rig_logic_instance.face_board.pose.bones:
                         if not pose_bone.bone.children and pose_bone.name.startswith('CTRL_'):
                             pose_bone.location = Vector((0.0, 0.0, 0.0))
 
                     for bone_name, transform_data in data.items():
-                        pose_bone = instance.face_board.pose.bones.get(bone_name) # type: ignore
+                        pose_bone = self.rig_logic_instance.face_board.pose.bones.get(bone_name) # type: ignore
                         if pose_bone:
                             pose_bone.location = Vector(transform_data['location'])
 
                 self.window_manager_properties.evaluate_dependency_graph = True
                 # now evaluate the face board
-                instance.evaluate()
-                
+                self.rig_logic_instance.evaluate()
+
     def shrink_wrap_vertex_group(self):
         if self.rig_logic_instance and self.rig_logic_instance.head_mesh:
             modifier = self.rig_logic_instance.head_mesh.modifiers.get(self.rig_logic_instance.head_mesh_topology_groups)

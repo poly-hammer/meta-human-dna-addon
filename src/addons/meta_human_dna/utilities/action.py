@@ -97,7 +97,7 @@ def import_action_from_fbx(file_path: Path, armature: bpy.types.Object):
     # assign the new action to the face board
     if not armature.animation_data:
         armature.animation_data_create()
-    armature.animation_data.action = face_board_action
+    armature.animation_data.action = face_board_action # type: ignore
 
 
 def import_action_from_json(file_path: Path, armature: bpy.types.Object):
@@ -116,7 +116,7 @@ def import_action_from_json(file_path: Path, armature: bpy.types.Object):
         action.fcurves.remove(fcurve)
 
     # ensure all bones are using euler xyz rotation
-    for pose_bone in armature.pose.bones:
+    for pose_bone in armature.pose.bones: # type: ignore
         pose_bone.rotation_mode = 'XYZ'
 
     with open(file_path, 'r') as file:
@@ -146,7 +146,7 @@ def import_action_from_json(file_path: Path, armature: bpy.types.Object):
             else:
                 logger.error(f'failed to parse args from curve {curve_name}')
 
-    armature.animation_data.action = action
+    armature.animation_data.action = action # type: ignore
 
 def bake_control_curve_values_for_frame(
         instance: 'RigLogicInstance', 

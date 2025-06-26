@@ -19,7 +19,7 @@ from .constants import (
     HEAD_TEXTURE_LOGIC_NODE_NAME,
     HEAD_TEXTURE_LOGIC_NODE_LABEL,
     ToolInfo,
-    NUMBER_OF_FACE_LODS,
+    NUMBER_OF_HEAD_LODS,
     SHAPE_KEY_GROUP_PREFIX,
     DEFAULT_UV_TOLERANCE
 )
@@ -438,7 +438,7 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
             'alternate_maps_folder': self.maps_folder,
         }
         
-        for lod_index in range(NUMBER_OF_FACE_LODS):
+        for lod_index in range(NUMBER_OF_HEAD_LODS):
             kwargs[f'import_lod{lod_index}'] = lod_index==0
 
         # set the properties 

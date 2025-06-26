@@ -29,7 +29,7 @@ from ..constants import (
     MASKS_TEXTURE,
     HEAD_TOPOLOGY_TEXTURE,
     BODY_TOPOLOGY_TEXTURE,
-    NUMBER_OF_FACE_LODS,
+    NUMBER_OF_HEAD_LODS,
     FACE_GUI_EMPTIES, 
     SCALE_FACTOR,
     INVALID_NAME_CHARACTERS_REGEX,
@@ -230,16 +230,41 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
         return self.metadata.get('metaHumanName', name)
 
     def _get_lods_settings(self):
-        return [(i, getattr(self.dna_import_properties, f'import_lod{i}')) for i in range(NUMBER_OF_FACE_LODS)]
+        return [(i, getattr(self.dna_import_properties, f'import_lod{i}')) for i in range(NUMBER_OF_HEAD_LODS)]
 
     def _organize_viewport(self):
         if self.head_mesh_object and self.head_rig_object:
             for mesh_object in self.head_rig_object.children:
-                if mesh_object.type == 'MESH' and 'lod0' not in mesh_object.name:
+                if mesh_object.type == 'MESH' and 'lod0' not in mesh_object.name.lower():
                     mesh_object.hide_set(True)
 
             utilities.hide_empties()        
             self.head_rig_object.hide_set(True)
+            utilities.move_to_collection(
+                scene_objects=[self.head_rig_object],
+                collection_name=self.name,
+                exclusively=True
+            )
+        
+        if self.body_rig_object:
+            self.body_rig_object.hide_set(True)
+            utilities.move_to_collection(
+                scene_objects=[self.body_rig_object],
+                collection_name=self.name,
+                exclusively=True
+            )
+
+        # move the lod collections under the main asset collection
+        asset_collection = bpy.data.collections.get(self.name)
+        if asset_collection:
+            for lod_index in range(NUMBER_OF_HEAD_LODS):
+                lod_collection = bpy.data.collections.get(f"{self.name}_lod{lod_index}")
+                # move the lod collection to the asset collection
+                if lod_collection and lod_collection not in asset_collection.children.values():
+                    asset_collection.children.link(lod_collection)
+                # unlink the lod collection from the scene collection
+                if lod_collection in bpy.context.scene.collection.children.values(): # type: ignore
+                    bpy.context.scene.collection.children.unlink(lod_collection) # type: ignore
 
     def _get_alternate_image_path(
             self, 
@@ -359,6 +384,24 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
                     if scene_object:
                         bpy.data.objects.remove(scene_object, do_unlink=True)
 
+    def _position_face_board(self, face_board_object: bpy.types.Object) -> None:
+        if self.head_mesh_object and self.head_rig_object:
+            head_mesh_center = utilities.get_bounding_box_center(self.head_mesh_object)
+            face_gui_center = utilities.get_bounding_box_center(face_board_object)
+            head_mesh_right_x = utilities.get_bounding_box_right_x(self.head_mesh_object)
+            face_gui_left_x = utilities.get_bounding_box_left_x(face_board_object)
+
+            # align the face gui object to the head mesh vertically
+            translation_vector = head_mesh_center - face_gui_center
+            face_board_object.location.z += translation_vector.z
+
+            # offset the face gui object to the left of the head mesh
+            x_value = head_mesh_right_x - face_gui_left_x
+            face_board_object.location.x = x_value
+
+            # apply the translation to the face gui object
+            utilities.apply_transforms(face_board_object, location=True) # type: ignore
+
     def _import_face_board(self) -> bpy.types.Object | None:
         if not self.dna_import_properties.import_face_board:
             return
@@ -379,32 +422,25 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
         # rename to be prefixed with a unique name
         face_board_object.name = f'{self.name}_{FACE_BOARD_NAME}' # type: ignore
 
-        if self.head_mesh_object:
-            head_mesh_center = utilities.get_bounding_box_center(self.head_mesh_object)
-            face_gui_center = utilities.get_bounding_box_center(face_board_object)
-            head_mesh_right_x = utilities.get_bounding_box_right_x(self.head_mesh_object)
-            face_gui_left_x = utilities.get_bounding_box_left_x(face_board_object)
-
-            # align the face gui object to the head mesh vertically
-            translation_vector = head_mesh_center - face_gui_center
-            face_board_object.location.z += translation_vector.z
-
-            # offset the face gui object to the left of the head mesh
-            x_value = head_mesh_right_x - face_gui_left_x
-            face_board_object.location.x = x_value
-
-            # apply the translation to the face gui object
-            utilities.apply_transforms(face_board_object, location=True) # type: ignore
-
-        # parent rig to face gui
-        if self.head_rig_object:
-            self.head_rig_object.parent = face_board_object
-
         # hide all face board elements
         self._hide_face_board_widgets()
 
         face_board_object.data.relation_line_position = 'HEAD' # type: ignore
         return face_board_object
+    
+    def _duplicate_face_board(self) -> bpy.types.Object | None:
+        if not self.dna_import_properties.import_face_board:
+            return
+        
+        for instance in self.scene_properties.rig_logic_instance_list:
+            if instance.face_board:
+                # Duplicate the face board object
+                face_board_duplicate = instance.face_board.copy()
+                face_board_duplicate.name = f'{self.name}_{FACE_BOARD_NAME}'
+                face_board_duplicate.data = instance.face_board.data.copy()
+                face_board_duplicate.data.name = f'{self.name}_{FACE_BOARD_NAME}'
+                bpy.context.collection.objects.link(face_board_duplicate) # type: ignore
+                return face_board_duplicate
 
     def _mirror_bone_to(
             self, 
