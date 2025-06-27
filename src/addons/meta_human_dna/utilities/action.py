@@ -97,7 +97,7 @@ def import_action_from_fbx(file_path: Path, armature: bpy.types.Object):
     # assign the new action to the face board
     if not armature.animation_data:
         armature.animation_data_create()
-    armature.animation_data.action = face_board_action
+    armature.animation_data.action = face_board_action # type: ignore
 
 
 def import_action_from_json(file_path: Path, armature: bpy.types.Object):
@@ -116,7 +116,7 @@ def import_action_from_json(file_path: Path, armature: bpy.types.Object):
         action.fcurves.remove(fcurve)
 
     # ensure all bones are using euler xyz rotation
-    for pose_bone in armature.pose.bones:
+    for pose_bone in armature.pose.bones: # type: ignore
         pose_bone.rotation_mode = 'XYZ'
 
     with open(file_path, 'r') as file:
@@ -146,7 +146,7 @@ def import_action_from_json(file_path: Path, armature: bpy.types.Object):
             else:
                 logger.error(f'failed to parse args from curve {curve_name}')
 
-    armature.animation_data.action = action
+    armature.animation_data.action = action # type: ignore
 
 def bake_control_curve_values_for_frame(
         instance: 'RigLogicInstance', 
@@ -204,7 +204,7 @@ def bake_to_action(
         masks: bool = True,
         shape_keys: bool = True
     ):
-    from ..ui.callbacks import get_active_rig_logic, get_texture_logic_node
+    from ..ui.callbacks import get_active_rig_logic, get_head_texture_logic_node
 
     instance = get_active_rig_logic()
     if instance:
@@ -248,7 +248,7 @@ def bake_to_action(
             instance.auto_evaluate = False
 
             bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False # type: ignore
-            texture_logic_node = get_texture_logic_node(instance.material)
+            texture_logic_node = get_head_texture_logic_node(instance.head_material)
             for frame in range(start_frame, end_frame + 1): # type: ignore
                 # modulo the step to only bake every nth frame
                 if frame % step == 0:

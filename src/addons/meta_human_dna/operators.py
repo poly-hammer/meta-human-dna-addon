@@ -5,17 +5,21 @@ import shutil
 import logging
 from pathlib import Path
 from datetime import datetime, timedelta
-from .face import MetahumanFace
 from .ui import importer, callbacks
 from . import utilities
 from .dna_io import DNACalibrator, DNAExporter, create_shape_key
 from .properties import MetahumanDnaImportProperties
+from .components import (
+    MetaHumanComponentHead,
+    MetaHumanComponentBody,
+    get_meta_human_component
+)
 from .constants import (
     SEND2UE_FACE_SETTINGS,
-    TEXTURE_LOGIC_NODE_NAME,
-    TEXTURE_LOGIC_NODE_LABEL,
+    HEAD_TEXTURE_LOGIC_NODE_NAME,
+    HEAD_TEXTURE_LOGIC_NODE_LABEL,
     ToolInfo,
-    NUMBER_OF_FACE_LODS,
+    NUMBER_OF_HEAD_LODS,
     SHAPE_KEY_GROUP_PREFIX,
     DEFAULT_UV_TOLERANCE
 )
@@ -65,12 +69,12 @@ class GenericProgressQueueOperator(bpy.types.Operator):
         
         self._timer = context.window_manager.event_timer_add(0.01, window=context.window) # type: ignore
         context.window_manager.modal_handler_add(self) # type: ignore
-        face = utilities.get_active_face()
-        if face:
+        head = utilities.get_active_head()
+        if head:
             context.window_manager.meta_human_dna.progress = 0 # type: ignore
             context.window_manager.meta_human_dna.progress_description = '' # type: ignore
             self._commands_queue = queue.Queue()
-            self.set_commands_queue(context, face, self._commands_queue)
+            self.set_commands_queue(context, head, self._commands_queue)
             self._commands_queue_size = self._commands_queue.qsize()
             return {'RUNNING_MODAL'}
         return {'CANCELLED'}
@@ -93,7 +97,7 @@ class GenericProgressQueueOperator(bpy.types.Operator):
     def set_commands_queue(
             self, 
             context, 
-            face: MetahumanFace,
+            component: MetaHumanComponentHead | MetaHumanComponentBody,
             commands_queue: queue.Queue
         ):
         pass   
@@ -113,9 +117,9 @@ class ImportAnimation(bpy.types.Operator, importer.ImportAsset):
 
     def execute(self, context):
         logger.info(f'Importing animation {self.filepath}')  # type: ignore
-        face = utilities.get_active_face()
-        if face:
-            face.import_action(Path(self.filepath))  # type: ignore
+        head = utilities.get_active_head()
+        if head:
+            head.import_action(Path(self.filepath))  # type: ignore
         return {'FINISHED'}
     
 class BakeAnimation(bpy.types.Operator):
@@ -192,6 +196,9 @@ class BakeAnimation(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self, width = 250) # type: ignore
 
     def draw(self, context):
+        if not self.layout:
+            return
+        
         row = self.layout.row()
         row.prop(self, 'action_name', text="Name")
         row = self.layout.row()
@@ -217,8 +224,8 @@ class BakeAnimation(bpy.types.Operator):
             self.report({'ERROR'}, 'The start frame must be less than the end frame')
             return {'CANCELLED'}
 
-        face = utilities.get_active_face()
-        if face and face.head_rig_object:
+        head = utilities.get_active_head()
+        if head and head.head_rig_object:
             channel_types = set()
             if self.bone_location:
                 channel_types.add('LOCATION')
@@ -228,7 +235,7 @@ class BakeAnimation(bpy.types.Operator):
                 channel_types.add('SCALE')
 
             utilities.bake_to_action(
-                armature_object=face.head_rig_object,
+                armature_object=head.head_rig_object,
                 action_name=self.action_name,
                 start_frame=self.start_frame, # type: ignore
                 end_frame=self.end_frame, # type: ignore
@@ -293,22 +300,39 @@ class ImportMetahumanDna(bpy.types.Operator, importer.ImportAsset, MetahumanDnaI
 
         # we don't want to evaluate the dependency graph while importing the DNA
         window_manager_properties.evaluate_dependency_graph = False
-        face = MetahumanFace(
-            dna_file_path=file_path,
-            dna_import_properties=self.properties # type: ignore
+        component = get_meta_human_component(
+            file_path=file_path,
+            properties=self.properties # type: ignore
         )
-        valid, message = face.ingest()
-        # populate the output items based on what was imported
-        callbacks.update_output_items(None, bpy.context)
-        logger.info(f'Finished importing "{self.filepath}"') # type: ignore
-        # now we can evaluate the dependency graph again
-        window_manager_properties.evaluate_dependency_graph = True
+        # if the component is a head, we import the body first if the user has selected the option
+        body_file = file_path.parent / 'body.dna'
+        if self.properties.include_body and component.component_type == 'head' and body_file.exists(): # type: ignore
+            body_component = get_meta_human_component(
+                file_path=body_file,
+                properties=self.properties, # type: ignore
+                rig_logic_instance=component.rig_logic_instance
+            )
+            valid, message = body_component.ingest()
+            logger.info(f'Finished importing "{body_file}"')
+            if not valid:
+                self.report({'ERROR'}, message)
+                return {'CANCELLED'}
+            else:
+                self.report({'INFO'}, message)
 
+        # now we can import the chosen .dna file
+        valid, message = component.ingest()
+        logger.info(f'Finished importing "{self.filepath}"') # type: ignore
         if not valid:
             self.report({'ERROR'}, message)
             return {'CANCELLED'}
         else:
             self.report({'INFO'}, message)
+
+        # populate the output items based on what was imported
+        callbacks.update_output_items(None, bpy.context)
+        # now we can evaluate the dependency graph again
+        window_manager_properties.evaluate_dependency_graph = True
 
         bpy.ops.meta_human_dna.metrics_collection_consent('INVOKE_DEFAULT') # type: ignore
 
@@ -414,7 +438,7 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
             'alternate_maps_folder': self.maps_folder,
         }
         
-        for lod_index in range(NUMBER_OF_FACE_LODS):
+        for lod_index in range(NUMBER_OF_HEAD_LODS):
             kwargs[f'import_lod{lod_index}'] = lod_index==0
 
         # set the properties 
@@ -423,7 +447,7 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
 
         # we don't want to evaluate the dependency graph while importing the DNA
         window_manager_properties.evaluate_dependency_graph = False
-        face = MetahumanFace(
+        face = MetaHumanComponentHead(
             name=new_name,
             dna_file_path=Path(self.base_dna),
             dna_import_properties=self.properties # type: ignore
@@ -555,15 +579,15 @@ class GenerateMaterial(bpy.types.Operator):
     bl_label = "Generate Material"    
 
     def execute(self, context):
-        face = utilities.get_active_face()
-        if face and face.head_mesh_object:
-            face.import_materials()
+        head = utilities.get_active_head()
+        if head and head.head_mesh_object:
+            head.import_materials()
         return {'FINISHED'}
     
     @classmethod
     def poll(cls, context):
         instance = callbacks.get_active_rig_logic()
-        if instance and instance.head_mesh and not instance.material and bpy.context.mode == 'OBJECT': # type: ignore
+        if instance and instance.head_mesh and not instance.head_material and bpy.context.mode == 'OBJECT': # type: ignore
             return True
         return False
 
@@ -579,10 +603,10 @@ class ImportShapeKeys(GenericProgressQueueOperator):
     def set_commands_queue(
             self, 
             context, 
-            face: MetahumanFace,
+            component: MetaHumanComponentHead,
             commands_queue: queue.Queue
         ):
-        face.import_shape_keys(commands_queue)
+        component.import_shape_keys(commands_queue)
         bpy.ops.meta_human_dna.force_evaluate() # type: ignore
 
 
@@ -653,9 +677,9 @@ class SendToUnreal(bpy.types.Operator):
             logger.error('The Send to Unreal addon is not installed!')
             return {'CANCELLED'}
 
-        face = utilities.get_active_face()
-        if face and face.rig_logic_instance and face.head_mesh_object and face.head_rig_object:
-            instance = face.rig_logic_instance
+        head = utilities.get_active_head()
+        if head and head.rig_logic_instance and head.head_mesh_object and head.head_rig_object:
+            instance = head.rig_logic_instance
             dna_io_instance: DNAExporter = None # type: ignore
 
             # sync the spine bones with the body skeleton in the unreal blueprint
@@ -664,20 +688,20 @@ class SendToUnreal(bpy.types.Operator):
 
             # export a separate DNA file since we are only going to export bone 
             # transforms, mesh are sent across via FBX
-            dna_file = f'export/{face.rig_logic_instance.name}.dna'
-            if face.rig_logic_instance.output_method == 'calibrate':
+            dna_file = f'export/{head.rig_logic_instance.name}.dna'
+            if head.rig_logic_instance.output_method == 'calibrate':
                 dna_io_instance = DNACalibrator(
-                    instance=face.rig_logic_instance,
-                    linear_modifier=face.linear_modifier,
+                    instance=head.rig_logic_instance,
+                    linear_modifier=head.linear_modifier,
                     meshes=False,
                     vertex_colors=False,
                     bones=True,
                     file_name=dna_file
                 )              
-            elif face.rig_logic_instance.output_method == 'overwrite':
+            elif head.rig_logic_instance.output_method == 'overwrite':
                 dna_io_instance = DNAExporter(
-                    instance=face.rig_logic_instance,
-                    linear_modifier=face.linear_modifier,
+                    instance=head.rig_logic_instance,
+                    linear_modifier=head.linear_modifier,
                     meshes=False,
                     vertex_colors=False,
                     bones=True,
@@ -749,9 +773,9 @@ class ExportToDisk(bpy.types.Operator):
     bl_label = "Export to Disk"
 
     def execute(self, context):
-        face = utilities.get_active_face()
-        if face and face.rig_logic_instance:
-            instance = face.rig_logic_instance
+        head = utilities.get_active_head()
+        if head and head.rig_logic_instance:
+            instance = head.rig_logic_instance
             
             if not bpy.path.abspath(instance.output_folder_path) and not bpy.data.filepath:
                 self.report({'ERROR'}, 'File must be saved to use a relative path')
@@ -761,12 +785,12 @@ class ExportToDisk(bpy.types.Operator):
             if instance.output_method == 'calibrate':
                 dna_io_instance = DNACalibrator(
                     instance=instance,
-                    linear_modifier=face.linear_modifier
+                    linear_modifier=head.linear_modifier
                 )              
             elif instance.output_method == 'overwrite':
                 dna_io_instance = DNAExporter(
                     instance=instance,
-                    linear_modifier=face.linear_modifier
+                    linear_modifier=head.linear_modifier
                 )
 
             valid, title, message, fix = dna_io_instance.run()
@@ -813,9 +837,9 @@ class MirrorSelectedBones(bpy.types.Operator):
     bl_label = "Mirror Selected Bones"
 
     def execute(self, context):
-        face = utilities.get_active_face()
-        if face:
-            success, message = face.mirror_selected_bones()        
+        head = utilities.get_active_head()
+        if head:
+            success, message = head.mirror_selected_bones()        
             if not success:
                 self.report({'ERROR'}, message)
                 return {'CANCELLED'}
@@ -824,37 +848,6 @@ class MirrorSelectedBones(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         return callbacks.poll_head_rig_bone_selection(cls, context)
-    
-class PushBonesForwardAlongNormals(bpy.types.Operator):
-    """Pushes the selected bone positions forward along the mesh normals"""
-    bl_idname = "meta_human_dna.push_bones_forward_along_normals"
-    bl_label = "Push Bones Forward Along Normals"
-
-    def execute(self, context):
-        face = utilities.get_active_face()
-        if face:
-            face.push_selected_bones_along_mesh_normals(direction='forward')
-        return {'FINISHED'}
-    
-    @classmethod
-    def poll(cls, context):
-        return callbacks.poll_head_rig_bone_selection(cls, context)
-
-class PushBonesBackwardAlongNormals(bpy.types.Operator):
-    """Pushes the selected bone positions backward along the mesh normals"""
-    bl_idname = "meta_human_dna.push_bones_backward_along_normals"
-    bl_label = "Push Bones Backward Along Normals"
-
-    def execute(self, context):
-        face = utilities.get_active_face()
-        if face:
-            face.push_selected_bones_along_mesh_normals(direction='backward')
-        return {'FINISHED'}
-    
-    @classmethod
-    def poll(cls, context):
-        return callbacks.poll_head_rig_bone_selection(cls, context)
-
 
 class ShrinkWrapVertexGroup(bpy.types.Operator):
     """Shrink wraps the active vertex group on the head mesh using the shrink wrap modifier"""
@@ -862,9 +855,9 @@ class ShrinkWrapVertexGroup(bpy.types.Operator):
     bl_label = "Shrink Wrap Active Group"
 
     def execute(self, context):
-        face = utilities.get_active_face()
-        if face:
-            face.shrink_wrap_vertex_group()
+        head = utilities.get_active_head()
+        if head:
+            head.shrink_wrap_vertex_group()
         return {'FINISHED'}
     
 class AutoFitSelectedBones(bpy.types.Operator):
@@ -873,8 +866,8 @@ class AutoFitSelectedBones(bpy.types.Operator):
     bl_label = "Auto Fit Selected Bones"
 
     def execute(self, context):
-        face = utilities.get_active_face()
-        if face and face.head_mesh_object and face.head_rig_object:
+        head = utilities.get_active_head()
+        if head and head.head_mesh_object and head.head_rig_object:
             if bpy.context.mode != 'POSE': # type: ignore
                 self.report({'ERROR'}, 'You must be in pose mode')
                 return {'CANCELLED'}
@@ -884,14 +877,14 @@ class AutoFitSelectedBones(bpy.types.Operator):
                 return {'CANCELLED'}
             
             for pose_bone in bpy.context.selected_pose_bones: # type: ignore
-                if pose_bone.id_data != face.head_rig_object:
-                    self.report({'ERROR'}, f'The selected bone "{pose_bone.id_data.name}:{pose_bone.name}" is not associated with the rig logic instance "{face.rig_logic_instance.name}"')
+                if pose_bone.id_data != head.head_rig_object:
+                    self.report({'ERROR'}, f'The selected bone "{pose_bone.id_data.name}:{pose_bone.name}" is not associated with the rig logic instance "{head.rig_logic_instance.name}"')
                     return {'CANCELLED'}
             
             utilities.auto_fit_bones(
-                mesh_object=face.head_mesh_object, 
-                armature_object=face.head_rig_object,
-                dna_reader=face.dna_reader,
+                mesh_object=head.head_mesh_object, 
+                armature_object=head.head_rig_object,
+                dna_reader=head.dna_reader,
                 only_selected=True
             )
 
@@ -907,17 +900,17 @@ class RevertBoneTransformsToDna(bpy.types.Operator):
     bl_label = "Revert Bone Transforms to DNA"
 
     def execute(self, context):
-        face = utilities.get_active_face()
-        if face:
+        head = utilities.get_active_head()
+        if head:
             if bpy.context.mode != 'POSE': # type: ignore
                 self.report({'ERROR'}, 'Must be in pose mode')
                 return {'CANCELLED'}
             
-            if not face.rig_logic_instance.head_rig:
-                self.report({'ERROR'}, f'"{face.rig_logic_instance.name}" does not have a head rig assigned')
+            if not head.rig_logic_instance.head_rig:
+                self.report({'ERROR'}, f'"{head.rig_logic_instance.name}" does not have a head rig assigned')
                 return {'CANCELLED'}
 
-            face.revert_bone_transforms_to_dna()
+            head.revert_bone_transforms_to_dna()
         return {'FINISHED'}
     
     @classmethod
@@ -997,6 +990,9 @@ class MetaHumanDnaReportError(ShapeKeyOperatorBase):
 
     def invoke(self, context, event):
         wm = context.window_manager # type: ignore
+        if not wm:
+            return
+
         fix = wm.meta_human_dna.errors.get(self.title, {}).get('fix', None) # type: ignore
         return wm.invoke_props_dialog(
             self,
@@ -1006,6 +1002,9 @@ class MetaHumanDnaReportError(ShapeKeyOperatorBase):
         )
 
     def draw(self, context):
+        if not self.layout:
+            return
+        
         for line in self.title.split('\n'):
             row = self.layout.row()
             row.scale_y = 1.5
@@ -1030,6 +1029,9 @@ class MetricsCollectionConsent(bpy.types.Operator):
 
     def invoke(self, context, event):
         wm = context.window_manager # type: ignore
+        if not wm:
+            return
+        
         preferences = context.preferences.addons[ToolInfo.NAME].preferences # type: ignore
         current_timestamp = datetime.now().timestamp()
 
@@ -1055,9 +1057,11 @@ class MetricsCollectionConsent(bpy.types.Operator):
         preferences.next_metrics_consent_timestamp = (datetime.now() + timedelta(days=30)).timestamp() # type: ignore
         preferences.metrics_collection = False # type: ignore
         bpy.ops.meta_human_dna.force_evaluate() # type: ignore
-        return {'CANCELLED'}
 
     def draw(self, context):
+        if not self.layout:
+            return
+        
         row = self.layout.row()
         row.label(text="We collect anonymous metrics and bug reports to help improve the MetaHuman DNA addon.")
         row = self.layout.row()
@@ -1129,9 +1133,9 @@ class ReImportThisShapeKey(ShapeKeyOperatorBase):
     shape_key_name: bpy.props.StringProperty(name="Shape Key Name") # type: ignore
 
     def execute(self, context):
-        face = utilities.get_active_face()
-        if face and face.rig_logic_instance:
-            instance = face.rig_logic_instance
+        head = utilities.get_active_head()
+        if head and head.rig_logic_instance:
+            instance = head.rig_logic_instance
             result = self.validate(context, instance)
             if not result:
                 return {'CANCELLED'}
@@ -1156,7 +1160,7 @@ class ReImportThisShapeKey(ShapeKeyOperatorBase):
                 name=short_name,
                 prefix=f'{mesh_dna_name}__',
                 is_neutral=instance.generate_neutral_shapes,
-                linear_modifier=face.linear_modifier,
+                linear_modifier=head.linear_modifier,
                 delta_threshold=0.0001
             )
             mesh_object.show_only_shape_key = False
@@ -1240,9 +1244,9 @@ class DuplicateRigLogicInstance(bpy.types.Operator):
                 )
                 # duplicate the texture logic node
                 if new_head_mesh_material:
-                    texture_logic_node = callbacks.get_texture_logic_node(new_head_mesh_material)
+                    texture_logic_node = callbacks.get_head_texture_logic_node(new_head_mesh_material)
                     if texture_logic_node and texture_logic_node.node_tree:
-                        new_name = f'{self.new_name}_{TEXTURE_LOGIC_NODE_NAME}'
+                        new_name = f'{self.new_name}_{HEAD_TEXTURE_LOGIC_NODE_NAME}'
                         texture_logic_node.label = new_name
                         texture_logic_node_tree_copy = texture_logic_node.node_tree.copy() # type: ignore
                         texture_logic_node_tree_copy.name = new_name
@@ -1311,7 +1315,7 @@ class DuplicateRigLogicInstance(bpy.types.Operator):
                 new_instance.face_board = instance.face_board
                 new_instance.head_mesh = new_head_mesh_object
                 new_instance.head_rig = new_rig_object
-                new_instance.material = new_head_mesh_material
+                new_instance.head_material = new_head_mesh_material
                 new_instance.output_folder_path = self.new_folder
 
                 # set the new instance as the active one
@@ -1328,9 +1332,11 @@ class DuplicateRigLogicInstance(bpy.types.Operator):
         return callbacks.get_active_rig_logic() is not None
     
     def draw(self, context):
-        layout = self.layout
-        layout.prop(self, 'new_name')
-        layout.prop(self, 'new_folder')
+        if not self.layout:
+            return
+
+        self.layout.prop(self, 'new_name')
+        self.layout.prop(self, 'new_folder')
 
 
 class AddRigLogicTextureNode(bpy.types.Operator):
@@ -1355,7 +1361,7 @@ class AddRigLogicTextureNode(bpy.types.Operator):
             if not active_material:
                 return False
 
-            if not callbacks.get_texture_logic_node(active_material):
+            if not callbacks.get_head_texture_logic_node(active_material):
                 return True
             return False
         
@@ -1369,14 +1375,14 @@ class AddRigLogicTextureNode(bpy.types.Operator):
             self.report({'ERROR'}, "Could not find the active material")
             return {'CANCELLED'}
         
-        texture_logic_node = utilities.import_texture_logic_node()
+        texture_logic_node = utilities.import_head_texture_logic_node()
         if not texture_logic_node:
             self.report({'ERROR'}, "Could not import the Texture Logic Node")
             return {'CANCELLED'}
         
         node = node_tree.nodes.new(type='ShaderNodeGroup')
-        node.name = f'{active_material.name}_{TEXTURE_LOGIC_NODE_NAME}'
-        node.label = f'{active_material.name} {TEXTURE_LOGIC_NODE_LABEL}'
+        node.name = f'{active_material.name}_{HEAD_TEXTURE_LOGIC_NODE_NAME}'
+        node.label = f'{active_material.name} {HEAD_TEXTURE_LOGIC_NODE_LABEL}'
         node.node_tree = texture_logic_node
         node.location = cursor_location
         return {'FINISHED'}

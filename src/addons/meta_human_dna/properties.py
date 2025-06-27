@@ -1,7 +1,7 @@
 import bpy
 import logging
 from .ui import callbacks
-from .constants import ToolInfo, NUMBER_OF_FACE_LODS
+from .constants import ToolInfo, NUMBER_OF_HEAD_LODS
 from .rig_logic import (
     RigLogicInstance, 
     ShapeKeyData, 
@@ -20,7 +20,7 @@ def get_dna_import_property_group_base_class():
     """
     _properties = {}
 
-    for i in range(NUMBER_OF_FACE_LODS):
+    for i in range(NUMBER_OF_HEAD_LODS):
 
         # add in import options for lods
         _properties[f'import_lod{i}'] = bpy.props.BoolProperty(
@@ -99,7 +99,17 @@ class MetahumanDnaImportProperties(get_dna_import_property_group_base_class()):
     import_face_board: bpy.props.BoolProperty(
         default=True,
         name='Face Board',
-        description='Whether to import the face board that drive the rig logic'
+        description='Whether to import the face board that drives the rig logic'
+    ) # type: ignore
+    reuse_face_board: bpy.props.BoolProperty(
+        default=False,
+        name='Reuse Face Board',
+        description='Whether to reuse or import a unique face board that drives the rig logic instead of a shared one. This is useful if you want to have multiple rigs in the same scene that drive different face meshes',
+    ) # type: ignore
+    include_body: bpy.props.BoolProperty(
+        default=False,
+        name='Include Body',
+        description='If true, this will try to find a body.dna file in the same folder as this .dna file. If the body.dna file is found, it will be imported as well',
     ) # type: ignore
     alternate_maps_folder: bpy.props.StringProperty(
         default='',

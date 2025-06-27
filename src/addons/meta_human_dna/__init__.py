@@ -1,3 +1,4 @@
+import os
 import sys
 import bpy
 import bpy.utils.previews
@@ -39,8 +40,6 @@ classes = [
     operators.MetricsCollectionConsent,
     operators.MirrorSelectedBones,
     operators.SyncWithBodyBonesInBlueprint,
-    operators.PushBonesForwardAlongNormals,
-    operators.PushBonesBackwardAlongNormals,
     operators.ShrinkWrapVertexGroup,
     operators.AutoFitSelectedBones,
     operators.RevertBoneTransformsToDna,
@@ -97,8 +96,9 @@ def register():
     """
     Registers the addon classes when the addon is enabled.
     """
-    logging.basicConfig(level=logging.INFO)
-
+    if os.environ.get('META_HUMAN_DNA_DEV'):
+        logging.basicConfig(level=logging.DEBUG)
+        
     try:
         # register the manual map
         bpy.utils.register_manual_map(manual_map.manual_map)

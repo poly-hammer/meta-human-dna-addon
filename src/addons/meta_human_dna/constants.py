@@ -3,6 +3,7 @@ import math
 from pathlib import Path
 from mathutils import Vector, Euler
 from typing import Literal
+from enum import Enum
 
 class ToolInfo:
     NAME = "meta_human_dna"
@@ -13,9 +14,11 @@ Axis = Literal["X", "Y", "Z"]
 
 FACE_BOARD_NAME = "face_gui"
 HEAD_MATERIAL_NAME = "head_shader"
+BODY_MATERIAL_NAME = "body_shader"
 MASKS_TEXTURE = "combined_masks.tga"
-TOPOLOGY_TEXTURE = "head_topology.png"
-NUMBER_OF_FACE_LODS = 8
+HEAD_TOPOLOGY_TEXTURE = "head_topology.png"
+BODY_TOPOLOGY_TEXTURE = "body_topology.png"
+NUMBER_OF_HEAD_LODS = 8
 SENTRY_DSN = "https://38575ef4609265865b46dcc274249962@sentry.polyhammer.com/13"
 
 INVALID_NAME_CHARACTERS_REGEX = r"[^-+\w]+"
@@ -32,15 +35,18 @@ SCALE_FACTOR = 100.0
 BONE_TAIL_OFFSET = 1 / (SCALE_FACTOR * SCALE_FACTOR * 10)
 CUSTOM_BONE_SHAPE_SCALE = Vector([0.15] * 3)
 CUSTOM_BONE_SHAPE_NAME = "sphere_control"
-TEXTURE_LOGIC_NODE_NAME = "texture_logic"
-TEXTURE_LOGIC_NODE_LABEL = "Texture Logic"
+HEAD_TEXTURE_LOGIC_NODE_NAME = "head_texture_logic"
+HEAD_TEXTURE_LOGIC_NODE_LABEL = "Head Texture Logic"
+BODY_TEXTURE_LOGIC_NODE_NAME = "body_texture_logic"
+BODY_TEXTURE_LOGIC_NODE_LABEL = "Body Texture Logic"
 UV_MAP_NAME = "DiffuseUV"
 VERTEX_COLOR_ATTRIBUTE_NAME = "Color"
 MESH_VERTEX_COLORS_FILE_NAME = "vertex_colors.json"
 FLOATING_POINT_PRECISION = 0.0001
 DEFAULT_UV_TOLERANCE = 0.001
+DEFAULT_HEAD_MESH_VERTEX_POSITION_COUNT = 24408
 
-MESH_SHADER_MAPPING = {
+HEAD_MESH_SHADER_MAPPING = {
     "head_lod": "head_shader",
     "teeth_lod": "teeth_shader",
     "saliva_lod": "saliva_shader",
@@ -51,6 +57,9 @@ MESH_SHADER_MAPPING = {
     "eyelashesShadow_lod": "eyelashesShadow_shader",
     "eyeEdge_lod": "eyeEdge_shader",
     "cartilage_lod": "cartilage_shader",
+}
+BODY_MESH_SHADER_MAPPING = {
+    "body_lod": "body_shader"
 }
 
 MATERIAL_SLOT_TO_MATERIAL_INSTANCE_DEFAULTS = {
@@ -81,7 +90,9 @@ MESH_VERTEX_COLORS_FILE_PATH = MAPPINGS_FOLDER / MESH_VERTEX_COLORS_FILE_NAME
 
 MASKS_TEXTURE_FILE_PATH = IMAGES_FOLDER / MASKS_TEXTURE
 
-TOPOLOGY_TEXTURE_FILE_PATH = IMAGES_FOLDER / TOPOLOGY_TEXTURE
+HEAD_TOPOLOGY_TEXTURE_FILE_PATH = IMAGES_FOLDER / HEAD_TOPOLOGY_TEXTURE
+
+BODY_TOPOLOGY_TEXTURE_FILE_PATH = IMAGES_FOLDER / BODY_TOPOLOGY_TEXTURE
 
 MATERIALS_FILE_PATH = BLENDS_FOLDER / "materials.blend"
 
@@ -111,7 +122,9 @@ ALTERNATE_HEAD_TEXTURE_FILE_NAMES = {
     "eyes_normal_map.tga": "Eyes_Normal",
     "teeth_color_map.tga": "Teeth_Color",
     "teeth_normal_map.tga": "Teeth_Normal",
-    "eyelashes_color_map.tga": "Eyelashes_Color"
+    "eyelashes_color_map.tga": "Eyelashes_Color",
+    "body_color_map.tga": "Body_Basecolor",
+    "body_normal_map.tga": "Body_Normal"
 }
 
 LEGACY_ALTERNATE_HEAD_TEXTURE_FILE_NAMES = {
@@ -161,6 +174,13 @@ FACE_GUI_EMPTIES = [
     "headRigging_grp",
     "eyesSetup_grp"
 ]
+
+class BodyBoneCollection(Enum):
+    TWIST_BONES = 'Twist Bones'
+    CORRECTIVE_ROOT_BONES = 'Corrective Root Bones'
+    DRIVER_BONES = 'Driver Bones'
+    DRIVER_LEAF_BONES = 'Driver Leaf Bones'
+    TWIST_CORRECTIVE_BONES = 'Twist Corrective Bones'
 
 # Set to Ada's height, but locations will be scaled proportionally to match spine_04 location from DNA file.
 # Also in Y-up coordinate system like the metahuman creator DNA files

@@ -44,8 +44,8 @@ def import_fbx_pose(metahuman_id: str, file_path: Path) -> bpy.types.Object:
 
     # rename the armature
     armature_object = bpy.data.objects.get('Armature')
-    armature_object.name = f'{file_path.stem}_rig' # type: ignore
-    armature_object.data.name = f'{file_path.stem}_rig' # type: ignore
+    armature_object.name = f'{file_path.stem}_head_rig' # type: ignore
+    armature_object.data.name = f'{file_path.stem}_head_rig' # type: ignore
     sphere_object = bpy.data.objects[CUSTOM_BONE_SHAPE_NAME] 
     for bone in armature_object.data.bones: # type: ignore
         bone.name = bone.name.replace('DHIhead:', '')
@@ -62,8 +62,8 @@ def import_fbx_pose(metahuman_id: str, file_path: Path) -> bpy.types.Object:
     head_mesh.data.name = f'{file_path.stem}_mesh' # type: ignore
 
     # move the armature to align with the mesh imported from the dna file
-    armature = bpy.data.objects[f'{metahuman_id}_rig']
-    pose_bone = armature.pose.bones['spine_04']
+    armature = bpy.data.objects[f'{metahuman_id}_head_rig']
+    pose_bone = armature.pose.bones['spine_04'] # type: ignore
     world_location = armature.matrix_world @ pose_bone.matrix.translation
     armature_object.location = world_location # type: ignore
     armature_object.hide_set(True) # type: ignore
@@ -88,12 +88,12 @@ def get_bone_differences(
     # get the bone differences against the passed in target bone locations
     # this is used to test against the saved json files for more speed
     if target_bone_locations:
-        for bone_name in source_rig.pose.bones.keys():
+        for bone_name in source_rig.pose.bones.keys(): # type: ignore
             # skip the extra bones
             if bone_name in [i for i, _ in EXTRA_BONES]:
                 continue
 
-            source_bone = source_rig.pose.bones[bone_name]
+            source_bone = source_rig.pose.bones[bone_name] # type: ignore
             source_world_location = source_rig.matrix_world @ source_bone.head
             loc_diff = (source_world_location - Vector(target_bone_locations[bone_name])).length
             if loc_diff >= tolerance:
@@ -101,9 +101,9 @@ def get_bone_differences(
     # get the bone differences against the target rig in the scene
     elif target_rig_name:
         target_rig = bpy.data.objects[target_rig_name]
-        for bone_name in source_rig.pose.bones.keys():
-            source_bone = source_rig.pose.bones[bone_name]
-            target_bone = target_rig.pose.bones.get(bone_name)
+        for bone_name in source_rig.pose.bones.keys(): # type: ignore
+            source_bone = source_rig.pose.bones[bone_name] # type: ignore
+            target_bone = target_rig.pose.bones.get(bone_name) # type: ignore
             
             if target_bone:
                 source_world_location = source_rig.matrix_world @ source_bone.head
@@ -149,8 +149,8 @@ def show_differences(
 @pytest.mark.parametrize(
     ('pose_name', 'source_rig_name'), 
     [ 
-        # (pose_name, 'male_01_rig') for pose_name in get_all_pose_names()
-        (pose_name, 'ada_rig') for pose_name in get_all_pose_names()
+        # (pose_name, 'male_01_head_rig') for pose_name in get_all_pose_names()
+        (pose_name, 'ada_head_rig') for pose_name in get_all_pose_names()
     ]
 )
 def test_pose(
@@ -164,7 +164,7 @@ def test_pose(
     use_fbx_files = os.environ.get('META_HUMAN_DNA_ADDON_TESTS_UPDATE_JSON_POSES')
     
     tolerance = 0.001
-    metahuman_id = source_rig_name.replace('_rig', '')
+    metahuman_id = source_rig_name.replace('_head_rig', '')
     
     if use_fbx_files:
         fbx_file_path = TEST_FBX_POSES_FOLDER / source_rig_name / f"{pose_name}.fbx"
@@ -175,7 +175,7 @@ def test_pose(
                 file_path=fbx_file_path
             )
         else:
-            armature_object = bpy.data.objects[f'{fbx_file_path.stem}_rig']
+            armature_object = bpy.data.objects[f'{fbx_file_path.stem}_head_rig']
 
         # set the current pose
         bpy.context.window_manager.meta_human_dna.face_pose_previews = str(POSES_FOLDER / pose_name / "thumbnail-preview.png") # type: ignore

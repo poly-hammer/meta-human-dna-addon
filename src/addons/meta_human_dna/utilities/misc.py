@@ -8,19 +8,19 @@ import addon_utils
 from pathlib import Path
 from mathutils import Vector
 from typing import TYPE_CHECKING, Callable
-from ..constants import MATERIALS_FILE_PATH, TEXTURE_LOGIC_NODE_LABEL
+from ..constants import MATERIALS_FILE_PATH, HEAD_TEXTURE_LOGIC_NODE_LABEL
 from ..rig_logic import start_listening
 from ..constants import (
     SENTRY_DSN,
     SEND2UE_EXTENSION,
     PACKAGES_FOLDER,
-    NUMBER_OF_FACE_LODS,
+    NUMBER_OF_HEAD_LODS,
     INVALID_NAME_CHARACTERS_REGEX,
     DEFAULT_UV_TOLERANCE,
     ToolInfo
 )
 if TYPE_CHECKING:
-    from ..face import MetahumanFace
+    from ..components.head import MetaHumanComponentHead
     from ..rig_logic import RigLogicInstance
 
 logger = logging.getLogger(__name__)
@@ -120,7 +120,7 @@ def select_only(*scene_object):
     deselect_all()
     for _scene_object in scene_object:
         _scene_object.select_set(True)
-    bpy.context.view_layer.objects.active = _scene_object # type: ignore
+        bpy.context.view_layer.objects.active = _scene_object # type: ignore
 
 
 def switch_to_object_mode():
@@ -382,26 +382,26 @@ def focus_on_selected():
                             with bpy.context.temp_override(area=area, region=region): # type: ignore
                                 bpy.ops.view3d.view_selected()
 
-def get_face(name: str) -> 'MetahumanFace | None':
+def get_head(name: str) -> 'MetaHumanComponentHead | None':
     # avoid circular import
-    from ..face import MetahumanFace
+    from ..components.head import MetaHumanComponentHead
     
     properties = bpy.context.scene.meta_human_dna # type: ignore
     for instance in properties.rig_logic_instance_list:
         if instance.name == name:
-            return MetahumanFace(rig_logic_instance=instance)
+            return MetaHumanComponentHead(rig_logic_instance=instance)
         
     logger.error(f'No existing face "{name}" was found')
 
-def get_active_face() -> 'MetahumanFace | None':
+def get_active_head() -> 'MetaHumanComponentHead | None':
     """
-    Gets the active face object.
+    Gets the active head object.
     """
     properties = bpy.context.scene.meta_human_dna # type: ignore
     if len(properties.rig_logic_instance_list) > 0:
         index = properties.rig_logic_instance_list_active_index
         instance = properties.rig_logic_instance_list[index]
-        return get_face(instance.name)
+        return get_head(instance.name)
     
 def move_to_collection(
         scene_objects: list[bpy.types.Object], 
@@ -452,7 +452,7 @@ def re_create_rig_logic_instance(
     face_board = instance.face_board
     head_mesh = instance.head_mesh
     head_rig = instance.head_rig
-    material = instance.material
+    head_material = instance.head_material
 
     # clear data dictionary from the old instance so underlying data can be garbage collected
     instance.data.clear()
@@ -467,7 +467,7 @@ def re_create_rig_logic_instance(
     new_instance.face_board = face_board
     new_instance.head_mesh = head_mesh
     new_instance.head_rig = head_rig
-    new_instance.material = material
+    new_instance.head_material = head_material
     
     # set the new instance as the active instance
     index = bpy.context.scene.meta_human_dna.rig_logic_instance_list.find(new_instance.name) # type: ignore
@@ -487,8 +487,8 @@ def rename_rig_logic_instance(
         instance.head_mesh.name = instance.head_mesh.name.replace(old_name, new_name)
     if instance.head_rig:
         instance.head_rig.name = instance.head_rig.name.replace(old_name, new_name)
-    if instance.material:
-        instance.material.name = instance.material.name.replace(old_name, new_name)
+    if instance.head_material:
+        instance.head_material.name = instance.head_material.name.replace(old_name, new_name)
 
     for item in instance.output_item_list:
         if item.scene_object:
@@ -500,7 +500,7 @@ def rename_rig_logic_instance(
     instance.unreal_blueprint_asset_path = instance.unreal_blueprint_asset_path.replace(old_name, new_name)
 
     # rename the face LOD collections
-    for index in range(NUMBER_OF_FACE_LODS):
+    for index in range(NUMBER_OF_HEAD_LODS):
         collection = bpy.data.collections.get(f'{old_name}_lod{index}')
         if collection:
             collection.name = collection.name.replace(old_name, new_name)
@@ -548,21 +548,21 @@ def report_error(
     ) # type: ignore
 
 
-def import_texture_logic_node() -> bpy.types.NodeTree | None:
+def import_head_texture_logic_node() -> bpy.types.NodeTree | None:
     sep = '\\'
     if sys.platform != 'win32':
         sep = '/'
 
-    node_group = bpy.data.node_groups.get(TEXTURE_LOGIC_NODE_LABEL)
+    node_group = bpy.data.node_groups.get(HEAD_TEXTURE_LOGIC_NODE_LABEL)
     if not node_group:
         directory_path = f'{MATERIALS_FILE_PATH}{sep}NodeTree{sep}'
-        file_path = f'{MATERIALS_FILE_PATH}{sep}NodeTree{sep}{TEXTURE_LOGIC_NODE_LABEL}'
+        file_path = f'{MATERIALS_FILE_PATH}{sep}NodeTree{sep}{HEAD_TEXTURE_LOGIC_NODE_LABEL}'
         bpy.ops.wm.append(
             filepath=file_path,
-            filename=TEXTURE_LOGIC_NODE_LABEL,
+            filename=HEAD_TEXTURE_LOGIC_NODE_LABEL,
             directory=directory_path
         )
-        return bpy.data.node_groups.get(TEXTURE_LOGIC_NODE_LABEL)
+        return bpy.data.node_groups.get(HEAD_TEXTURE_LOGIC_NODE_LABEL)
     return node_group
 
 

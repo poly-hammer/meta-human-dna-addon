@@ -184,8 +184,8 @@ class MetaHumanDna(ExtensionBase):
             instance = self.get_active_rig_logic()
             mesh_object = bpy.data.objects.get(self.mesh_object_name)
             material_name =  ''
-            if instance.material: # type: ignore
-                material_name = instance.material.name # type: ignore
+            if instance.head_material: # type: ignore
+                material_name = instance.head_material.name # type: ignore
 
             # only proceed if the mesh object is the head mesh
             if instance and instance.head_mesh == mesh_object:

@@ -1,7 +1,7 @@
 # Textures
 
 ## Importing Textures
-When importing or converting a mesh to/from a DNA file, you are given an extra option to specify the `maps` folder location. By default, if a `maps` folder exists alongside the `.dna` file, the importer will use that, otherwise you can explicitly set the `maps` folder to your desired location.
+When importing or converting a mesh to/from a DNA file, you are given an extra option to specify the `Maps` folder location. By default, if a `Maps` folder exists alongside the `.dna` file, the importer will use that, otherwise you can explicitly set the `Maps` folder to your desired location.
 
 ![](./images/textures/1.png){: class="rounded-image center-image" style="width:500px"}
 ![](./images/textures/2.png){: class="rounded-image center-image" style="width:500px"}
@@ -30,8 +30,6 @@ Normal_MAIN.tga -> Normal_MAIN
 Normal_WM1.tga -> Normal_WM1
 Normal_WM2.tga -> Normal_WM2
 Normal_WM3.tga -> Normal_WM3
-Cavity_MAIN.tga -> Cavity_MAIN
-Roughness_MAIN.tga -> Roughness_MAIN
 ```
 ### Pattern 3
 ```
@@ -43,8 +41,6 @@ head_normal_map.tga -> Normal_MAIN
 head_wm1_normal_map.tga -> Normal_WM1
 head_wm2_normal_map.tga -> Normal_WM2
 head_wm3_normal_map.tga -> Normal_WM3
-head_cavity_map.tga -> Cavity_MAIN
-head_roughness_map.tga -> Roughness_MAIN
 ```
 
 ## Custom Materials in Blender
@@ -69,8 +65,6 @@ The Texture Logic Node Input Names are 1-to-1 with Unreal Material Instance Para
 * `Normal_WM1`
 * `Normal_WM2`
 * `Normal_WM3`
-* `Cavity_MAIN`
-* `Roughness_MAIN`
 
 ![](./images/textures/4.png){: class="rounded-image center-image" style="height:400px"}
 ![](./images/textures/5.png){: class="rounded-image center-image" style="height:400px"}

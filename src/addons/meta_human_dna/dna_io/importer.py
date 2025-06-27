@@ -4,6 +4,7 @@ import bmesh
 import json
 import logging
 from pathlib import Path
+from typing import Literal
 from mathutils import Vector, Matrix, Euler
 from .misc import get_dna_reader
 from ..properties import MetahumanDnaImportProperties
@@ -11,7 +12,7 @@ from .. import utilities
 from ..rig_logic import RigLogicInstance
 from ..constants import (
     UV_MAP_NAME,
-    NUMBER_OF_FACE_LODS,
+    NUMBER_OF_HEAD_LODS,
     CUSTOM_BONE_SHAPE_SCALE,
     VERTEX_COLOR_ATTRIBUTE_NAME,
     MESH_VERTEX_COLORS_FILE_PATH,
@@ -30,8 +31,10 @@ class DNAImporter:
         instance: RigLogicInstance,
         import_properties: MetahumanDnaImportProperties,
         linear_modifier: float,
+        component_type: Literal['head', 'body'] = 'head',
         create_extra_bones: bool = True,
-        reader: 'riglogic.BinaryStreamReader | None' = None
+        reader: 'riglogic.BinaryStreamReader | None' = None,
+        dna_file_path: Path | None = None
     ):
         self.rig_object = None
 
@@ -39,7 +42,7 @@ class DNAImporter:
         self._import_properties = import_properties
         self._linear_modifier = linear_modifier
 
-        self._source_dna_file = Path(bpy.path.abspath(instance.dna_file_path))
+        self._source_dna_file = Path(bpy.path.abspath(str(dna_file_path) or instance.dna_file_path))
         # Determine the file format of the DNA file
         file_format = 'binary' if self._source_dna_file.suffix.lower() == ".dna" else 'json'
         
@@ -53,6 +56,9 @@ class DNAImporter:
             self._dna_reader = reader
 
         self._create_extra_bones = create_extra_bones
+        if component_type == 'body':
+            self._create_extra_bones = False
+
         self._prefix = self._instance.name
         self._import_lods = {}
         self._index_to_vert = {}
@@ -61,11 +67,12 @@ class DNAImporter:
         self._face_index_to_dna_index = {}
         self._vertex_color_data = []
         self._default_vertex_color_layout = False
+        self._component_type = component_type
 
     def _get_lod_settings(self):
         return [
             (i, getattr(self._import_properties, f"import_lod{i}"))
-            for i in range(NUMBER_OF_FACE_LODS)
+            for i in range(NUMBER_OF_HEAD_LODS)
         ]
 
     def get_material(self, scene_object: bpy.types.Object, material_name: str):
@@ -130,6 +137,9 @@ class DNAImporter:
         return indices, positions
 
     def get_dna_vertex_colors(self, mesh_index: int) -> tuple[list[int], list[list[float]]]:
+        if self._component_type == 'body':
+            return [], []
+
         # Avoid loading the vertex colors multiple times
         if not self._vertex_color_data:
             vertex_colors_file = self._source_dna_file.parent / f"{self._prefix}_{MESH_VERTEX_COLORS_FILE_NAME}"
@@ -139,7 +149,7 @@ class DNAImporter:
 
             with open(vertex_colors_file, 'r') as file:
                 self._vertex_color_data = json.load(file)
-        
+
         data = self._vertex_color_data[mesh_index]    
         return (data['indices'], data['values'])
 
@@ -332,6 +342,9 @@ class DNAImporter:
         
     def set_vertex_colors(self, mesh_index: int, bmesh_object: bmesh.types.BMesh):
         vertex_color_indices, vertex_color_values = self.get_dna_vertex_colors(mesh_index)
+        if not vertex_color_indices or not vertex_color_values:
+            logger.debug(f"No vertex colors found for mesh index {mesh_index}. Skipping vertex color import.")
+            return
         
         bmesh_object.loops.layers.color.verify()
         color_layer = bmesh_object.loops.layers.color.active
@@ -417,7 +430,7 @@ class DNAImporter:
         return mesh_object
     
     def create_rig_object(self) -> bpy.types.Object | None:
-        name = f'{self._prefix}_rig'
+        name = f'{self._prefix}_{self._component_type}_rig'
         # Remove the rig object if it already exists
         rig_object = bpy.data.objects.get(name)
         armature = bpy.data.armatures.get(name)
@@ -570,7 +583,7 @@ class DNAImporter:
 
         # Set the custom bone shapes
         utilities.switch_to_object_mode()
-        for pose_bone in self.rig_object.pose.bones:
+        for pose_bone in self.rig_object.pose.bones: # type: ignore
             self.set_custom_bone_shape(pose_bone)
         self.rig_object.data.relation_line_position = 'HEAD' # type: ignore
 
@@ -620,4 +633,4 @@ class DNAImporter:
         if errors:
             return False, "\n".join(errors)
         
-        return True, f'Imported "{self._prefix}.dna" successfully!'
+        return True, f'Imported "{self._source_dna_file.stem}.dna" successfully!'

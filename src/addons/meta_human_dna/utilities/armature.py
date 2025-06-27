@@ -18,7 +18,8 @@ from .mesh import (
 )
 from ..constants import ( 
     CUSTOM_BONE_SHAPE_NAME, 
-    CUSTOM_BONE_SHAPE_SCALE
+    CUSTOM_BONE_SHAPE_SCALE,
+    BodyBoneCollection
 )
 
 
@@ -108,7 +109,7 @@ def set_bone_collection(
                 pose_bone.color.palette = theme # type: ignore
 
 
-def set_bone_collections(
+def set_head_bone_collections(
         mesh_object: bpy.types.Object,
         rig_object: bpy.types.Object
     ):
@@ -119,7 +120,7 @@ def set_bone_collections(
         weighted_non_leaf_bones = []
         weighted_bones = get_weighted_bone_names(mesh_object)
         for bone_name in weighted_bones:
-            pose_bone = rig_object.pose.bones.get(bone_name)
+            pose_bone = rig_object.pose.bones.get(bone_name) # type: ignore
             if pose_bone:
                 if not pose_bone.children: # type: ignore
                     weighted_leaf_bones.append(bone_name)
@@ -141,7 +142,7 @@ def set_bone_collections(
 
         non_weighted_leaf_bones = []
         non_weighted_non_leaf_bones = []
-        for pose_bone in rig_object.pose.bones:
+        for pose_bone in rig_object.pose.bones: # type: ignore
             if pose_bone.name not in weighted_bones:
                 if not pose_bone.children:
                     non_weighted_leaf_bones.append(pose_bone.name)
@@ -172,6 +173,63 @@ def set_bone_collections(
             bone_names=weighted_leaf_bones + non_weighted_leaf_bones,
             collection_name=meta_human_dna_core.BoneCollection.LEAF_BONES.value
         )
+
+
+def set_body_bone_collections(
+        mesh_object: bpy.types.Object,
+        rig_object: bpy.types.Object
+    ):
+    if mesh_object:
+        driver_bones = []
+        driver_leaf_bones = []
+        twist_bones = []
+        corrective_root_bones = []
+        twist_corrective_bones = []
+        for pose_bone in rig_object.pose.bones: # type: ignore
+            chunks = pose_bone.name.split('_')
+            if 'twist' in chunks:
+                twist_bones.append(pose_bone.name)
+            elif 'twistCor' in chunks:
+                twist_corrective_bones.append(pose_bone.name)
+            elif 'correctiveRoot' in chunks:
+                corrective_root_bones.append(pose_bone.name)
+            elif not pose_bone.children:
+                driver_leaf_bones.append(pose_bone.name)
+            else:
+                driver_bones.append(pose_bone.name)
+
+        set_bone_collection(
+            rig_object=rig_object, 
+            bone_names=driver_bones,
+            collection_name=BodyBoneCollection.DRIVER_BONES.value,
+            theme='THEME09'
+        )
+        set_bone_collection(
+            rig_object=rig_object, 
+            bone_names=driver_leaf_bones,
+            collection_name=BodyBoneCollection.DRIVER_LEAF_BONES.value,
+            theme='THEME01'
+        )    
+        set_bone_collection(
+            rig_object=rig_object, 
+            bone_names=twist_bones,
+            collection_name=BodyBoneCollection.TWIST_BONES.value,
+            theme='THEME03'
+        )    
+        set_bone_collection(
+            rig_object=rig_object, 
+            bone_names=twist_corrective_bones,
+            collection_name=BodyBoneCollection.TWIST_CORRECTIVE_BONES.value,
+            theme='THEME03'
+        )
+        set_bone_collection(
+            rig_object=rig_object, 
+            bone_names=corrective_root_bones,
+            collection_name=BodyBoneCollection.CORRECTIVE_ROOT_BONES.value,
+            theme='THEME04'
+        )
+        
+        
 
 
 def get_meshes_using_armature(armature_object: bpy.types.Object) -> list[bpy.types.Object]:

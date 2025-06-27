@@ -382,7 +382,7 @@ class META_HUMAN_DNA_PT_view_options(bpy.types.Panel):
                 align=True
             )
             col = grid.column()
-            col.enabled = bool(instance.material)
+            col.enabled = bool(instance.head_material)
             col.label(text='Head Material Color:')
             row = col.row()
             row.prop(instance, 'active_material_preview', text='')
@@ -393,7 +393,9 @@ class META_HUMAN_DNA_PT_view_options(bpy.types.Panel):
             row = col.row()
             row.prop(instance, 'active_lod', text='')
             row = self.layout.row()
-            row.prop(instance, 'show_bones')
+            row.prop(instance, 'show_head_bones')
+            row = self.layout.row()
+            row.prop(instance, 'show_body_bones')
             row = self.layout.row()
             row.prop(properties, 'highlight_matching_active_bone')
         else:
@@ -478,7 +480,7 @@ class META_HUMAN_DNA_PT_rig_logic(bpy.types.Panel):
             row = box.row()
             row.prop(instance, 'head_rig', icon='OUTLINER_OB_ARMATURE')
             row = box.row()
-            row.prop(instance, 'material', icon='MATERIAL')
+            row.prop(instance, 'head_material', icon='MATERIAL')
             row = box.row()
             row.operator('meta_human_dna.force_evaluate', icon='FILE_REFRESH')
 
