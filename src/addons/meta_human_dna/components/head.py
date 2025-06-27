@@ -92,18 +92,15 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
         # collapse the outliner
         utilities.toggle_expand_in_outliner()
 
-        # position the face board to match the head since the head was moved
-        if self.face_board_object:
-            self._position_face_board(self.face_board_object)
-            utilities.move_to_collection(
-                scene_objects=[self.face_board_object],
-                collection_name=self.name,
-                exclusively=True
-            )
-
         # switch to pose mode on the face gui object
         if face_board_object:
             bpy.context.view_layer.objects.active = face_board_object # type: ignore
+            self._position_face_board(face_board_object)
+            utilities.move_to_collection(
+                scene_objects=[face_board_object],
+                collection_name=self.name,
+                exclusively=True
+            )
             utilities.switch_to_pose_mode(face_board_object) # type: ignore
         
         return valid, message
