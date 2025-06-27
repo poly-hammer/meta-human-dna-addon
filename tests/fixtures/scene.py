@@ -34,18 +34,18 @@ def load_dna(
 
 @pytest.fixture(scope='session')
 def head_bmesh(load_dna) -> bmesh.types.BMesh | None:
-    from meta_human_dna.utilities import get_active_face
+    from meta_human_dna.utilities import get_active_head
     from meta_human_dna.dna_io.exporter import DNAExporter
-    face = get_active_face()
-    if face and face.head_mesh_object:
-        return DNAExporter.get_bmesh(face.head_mesh_object)
-    
+    head = get_active_head()
+    if head and head.head_mesh_object:
+        return DNAExporter.get_bmesh(head.head_mesh_object)
+
 @pytest.fixture(scope='session')
 def head_armature(load_dna) -> bpy.types.Object | None:
-    from meta_human_dna.utilities import get_active_face
-    face = get_active_face()
-    if face and face.head_rig_object:
-        return face.head_rig_object
+    from meta_human_dna.utilities import get_active_head
+    head = get_active_head()
+    if head and head.head_rig_object:
+        return head.head_rig_object
 
 @pytest.fixture(scope='session')
 def modify_scene(
@@ -70,6 +70,7 @@ def modify_scene(
     )
     apply_bone_transform(
         prefix=name,
+        component='head',
         bone_name=changed_bone_name,
         location=changed_bone_location[0],
         rotation=changed_bone_rotation[0],
