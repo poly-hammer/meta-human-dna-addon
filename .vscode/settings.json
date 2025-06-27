@@ -27,6 +27,35 @@
         "${workspaceFolder}/src/addons/meta_human_dna/resources/unreal",
         "${workspaceFolder}/src/addons/meta_human_dna/bindings/windows/amd64"
     ],
+    "python.analysis.exclude": ["**"],
+    "python.analysis.diagnosticMode": "openFilesOnly",
+    "python.analysis.enablePytestSupport": true,
+    "python.analysis.autoFormatStrings": true,
+    "python.analysis.completeFunctionParens": true,
+    "files.maxMemoryForLargeFilesMB": 2048.0,
+    "files.watcherExclude": {
+        "**/.git/objects/**": true,
+        "**/.git/subtree-cache/**": true,
+        "**/node_modules/*/**": true,
+        "**/scratches/*/**": true,
+        "**/reports/*/**": true,
+        "**/.fbx": true,
+        "${workspaceFolder}/tests/test_files": true
+    },
+    "files.exclude": {
+        "**/__pycache__": true,
+        "**/.cache": true,
+        "**/.coverage": true,
+        "**/.coverage.*": true,
+        "**/.hypothesis": true,
+        "**/.mypy_cache": true,
+        "**/.nox": true,
+        "**/.pytest_cache": true,
+        "**/.ruff_cache": true,
+        "**/.tox": true,
+        "**/.fbx": true,
+        "${workspaceFolder}/tests/test_files": true
+    },
     "terminal.integrated.env.windows": {
         "PYTHONPATH": "${workspaceFolder}/admin/packages;${workspaceFolder}/.venv/Lib/site-packages;${workspaceFolder}/src/addons",
         "PYTHONUNBUFFERED": "1",
@@ -44,10 +73,11 @@
     },
     "cSpell.ignorePaths": [
         "${workspaceFolder}/.venv",
-        "${workspaceFolder}/.linux-venv",
+        "${workspaceFolder}/.stubs-venv",
         "${workspaceFolder}/build",
         "${workspaceFolder}/scratches",
-        "${workspaceFolder}/reports"
+        "${workspaceFolder}/reports",
+        "${workspaceFolder}/tests/test_files",
     ],
     "cSpell.words": [
         "abstractmethod",
