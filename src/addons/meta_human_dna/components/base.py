@@ -338,21 +338,21 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
 
             if image.name in image_names:
                 continue
-            if any(i in image.name for i in image_names):
+            if any(i in image.name for i in image_names if i != image.name):
                 bpy.data.images.remove(image)
 
         # set the masks and topology textures for all node groups
         for node_group in bpy.data.node_groups:
             for node in node_group.nodes:
-                if node.type == 'TEX_IMAGE' and node.image: # type: ignore
+                if node.type == 'TEX_IMAGE': # type: ignore
                     # set the masks and topology textures
                     if self.component_type == 'head':
-                        if node.image.name == MASKS_TEXTURE: # type: ignore
+                        if node.label == MASKS_TEXTURE: # type: ignore
                             node.image = bpy.data.images[MASKS_TEXTURE] # type: ignore
-                        if node.image.name == HEAD_TOPOLOGY_TEXTURE: # type: ignore
+                        if node.label == HEAD_TOPOLOGY_TEXTURE: # type: ignore
                             node.image = bpy.data.images[HEAD_TOPOLOGY_TEXTURE] # type: ignore
                     elif self.component_type == 'body':
-                        if node.image.name == BODY_TOPOLOGY_TEXTURE: # type: ignore
+                        if node.label == BODY_TOPOLOGY_TEXTURE: # type: ignore
                             node.image = bpy.data.images[BODY_TOPOLOGY_TEXTURE] # type: ignore
 
     def _purge_existing_materials(self):
