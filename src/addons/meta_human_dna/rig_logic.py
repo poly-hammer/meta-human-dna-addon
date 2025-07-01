@@ -60,7 +60,7 @@ def stop_listening():
 def start_listening():
     stop_listening()
     logging.info('Listening for Rig Logic...')
-    callbacks.update_output_items(None, bpy.context)
+    callbacks.update_head_output_items(None, bpy.context)
     bpy.app.handlers.depsgraph_update_post.append(rig_logic_listener) # type: ignore
     bpy.app.handlers.frame_change_post.append(rig_logic_listener) # type: ignore
 
@@ -149,58 +149,63 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         name='Evaluate Texture Masks',
         description='Whether to evaluate texture masks based on the face board controls'
     ) # type: ignore
-    dna_file_path: bpy.props.StringProperty(
-        name="DNA File",
-        description="The path to the DNA file that rig logic reads from when evaluating the face board controls",
-        subtype='FILE_PATH'
-    ) # type: ignore
     face_board: bpy.props.PointerProperty(
         type=bpy.types.Object, # type: ignore
         name='Face Board',
         description='The face board that rig logic reads control positions from',
         poll=callbacks.poll_face_boards # type: ignore
     ) # type: ignore
+    head_dna_file_path: bpy.props.StringProperty(
+        name="Head DNA File",
+        description="The path to the head DNA file that rig logic reads from when evaluating the face board controls",
+        subtype='FILE_PATH'
+    ) # type: ignore
     head_mesh: bpy.props.PointerProperty(
         type=bpy.types.Object, # type: ignore
         name='Head Mesh',
         description='The head mesh with the shape keys that rig logic will evaluate',
         poll=callbacks.poll_head_mesh, # type: ignore
-        update=callbacks.update_output_items
+        update=callbacks.update_head_output_items
     ) # type: ignore
     head_rig: bpy.props.PointerProperty(
         type=bpy.types.Object, # type: ignore
         name='Head Rig',
         description='The armature object that rig logic will evaluate',
         poll=callbacks.poll_head_rig, # type: ignore
-        update=callbacks.update_output_items
+        update=callbacks.update_head_output_items
     ) # type: ignore
     head_material: bpy.props.PointerProperty(
         type=bpy.types.Material, # type: ignore
         name='Head Material',
         description='The head material that has a node with wrinkle map sliders that rig logic will evaluate',
         poll=callbacks.poll_head_materials, # type: ignore
-        update=callbacks.update_output_items
+        update=callbacks.update_head_output_items
+    ) # type: ignore
+    body_dna_file_path: bpy.props.StringProperty(
+        name="Body DNA File",
+        description="The path to the body DNA file",
+        subtype='FILE_PATH'
     ) # type: ignore
     body_mesh: bpy.props.PointerProperty(
         type=bpy.types.Object, # type: ignore
         name='Body Mesh',
         description='The body mesh',
         poll=callbacks.poll_body_mesh, # type: ignore
-        update=callbacks.update_output_items
+        update=callbacks.update_body_output_items
     ) # type: ignore
     body_rig: bpy.props.PointerProperty(
         type=bpy.types.Object, # type: ignore
         name='Body Rig',
         description='The armature object for the body that RBF will evaluate',
         poll=callbacks.poll_body_rig, # type: ignore
-        update=callbacks.update_output_items
+        update=callbacks.update_body_output_items
     ) # type: ignore
     body_material: bpy.props.PointerProperty(
         type=bpy.types.Material, # type: ignore
         name='Body Material',
         description='The body material',
         poll=callbacks.poll_body_materials, # type: ignore
-        update=callbacks.update_output_items
+        update=callbacks.update_body_output_items
     ) # type: ignore
 
     # ----- View Options Properties -----
@@ -320,6 +325,15 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             ('overwrite', 'Overwrite', '(Experimental, and not fully functional yet) Uses the original dna file and overwrites the dna data based on the current mesh and armature data in the scene. Use this method if your vert indices and bone names are different from the original DNA. Only use this method when calibration method is not possible', 'ERROR', 1),
         ]
     ) # type: ignore
+    output_component: bpy.props.EnumProperty(
+        name='DNA Output Component',
+        description='Which component to output use when creating the dna file',
+        default='head',
+        items=[
+            ('head', 'Head', 'The head component of the DNA'),
+            ('body', 'Body', 'The body component of the DNA'),
+        ]
+    ) # type: ignore
     output_format: bpy.props.EnumProperty(
         name='File Format',
         description='The file format to use when output the dna file. Either binary or json',
@@ -403,8 +417,10 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     shape_key_list: bpy.props.CollectionProperty(type=ShapeKeyData) # type: ignore
     shape_key_list_active_index: bpy.props.IntProperty() # type: ignore
 
-    output_item_list: bpy.props.CollectionProperty(type=OutputData) # type: ignore
-    output_item_active_index: bpy.props.IntProperty() # type: ignore
+    output_head_item_list: bpy.props.CollectionProperty(type=OutputData) # type: ignore
+    output_head_item_active_index: bpy.props.IntProperty() # type: ignore
+    output_body_item_list: bpy.props.CollectionProperty(type=OutputData) # type: ignore
+    output_body_item_active_index: bpy.props.IntProperty() # type: ignore
     calibrate_bones: bpy.props.BoolProperty(default=True) # type: ignore
     calibrate_meshes: bpy.props.BoolProperty(default=True) # type: ignore
     calibrate_shape_keys: bpy.props.BoolProperty(default=True) # type: ignore
@@ -441,7 +457,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
     @property
     def valid(self) -> bool: 
-        dna_file_path = Path(bpy.path.abspath(self.dna_file_path))
+        dna_file_path = Path(bpy.path.abspath(self.head_dna_file_path))
         if not dna_file_path.exists():
             logger.warning(f'The DNA file path "{dna_file_path}" does not exist. The Rig Logic Instance {self.name} will not be initialized.')
             return False
@@ -613,7 +629,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         from .bindings import riglogic
         from .dna_io import get_dna_reader
         # set the dna reader
-        self.data['dna_reader'] = get_dna_reader(Path(bpy.path.abspath(self.dna_file_path)).absolute())
+        self.data['dna_reader'] = get_dna_reader(Path(bpy.path.abspath(self.head_dna_file_path)).absolute())
 
         # make sure the rig bones are using the correct rotation mode
         if self.head_rig and self.head_rig.pose:

@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 from mathutils import Vector, Matrix
 from typing import Literal, TYPE_CHECKING
-from ..constants import SHAPE_KEY_GROUP_PREFIX
+from ..constants import ComponentType, SHAPE_KEY_GROUP_PREFIX
 from ..utilities import (
     exclude_rig_logic_evaluation, 
     switch_to_object_mode,
@@ -105,9 +105,7 @@ def get_dna_writer(
     
     return writer
 
-def get_dna_component_type(
-        file_path: Path,
-    ) -> Literal['head', 'body'] | None:
+def get_dna_component_type(file_path: Path) -> ComponentType | None:
     """
     Determine the DNA component type based on the mesh names in the DNA file.
     """

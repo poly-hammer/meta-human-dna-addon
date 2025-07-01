@@ -76,7 +76,7 @@ def sync_spine_with_body_skeleton(instance: 'RigLogicInstance'):
 
         if total_delta.length > 1e-3:
             # now update the head mesh positions based on the total delta
-            for output_item in instance.output_item_list:
+            for output_item in instance.output_head_item_list:
                 if output_item.scene_object and output_item.scene_object.type == 'MESH':
                     output_item.scene_object.location += total_delta
                     apply_transforms(output_item.scene_object, location=True)

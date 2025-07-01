@@ -11,6 +11,7 @@ class ToolInfo:
     METRICS_COLLECTION_AGREEMENT = "https://www.polyhammer.com/dpa"
 
 Axis = Literal["X", "Y", "Z"]
+ComponentType = Literal['head', 'body']
 
 FACE_BOARD_NAME = "face_gui"
 HEAD_MATERIAL_NAME = "head_shader"

@@ -330,7 +330,7 @@ class ImportMetahumanDna(bpy.types.Operator, importer.ImportAsset, MetahumanDnaI
             self.report({'INFO'}, message)
 
         # populate the output items based on what was imported
-        callbacks.update_output_items(None, bpy.context)
+        callbacks.update_head_output_items(None, bpy.context)
         # now we can evaluate the dependency graph again
         window_manager_properties.evaluate_dependency_graph = True
 
@@ -472,7 +472,7 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
                 return {'CANCELLED'}
         
         face.ingest()
-        callbacks.update_output_items(None, bpy.context)
+        callbacks.update_head_output_items(None, bpy.context)
         face.convert(mesh_object=selected_object)
         selected_object.hide_set(True)
         # populate the output items based on what was imported
@@ -526,7 +526,10 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
         properties = context.scene.meta_human_dna # type: ignore
         if selected_object and selected_object.type == 'MESH' and selected_object.select_get():
             for instance in properties.rig_logic_instance_list:
-                for item in instance.output_item_list:
+                for item in instance.output_head_item_list:
+                    if item.scene_object == selected_object:
+                        return False
+                for item in instance.output_body_item_list:
                     if item.scene_object == selected_object:
                         return False
             else:
@@ -642,7 +645,7 @@ class TestSentry(bpy.types.Operator):
     bl_label = "Test Sentry"
 
     def execute(self, context):
-        division_by_zero = 1 / 0
+        division_by_zero = 1 / 0 # noqa: F841
         return {'FINISHED'}
     
 class OpenBuildToolDocumentation(bpy.types.Operator):
@@ -739,7 +742,7 @@ class SendToUnreal(bpy.types.Operator):
             # selection, but we need to ensure only one asset is detected with its associated lods
             included_objects = []
             head_mesh_prefix = instance.head_mesh.name.split('_lod0_mesh')[0]
-            for item in instance.output_item_list:
+            for item in instance.output_head_item_list:
                 if item.include and item.scene_object and item.scene_object.name.startswith(head_mesh_prefix):
                     included_objects.append(item.scene_object)
             
@@ -1262,7 +1265,7 @@ class DuplicateRigLogicInstance(bpy.types.Operator):
                 new_head_mesh_object.parent = new_rig_object
 
                 # now we need to duplicate the output items
-                for item in instance.output_item_list:
+                for item in instance.output_head_item_list:
                     if item.scene_object and item.scene_object.type == 'MESH':
                         if item.scene_object == instance.head_mesh:
                             continue
@@ -1303,13 +1306,13 @@ class DuplicateRigLogicInstance(bpy.types.Operator):
                 new_rig_object.parent = instance.face_board
 
                 new_dna_file_path = new_folder / f'{self.new_name}.dna'
-                shutil.copy(instance.dna_file_path, new_dna_file_path)
+                shutil.copy(instance.head_dna_file_path, new_dna_file_path)
 
 
                 # add the duplicated instance to the list and set the initial values
                 new_instance = context.scene.meta_human_dna.rig_logic_instance_list.add() # type: ignore
                 new_instance.name = self.new_name
-                new_instance.dna_file_path = str(new_dna_file_path)
+                new_instance.head_dna_file_path = str(new_dna_file_path)
                 new_instance.active_lod = instance.active_lod
                 new_instance.active_material_preview = instance.active_material_preview
                 new_instance.face_board = instance.face_board
@@ -1431,7 +1434,7 @@ class UILIST_RIG_LOGIC_OT_entry_remove(GenericUIListOperator, bpy.types.Operator
         my_list = context.scene.meta_human_dna.rig_logic_instance_list # type: ignore
 
         instance = context.scene.meta_human_dna.rig_logic_instance_list[self.active_index] # type: ignore
-        for item in instance.output_item_list:
+        for item in instance.output_head_item_list:
             if item.scene_object:
                 bpy.data.objects.remove(item.scene_object, do_unlink=True)
             if item.image_object:

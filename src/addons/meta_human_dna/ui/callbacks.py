@@ -505,16 +505,54 @@ def set_instance_name(self, value):
             )
         self['instance_name'] = value
 
-def update_output_items(self, context):
+def update_body_output_items(self, context):
+    for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list: # type: ignore
+        if instance and instance.body_mesh and instance.body_rig:
+            # update the output items for the scene objects
+            for scene_object in get_mesh_output_items(instance) + [instance.body_rig]:
+                for i in instance.output_body_item_list:
+                    if not i.image_object and i.scene_object == scene_object:
+                        break
+                else:
+                    new_item = instance.output_body_item_list.add()
+                    new_item.scene_object = scene_object
+                    if scene_object == instance.body_mesh:
+                        new_item.name = 'body_lod0_mesh'
+                        new_item.editable_name = False
+                    elif scene_object == instance.body_rig:
+                        new_item.name = 'rig'
+                        new_item.editable_name = False
+                    else:
+                        new_item.name = scene_object.name.replace(f'{instance.name}_', '')
+                        new_item.editable_name = True
+
+            # update the output items for the image textures
+            for image_object, file_name in get_image_output_items(instance):
+                for i in instance.output_body_item_list:
+                    if not i.scene_object and i.image_object == image_object:
+                        break
+                else:
+                    new_item = instance.output_body_item_list.add()
+                    new_item.image_object = image_object
+                    new_item.name = file_name
+                    new_item.editable_name = False
+
+            # remove any output items that do not have a scene object or image object
+            for item in instance.output_body_item_list:
+                if not item.scene_object and not item.image_object: # type: ignore
+                    index = instance.output_body_item_list.find(item.name)
+                    instance.output_body_item_list.remove(index)
+
+def update_head_output_items(self, context):
     for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list: # type: ignore
         if instance and instance.head_mesh and instance.head_rig:
             # update the output items for the scene objects
             for scene_object in get_mesh_output_items(instance) + [instance.head_rig]:
-                for i in instance.output_item_list:
+                for i in instance.output_head_item_list:
                     if not i.image_object and i.scene_object == scene_object:
                         break
                 else:
-                    new_item = instance.output_item_list.add()
+                    new_item = instance.output_head_item_list.add()
                     new_item.scene_object = scene_object
                     if scene_object == instance.head_mesh:
                         new_item.name = 'head_lod0_mesh'
@@ -528,20 +566,20 @@ def update_output_items(self, context):
 
             # update the output items for the image textures
             for image_object, file_name in get_image_output_items(instance):
-                for i in instance.output_item_list:
+                for i in instance.output_head_item_list:
                     if not i.scene_object and i.image_object == image_object:
                         break
                 else:
-                    new_item = instance.output_item_list.add()
+                    new_item = instance.output_head_item_list.add()
                     new_item.image_object = image_object
                     new_item.name = file_name
                     new_item.editable_name = False
 
             # remove any output items that do not have a scene object or image object
-            for item in instance.output_item_list:
+            for item in instance.output_head_item_list:
                 if not item.scene_object and not item.image_object: # type: ignore
-                    index = instance.output_item_list.find(item.name)
-                    instance.output_item_list.remove(index)
+                    index = instance.output_head_item_list.find(item.name)
+                    instance.output_head_item_list.remove(index)
 
     # update the material slots to instance mappings
     update_material_slot_to_instance_mapping(self, context)
@@ -550,7 +588,7 @@ def update_material_slot_to_instance_mapping(self, context):
     instance = get_active_rig_logic()
     if instance and instance.head_rig:
         material_slot_names = []
-        for item in instance.output_item_list:
+        for item in instance.output_head_item_list:
             if item.scene_object and item.scene_object.type == 'MESH':
                 material_slot_names.extend(list(item.scene_object.material_slots.keys()))
         

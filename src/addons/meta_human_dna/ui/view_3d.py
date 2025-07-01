@@ -9,13 +9,13 @@ def valid_rig_logic_instance_exists(context, ignore_face_board: bool = False) ->
         instance = properties.rig_logic_instance_list[active_index]
         if not instance.face_board and not ignore_face_board:
             return f'"{instance.name}" Has No Face Board set.'
-        elif not instance.dna_file_path:
+        elif not instance.head_dna_file_path:
             return f'"{instance.name}" Has No DNA File set.'
-        elif not Path(bpy.path.abspath(instance.dna_file_path)).exists():
+        elif not Path(bpy.path.abspath(instance.head_dna_file_path)).exists():
             return f'"{instance.name}" DNA File is not found on disk.'
-        elif not Path(bpy.path.abspath(instance.dna_file_path)).stem != '.dna':
+        elif not Path(bpy.path.abspath(instance.head_dna_file_path)).stem != '.dna':
             return f'"{instance.name}" DNA File must be a binary .dna file.'
-        elif instance.dna_file_path and instance.face_board:
+        elif instance.head_dna_file_path and instance.face_board:
             return ''
     else:
         return 'Missing data. Create/Import DNA data.'
@@ -462,8 +462,8 @@ class META_HUMAN_DNA_PT_rig_logic(bpy.types.Panel):
             row.label(text='Rig Logic Instance:')
             row = box.row()
             row.alert = False
-            bad_path = instance.dna_file_path and not Path(bpy.path.abspath(instance.dna_file_path)).exists()
-            if not instance.dna_file_path or bad_path:
+            bad_path = instance.head_dna_file_path and not Path(bpy.path.abspath(instance.head_dna_file_path)).exists()
+            if not instance.head_dna_file_path or bad_path:
                 row.alert = True
             row.prop(instance, 'dna_file_path', icon='RNA')
             if bad_path:
@@ -572,7 +572,7 @@ class META_HUMAN_DNA_PT_output_panel(bpy.types.Panel):
             instance = properties.rig_logic_instance_list[active_index]
             grid = self.layout.grid_flow(
                 row_major=True, 
-                columns=1, 
+                columns=2, 
                 even_columns=True, 
                 even_rows=True, 
                 align=True
@@ -581,18 +581,34 @@ class META_HUMAN_DNA_PT_output_panel(bpy.types.Panel):
             col.label(text='Method:')
             row = col.row()
             row.prop(instance, 'output_method', text='')
+            col = grid.column()
+            col.label(text='Component:')
+            row = col.row()
+            row.prop(instance, 'output_component', text='')
 
-            row = self.layout.row()           
-            draw_ui_list(
-                row,
-                context,
-                class_name="META_HUMAN_DNA_UL_output_items",
-                list_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].output_item_list",
-                active_index_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].output_item_active_index",
-                unique_id="output_item_list_id",
-                move_operators=False, # type: ignore
-                insertion_operators=False   
-            )
+            row = self.layout.row()       
+            if instance.output_component == 'head':    
+                draw_ui_list(
+                    row,
+                    context,
+                    class_name="META_HUMAN_DNA_UL_output_items",
+                    list_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].output_head_item_list",
+                    active_index_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].output_head_item_active_index",
+                    unique_id="output_head_item_list_id",
+                    move_operators=False, # type: ignore
+                    insertion_operators=False   
+                )
+            elif instance.output_component == 'body':
+                draw_ui_list(
+                    row,
+                    context,
+                    class_name="META_HUMAN_DNA_UL_output_items",
+                    list_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].output_body_item_list",
+                    active_index_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].output_body_item_active_index",
+                    unique_id="output_body_item_list_id",
+                    move_operators=False, # type: ignore
+                    insertion_operators=False   
+                )
             row = self.layout.row()
             row.label(text='Output Folder:')
             row = self.layout.row()

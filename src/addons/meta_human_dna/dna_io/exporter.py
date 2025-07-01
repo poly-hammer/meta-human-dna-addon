@@ -40,7 +40,12 @@ class DNAExporter:
         self._include_vertex_colors = vertex_colors
 
         self._output_folder = Path(bpy.path.abspath(instance.output_folder_path))
-        self._source_dna_file = Path(bpy.path.abspath(instance.dna_file_path))
+        
+        if self._instance.output_component == 'head':
+            self._source_dna_file = Path(bpy.path.abspath(instance.head_dna_file_path))
+        elif self._instance.output_component == 'body':
+            self._source_dna_file = Path(bpy.path.abspath(instance.body_dna_file_path))
+
         self._target_dna_file = Path(bpy.path.abspath(instance.output_folder_path)) / (file_name or f'{instance.name}.dna')
 
         # Open a read to the source DNA file if an existing reader is not provided
@@ -74,11 +79,21 @@ class DNAExporter:
 
     def initialize_scene_data(self):
         mesh_objects = []
-        for output_item in self._instance.output_item_list:
+        output_items = []
+        main_mesh_object = None
+
+        if self._instance.output_component == 'head':
+            output_items = self._instance.output_head_item_list
+            main_mesh_object = self._instance.head_mesh
+        elif self._instance.output_component == 'body':
+            output_items = self._instance.output_body_item_list
+            main_mesh_object = self._instance.body_mesh
+
+        for output_item in output_items:
             if output_item.include:
                 if output_item.scene_object and output_item.scene_object.type == 'ARMATURE':                    
                     self._rig_object = output_item.scene_object
-                elif output_item.scene_object == self._instance.head_mesh:
+                elif main_mesh_object and output_item.scene_object == main_mesh_object:
                     continue
                 elif output_item.scene_object and output_item.scene_object.type == 'MESH':
                     if not self._include_meshes:
@@ -101,9 +116,9 @@ class DNAExporter:
                 self._mesh_indices.append(mesh_index)
                 mesh_index += 1
 
-        # Also check if the head mesh is not an LOD mesh
-        if utilities.get_lod_index(self._instance.head_mesh.name) == -1:
-            self._non_lod_mesh_objects.append(self._instance.head_mesh)
+        # Also check if the main mesh is not an LOD mesh
+        if main_mesh_object and utilities.get_lod_index(main_mesh_object.name) == -1:
+            self._non_lod_mesh_objects.append(main_mesh_object)
 
         # Initialize the vertex color data array
         self._vertex_color_data = [{

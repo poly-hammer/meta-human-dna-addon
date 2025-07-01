@@ -129,7 +129,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
             utilities.switch_to_object_mode() # type: ignore
             # select all the objects and set their origins to the 3d cursor
             utilities.deselect_all()
-            for item in self.rig_logic_instance.output_item_list:
+            for item in self.rig_logic_instance.output_head_item_list:
                 if item.scene_object:
                     item.scene_object.hide_set(False)
                     item.scene_object.select_set(True)
@@ -213,7 +213,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
         pass
 
     def delete(self):
-        for item in self.rig_logic_instance.output_item_list:
+        for item in self.rig_logic_instance.output_head_item_list:
             if item.scene_object:
                 bpy.data.objects.remove(item.scene_object, do_unlink=True)
             if item.image_object:

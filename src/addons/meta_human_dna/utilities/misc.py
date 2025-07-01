@@ -463,7 +463,7 @@ def re_create_rig_logic_instance(
     # create a new instance with the copied data
     new_instance = bpy.context.scene.meta_human_dna.rig_logic_instance_list.add() # type: ignore
     new_instance.name = new_name
-    new_instance.dna_file_path = str(new_dna_file_path)
+    new_instance.head_dna_file_path = str(new_dna_file_path)
     new_instance.face_board = face_board
     new_instance.head_mesh = head_mesh
     new_instance.head_rig = head_rig
@@ -490,7 +490,7 @@ def rename_rig_logic_instance(
     if instance.head_material:
         instance.head_material.name = instance.head_material.name.replace(old_name, new_name)
 
-    for item in instance.output_item_list:
+    for item in instance.output_head_item_list:
         if item.scene_object:
             item.scene_object.name = item.scene_object.name.replace(old_name, new_name)
         if item.image_object:
@@ -506,7 +506,7 @@ def rename_rig_logic_instance(
             collection.name = collection.name.replace(old_name, new_name)
 
 def rename_as_lod0_meshes(mesh_objects: list[bpy.types.Object]):
-    from ..ui.callbacks import get_active_rig_logic, update_output_items
+    from ..ui.callbacks import get_active_rig_logic, update_head_output_items
     instance = get_active_rig_logic()
     if instance:
         for mesh_object in mesh_objects:
@@ -517,8 +517,8 @@ def rename_as_lod0_meshes(mesh_objects: list[bpy.types.Object]):
                 mesh_object.name = f'{mesh_object.name}_lod0_mesh'
 
         # re-populate the output items
-        instance.output_item_list.clear()
-        update_output_items(None, bpy.context)
+        instance.output_head_item_list.clear()
+        update_head_output_items(None, bpy.context)
 
 def report_error(
         title: str,

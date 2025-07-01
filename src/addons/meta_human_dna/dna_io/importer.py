@@ -4,17 +4,16 @@ import bmesh
 import json
 import logging
 from pathlib import Path
-from typing import Literal
 from mathutils import Vector, Matrix, Euler
 from .misc import get_dna_reader
 from ..properties import MetahumanDnaImportProperties
 from .. import utilities
 from ..rig_logic import RigLogicInstance
 from ..constants import (
+    ComponentType,
     UV_MAP_NAME,
     NUMBER_OF_HEAD_LODS,
     CUSTOM_BONE_SHAPE_SCALE,
-    VERTEX_COLOR_ATTRIBUTE_NAME,
     MESH_VERTEX_COLORS_FILE_PATH,
     MESH_VERTEX_COLORS_FILE_NAME,
     FIRST_BONE_Y_LOCATION,
@@ -31,7 +30,7 @@ class DNAImporter:
         instance: RigLogicInstance,
         import_properties: MetahumanDnaImportProperties,
         linear_modifier: float,
-        component_type: Literal['head', 'body'] = 'head',
+        component_type: ComponentType = 'head',
         create_extra_bones: bool = True,
         reader: 'riglogic.BinaryStreamReader | None' = None,
         dna_file_path: Path | None = None
@@ -42,10 +41,14 @@ class DNAImporter:
         self._import_properties = import_properties
         self._linear_modifier = linear_modifier
 
-        self._source_dna_file = Path(bpy.path.abspath(str(dna_file_path) or instance.dna_file_path))
+        if component_type == 'head':
+            self._source_dna_file = Path(bpy.path.abspath(str(dna_file_path) or instance.head_dna_file_path))
+        elif component_type == 'body':
+            self._source_dna_file = Path(bpy.path.abspath(str(dna_file_path) or instance.body_dna_file_path))
+
         # Determine the file format of the DNA file
-        file_format = 'binary' if self._source_dna_file.suffix.lower() == ".dna" else 'json'
-        
+        file_format = 'binary' if (dna_file_path or self._source_dna_file).suffix.lower() == ".dna" else 'json'
+
         # Open a read to a DNA file if an existing reader is not provided
         if not reader:
             self._dna_reader = get_dna_reader(

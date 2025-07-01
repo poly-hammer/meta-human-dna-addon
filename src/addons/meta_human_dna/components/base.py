@@ -6,7 +6,7 @@ import math
 import logging
 from pathlib import Path
 from abc import ABCMeta, abstractmethod
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 from mathutils import Vector, Matrix
 from ..dna_io import (
     get_dna_reader, 
@@ -16,6 +16,7 @@ from ..dna_io import (
 from .. import utilities
 from ..constants import (
     ToolInfo,
+    ComponentType,
     HEAD_MATERIAL_NAME,
     BODY_MATERIAL_NAME,
     HEAD_MESH_SHADER_MAPPING,
@@ -61,7 +62,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
             rig_logic_instance: 'RigLogicInstance | None' = None,
             dna_file_path: Path | None = None,
             dna_import_properties: 'MetahumanDnaImportProperties | None' = None,
-            component_type: Literal['head', 'body'] = 'head'
+            component_type: ComponentType = 'head'
         ):
         # make sure dna file path is a Path object
         dna_file_path = Path(dna_file_path) if dna_file_path else None
@@ -97,16 +98,19 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
                 # set the active rig logic instance
                 self.scene_properties.rig_logic_instance_list_active_index = len(self.scene_properties.rig_logic_instance_list) - 1
 
-            self.rig_logic_instance.dna_file_path = str(dna_file_path)
+            if component_type == 'head':
+                self.rig_logic_instance.head_dna_file_path = str(dna_file_path)
+            elif component_type == 'body':
+                self.rig_logic_instance.body_dna_file_path = str(dna_file_path)
 
-        if not self.dna_import_properties or not self.dna_import_properties.alternate_maps_folder:
-            self.maps_folder = self.dna_file_path.parent / 'Maps'
+        if (not self.dna_import_properties or not self.dna_import_properties.alternate_maps_folder) and dna_file_path:
+            self.maps_folder = dna_file_path.parent / 'Maps'
             if not self.maps_folder.exists():
-                self.maps_folder = self.dna_file_path.parent / 'maps'
-        else:
+                self.maps_folder = dna_file_path.parent / 'maps'
+        elif self.dna_import_properties and self.dna_import_properties.alternate_maps_folder:
             self.maps_folder = Path(self.dna_import_properties.alternate_maps_folder)
 
-        file_format = 'binary' if self.dna_file_path.suffix.lower() == ".dna" else 'json'
+        file_format = 'binary' if (dna_file_path or self.dna_file_path).suffix.lower() == ".dna" else 'json'
         self.dna_reader = get_dna_reader(
             file_path=dna_file_path or self.dna_file_path,
             file_format=file_format
@@ -121,7 +125,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
         )
 
     @property
-    def component_type(self) -> Literal['head', 'body']:
+    def component_type(self) -> ComponentType:
         return self._component_type # type: ignore
     
     @property
@@ -151,8 +155,11 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
         return self.rig_logic_instance.name
 
     @property
-    def dna_file_path(self) -> Path:
-        return Path(self.rig_logic_instance.dna_file_path)
+    def dna_file_path(self) -> Path: # type: ignore
+        if self._component_type == 'head':
+            return Path(self.rig_logic_instance.head_dna_file_path)
+        elif self._component_type == 'body':
+            return Path(self.rig_logic_instance.body_dna_file_path)
 
     @property
     def face_board_object(self) -> bpy.types.Object | None:
@@ -689,7 +696,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
             utilities.switch_to_object_mode() # type: ignore
             # select all the objects and set their origins to the 3d cursor
             utilities.deselect_all()
-            for item in self.rig_logic_instance.output_item_list:
+            for item in self.rig_logic_instance.output_head_item_list:
                 if item.scene_object:
                     item.scene_object.hide_set(False)
                     item.scene_object.select_set(True)

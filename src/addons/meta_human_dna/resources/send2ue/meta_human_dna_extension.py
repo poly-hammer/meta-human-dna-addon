@@ -86,7 +86,7 @@ class MetaHumanDna(ExtensionBase):
                 self.deselect_all()
 
                 # override the selected objects with the output item list
-                for item in instance.output_item_list:
+                for item in instance.output_head_item_list:
                     if item.scene_object and item.include:
                         # select only lod 0 and non lods -1
                         if self.get_lod_index(item.scene_object.name) in [-1, 0]:
@@ -125,7 +125,7 @@ class MetaHumanDna(ExtensionBase):
                 lods = {}
                 # determine how many lods are available and their file paths
                 lod_indexes = []
-                for item in instance.output_item_list:
+                for item in instance.output_head_item_list:
                     if item.scene_object and item.include:
                         lod_index = self.get_lod_index(item.scene_object.name)
                         if lod_index not in [0, -1] and lod_index not in lod_indexes:
@@ -149,7 +149,7 @@ class MetaHumanDna(ExtensionBase):
                     self.deselect_all()
 
                     # select the objects for the current lod
-                    for item in instance.output_item_list:
+                    for item in instance.output_head_item_list:
                         if item.scene_object and item.include:
                             if self.get_lod_index(item.scene_object.name) == lod_index:
                                 # object must be visible to be selected
