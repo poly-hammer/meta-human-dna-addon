@@ -112,10 +112,11 @@ ALTERNATE_TEXTURE_FILE_EXTENSIONS = [
 
 ALTERNATE_HEAD_TEXTURE_FILE_NAMES = {
     "head_color_map.tga": "Head_Basecolor",
+    "head_normal_map.tga": "Head_Normal",
+    "head_cavity_map.tga": "Chest_Cavity", # TODO: This is a weird convention, but this seems to be what metahuman creator names it.
     "head_cm1_color_map.tga": "Head_Basecolor_Animated_CM1",
     "head_cm2_color_map.tga": "Head_Basecolor_Animated_CM2",
     "head_cm3_color_map.tga": "Head_Basecolor_Animated_CM3",
-    "head_normal_map.tga": "Head_Normal",
     "head_wm1_normal_map.tga": "Head_Normal_Animated_WM1",
     "head_wm2_normal_map.tga": "Head_Normal_Animated_WM2",
     "head_wm3_normal_map.tga": "Head_Normal_Animated_WM3",
@@ -125,7 +126,8 @@ ALTERNATE_HEAD_TEXTURE_FILE_NAMES = {
     "teeth_normal_map.tga": "Teeth_Normal",
     "eyelashes_color_map.tga": "Eyelashes_Color",
     "body_color_map.tga": "Body_Basecolor",
-    "body_normal_map.tga": "Body_Normal"
+    "body_normal_map.tga": "Body_Normal",
+    "body_cavity_map.tga": "Body_Cavity",
 }
 
 LEGACY_ALTERNATE_HEAD_TEXTURE_FILE_NAMES = {
@@ -150,8 +152,13 @@ HEAD_MAPS = {
     "Normal_WM1": "head_wm1_normal_map.tga",
     "Normal_WM2": "head_wm2_normal_map.tga",
     "Normal_WM3": "head_wm3_normal_map.tga",
-    "Cavity_MAIN": "head_cavity_map.tga",
-    "Roughness_MAIN": "head_roughness_map.tga"
+    "Cavity_MAIN": "head_cavity_map.tga"
+}
+
+BODY_MAPS = {
+    "Color_MAIN": "body_color_map.tga",
+    "Normal_MAIN": "body_normal_map.tga",
+    "Cavity_MAIN": "body_cavity_map.tga"
 }
 
 UNREAL_EXPORTED_HEAD_MATERIAL_NAMES = [

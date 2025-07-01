@@ -465,7 +465,7 @@ class META_HUMAN_DNA_PT_rig_logic(bpy.types.Panel):
             bad_path = instance.head_dna_file_path and not Path(bpy.path.abspath(instance.head_dna_file_path)).exists()
             if not instance.head_dna_file_path or bad_path:
                 row.alert = True
-            row.prop(instance, 'dna_file_path', icon='RNA')
+            row.prop(instance, 'head_dna_file_path', icon='RNA')
             if bad_path:
                 row = box.row()
                 row.alert = True
@@ -578,13 +578,13 @@ class META_HUMAN_DNA_PT_output_panel(bpy.types.Panel):
                 align=True
             )
             col = grid.column()
-            col.label(text='Method:')
-            row = col.row()
-            row.prop(instance, 'output_method', text='')
-            col = grid.column()
             col.label(text='Component:')
             row = col.row()
             row.prop(instance, 'output_component', text='')
+            col = grid.column()
+            col.label(text='Method:')
+            row = col.row()
+            row.prop(instance, 'output_method', text='')
 
             row = self.layout.row()       
             if instance.output_component == 'head':    

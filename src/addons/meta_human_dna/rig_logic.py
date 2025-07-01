@@ -332,7 +332,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         items=[
             ('head', 'Head', 'The head component of the DNA'),
             ('body', 'Body', 'The body component of the DNA'),
-        ]
+        ],
+        update=callbacks.update_output_component
     ) # type: ignore
     output_format: bpy.props.EnumProperty(
         name='File Format',
