@@ -21,6 +21,7 @@ from ..constants import (
 )
 if TYPE_CHECKING:
     from ..components.head import MetaHumanComponentHead
+    from ..components.body import MetaHumanComponentBody
     from ..rig_logic import RigLogicInstance
 
 logger = logging.getLogger(__name__)
@@ -389,9 +390,26 @@ def get_head(name: str) -> 'MetaHumanComponentHead | None':
     properties = bpy.context.scene.meta_human_dna # type: ignore
     for instance in properties.rig_logic_instance_list:
         if instance.name == name:
-            return MetaHumanComponentHead(rig_logic_instance=instance)
+            return MetaHumanComponentHead(
+                rig_logic_instance=instance,
+                component_type='head'
+            )
         
-    logger.error(f'No existing face "{name}" was found')
+    logger.error(f'No existing head "{name}" was found')
+
+def get_body(name: str) -> 'MetaHumanComponentBody | None':
+    # avoid circular import
+    from ..components.body import MetaHumanComponentBody
+    
+    properties = bpy.context.scene.meta_human_dna # type: ignore
+    for instance in properties.rig_logic_instance_list:
+        if instance.name == name:
+            return MetaHumanComponentBody(
+                rig_logic_instance=instance,
+                component_type='body'
+            )
+
+    logger.error(f'No existing body "{name}" was found')
 
 def get_active_head() -> 'MetaHumanComponentHead | None':
     """
@@ -402,7 +420,17 @@ def get_active_head() -> 'MetaHumanComponentHead | None':
         index = properties.rig_logic_instance_list_active_index
         instance = properties.rig_logic_instance_list[index]
         return get_head(instance.name)
-    
+
+def get_active_body() -> 'MetaHumanComponentBody | None':
+    """
+    Gets the active body object.
+    """
+    properties = bpy.context.scene.meta_human_dna # type: ignore
+    if len(properties.rig_logic_instance_list) > 0:
+        index = properties.rig_logic_instance_list_active_index
+        instance = properties.rig_logic_instance_list[index]
+        return get_body(instance.name)
+
 def move_to_collection(
         scene_objects: list[bpy.types.Object], 
         collection_name: str,

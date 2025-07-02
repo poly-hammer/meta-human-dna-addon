@@ -12,10 +12,12 @@ from ..utilities import preserve_context
 from ..rig_logic import RigLogicInstance
 from .misc import get_dna_writer, get_dna_reader
 from ..bindings import riglogic
+from ..exceptions import InvalidComponentTypeError
 from ..constants import (
     SCALE_FACTOR, 
     TOPO_GROUP_PREFIX,
-    EXTRA_BONES
+    EXTRA_BONES,
+    ComponentType
 )
 
 logger = logging.getLogger(__name__)
@@ -29,6 +31,7 @@ class DNAExporter:
             bones: bool = True,
             vertex_colors: bool = True,
             file_name: str | None = None,
+            component_type: ComponentType | None = None,
             reader: 'riglogic.BinaryStreamReader | None' = None
         ):
         self._instance = instance
@@ -38,19 +41,22 @@ class DNAExporter:
         self._include_meshes = meshes
         self._include_bones = bones
         self._include_vertex_colors = vertex_colors
+        self._component_type = component_type or instance.output_component
 
         self._output_folder = Path(bpy.path.abspath(instance.output_folder_path))
-        
-        if self._instance.output_component == 'head':
-            self._source_dna_file = Path(bpy.path.abspath(instance.head_dna_file_path))
-        elif self._instance.output_component == 'body':
-            self._source_dna_file = Path(bpy.path.abspath(instance.body_dna_file_path))
+
+        if self._component_type == 'head':
+            self.source_dna_file = Path(bpy.path.abspath(instance.head_dna_file_path))
+        elif self._component_type == 'body':
+            self.source_dna_file = Path(bpy.path.abspath(instance.body_dna_file_path))
+        else:
+            raise InvalidComponentTypeError(self._component_type)
 
         self._target_dna_file = Path(bpy.path.abspath(instance.output_folder_path)) / (file_name or f'{instance.name}.dna')
 
         # Open a read to the source DNA file if an existing reader is not provided
         if not reader:
-            self._dna_reader = get_dna_reader(file_path=self._source_dna_file)
+            self._dna_reader = get_dna_reader(file_path=self.source_dna_file)
         else:
             self._dna_reader = reader
 
@@ -66,10 +72,20 @@ class DNAExporter:
             None
         )
 
-        # The head mesh is always the first mesh in the DNA file
-        self._export_lods = {
-            0: [(instance.head_mesh, 0)]
-        }
+        # The head and body mesh are always the first mesh in the DNA file
+        if self._component_type == 'head':
+            self._export_lods = {
+                0: [(instance.head_mesh, 0)]
+            }
+            self._extra_bones = EXTRA_BONES
+        elif self._component_type == 'body':
+            self._export_lods = {
+                0: [(instance.body_mesh, 0)]
+            }
+            self._extra_bones = []
+        else:
+            raise InvalidComponentTypeError(self._component_type)
+        
         self._mesh_indices = [0]
         self._rig_object = instance.head_rig
         self._non_lod_mesh_objects = []
@@ -82,10 +98,10 @@ class DNAExporter:
         output_items = []
         main_mesh_object = None
 
-        if self._instance.output_component == 'head':
+        if self._component_type == 'head':
             output_items = self._instance.output_head_item_list
             main_mesh_object = self._instance.head_mesh
-        elif self._instance.output_component == 'body':
+        elif self._component_type == 'body':
             output_items = self._instance.output_body_item_list
             main_mesh_object = self._instance.body_mesh
 
@@ -216,7 +232,8 @@ class DNAExporter:
     @staticmethod
     @preserve_context
     def get_bone_transforms(
-            armature_object: bpy.types.Object
+            armature_object: bpy.types.Object,
+            extra_bones: list[tuple[str, dict]] = EXTRA_BONES,
         ) -> tuple[
             list[int],
             list[str],
@@ -243,7 +260,7 @@ class DNAExporter:
         utilities.switch_to_bone_edit_mode(armature_object)
 
         # Remove the extra bones from the list of bones
-        ignored_bone_names = [i for i, _ in EXTRA_BONES]
+        ignored_bone_names = [i for i, _ in extra_bones]
         edit_bones = [i for i in armature_object.data.edit_bones if i.name not in ignored_bone_names] # type: ignore
         for index, edit_bone in enumerate(edit_bones): # type: ignore
             if index == 0:
@@ -508,7 +525,8 @@ class DNAExporter:
         # self._dna_writer.setLODCount(len(self._export_lods.keys()))
 
         bone_indices, bone_names, hierarchy, is_leaf, translations, rotations = self.get_bone_transforms(
-            armature_object=self._rig_object
+            armature_object=self._rig_object,
+            extra_bones=self._extra_bones
         )
 
         # Set the bone data

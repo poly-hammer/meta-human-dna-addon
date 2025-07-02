@@ -26,6 +26,7 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
         # set the references on the rig logic instance
         self.rig_logic_instance.body_mesh = self.body_mesh_object
         self.rig_logic_instance.body_rig = self.body_rig_object
+        self.rig_logic_instance.body_dna_file_path = str(self.dna_importer.source_dna_file)
 
         if self.body_rig_object and self.body_mesh_object:
             utilities.set_body_bone_collections(

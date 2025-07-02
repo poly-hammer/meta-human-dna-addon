@@ -308,8 +308,8 @@ class META_HUMAN_DNA_PT_armature_utilities_sub_panel(bpy.types.Panel):
             # split.operator('meta_human_dna.push_bones_forward_along_normals', text='', icon='ADD')
             row = self.layout.row()
             row.label(text='Transform and Apply Selected Bones:')
-            row = self.layout.row()
-            row.operator('meta_human_dna.sync_with_body_in_blueprint', text='Sync with Body in Blueprint')
+            # row = self.layout.row()
+            # row.operator('meta_human_dna.sync_with_body_in_blueprint', text='Sync with Body in Blueprint')
             row = self.layout.row()
             row.operator('meta_human_dna.mirror_selected_bones', text='Mirror Selected Bones')
             row = self.layout.row()
@@ -460,27 +460,47 @@ class META_HUMAN_DNA_PT_rig_logic(bpy.types.Panel):
             box = row.box()
             row = box.row()
             row.label(text='Rig Logic Instance:')
-            row = box.row()
+            # draw the head box
+            head_box = box.box()
+            row = head_box.row()
             row.alert = False
             bad_path = instance.head_dna_file_path and not Path(bpy.path.abspath(instance.head_dna_file_path)).exists()
             if not instance.head_dna_file_path or bad_path:
                 row.alert = True
             row.prop(instance, 'head_dna_file_path', icon='RNA')
             if bad_path:
-                row = box.row()
+                row = head_box.row()
                 row.alert = True
                 row.label(text='DNA File not found on disk.', icon='ERROR')
-            row = box.row()
+            row = head_box.row()
             row.alert = False
             if not instance.face_board:
                 row.alert = True
             row.prop(instance, 'face_board', icon='PIVOT_BOUNDBOX')
-            row = box.row()
+            row = head_box.row()
             row.prop(instance, 'head_mesh', icon='OUTLINER_OB_MESH')
-            row = box.row()
+            row = head_box.row()
             row.prop(instance, 'head_rig', icon='OUTLINER_OB_ARMATURE')
-            row = box.row()
+            row = head_box.row()
             row.prop(instance, 'head_material', icon='MATERIAL')
+            # draw the body box
+            body_box = box.box()
+            row = body_box.row()
+            row.alert = False
+            bad_path = instance.body_dna_file_path and not Path(bpy.path.abspath(instance.body_dna_file_path)).exists()
+            if not instance.body_dna_file_path or bad_path:
+                row.alert = True
+            row.prop(instance, 'body_dna_file_path', icon='RNA')
+            if bad_path:
+                row = body_box.row()
+                row.alert = True
+                row.label(text='DNA File not found on disk.', icon='ERROR')
+            row = body_box.row()
+            row.prop(instance, 'body_mesh', icon='OUTLINER_OB_MESH')
+            row = body_box.row()
+            row.prop(instance, 'body_rig', icon='OUTLINER_OB_ARMATURE')
+            row = body_box.row()
+            row.prop(instance, 'body_material', icon='MATERIAL')
             row = box.row()
             row.operator('meta_human_dna.force_evaluate', icon='FILE_REFRESH')
 
@@ -736,5 +756,9 @@ class META_HUMAN_DNA_PT_buttons_sub_panel(bpy.types.Panel):
                 row.enabled = False
             row.scale_y = 2.0
             row.operator('meta_human_dna.export_to_disk', icon='EXPORT')
-            row.operator('meta_human_dna.send_to_unreal', icon='UV_SYNC_SELECT')
+            row.operator(
+                'meta_human_dna.send_to_meta_human_creator', 
+                icon='UV_SYNC_SELECT',
+                text='MetaHuman Creator'
+            )
 

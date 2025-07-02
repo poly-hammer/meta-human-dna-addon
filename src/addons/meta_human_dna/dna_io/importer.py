@@ -42,17 +42,17 @@ class DNAImporter:
         self._linear_modifier = linear_modifier
 
         if component_type == 'head':
-            self._source_dna_file = Path(bpy.path.abspath(str(dna_file_path) or instance.head_dna_file_path))
+            self.source_dna_file = Path(bpy.path.abspath(str(dna_file_path) or instance.head_dna_file_path))
         elif component_type == 'body':
-            self._source_dna_file = Path(bpy.path.abspath(str(dna_file_path) or instance.body_dna_file_path))
+            self.source_dna_file = Path(bpy.path.abspath(str(dna_file_path) or instance.body_dna_file_path))
 
         # Determine the file format of the DNA file
-        file_format = 'binary' if (dna_file_path or self._source_dna_file).suffix.lower() == ".dna" else 'json'
+        file_format = 'binary' if (dna_file_path or self.source_dna_file).suffix.lower() == ".dna" else 'json'
 
         # Open a read to a DNA file if an existing reader is not provided
         if not reader:
             self._dna_reader = get_dna_reader(
-                file_path=self._source_dna_file, 
+                file_path=self.source_dna_file, 
                 file_format=file_format
             )
         else:
@@ -145,7 +145,7 @@ class DNAImporter:
 
         # Avoid loading the vertex colors multiple times
         if not self._vertex_color_data:
-            vertex_colors_file = self._source_dna_file.parent / f"{self._prefix}_{MESH_VERTEX_COLORS_FILE_NAME}"
+            vertex_colors_file = self.source_dna_file.parent / f"{self._prefix}_{MESH_VERTEX_COLORS_FILE_NAME}"
             if not vertex_colors_file.exists():
                 vertex_colors_file = MESH_VERTEX_COLORS_FILE_PATH
                 self._default_vertex_color_layout = True
@@ -636,4 +636,4 @@ class DNAImporter:
         if errors:
             return False, "\n".join(errors)
         
-        return True, f'Imported "{self._source_dna_file.stem}.dna" successfully!'
+        return True, f'Imported "{self.source_dna_file.stem}.dna" successfully!'

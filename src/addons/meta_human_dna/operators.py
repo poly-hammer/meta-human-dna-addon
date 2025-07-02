@@ -667,6 +667,68 @@ class OpenMetricsCollectionAgreement(bpy.types.Operator):
         import webbrowser
         webbrowser.open(ToolInfo.METRICS_COLLECTION_AGREEMENT)
         return {'FINISHED'}
+    
+class SendToMetaHumanCreator(bpy.types.Operator):
+    """Exports the MetaHuman DNA head and body components, as well as, textures in a format supported by MetaHuman Creator."""
+    bl_idname = "meta_human_dna.send_to_meta_human_creator"
+    bl_label = "Send to MetaHuman Creator"
+
+    def execute(self, context):
+        instance = callbacks.get_active_rig_logic()
+        if instance:
+            for attribute_name in ['head_mesh', 'head_rig', 'body_mesh', 'body_rig']:
+                if not getattr(instance, attribute_name):
+                    self.report({'ERROR'}, f'No {attribute_name} set on in the active instance. Please ensure you have a head and body mesh and rig set before sending to MetaHuman Creator.')
+                    return {'CANCELLED'}
+
+            if not bpy.path.abspath(instance.output_folder_path) and not bpy.data.filepath:
+                self.report({'ERROR'}, 'File must be saved to use a relative path')
+                return {'CANCELLED'}
+
+            head = utilities.get_active_head()
+            body = utilities.get_active_body()
+            if not head or not body:
+                self.report({'ERROR'}, 'No active instance found. Please select an instance from the list under the RigLogic panel.')
+                return {'CANCELLED'}
+
+            last_component = None
+            for component in [head, body]:
+                dna_io_instance: DNAExporter = None # type: ignore
+                if instance.output_method == 'calibrate':
+                    dna_io_instance = DNACalibrator(
+                        instance=instance,
+                        linear_modifier=component.linear_modifier,
+                        file_name=f'{component.component_type}.dna',
+                        component_type=component.component_type
+                    )              
+                elif instance.output_method == 'overwrite':
+                    dna_io_instance = DNAExporter(
+                        instance=instance,
+                        linear_modifier=component.linear_modifier,
+                        file_name=f'{component.component_type}.dna',
+                        component_type=component.component_type
+                    )
+
+                valid, title, message, fix = dna_io_instance.run()
+                if not valid:
+                    # self.report({'ERROR'}, message)
+                    utilities.report_error(
+                        title=title,
+                        message=message,
+                        fix=fix,
+                        width=300
+                    )
+                    return {'CANCELLED'}
+                else:
+                    self.report({'INFO'}, message)
+                
+                last_component = component
+            
+            # write a manifest file to the output folder similar to the MetaHuman Creator DCC export
+            if last_component:
+                last_component.write_export_manifest()
+            
+        return {'FINISHED'}
 
 class SendToUnreal(bpy.types.Operator):
     """Exports the metahuman DNA, SkeletalMesh, and Textures, then imports them into Unreal Engine. This requires the Send to Unreal addon to be installed"""

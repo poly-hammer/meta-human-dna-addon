@@ -5,6 +5,7 @@ import json
 import math
 import logging
 from pathlib import Path
+from datetime import datetime
 from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING
 from mathutils import Vector, Matrix
@@ -74,9 +75,16 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
         self._angle_modifier = None
         self._component_type = component_type
 
+        # determine the asset root folder based on the dna file path
         self.asset_root_folder = None
         if dna_file_path:    
             self.asset_root_folder = dna_file_path.parent
+        elif rig_logic_instance:
+            if rig_logic_instance.head_dna_file_path:
+                self.asset_root_folder = Path(rig_logic_instance.head_dna_file_path).parent
+            elif rig_logic_instance.body_dna_file_path:
+                self.asset_root_folder = Path(rig_logic_instance.body_dna_file_path).parent
+
         self.rig_logic_instance: 'RigLogicInstance' = rig_logic_instance # type: ignore
         self.addon_properties = bpy.context.preferences.addons[ToolInfo.NAME].preferences # type: ignore
         self.window_manager_properties: MetahumanWindowMangerProperties = bpy.context.window_manager.meta_human_dna # type: ignore
@@ -733,6 +741,25 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
                 dna_reader=self.dna_reader,
                 only_selected=False
             )    
+
+    def write_export_manifest(self):
+        """
+        Writes the export manifest to a JSON file like MetaHuman Creator does for a DCC export.
+        """
+        from .. import bl_info
+        file_path = Path(self.rig_logic_instance.output_folder_path) / "ExportManifest.json"
+        with open(file_path, 'w') as file:
+            json.dump(
+                {
+                    "metaHumanName": self.name,
+                    "exportBlenderAddonVersion": ".".join([str(i) for i in bl_info.get('version', [])]),
+                    "exportPluginVersion": self.metadata.get('exportPluginVersion', "1.0.0"),
+                    "exportEngineVersion": self.metadata.get('exportEngineVersion', "5.6.0-0+UE5"),
+                    "exportedAt": datetime.now().strftime("%Y.%m.%d-%H.%M.%S")
+                }, 
+                file, 
+                indent=4
+            )
         
     @abstractmethod
     def export(self):

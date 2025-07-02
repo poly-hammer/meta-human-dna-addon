@@ -144,21 +144,21 @@ LEGACY_ALTERNATE_HEAD_TEXTURE_FILE_NAMES = {
 }
 
 HEAD_MAPS = {
-    "Color_MAIN": "head_color_map.tga",
-    "Color_CM1": "head_cm1_color_map.tga",
-    "Color_CM2": "head_cm2_color_map.tga",
-    "Color_CM3": "head_cm3_color_map.tga",
-    "Normal_MAIN": "head_normal_map.tga",
-    "Normal_WM1": "head_wm1_normal_map.tga",
-    "Normal_WM2": "head_wm2_normal_map.tga",
-    "Normal_WM3": "head_wm3_normal_map.tga",
-    "Cavity_MAIN": "head_cavity_map.tga"
+    "Color_MAIN": "Head_Basecolor.png",
+    "Color_CM1": "Head_Basecolor_Animated_CM1.png",
+    "Color_CM2": "Head_Basecolor_Animated_CM2.png",
+    "Color_CM3": "Head_Basecolor_Animated_CM3.png",
+    "Normal_MAIN": "Head_Normal.png",
+    "Normal_WM1": "Head_Normal_Animated_WM1.png",
+    "Normal_WM2": "Head_Normal_Animated_WM2.png",
+    "Normal_WM3": "Head_Normal_Animated_WM3.png",
+    "Cavity_MAIN": "Head_Cavity.png"
 }
 
 BODY_MAPS = {
-    "Color_MAIN": "body_color_map.tga",
-    "Normal_MAIN": "body_normal_map.tga",
-    "Cavity_MAIN": "body_cavity_map.tga"
+    "Color_MAIN": "Body_Basecolor.png",
+    "Normal_MAIN": "Body_Normal.png",
+    "Cavity_MAIN": "Body_Cavity.png"
 }
 
 UNREAL_EXPORTED_HEAD_MATERIAL_NAMES = [

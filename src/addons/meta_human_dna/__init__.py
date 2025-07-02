@@ -44,6 +44,7 @@ classes = [
     operators.AutoFitSelectedBones,
     operators.RevertBoneTransformsToDna,
     operators.ForceEvaluate,
+    operators.SendToMetaHumanCreator,
     operators.SendToUnreal,
     operators.ExportToDisk,
     operators.GenerateMaterial,
@@ -78,7 +79,7 @@ classes = [
     view_3d.META_HUMAN_DNA_PT_rig_logic,
     view_3d.META_HUMAN_DNA_PT_shape_keys,
     view_3d.META_HUMAN_DNA_PT_output_panel,
-    view_3d.META_HUMAN_DNA_PT_send2ue_settings_sub_panel,
+    # view_3d.META_HUMAN_DNA_PT_send2ue_settings_sub_panel,
     view_3d.META_HUMAN_DNA_PT_buttons_sub_panel
 ]
 
