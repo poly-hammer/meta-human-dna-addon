@@ -128,6 +128,7 @@ class DNAExporter:
             if index == -1:
                 self._non_lod_mesh_objects.append(mesh_object)
             else:
+                self._export_lods[index] = self._export_lods.get(index, [])
                 self._export_lods[index].append((mesh_object, mesh_index))
                 self._mesh_indices.append(mesh_index)
                 mesh_index += 1

@@ -406,7 +406,8 @@ class DNAImporter:
         self.set_smooth(bmesh_object)
 
         # Add vertex colors
-        if self._import_properties.import_vertex_colors:
+        # Todo: See if we can import vertex colors on all LODs.
+        if self._import_properties.import_vertex_colors and lod_index == 0 and self._component_type == 'head':
             self.set_vertex_colors(mesh_index, bmesh_object)
         
         # Add UVs

@@ -5,6 +5,7 @@ from pprint import pformat
 from pathlib import Path
 from mathutils import Matrix, Vector, Euler
 from . import utilities
+from .constants import SCALE_FACTOR
 from .ui import callbacks
 from typing import TYPE_CHECKING
 
@@ -659,7 +660,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
     def destroy(self):
         # clears these data items from the dictionary, this frees them up to be garbage collected
-        self.data.clear()        
+        self.data.clear()
         self.data['initialized'] = False
 
 
@@ -831,21 +832,27 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 values = raw_joint_output[(index * 9):matrix_index]
 
                 # extract the delta values
-                location_delta = Vector([value * 0.01 for value in values[:3]])
-                rotation_delta = Euler([math.radians(value) for value in values[3:6]])
+                location_delta = Vector([values[0]/SCALE_FACTOR, values[1]/SCALE_FACTOR, values[2]/SCALE_FACTOR])
+                rotation_delta = Euler([math.radians(values[3]), math.radians(values[4]), math.radians(values[5])])
                 scale_delta = Vector(values[6:9])
 
                 # update the transformations using the rest pose and the delta values
                 # we need to copy the vectors so we don't modify the original rest pose
-                location = rest_location.copy() + location_delta
-                rotation = rest_rotation.copy()
-                rotation.x += rotation_delta.x
-                rotation.y += rotation_delta.y
-                rotation.z += rotation_delta.z
-                scale = rest_scale.copy()
-                scale.x += scale_delta.x
-                scale.y += scale_delta.y
-                scale.z += scale_delta.z
+                location = Vector((
+                    rest_location.x + location_delta.x,
+                    rest_location.y + location_delta.y,
+                    rest_location.z + location_delta.z
+                ))
+                rotation = Euler((
+                    rest_rotation.x + rotation_delta.x,
+                    rest_rotation.y + rotation_delta.y,
+                    rest_rotation.z + rotation_delta.z
+                ))
+                scale = Vector((
+                    rest_scale.x + scale_delta.x,
+                    rest_scale.y + scale_delta.y,
+                    rest_scale.z + scale_delta.z
+                ))
 
                 # update the bone matrix
                 modified_matrix = Matrix.LocRotScale(location, rotation, scale)
@@ -879,6 +886,9 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 self.update_shape_keys()
             if self.evaluate_texture_masks:
                 self.update_texture_masks()
+
+            # clear the cached rest pose so we can re-read it next time
+            self.data['rest_pose'].clear()
 
             # turn on the dependency graph evaluation back on
             bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True # type: ignore

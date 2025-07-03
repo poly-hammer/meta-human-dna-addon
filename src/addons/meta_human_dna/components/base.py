@@ -248,7 +248,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
         return [(i, getattr(self.dna_import_properties, f'import_lod{i}')) for i in range(NUMBER_OF_HEAD_LODS)]
 
     def _organize_viewport(self):
-        if self.head_mesh_object and self.head_rig_object:
+        if self.head_rig_object:
             for mesh_object in self.head_rig_object.children:
                 if mesh_object.type == 'MESH' and 'lod0' not in mesh_object.name.lower():
                     mesh_object.hide_set(True)
@@ -262,6 +262,10 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
             )
         
         if self.body_rig_object:
+            for mesh_object in self.body_rig_object.children:
+                if mesh_object.type == 'MESH' and 'lod0' not in mesh_object.name.lower():
+                    mesh_object.hide_set(True)
+                    
             self.body_rig_object.hide_set(True)
             utilities.move_to_collection(
                 scene_objects=[self.body_rig_object],

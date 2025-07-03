@@ -750,12 +750,18 @@ class META_HUMAN_DNA_PT_buttons_sub_panel(bpy.types.Panel):
         error = valid_rig_logic_instance_exists(context, ignore_face_board=True)
         row = self.layout.row()
         if not error:
+            row.label(text='Export:')
+            row = self.layout.row()
             active_index = properties.rig_logic_instance_list_active_index
             instance = properties.rig_logic_instance_list[active_index]
             if not instance.output_folder_path:
                 row.enabled = False
             row.scale_y = 2.0
-            row.operator('meta_human_dna.export_to_disk', icon='EXPORT')
+            row.operator(
+                'meta_human_dna.export_active_component', 
+                icon='EXPORT',
+                text='Active Component'
+            )
             row.operator(
                 'meta_human_dna.send_to_meta_human_creator', 
                 icon='UV_SYNC_SELECT',

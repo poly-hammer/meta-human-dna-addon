@@ -678,7 +678,7 @@ class SendToMetaHumanCreator(bpy.types.Operator):
         if instance:
             for attribute_name in ['head_mesh', 'head_rig', 'body_mesh', 'body_rig']:
                 if not getattr(instance, attribute_name):
-                    self.report({'ERROR'}, f'No {attribute_name} set on in the active instance. Please ensure you have a head and body mesh and rig set before sending to MetaHuman Creator.')
+                    self.report({'ERROR'}, f'No {attribute_name} set on the active instance. Please ensure you have a head and body mesh and rig set before sending to MetaHuman Creator.')
                     return {'CANCELLED'}
 
             if not bpy.path.abspath(instance.output_folder_path) and not bpy.data.filepath:
@@ -832,10 +832,10 @@ class SendToUnreal(bpy.types.Operator):
     def poll(cls, context):
         return bool(getattr(context.scene, 'send2ue', False)) # type: ignore
     
-class ExportToDisk(bpy.types.Operator):
-    """Exports the metahuman DNA file to a folder on disk"""
-    bl_idname = "meta_human_dna.export_to_disk"
-    bl_label = "Export to Disk"
+class ExportActiveComponent(bpy.types.Operator):
+    """Exports the active component to a single DNA file, along with any supporting textures. The DNA file will be the name of the instance."""
+    bl_idname = "meta_human_dna.export_active_component"
+    bl_label = "Export Active Component"
 
     def execute(self, context):
         head = utilities.get_active_head()

@@ -331,9 +331,7 @@ def pre_undo(*args):
         instance.destroy()
 
 def post_undo(*args):
-    bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True # type: ignore
-    for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list: # type: ignore
-        instance.evaluate()
+    bpy.ops.meta_human_dna.force_evaluate() # type: ignore
 
 def pre_render(*args):
     pre_undo(*args)
