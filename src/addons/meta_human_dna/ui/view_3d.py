@@ -227,6 +227,11 @@ class META_HUMAN_DNA_PT_mesh_utilities_sub_panel(bpy.types.Panel):
             row = box.row()
             row.label(text='Topology Vertex Groups:')
             row = box.row()
+            row.label(text='Current Component:')
+            row = box.row()
+            row.scale_y = 1.25
+            row.prop(instance, 'mesh_topology_group_component', text='')
+            row = box.row()
             grid = row.grid_flow(
                 row_major=True, 
                 columns=2, 
@@ -238,20 +243,29 @@ class META_HUMAN_DNA_PT_mesh_utilities_sub_panel(bpy.types.Panel):
             col.enabled = bool(instance.head_mesh)
             col.label(text='Selection Mode:')
             row = col.row()
-            row.prop(instance, 'head_mesh_topology_selection_mode', text='')
+            row.prop(instance, 'mesh_topology_selection_mode', text='')
 
             col = grid.column()
             col.enabled = bool(instance.head_mesh)
             col.label(text='Set Selection:')
             row = col.row()
-            row.prop(instance, 'head_mesh_topology_groups', text='')
+            if instance.mesh_topology_group_component == 'head':
+                row.prop(instance, 'head_mesh_topology_groups', text='')
+            elif instance.mesh_topology_group_component == 'body':
+                row.prop(instance, 'body_mesh_topology_groups', text='')
+                row = box.row()
+                row.prop(instance, 'body_show_only_high_level_topology_groups', text='Filter High Level Groups')
+
 
             row = box.row()
             row.label(text='Shrink Wrap Target:')
             row = box.row()
-            row.prop(instance, 'shrink_wrap_target', text='')
+            if instance.mesh_topology_group_component == 'head':
+                row.prop(instance, 'head_shrink_wrap_target', text='')
+            elif instance.mesh_topology_group_component == 'body':
+                row.prop(instance, 'body_shrink_wrap_target', text='')
             row = box.row()
-            row.enabled = bool(instance.shrink_wrap_target)
+            row.enabled = bool(instance.head_shrink_wrap_target)
             row.operator('meta_human_dna.shrink_wrap_vertex_group')
         else:
             draw_rig_logic_instance_error(self.layout, error)

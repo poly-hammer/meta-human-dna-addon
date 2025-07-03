@@ -4,6 +4,7 @@ import json
 import math
 import bmesh
 import logging
+from pathlib import Path
 from mathutils import Vector, Matrix
 from bpy_extras.bmesh_utils import bmesh_linked_uv_islands
 from .misc import (
@@ -14,8 +15,7 @@ from .misc import (
 )
 from ..constants import (
     LOD_REGEX,
-    Axis,
-    TOPOLOGY_VERTEX_GROUPS_FILE_PATH
+    Axis
 )
 
 
@@ -464,7 +464,7 @@ def split_mesh_along_uv_islands(bmesh_object: bmesh.types.BMesh) -> dict[int, in
     return split_to_original_vert_lookup
 
 
-def save_topology_vertex_groups(mesh_object: bpy.types.Object):
+def save_topology_vertex_groups(mesh_object: bpy.types.Object, file_path: Path):
     vertex_groups = {}
     for vertex_group in mesh_object.vertex_groups:
         if vertex_group.name.startswith('TOPO_GROUP_'):
@@ -476,7 +476,7 @@ def save_topology_vertex_groups(mesh_object: bpy.types.Object):
                 ]
             ]
 
-    with open(TOPOLOGY_VERTEX_GROUPS_FILE_PATH, 'w') as file:
+    with open(file_path, 'w') as file:
         json.dump(vertex_groups, file)
 
 

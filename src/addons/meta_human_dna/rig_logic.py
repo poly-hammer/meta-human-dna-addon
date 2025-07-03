@@ -247,14 +247,16 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     ) # type: ignore
 
     # --------------------- Mesh Utilities Properties ------------------
-    head_mesh_topology_groups: bpy.props.EnumProperty(
-        name="Topology Groups",
-        items=callbacks.get_head_mesh_topology_groups,
-        description="Select the bone group to display in the 3D view",
-        options={'ANIMATABLE'},
-        update=callbacks.update_head_topology_selection
+    mesh_topology_group_component: bpy.props.EnumProperty(
+        name="Selection Mode",
+        default='head',
+        items=[
+            ('head', 'Head', 'Shows the head topology groups'),
+            ('body', 'Body', 'Shows the body topology groups'),
+        ],
+        description="Choose what component to use when selecting the head topology groups. This will determine what topology groups are shown in the selection dropdown",
     ) # type: ignore
-    head_mesh_topology_selection_mode: bpy.props.EnumProperty(
+    mesh_topology_selection_mode: bpy.props.EnumProperty(
         name="Selection Mode",
         default='isolate',
         items=[
@@ -263,11 +265,36 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         ],
         description="Choose what selection mode to use when selecting the head topology groups"
     ) # type: ignore
-    shrink_wrap_target: bpy.props.PointerProperty(
+    head_mesh_topology_groups: bpy.props.EnumProperty(
+        name="Topology Groups",
+        items=callbacks.get_head_mesh_topology_groups,
+        description="Select the bone group to display in the 3D view",
+        options={'ANIMATABLE'},
+        update=callbacks.update_head_topology_selection
+    ) # type: ignore
+    head_shrink_wrap_target: bpy.props.PointerProperty(
         type=bpy.types.Object, # type: ignore
         name='Material',
         description='The head mesh that the shrink wrap modifier will target. This is the mesh that you will wrap the head topology to',
         poll=callbacks.poll_shrink_wrap_target # type: ignore
+    ) # type: ignore
+    body_mesh_topology_groups: bpy.props.EnumProperty(
+        name="Topology Groups",
+        items=callbacks.get_body_mesh_topology_groups,
+        description="Select the bone group to display in the 3D view",
+        options={'ANIMATABLE'},
+        update=callbacks.update_body_topology_selection
+    ) # type: ignore
+    body_shrink_wrap_target: bpy.props.PointerProperty(
+        type=bpy.types.Object, # type: ignore
+        name='Material',
+        description='The body mesh that the shrink wrap modifier will target. This is the mesh that you will wrap the body topology to',
+        poll=callbacks.poll_shrink_wrap_target # type: ignore
+    ) # type: ignore
+    body_show_only_high_level_topology_groups: bpy.props.BoolProperty(
+        name="Show Only High Level Topology Groups",
+        description="Use this to only show the high level topology groups in the topology group selection dropdown. This is useful for when you have a lot of topology groups and want to focus on the high level ones",
+        default=False
     ) # type: ignore
 
     # --------------------- Armature Utilities Properties ------------------

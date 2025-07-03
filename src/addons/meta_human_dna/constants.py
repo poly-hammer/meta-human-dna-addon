@@ -42,7 +42,7 @@ BODY_TEXTURE_LOGIC_NODE_NAME = "body_texture_logic"
 BODY_TEXTURE_LOGIC_NODE_LABEL = "Body Texture Logic"
 UV_MAP_NAME = "DiffuseUV"
 VERTEX_COLOR_ATTRIBUTE_NAME = "Color"
-MESH_VERTEX_COLORS_FILE_NAME = "vertex_colors.json"
+MESH_VERTEX_COLORS_FILE_NAME = "head_vertex_colors.json"
 FLOATING_POINT_PRECISION = 0.0001
 DEFAULT_UV_TOLERANCE = 0.001
 DEFAULT_HEAD_MESH_VERTEX_POSITION_COUNT = 24408
@@ -86,7 +86,10 @@ IMAGES_FOLDER = RESOURCES_FOLDER / "images"
 MAPPINGS_FOLDER = RESOURCES_FOLDER / "mappings"
 BASE_DNA_FOLDER = RESOURCES_FOLDER / "dna"
 
-TOPOLOGY_VERTEX_GROUPS_FILE_PATH = MAPPINGS_FOLDER / "topology_vertex_groups.json"
+HEAD_TOPOLOGY_VERTEX_GROUPS_FILE_PATH = MAPPINGS_FOLDER / "head_topology_vertex_groups.json"
+
+BODY_TOPOLOGY_VERTEX_GROUPS_FILE_PATH = MAPPINGS_FOLDER / "body_topology_vertex_groups.json"
+
 MESH_VERTEX_COLORS_FILE_PATH = MAPPINGS_FOLDER / MESH_VERTEX_COLORS_FILE_NAME
 
 MASKS_TEXTURE_FILE_PATH = IMAGES_FOLDER / MASKS_TEXTURE
@@ -181,6 +184,18 @@ FACE_GUI_EMPTIES = [
     "headGui_grp",
     "headRigging_grp",
     "eyesSetup_grp"
+]
+
+BODY_HIGH_LEVEL_TOPOLOGY_GROUPS = [
+    "torso",
+    "arm_L",
+    "arm_R",
+    "hand_R",
+    "hand_L",
+    "leg_L",
+    "leg_R",
+    "foot_L",
+    "foot_R"
 ]
 
 class BodyBoneCollection(Enum):

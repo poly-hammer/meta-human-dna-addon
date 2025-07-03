@@ -15,6 +15,7 @@ from ..constants import (
     MATERIAL_SLOT_TO_MATERIAL_INSTANCE_DEFAULTS,
     SEND2UE_FACE_SETTINGS,
     BASE_DNA_FOLDER,
+    BODY_HIGH_LEVEL_TOPOLOGY_GROUPS,
     ToolInfo
 )
 
@@ -131,8 +132,31 @@ def get_head_mesh_topology_groups(self, context):
                     )
                 )
 
+    # Sort the enum items alphabetically by their first index (the group name)
+    enum_items.sort(key=lambda x: x[0])
     return enum_items
 
+def get_body_mesh_topology_groups(self, context):
+    enum_items = []
+    instance = get_active_rig_logic()
+    if instance and instance.body_mesh:
+        for group_name in instance.body_mesh.vertex_groups.keys():
+            if group_name.startswith('TOPO_GROUP_'):
+                enum_item = (
+                    group_name, 
+                    ' '.join([i.capitalize() for i in group_name.replace('TOPO_GROUP_', '').split('_')]),
+                    f'Select vertices assigned to {group_name} on the active body mesh'
+                )
+                if self.body_show_only_high_level_topology_groups:
+                    if any(group_name.endswith(high_level) for high_level in BODY_HIGH_LEVEL_TOPOLOGY_GROUPS):
+                        enum_items.append(enum_item)
+                else:
+                    if not any(group_name.endswith(high_level) for high_level in BODY_HIGH_LEVEL_TOPOLOGY_GROUPS):
+                        enum_items.append(enum_item)
+    
+    # Sort the enum items alphabetically by their first index (the group name)
+    enum_items.sort(key=lambda x: x[0])
+    return enum_items
 
 def get_head_rig_bone_groups(self, context):
     enum_items = []   
@@ -439,11 +463,9 @@ def poll_body_mesh(self, scene_object: bpy.types.Object) -> bool:
 
 def poll_shrink_wrap_target(self, scene_object: bpy.types.Object) -> bool:
     if scene_object.type == 'MESH':
-        if scene_object.name in bpy.context.scene.objects: # type: ignore
-            # don't allow any existing head mesh that is already linked to a rig logic instance
-            if any(i.head_mesh == scene_object for i in bpy.context.scene.meta_human_dna.rig_logic_instance_list): # type: ignore
-                return False
-            return True
+        if scene_object in bpy.context.scene.objects.values(): # type: ignore
+            if scene_object not in [self.head_mesh, self.body_mesh]:
+                return True
     return False
 
 def update_head_topology_selection(self, context):
@@ -451,6 +473,12 @@ def update_head_topology_selection(self, context):
     head = get_active_head()
     if head:
         head.select_vertex_group()
+
+def update_body_topology_selection(self, context):
+    from ..utilities import get_active_body
+    body = get_active_body()
+    if body:
+        body.select_vertex_group()
 
 def update_head_rig_bone_group_selection(self, context):
     from ..utilities import get_active_head

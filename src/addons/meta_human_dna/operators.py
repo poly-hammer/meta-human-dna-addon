@@ -921,8 +921,11 @@ class ShrinkWrapVertexGroup(bpy.types.Operator):
 
     def execute(self, context):
         head = utilities.get_active_head()
-        if head:
+        body = utilities.get_active_body()
+        if head and head.rig_logic_instance.mesh_topology_group_component == 'head':
             head.shrink_wrap_vertex_group()
+        elif body and body.rig_logic_instance.mesh_topology_group_component == 'body':
+            body.shrink_wrap_vertex_group()
         return {'FINISHED'}
     
 class AutoFitSelectedBones(bpy.types.Operator):

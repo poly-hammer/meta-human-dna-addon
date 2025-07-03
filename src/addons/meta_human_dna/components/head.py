@@ -13,7 +13,7 @@ from ..dna_io import (
     DNAExporter
 )
 from ..constants import (
-    TOPOLOGY_VERTEX_GROUPS_FILE_PATH,
+    HEAD_TOPOLOGY_VERTEX_GROUPS_FILE_PATH,
     TOPO_GROUP_PREFIX,
     EXTRA_BONES,
     UNREAL_EXPORTED_HEAD_MATERIAL_NAMES,
@@ -230,7 +230,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
             return
 
         if self.head_mesh_object:
-            with open(TOPOLOGY_VERTEX_GROUPS_FILE_PATH, 'r') as file:
+            with open(HEAD_TOPOLOGY_VERTEX_GROUPS_FILE_PATH, 'r') as file:
                 data = json.load(file)
                 logger.info("Creating topology vertex groups...")
                 for vertex_group_name, vertex_indexes in data.items():
@@ -250,7 +250,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
             utilities.select_vertex_group(
                 mesh_object=self.rig_logic_instance.head_mesh,
                 vertex_group_name=self.rig_logic_instance.head_mesh_topology_groups,
-                add=self.rig_logic_instance.head_mesh_topology_selection_mode == 'add'
+                add=self.rig_logic_instance.mesh_topology_selection_mode == 'add'
             )
 
     def select_bone_group(self):
@@ -312,7 +312,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
                 modifier.wrap_method = 'PROJECT'
                 modifier.use_negative_direction = True
 
-            modifier.target = self.rig_logic_instance.shrink_wrap_target
+            modifier.target = self.rig_logic_instance.head_shrink_wrap_target
             modifier.vertex_group = self.rig_logic_instance.head_mesh_topology_groups
             # toggle the visibility of the modifier
             modifier.show_viewport = not modifier.show_viewport
