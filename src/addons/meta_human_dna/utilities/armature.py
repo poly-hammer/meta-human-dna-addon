@@ -478,22 +478,22 @@ def auto_fit_bones(
         factor=1.0,
         only_bone_names=bone_names, # type: ignore
     )
-    for bone_name, (head, tail) in result['bone_positions'].items():
-        edit_bone = armature_object.data.edit_bones.get(bone_name) # type: ignore
-        if edit_bone:
-            edit_bone.head = Vector(head)
-            edit_bone.tail = Vector(tail)
-    for bone_name, delta in result['bone_deltas']:
-        edit_bone = armature_object.data.edit_bones.get(bone_name) # type: ignore
-        if edit_bone:
-            edit_bone.head += Vector(delta)
-            edit_bone.tail += Vector(delta)
-    for data in result['mesh_deltas']:
-        update_vertex_positions(
-            mesh_object=bpy.data.objects[data['name']],
-            vertex_indices=data['vertex_indices'],
-            offset=Vector(data['offset'])
-        )
-    
-
-    
+    if result:
+        for bone_name, (head, tail) in result['bone_positions'].items():
+            edit_bone = armature_object.data.edit_bones.get(bone_name) # type: ignore
+            if edit_bone:
+                edit_bone.head = Vector(head)
+                edit_bone.tail = Vector(tail)
+        for bone_name, delta in result['bone_deltas']:
+            edit_bone = armature_object.data.edit_bones.get(bone_name) # type: ignore
+            if edit_bone:
+                edit_bone.head += Vector(delta)
+                edit_bone.tail += Vector(delta)
+        for data in result['mesh_deltas']:
+            update_vertex_positions(
+                mesh_object=bpy.data.objects[data['name']],
+                vertex_indices=data['vertex_indices'],
+                offset=Vector(data['offset'])
+            )
+    else:
+        logger.error('Auto-fitting failed. Please check the input data.')

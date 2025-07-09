@@ -8,13 +8,13 @@ from pathlib import Path
 from datetime import datetime
 from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING
-from mathutils import Vector, Matrix
+from mathutils import Matrix
 from ..dna_io import (
     get_dna_reader, 
-    DNAImporter,
-    DNAExporter
+    DNAImporter
 )
 from .. import utilities
+from ..utilities import preserve_context
 from ..constants import (
     ToolInfo,
     ComponentType,
@@ -41,6 +41,7 @@ from ..constants import (
     ALTERNATE_HEAD_TEXTURE_FILE_NAMES,
     LEGACY_ALTERNATE_HEAD_TEXTURE_FILE_NAMES,
     ALTERNATE_TEXTURE_FILE_EXTENSIONS,
+    UNREAL_EXPORTED_HEAD_MATERIAL_NAMES,
     DEFAULT_UV_TOLERANCE
 )
 
@@ -66,7 +67,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
             component_type: ComponentType = 'head'
         ):
         # make sure dna file path is a Path object
-        dna_file_path = Path(dna_file_path) if dna_file_path else None
+        dna_file_path = Path(bpy.path.abspath(str(dna_file_path))) if dna_file_path else None
 
         assert rig_logic_instance or dna_file_path, \
             f"Either rig_logic_instance or dna_file_path must be provided to {self.__class__.__name__}!"
@@ -165,9 +166,9 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
     @property
     def dna_file_path(self) -> Path: # type: ignore
         if self._component_type == 'head':
-            return Path(self.rig_logic_instance.head_dna_file_path)
+            return Path(bpy.path.abspath(self.rig_logic_instance.head_dna_file_path))
         elif self._component_type == 'body':
-            return Path(self.rig_logic_instance.body_dna_file_path)
+            return Path(bpy.path.abspath(self.rig_logic_instance.body_dna_file_path))
 
     @property
     def face_board_object(self) -> bpy.types.Object | None:
@@ -476,6 +477,14 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
                         
         logger.error(f'Could not find bone {to_bone_name}')
 
+    def _delete_rig_logic_instance(self):
+        if not self.rig_logic_instance.head_mesh and not self.rig_logic_instance.head_rig and not self.rig_logic_instance.body_mesh and not self.rig_logic_instance.body_rig:
+            my_list = self.scene_properties.rig_logic_instance_list
+            active_index = self.scene_properties.rig_logic_instance_list_active_index
+            my_list.remove(active_index)
+            to_index = min(active_index, len(my_list) - 1)
+            self.scene_properties.rig_logic_instance_list_active_index = to_index # type: ignore
+
     def import_materials(self):
         if self.dna_import_properties and not self.dna_import_properties.import_materials:
             return
@@ -680,71 +689,31 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
 
         return True, 'Bones mirrored successfully!'
     
-    @abstractmethod
-    def ingest(self) -> tuple[bool, str]:        
-        pass
+    @preserve_context
+    def pre_convert_mesh_cleanup(self, mesh_object: bpy.types.Object) -> bpy.types.Object | None:
+        mesh_object_name = mesh_object.name
+        mesh_name = mesh_object.data.name # type: ignore
+        head_material_name = None
+        for material in mesh_object.data.materials: # type: ignore
+            if material.name in UNREAL_EXPORTED_HEAD_MATERIAL_NAMES: # type: ignore
+                head_material_name = material.name # type: ignore
 
-    @abstractmethod
-    def convert(self, mesh_object: bpy.types.Object):
-        from ..bindings import meta_human_dna_core
-        if self.head_mesh_object and self.face_board_object and self.head_rig_object:
-            target_center = utilities.get_bounding_box_center(mesh_object)
-            head_center = utilities.get_bounding_box_center(self.head_mesh_object)
-            delta = target_center - head_center
-
-            # translate the head rig and the face board
-            self.face_board_object.location += delta
-
-            # must be unhidden to switch to edit bone mode
-            self.head_rig_object.hide_set(False) # type: ignore
-            utilities.switch_to_bone_edit_mode(self.head_rig_object)
-            # adjust the root bone so the root bone is still at zero
-            root_bone = self.head_rig_object.data.edit_bones.get('root') # type: ignore
-            if root_bone:
-                root_bone.head.z -= delta.z
-                root_bone.tail.z -= delta.z
-
-            # adjust the head rig origin to zero
-            utilities.switch_to_object_mode() # type: ignore
-            # select all the objects and set their origins to the 3d cursor
-            utilities.deselect_all()
-            for item in self.rig_logic_instance.output_head_item_list:
-                if item.scene_object:
-                    item.scene_object.hide_set(False)
-                    item.scene_object.select_set(True)
-                    bpy.context.view_layer.objects.active = item.scene_object # type: ignore
-            self.face_board_object.select_set(True)
-
-            bpy.context.scene.cursor.location = Vector((target_center.x, 0, 0)) # type: ignore
-            bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
-
-            from_bmesh_object = DNAExporter.get_bmesh(mesh_object=mesh_object, rotation=0)
-            from_data = {
-                'name': mesh_object.name,
-                'uv_data': DNAExporter.get_mesh_vertex_uvs(from_bmesh_object),
-                'vertex_data': DNAExporter.get_mesh_vertex_positions(from_bmesh_object)
-            }
-            to_bmesh_object = DNAExporter.get_bmesh(mesh_object=mesh_object, rotation=0)
-            to_data = {
-                'name': self.head_mesh_object.name,
-                'uv_data': DNAExporter.get_mesh_vertex_uvs(to_bmesh_object),
-                'vertex_data': DNAExporter.get_mesh_vertex_positions(to_bmesh_object),
-                'dna_reader': self.dna_reader
-            }
-
-            from_bmesh_object.free()
-            to_bmesh_object.free()
-
-            vertex_positions = meta_human_dna_core.calculate_dna_mesh_vertex_positions(from_data, to_data)
-            self.head_mesh_object.data.vertices.foreach_set("co", vertex_positions.ravel()) # type: ignore
-            self.head_mesh_object.data.update() # type: ignore
-
-            utilities.auto_fit_bones(
-                armature_object=self.head_rig_object,
-                mesh_object=self.head_mesh_object,
-                dna_reader=self.dna_reader,
-                only_selected=False
-            )    
+        # separate the head mesh by material if it has the a unreal head material
+        if head_material_name:
+            new_mesh_object = None
+            utilities.switch_to_edit_mode(mesh_object)
+            bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.mesh.separate(type='MATERIAL')
+            for separated_mesh in bpy.context.selectable_objects: # type: ignore
+                if head_material_name in [i.name for i in separated_mesh.data.materials]: # type: ignore
+                    new_mesh_object = separated_mesh
+                    new_mesh_object.name = mesh_object_name
+                    new_mesh_object.data.name = mesh_name # type: ignore
+                else:
+                    bpy.data.objects.remove(separated_mesh, do_unlink=True)
+            return new_mesh_object
+        
+        return mesh_object
 
     def write_export_manifest(self):
         """
@@ -764,6 +733,10 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
                 file, 
                 indent=4
             )
+    
+    @abstractmethod
+    def ingest(self) -> tuple[bool, str]:        
+        pass
         
     @abstractmethod
     def export(self):

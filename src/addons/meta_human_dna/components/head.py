@@ -16,7 +16,6 @@ from ..constants import (
     HEAD_TOPOLOGY_VERTEX_GROUPS_FILE_PATH,
     TOPO_GROUP_PREFIX,
     EXTRA_BONES,
-    UNREAL_EXPORTED_HEAD_MATERIAL_NAMES,
     DEFAULT_HEAD_MESH_VERTEX_POSITION_COUNT
 )
 
@@ -114,6 +113,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
             delta = target_center - head_center
 
             # translate the head rig and the face board
+            self.head_rig_object.location += delta
             self.face_board_object.location += delta
 
             # must be unhidden to switch to edit bone mode
@@ -135,6 +135,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
                     item.scene_object.select_set(True)
                     bpy.context.view_layer.objects.active = item.scene_object # type: ignore
             self.face_board_object.select_set(True)
+            self.head_rig_object.select_set(True)
 
             bpy.context.scene.cursor.location = Vector((target_center.x, 0, 0)) # type: ignore
             bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
@@ -166,32 +167,6 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
                 dna_reader=self.dna_reader,
                 only_selected=False
             )
-
-    @preserve_context
-    def pre_convert_mesh_cleanup(self, mesh_object: bpy.types.Object) -> bpy.types.Object | None:
-        mesh_object_name = mesh_object.name
-        mesh_name = mesh_object.data.name # type: ignore
-        head_material_name = None
-        for material in mesh_object.data.materials: # type: ignore
-            if material.name in UNREAL_EXPORTED_HEAD_MATERIAL_NAMES: # type: ignore
-                head_material_name = material.name # type: ignore
-
-        # separate the head mesh by material if it has the a unreal head material
-        if head_material_name:
-            new_mesh_object = None
-            utilities.switch_to_edit_mode(mesh_object)
-            bpy.ops.mesh.select_all(action='SELECT')
-            bpy.ops.mesh.separate(type='MATERIAL')
-            for separated_mesh in bpy.context.selectable_objects: # type: ignore
-                if head_material_name in [i.name for i in separated_mesh.data.materials]: # type: ignore
-                    new_mesh_object = separated_mesh
-                    new_mesh_object.name = mesh_object_name
-                    new_mesh_object.data.name = mesh_name # type: ignore
-                else:
-                    bpy.data.objects.remove(separated_mesh, do_unlink=True)
-            return new_mesh_object
-        
-        return mesh_object
     
     def constrain_to_body(self):
         if not self.rig_logic_instance.head_rig or not self.rig_logic_instance.body_rig:
@@ -219,11 +194,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
             if item.image_object:
                 bpy.data.images.remove(item.image_object, do_unlink=True)
 
-        my_list = self.scene_properties.rig_logic_instance_list
-        active_index = self.scene_properties.rig_logic_instance_list_active_index
-        my_list.remove(active_index)
-        to_index = min(active_index, len(my_list) - 1)
-        self.scene_properties.rig_logic_instance_list_active_index = to_index # type: ignore
+        self._delete_rig_logic_instance()
 
     def create_topology_vertex_groups(self):
         if not self.dna_import_properties.import_mesh:

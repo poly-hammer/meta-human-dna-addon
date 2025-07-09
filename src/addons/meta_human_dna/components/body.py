@@ -2,10 +2,12 @@ import bpy
 import json
 import logging
 from pathlib import Path
+from mathutils import Vector
 from .. import utilities
 from ..utilities import preserve_context
 from .base import MetaHumanComponentBase
 from ..constants import BODY_TOPOLOGY_VERTEX_GROUPS_FILE_PATH
+from ..dna_io import DNAExporter
 
 logger = logging.getLogger(__name__)
 
@@ -54,13 +56,75 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
 
     @preserve_context
     def convert(self, mesh_object: bpy.types.Object):
-        pass
+        from ..bindings import meta_human_dna_core
+        if self.body_mesh_object and self.body_rig_object:
+            target_center = utilities.get_bounding_box_center(mesh_object)
+            target_height = utilities.get_bounding_box_height(mesh_object)
+            body_height = utilities.get_bounding_box_height(self.body_mesh_object)
+            delta = target_height / body_height
+
+            # scale the body rig and the body mesh to match the target height
+            self.body_rig_object.scale.x *= delta
+            self.body_rig_object.scale.y *= delta
+            self.body_rig_object.scale.z *= delta
+
+            self.body_mesh_object.scale.x *= delta
+            self.body_mesh_object.scale.y *= delta
+            self.body_mesh_object.scale.z *= delta
+
+            # adjust the head rig origin to zero
+            utilities.switch_to_object_mode() # type: ignore
+            # select all the objects and set their origins to the 3d cursor
+            utilities.deselect_all()
+            for item in self.rig_logic_instance.output_body_item_list:
+                if item.scene_object:
+                    item.scene_object.hide_set(False)
+                    item.scene_object.select_set(True)
+                    bpy.context.view_layer.objects.active = item.scene_object # type: ignore
+            self.body_rig_object.select_set(True)
+
+            bpy.context.scene.cursor.location = Vector((target_center.x, 0, 0)) # type: ignore
+            bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
+
+            from_bmesh_object = DNAExporter.get_bmesh(mesh_object=mesh_object, rotation=0)
+            from_data = {
+                'name': mesh_object.name,
+                'uv_data': DNAExporter.get_mesh_vertex_uvs(from_bmesh_object),
+                'vertex_data': DNAExporter.get_mesh_vertex_positions(from_bmesh_object)
+            }
+            to_bmesh_object = DNAExporter.get_bmesh(mesh_object=mesh_object, rotation=0)
+            to_data = {
+                'name': self.body_mesh_object.name,
+                'uv_data': DNAExporter.get_mesh_vertex_uvs(to_bmesh_object),
+                'vertex_data': DNAExporter.get_mesh_vertex_positions(to_bmesh_object),
+                'dna_reader': self.dna_reader
+            }
+
+            from_bmesh_object.free()
+            to_bmesh_object.free()
+
+            vertex_positions = meta_human_dna_core.calculate_dna_mesh_vertex_positions(from_data, to_data)
+            self.body_mesh_object.data.vertices.foreach_set("co", vertex_positions.ravel()) # type: ignore
+            self.body_mesh_object.data.update() # type: ignore
+
+            # utilities.auto_fit_bones(
+            #     armature_object=self.body_rig_object,
+            #     mesh_object=self.body_mesh_object,
+            #     dna_reader=self.dna_reader,
+            #     only_selected=False
+            # )
         
     def export(self):
         pass
 
     def delete(self):
-        pass
+        for item in self.rig_logic_instance.output_body_item_list:
+            if item.scene_object:
+                bpy.data.objects.remove(item.scene_object, do_unlink=True)
+            if item.image_object:
+                bpy.data.images.remove(item.image_object, do_unlink=True)
+
+        self._delete_rig_logic_instance()
 
     def create_topology_vertex_groups(self):
         if not self.dna_import_properties.import_mesh:

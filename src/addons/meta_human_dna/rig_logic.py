@@ -247,15 +247,6 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     ) # type: ignore
 
     # --------------------- Mesh Utilities Properties ------------------
-    mesh_topology_group_component: bpy.props.EnumProperty(
-        name="Selection Mode",
-        default='head',
-        items=[
-            ('head', 'Head', 'Shows the head topology groups'),
-            ('body', 'Body', 'Shows the body topology groups'),
-        ],
-        description="Choose what component to use when selecting the head topology groups. This will determine what topology groups are shown in the selection dropdown",
-    ) # type: ignore
     mesh_topology_selection_mode: bpy.props.EnumProperty(
         name="Selection Mode",
         default='isolate',
