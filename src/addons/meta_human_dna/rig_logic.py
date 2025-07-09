@@ -5,6 +5,7 @@ from pprint import pformat
 from pathlib import Path
 from mathutils import Matrix, Vector, Euler
 from . import utilities
+from .constants import SCALE_FACTOR
 from .ui import callbacks
 from typing import TYPE_CHECKING
 
@@ -60,7 +61,7 @@ def stop_listening():
 def start_listening():
     stop_listening()
     logging.info('Listening for Rig Logic...')
-    callbacks.update_output_items(None, bpy.context)
+    callbacks.update_head_output_items(None, bpy.context)
     bpy.app.handlers.depsgraph_update_post.append(rig_logic_listener) # type: ignore
     bpy.app.handlers.frame_change_post.append(rig_logic_listener) # type: ignore
 
@@ -149,58 +150,63 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         name='Evaluate Texture Masks',
         description='Whether to evaluate texture masks based on the face board controls'
     ) # type: ignore
-    dna_file_path: bpy.props.StringProperty(
-        name="DNA File",
-        description="The path to the DNA file that rig logic reads from when evaluating the face board controls",
-        subtype='FILE_PATH'
-    ) # type: ignore
     face_board: bpy.props.PointerProperty(
         type=bpy.types.Object, # type: ignore
         name='Face Board',
         description='The face board that rig logic reads control positions from',
         poll=callbacks.poll_face_boards # type: ignore
     ) # type: ignore
+    head_dna_file_path: bpy.props.StringProperty(
+        name="Head DNA File",
+        description="The path to the head DNA file that rig logic reads from when evaluating the face board controls",
+        subtype='FILE_PATH'
+    ) # type: ignore
     head_mesh: bpy.props.PointerProperty(
         type=bpy.types.Object, # type: ignore
         name='Head Mesh',
         description='The head mesh with the shape keys that rig logic will evaluate',
         poll=callbacks.poll_head_mesh, # type: ignore
-        update=callbacks.update_output_items
+        update=callbacks.update_head_output_items
     ) # type: ignore
     head_rig: bpy.props.PointerProperty(
         type=bpy.types.Object, # type: ignore
         name='Head Rig',
         description='The armature object that rig logic will evaluate',
         poll=callbacks.poll_head_rig, # type: ignore
-        update=callbacks.update_output_items
+        update=callbacks.update_head_output_items
     ) # type: ignore
     head_material: bpy.props.PointerProperty(
         type=bpy.types.Material, # type: ignore
         name='Head Material',
         description='The head material that has a node with wrinkle map sliders that rig logic will evaluate',
         poll=callbacks.poll_head_materials, # type: ignore
-        update=callbacks.update_output_items
+        update=callbacks.update_head_output_items
+    ) # type: ignore
+    body_dna_file_path: bpy.props.StringProperty(
+        name="Body DNA File",
+        description="The path to the body DNA file",
+        subtype='FILE_PATH'
     ) # type: ignore
     body_mesh: bpy.props.PointerProperty(
         type=bpy.types.Object, # type: ignore
         name='Body Mesh',
         description='The body mesh',
         poll=callbacks.poll_body_mesh, # type: ignore
-        update=callbacks.update_output_items
+        update=callbacks.update_body_output_items
     ) # type: ignore
     body_rig: bpy.props.PointerProperty(
         type=bpy.types.Object, # type: ignore
         name='Body Rig',
         description='The armature object for the body that RBF will evaluate',
         poll=callbacks.poll_body_rig, # type: ignore
-        update=callbacks.update_output_items
+        update=callbacks.update_body_output_items
     ) # type: ignore
     body_material: bpy.props.PointerProperty(
         type=bpy.types.Material, # type: ignore
         name='Body Material',
         description='The body material',
         poll=callbacks.poll_body_materials, # type: ignore
-        update=callbacks.update_output_items
+        update=callbacks.update_body_output_items
     ) # type: ignore
 
     # ----- View Options Properties -----
@@ -241,14 +247,16 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     ) # type: ignore
 
     # --------------------- Mesh Utilities Properties ------------------
-    head_mesh_topology_groups: bpy.props.EnumProperty(
-        name="Topology Groups",
-        items=callbacks.get_head_mesh_topology_groups,
-        description="Select the bone group to display in the 3D view",
-        options={'ANIMATABLE'},
-        update=callbacks.update_head_topology_selection
+    mesh_topology_group_component: bpy.props.EnumProperty(
+        name="Selection Mode",
+        default='head',
+        items=[
+            ('head', 'Head', 'Shows the head topology groups'),
+            ('body', 'Body', 'Shows the body topology groups'),
+        ],
+        description="Choose what component to use when selecting the head topology groups. This will determine what topology groups are shown in the selection dropdown",
     ) # type: ignore
-    head_mesh_topology_selection_mode: bpy.props.EnumProperty(
+    mesh_topology_selection_mode: bpy.props.EnumProperty(
         name="Selection Mode",
         default='isolate',
         items=[
@@ -257,11 +265,36 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         ],
         description="Choose what selection mode to use when selecting the head topology groups"
     ) # type: ignore
-    shrink_wrap_target: bpy.props.PointerProperty(
+    head_mesh_topology_groups: bpy.props.EnumProperty(
+        name="Topology Groups",
+        items=callbacks.get_head_mesh_topology_groups,
+        description="Select the bone group to display in the 3D view",
+        options={'ANIMATABLE'},
+        update=callbacks.update_head_topology_selection
+    ) # type: ignore
+    head_shrink_wrap_target: bpy.props.PointerProperty(
         type=bpy.types.Object, # type: ignore
         name='Material',
         description='The head mesh that the shrink wrap modifier will target. This is the mesh that you will wrap the head topology to',
         poll=callbacks.poll_shrink_wrap_target # type: ignore
+    ) # type: ignore
+    body_mesh_topology_groups: bpy.props.EnumProperty(
+        name="Topology Groups",
+        items=callbacks.get_body_mesh_topology_groups,
+        description="Select the bone group to display in the 3D view",
+        options={'ANIMATABLE'},
+        update=callbacks.update_body_topology_selection
+    ) # type: ignore
+    body_shrink_wrap_target: bpy.props.PointerProperty(
+        type=bpy.types.Object, # type: ignore
+        name='Material',
+        description='The body mesh that the shrink wrap modifier will target. This is the mesh that you will wrap the body topology to',
+        poll=callbacks.poll_shrink_wrap_target # type: ignore
+    ) # type: ignore
+    body_show_only_high_level_topology_groups: bpy.props.BoolProperty(
+        name="Show Only High Level Topology Groups",
+        description="Use this to only show the high level topology groups in the topology group selection dropdown. This is useful for when you have a lot of topology groups and want to focus on the high level ones",
+        default=False
     ) # type: ignore
 
     # --------------------- Armature Utilities Properties ------------------
@@ -319,6 +352,16 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             ('calibrate', 'Calibrate', 'Uses the original dna file and calibrates the included bones and mesh changes into a new dna file. Use this method if your vert indices and bone names are the same as the original DNA. This is the recommended method', 'NONE', 0),
             ('overwrite', 'Overwrite', '(Experimental, and not fully functional yet) Uses the original dna file and overwrites the dna data based on the current mesh and armature data in the scene. Use this method if your vert indices and bone names are different from the original DNA. Only use this method when calibration method is not possible', 'ERROR', 1),
         ]
+    ) # type: ignore
+    output_component: bpy.props.EnumProperty(
+        name='DNA Output Component',
+        description='Which component to output use when creating the dna file',
+        default='head',
+        items=[
+            ('head', 'Head', 'The head component of the DNA'),
+            ('body', 'Body', 'The body component of the DNA'),
+        ],
+        update=callbacks.update_output_component
     ) # type: ignore
     output_format: bpy.props.EnumProperty(
         name='File Format',
@@ -403,8 +446,10 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     shape_key_list: bpy.props.CollectionProperty(type=ShapeKeyData) # type: ignore
     shape_key_list_active_index: bpy.props.IntProperty() # type: ignore
 
-    output_item_list: bpy.props.CollectionProperty(type=OutputData) # type: ignore
-    output_item_active_index: bpy.props.IntProperty() # type: ignore
+    output_head_item_list: bpy.props.CollectionProperty(type=OutputData) # type: ignore
+    output_head_item_active_index: bpy.props.IntProperty() # type: ignore
+    output_body_item_list: bpy.props.CollectionProperty(type=OutputData) # type: ignore
+    output_body_item_active_index: bpy.props.IntProperty() # type: ignore
     calibrate_bones: bpy.props.BoolProperty(default=True) # type: ignore
     calibrate_meshes: bpy.props.BoolProperty(default=True) # type: ignore
     calibrate_shape_keys: bpy.props.BoolProperty(default=True) # type: ignore
@@ -441,7 +486,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
     @property
     def valid(self) -> bool: 
-        dna_file_path = Path(bpy.path.abspath(self.dna_file_path))
+        dna_file_path = Path(bpy.path.abspath(self.head_dna_file_path))
         if not dna_file_path.exists():
             logger.warning(f'The DNA file path "{dna_file_path}" does not exist. The Rig Logic Instance {self.name} will not be initialized.')
             return False
@@ -613,7 +658,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         from .bindings import riglogic
         from .dna_io import get_dna_reader
         # set the dna reader
-        self.data['dna_reader'] = get_dna_reader(Path(bpy.path.abspath(self.dna_file_path)).absolute())
+        self.data['dna_reader'] = get_dna_reader(Path(bpy.path.abspath(self.head_dna_file_path)).absolute())
 
         # make sure the rig bones are using the correct rotation mode
         if self.head_rig and self.head_rig.pose:
@@ -642,7 +687,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
     def destroy(self):
         # clears these data items from the dictionary, this frees them up to be garbage collected
-        self.data.clear()        
+        self.data.clear()
         self.data['initialized'] = False
 
 
@@ -814,21 +859,27 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 values = raw_joint_output[(index * 9):matrix_index]
 
                 # extract the delta values
-                location_delta = Vector([value * 0.01 for value in values[:3]])
-                rotation_delta = Euler([math.radians(value) for value in values[3:6]])
+                location_delta = Vector([values[0]/SCALE_FACTOR, values[1]/SCALE_FACTOR, values[2]/SCALE_FACTOR])
+                rotation_delta = Euler([math.radians(values[3]), math.radians(values[4]), math.radians(values[5])])
                 scale_delta = Vector(values[6:9])
 
                 # update the transformations using the rest pose and the delta values
                 # we need to copy the vectors so we don't modify the original rest pose
-                location = rest_location.copy() + location_delta
-                rotation = rest_rotation.copy()
-                rotation.x += rotation_delta.x
-                rotation.y += rotation_delta.y
-                rotation.z += rotation_delta.z
-                scale = rest_scale.copy()
-                scale.x += scale_delta.x
-                scale.y += scale_delta.y
-                scale.z += scale_delta.z
+                location = Vector((
+                    rest_location.x + location_delta.x,
+                    rest_location.y + location_delta.y,
+                    rest_location.z + location_delta.z
+                ))
+                rotation = Euler((
+                    rest_rotation.x + rotation_delta.x,
+                    rest_rotation.y + rotation_delta.y,
+                    rest_rotation.z + rotation_delta.z
+                ))
+                scale = Vector((
+                    rest_scale.x + scale_delta.x,
+                    rest_scale.y + scale_delta.y,
+                    rest_scale.z + scale_delta.z
+                ))
 
                 # update the bone matrix
                 modified_matrix = Matrix.LocRotScale(location, rotation, scale)
@@ -862,6 +913,9 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 self.update_shape_keys()
             if self.evaluate_texture_masks:
                 self.update_texture_masks()
+
+            # clear the cached rest pose so we can re-read it next time
+            self.data['rest_pose'].clear()
 
             # turn on the dependency graph evaluation back on
             bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True # type: ignore

@@ -1,5 +1,5 @@
 import sys
-from .constants import PLATFORM_NAMES
+from .constants import PLATFORM_NAMES, ComponentType
 
 
 class UnsupportedPlatformError(Exception):
@@ -30,3 +30,11 @@ class UnsupportedPythonVersionError(Exception):
 
     def __str__(self):
         return "UnsupportedPythonVersionError: " + self.message
+
+
+class InvalidComponentTypeError(Exception):
+    def __init__(self, component_type):
+        self.message = f"Invalid component type: {component_type}. Must be " + ' or '.join([f"'{i}'" for i in ComponentType.__args__]) + "."
+
+    def __str__(self):
+        return "InvalidComponentTypeError: " + self.message

@@ -21,6 +21,7 @@ from ..constants import (
 )
 if TYPE_CHECKING:
     from ..components.head import MetaHumanComponentHead
+    from ..components.body import MetaHumanComponentBody
     from ..rig_logic import RigLogicInstance
 
 logger = logging.getLogger(__name__)
@@ -330,9 +331,7 @@ def pre_undo(*args):
         instance.destroy()
 
 def post_undo(*args):
-    bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True # type: ignore
-    for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list: # type: ignore
-        instance.evaluate()
+    bpy.ops.meta_human_dna.force_evaluate() # type: ignore
 
 def pre_render(*args):
     pre_undo(*args)
@@ -389,9 +388,26 @@ def get_head(name: str) -> 'MetaHumanComponentHead | None':
     properties = bpy.context.scene.meta_human_dna # type: ignore
     for instance in properties.rig_logic_instance_list:
         if instance.name == name:
-            return MetaHumanComponentHead(rig_logic_instance=instance)
+            return MetaHumanComponentHead(
+                rig_logic_instance=instance,
+                component_type='head'
+            )
         
-    logger.error(f'No existing face "{name}" was found')
+    logger.error(f'No existing head "{name}" was found')
+
+def get_body(name: str) -> 'MetaHumanComponentBody | None':
+    # avoid circular import
+    from ..components.body import MetaHumanComponentBody
+    
+    properties = bpy.context.scene.meta_human_dna # type: ignore
+    for instance in properties.rig_logic_instance_list:
+        if instance.name == name:
+            return MetaHumanComponentBody(
+                rig_logic_instance=instance,
+                component_type='body'
+            )
+
+    logger.error(f'No existing body "{name}" was found')
 
 def get_active_head() -> 'MetaHumanComponentHead | None':
     """
@@ -402,7 +418,17 @@ def get_active_head() -> 'MetaHumanComponentHead | None':
         index = properties.rig_logic_instance_list_active_index
         instance = properties.rig_logic_instance_list[index]
         return get_head(instance.name)
-    
+
+def get_active_body() -> 'MetaHumanComponentBody | None':
+    """
+    Gets the active body object.
+    """
+    properties = bpy.context.scene.meta_human_dna # type: ignore
+    if len(properties.rig_logic_instance_list) > 0:
+        index = properties.rig_logic_instance_list_active_index
+        instance = properties.rig_logic_instance_list[index]
+        return get_body(instance.name)
+
 def move_to_collection(
         scene_objects: list[bpy.types.Object], 
         collection_name: str,
@@ -463,7 +489,7 @@ def re_create_rig_logic_instance(
     # create a new instance with the copied data
     new_instance = bpy.context.scene.meta_human_dna.rig_logic_instance_list.add() # type: ignore
     new_instance.name = new_name
-    new_instance.dna_file_path = str(new_dna_file_path)
+    new_instance.head_dna_file_path = str(new_dna_file_path)
     new_instance.face_board = face_board
     new_instance.head_mesh = head_mesh
     new_instance.head_rig = head_rig
@@ -490,7 +516,7 @@ def rename_rig_logic_instance(
     if instance.head_material:
         instance.head_material.name = instance.head_material.name.replace(old_name, new_name)
 
-    for item in instance.output_item_list:
+    for item in instance.output_head_item_list:
         if item.scene_object:
             item.scene_object.name = item.scene_object.name.replace(old_name, new_name)
         if item.image_object:
@@ -506,7 +532,7 @@ def rename_rig_logic_instance(
             collection.name = collection.name.replace(old_name, new_name)
 
 def rename_as_lod0_meshes(mesh_objects: list[bpy.types.Object]):
-    from ..ui.callbacks import get_active_rig_logic, update_output_items
+    from ..ui.callbacks import get_active_rig_logic, update_head_output_items
     instance = get_active_rig_logic()
     if instance:
         for mesh_object in mesh_objects:
@@ -517,8 +543,8 @@ def rename_as_lod0_meshes(mesh_objects: list[bpy.types.Object]):
                 mesh_object.name = f'{mesh_object.name}_lod0_mesh'
 
         # re-populate the output items
-        instance.output_item_list.clear()
-        update_output_items(None, bpy.context)
+        instance.output_head_item_list.clear()
+        update_head_output_items(None, bpy.context)
 
 def report_error(
         title: str,

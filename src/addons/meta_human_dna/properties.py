@@ -168,7 +168,7 @@ class MetahumanSceneProperties(bpy.types.PropertyGroup):
     # --------------------- riglogic properties ------------------
     rig_logic_instance_list: bpy.props.CollectionProperty(type=RigLogicInstance) # type: ignore
     rig_logic_instance_list_active_index: bpy.props.IntProperty(
-        update=callbacks.update_output_items
+        update=callbacks.update_head_output_items
     ) # type: ignore
 
 

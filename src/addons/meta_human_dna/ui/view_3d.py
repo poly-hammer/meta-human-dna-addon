@@ -9,13 +9,13 @@ def valid_rig_logic_instance_exists(context, ignore_face_board: bool = False) ->
         instance = properties.rig_logic_instance_list[active_index]
         if not instance.face_board and not ignore_face_board:
             return f'"{instance.name}" Has No Face Board set.'
-        elif not instance.dna_file_path:
+        elif not instance.head_dna_file_path:
             return f'"{instance.name}" Has No DNA File set.'
-        elif not Path(bpy.path.abspath(instance.dna_file_path)).exists():
+        elif not Path(bpy.path.abspath(instance.head_dna_file_path)).exists():
             return f'"{instance.name}" DNA File is not found on disk.'
-        elif not Path(bpy.path.abspath(instance.dna_file_path)).stem != '.dna':
+        elif not Path(bpy.path.abspath(instance.head_dna_file_path)).stem != '.dna':
             return f'"{instance.name}" DNA File must be a binary .dna file.'
-        elif instance.dna_file_path and instance.face_board:
+        elif instance.head_dna_file_path and instance.face_board:
             return ''
     else:
         return 'Missing data. Create/Import DNA data.'
@@ -227,6 +227,11 @@ class META_HUMAN_DNA_PT_mesh_utilities_sub_panel(bpy.types.Panel):
             row = box.row()
             row.label(text='Topology Vertex Groups:')
             row = box.row()
+            row.label(text='Current Component:')
+            row = box.row()
+            row.scale_y = 1.25
+            row.prop(instance, 'mesh_topology_group_component', text='')
+            row = box.row()
             grid = row.grid_flow(
                 row_major=True, 
                 columns=2, 
@@ -238,20 +243,29 @@ class META_HUMAN_DNA_PT_mesh_utilities_sub_panel(bpy.types.Panel):
             col.enabled = bool(instance.head_mesh)
             col.label(text='Selection Mode:')
             row = col.row()
-            row.prop(instance, 'head_mesh_topology_selection_mode', text='')
+            row.prop(instance, 'mesh_topology_selection_mode', text='')
 
             col = grid.column()
             col.enabled = bool(instance.head_mesh)
             col.label(text='Set Selection:')
             row = col.row()
-            row.prop(instance, 'head_mesh_topology_groups', text='')
+            if instance.mesh_topology_group_component == 'head':
+                row.prop(instance, 'head_mesh_topology_groups', text='')
+            elif instance.mesh_topology_group_component == 'body':
+                row.prop(instance, 'body_mesh_topology_groups', text='')
+                row = box.row()
+                row.prop(instance, 'body_show_only_high_level_topology_groups', text='Filter High Level Groups')
+
 
             row = box.row()
             row.label(text='Shrink Wrap Target:')
             row = box.row()
-            row.prop(instance, 'shrink_wrap_target', text='')
+            if instance.mesh_topology_group_component == 'head':
+                row.prop(instance, 'head_shrink_wrap_target', text='')
+            elif instance.mesh_topology_group_component == 'body':
+                row.prop(instance, 'body_shrink_wrap_target', text='')
             row = box.row()
-            row.enabled = bool(instance.shrink_wrap_target)
+            row.enabled = bool(instance.head_shrink_wrap_target)
             row.operator('meta_human_dna.shrink_wrap_vertex_group')
         else:
             draw_rig_logic_instance_error(self.layout, error)
@@ -308,8 +322,8 @@ class META_HUMAN_DNA_PT_armature_utilities_sub_panel(bpy.types.Panel):
             # split.operator('meta_human_dna.push_bones_forward_along_normals', text='', icon='ADD')
             row = self.layout.row()
             row.label(text='Transform and Apply Selected Bones:')
-            row = self.layout.row()
-            row.operator('meta_human_dna.sync_with_body_in_blueprint', text='Sync with Body in Blueprint')
+            # row = self.layout.row()
+            # row.operator('meta_human_dna.sync_with_body_in_blueprint', text='Sync with Body in Blueprint')
             row = self.layout.row()
             row.operator('meta_human_dna.mirror_selected_bones', text='Mirror Selected Bones')
             row = self.layout.row()
@@ -460,27 +474,47 @@ class META_HUMAN_DNA_PT_rig_logic(bpy.types.Panel):
             box = row.box()
             row = box.row()
             row.label(text='Rig Logic Instance:')
-            row = box.row()
+            # draw the head box
+            head_box = box.box()
+            row = head_box.row()
             row.alert = False
-            bad_path = instance.dna_file_path and not Path(bpy.path.abspath(instance.dna_file_path)).exists()
-            if not instance.dna_file_path or bad_path:
+            bad_path = instance.head_dna_file_path and not Path(bpy.path.abspath(instance.head_dna_file_path)).exists()
+            if not instance.head_dna_file_path or bad_path:
                 row.alert = True
-            row.prop(instance, 'dna_file_path', icon='RNA')
+            row.prop(instance, 'head_dna_file_path', icon='RNA')
             if bad_path:
-                row = box.row()
+                row = head_box.row()
                 row.alert = True
                 row.label(text='DNA File not found on disk.', icon='ERROR')
-            row = box.row()
+            row = head_box.row()
             row.alert = False
             if not instance.face_board:
                 row.alert = True
             row.prop(instance, 'face_board', icon='PIVOT_BOUNDBOX')
-            row = box.row()
+            row = head_box.row()
             row.prop(instance, 'head_mesh', icon='OUTLINER_OB_MESH')
-            row = box.row()
+            row = head_box.row()
             row.prop(instance, 'head_rig', icon='OUTLINER_OB_ARMATURE')
-            row = box.row()
+            row = head_box.row()
             row.prop(instance, 'head_material', icon='MATERIAL')
+            # draw the body box
+            body_box = box.box()
+            row = body_box.row()
+            row.alert = False
+            bad_path = instance.body_dna_file_path and not Path(bpy.path.abspath(instance.body_dna_file_path)).exists()
+            if not instance.body_dna_file_path or bad_path:
+                row.alert = True
+            row.prop(instance, 'body_dna_file_path', icon='RNA')
+            if bad_path:
+                row = body_box.row()
+                row.alert = True
+                row.label(text='DNA File not found on disk.', icon='ERROR')
+            row = body_box.row()
+            row.prop(instance, 'body_mesh', icon='OUTLINER_OB_MESH')
+            row = body_box.row()
+            row.prop(instance, 'body_rig', icon='OUTLINER_OB_ARMATURE')
+            row = body_box.row()
+            row.prop(instance, 'body_material', icon='MATERIAL')
             row = box.row()
             row.operator('meta_human_dna.force_evaluate', icon='FILE_REFRESH')
 
@@ -572,27 +606,43 @@ class META_HUMAN_DNA_PT_output_panel(bpy.types.Panel):
             instance = properties.rig_logic_instance_list[active_index]
             grid = self.layout.grid_flow(
                 row_major=True, 
-                columns=1, 
+                columns=2, 
                 even_columns=True, 
                 even_rows=True, 
                 align=True
             )
             col = grid.column()
+            col.label(text='Component:')
+            row = col.row()
+            row.prop(instance, 'output_component', text='')
+            col = grid.column()
             col.label(text='Method:')
             row = col.row()
             row.prop(instance, 'output_method', text='')
 
-            row = self.layout.row()           
-            draw_ui_list(
-                row,
-                context,
-                class_name="META_HUMAN_DNA_UL_output_items",
-                list_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].output_item_list",
-                active_index_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].output_item_active_index",
-                unique_id="output_item_list_id",
-                move_operators=False, # type: ignore
-                insertion_operators=False   
-            )
+            row = self.layout.row()       
+            if instance.output_component == 'head':    
+                draw_ui_list(
+                    row,
+                    context,
+                    class_name="META_HUMAN_DNA_UL_output_items",
+                    list_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].output_head_item_list",
+                    active_index_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].output_head_item_active_index",
+                    unique_id="output_head_item_list_id",
+                    move_operators=False, # type: ignore
+                    insertion_operators=False   
+                )
+            elif instance.output_component == 'body':
+                draw_ui_list(
+                    row,
+                    context,
+                    class_name="META_HUMAN_DNA_UL_output_items",
+                    list_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].output_body_item_list",
+                    active_index_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].output_body_item_active_index",
+                    unique_id="output_body_item_list_id",
+                    move_operators=False, # type: ignore
+                    insertion_operators=False   
+                )
             row = self.layout.row()
             row.label(text='Output Folder:')
             row = self.layout.row()
@@ -714,11 +764,21 @@ class META_HUMAN_DNA_PT_buttons_sub_panel(bpy.types.Panel):
         error = valid_rig_logic_instance_exists(context, ignore_face_board=True)
         row = self.layout.row()
         if not error:
+            row.label(text='Export:')
+            row = self.layout.row()
             active_index = properties.rig_logic_instance_list_active_index
             instance = properties.rig_logic_instance_list[active_index]
             if not instance.output_folder_path:
                 row.enabled = False
             row.scale_y = 2.0
-            row.operator('meta_human_dna.export_to_disk', icon='EXPORT')
-            row.operator('meta_human_dna.send_to_unreal', icon='UV_SYNC_SELECT')
+            row.operator(
+                'meta_human_dna.export_active_component', 
+                icon='EXPORT',
+                text='Active Component'
+            )
+            row.operator(
+                'meta_human_dna.send_to_meta_human_creator', 
+                icon='UV_SYNC_SELECT',
+                text='MetaHuman Creator'
+            )
 

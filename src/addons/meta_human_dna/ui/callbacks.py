@@ -9,11 +9,13 @@ from mathutils import Vector, Matrix, Euler
 from gpu_extras.presets import draw_circle_2d
 from ..constants import (
     HEAD_MAPS,
+    BODY_MAPS,
     POSES_FOLDER,
     NUMBER_OF_HEAD_LODS,
     MATERIAL_SLOT_TO_MATERIAL_INSTANCE_DEFAULTS,
     SEND2UE_FACE_SETTINGS,
     BASE_DNA_FOLDER,
+    BODY_HIGH_LEVEL_TOPOLOGY_GROUPS,
     ToolInfo
 )
 
@@ -62,7 +64,7 @@ def get_body_texture_logic_node(material: bpy.types.Material) -> bpy.types.Shade
         if node.type == 'GROUP':
             # Check if this is the right group node by checking one input name
             # We don't check all to avoid performance issues
-            if node.inputs.get('body_color') and node.inputs.get('body_normal'):
+            if node.inputs.get('Color_MAIN') and node.inputs.get('Normal_MAIN') and node.inputs.get('Cavity_MAIN'):
                 return node # type: ignore
 
 def get_active_material_preview(self) -> int:
@@ -130,8 +132,31 @@ def get_head_mesh_topology_groups(self, context):
                     )
                 )
 
+    # Sort the enum items alphabetically by their first index (the group name)
+    enum_items.sort(key=lambda x: x[0])
     return enum_items
 
+def get_body_mesh_topology_groups(self, context):
+    enum_items = []
+    instance = get_active_rig_logic()
+    if instance and instance.body_mesh:
+        for group_name in instance.body_mesh.vertex_groups.keys():
+            if group_name.startswith('TOPO_GROUP_'):
+                enum_item = (
+                    group_name, 
+                    ' '.join([i.capitalize() for i in group_name.replace('TOPO_GROUP_', '').split('_')]),
+                    f'Select vertices assigned to {group_name} on the active body mesh'
+                )
+                if self.body_show_only_high_level_topology_groups:
+                    if any(group_name.endswith(high_level) for high_level in BODY_HIGH_LEVEL_TOPOLOGY_GROUPS):
+                        enum_items.append(enum_item)
+                else:
+                    if not any(group_name.endswith(high_level) for high_level in BODY_HIGH_LEVEL_TOPOLOGY_GROUPS):
+                        enum_items.append(enum_item)
+    
+    # Sort the enum items alphabetically by their first index (the group name)
+    enum_items.sort(key=lambda x: x[0])
+    return enum_items
 
 def get_head_rig_bone_groups(self, context):
     enum_items = []   
@@ -438,11 +463,9 @@ def poll_body_mesh(self, scene_object: bpy.types.Object) -> bool:
 
 def poll_shrink_wrap_target(self, scene_object: bpy.types.Object) -> bool:
     if scene_object.type == 'MESH':
-        if scene_object.name in bpy.context.scene.objects: # type: ignore
-            # don't allow any existing head mesh that is already linked to a rig logic instance
-            if any(i.head_mesh == scene_object for i in bpy.context.scene.meta_human_dna.rig_logic_instance_list): # type: ignore
-                return False
-            return True
+        if scene_object in bpy.context.scene.objects.values(): # type: ignore
+            if scene_object not in [self.head_mesh, self.body_mesh]:
+                return True
     return False
 
 def update_head_topology_selection(self, context):
@@ -450,6 +473,12 @@ def update_head_topology_selection(self, context):
     head = get_active_head()
     if head:
         head.select_vertex_group()
+
+def update_body_topology_selection(self, context):
+    from ..utilities import get_active_body
+    body = get_active_body()
+    if body:
+        body.select_vertex_group()
 
 def update_head_rig_bone_group_selection(self, context):
     from ..utilities import get_active_head
@@ -463,7 +492,7 @@ def update_face_pose(self, context):
     if head:
         head.set_face_pose()
 
-def get_mesh_output_items(instance: 'RigLogicInstance') -> list[bpy.types.Object]:
+def get_head_mesh_output_items(instance: 'RigLogicInstance') -> list[bpy.types.Object]:
     mesh_objects =[]
 
     # get all mesh objects that are skinned to the head rig
@@ -476,14 +505,39 @@ def get_mesh_output_items(instance: 'RigLogicInstance') -> list[bpy.types.Object
     
     return mesh_objects
 
-def get_image_output_items(instance: 'RigLogicInstance') -> list[tuple[bpy.types.Image, str]]:
+def get_body_mesh_output_items(instance: 'RigLogicInstance') -> list[bpy.types.Object]:
+    mesh_objects =[]
+
+    # get all mesh objects that are skinned to the body rig
+    for scene_object in bpy.data.objects:
+        if scene_object.type == 'MESH':
+            for modifier in scene_object.modifiers:
+                if modifier.type == 'ARMATURE' and modifier.object == instance.body_rig: # type: ignore
+                    mesh_objects.append(scene_object)
+                    break
+    
+    return mesh_objects
+
+def get_head_image_output_items(instance: 'RigLogicInstance') -> list[tuple[bpy.types.Image, str]]:
     image_nodes = []
     if instance.head_material:
-        # Todo: Change this to be all the textures in all the materials
         head_texture_logic_node = get_head_texture_logic_node(instance.head_material)
         if head_texture_logic_node:
             for input_name, file_name in HEAD_MAPS.items():
                 node_input = head_texture_logic_node.inputs.get(input_name)
+                if node_input and node_input.links:
+                    image_node = node_input.links[0].from_node
+                    if image_node and image_node.type == 'TEX_IMAGE':
+                        image_nodes.append((image_node.image, file_name)) # type: ignore
+    return image_nodes
+
+def get_body_image_output_items(instance: 'RigLogicInstance') -> list[tuple[bpy.types.Image, str]]:
+    image_nodes = []
+    if instance.body_material:
+        body_texture_logic_node = get_body_texture_logic_node(instance.body_material)
+        if body_texture_logic_node:
+            for input_name, file_name in BODY_MAPS.items():
+                node_input = body_texture_logic_node.inputs.get(input_name)
                 if node_input and node_input.links:
                     image_node = node_input.links[0].from_node
                     if image_node and image_node.type == 'TEX_IMAGE':
@@ -505,16 +559,54 @@ def set_instance_name(self, value):
             )
         self['instance_name'] = value
 
-def update_output_items(self, context):
+def update_body_output_items(self, context):
     for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list: # type: ignore
-        if instance and instance.head_mesh and instance.head_rig:
+        if instance and instance.body_mesh and instance.body_rig:
             # update the output items for the scene objects
-            for scene_object in get_mesh_output_items(instance) + [instance.head_rig]:
-                for i in instance.output_item_list:
+            for scene_object in get_body_mesh_output_items(instance) + [instance.body_rig]:
+                for i in instance.output_body_item_list:
                     if not i.image_object and i.scene_object == scene_object:
                         break
                 else:
-                    new_item = instance.output_item_list.add()
+                    new_item = instance.output_body_item_list.add()
+                    new_item.scene_object = scene_object
+                    if scene_object == instance.body_mesh:
+                        new_item.name = 'body_lod0_mesh'
+                        new_item.editable_name = False
+                    elif scene_object == instance.body_rig:
+                        new_item.name = 'rig'
+                        new_item.editable_name = False
+                    else:
+                        new_item.name = scene_object.name.replace(f'{instance.name}_', '')
+                        new_item.editable_name = True
+
+            # update the output items for the image textures
+            for image_object, file_name in get_body_image_output_items(instance):
+                for i in instance.output_body_item_list:
+                    if not i.scene_object and i.image_object == image_object:
+                        break
+                else:
+                    new_item = instance.output_body_item_list.add()
+                    new_item.image_object = image_object
+                    new_item.name = file_name
+                    new_item.editable_name = False
+
+            # remove any output items that do not have a scene object or image object
+            for item in instance.output_body_item_list:
+                if not item.scene_object and not item.image_object: # type: ignore
+                    index = instance.output_body_item_list.find(item.name)
+                    instance.output_body_item_list.remove(index)
+
+def update_head_output_items(self, context):
+    for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list: # type: ignore
+        if instance and instance.head_mesh and instance.head_rig:
+            # update the output items for the scene objects
+            for scene_object in get_head_mesh_output_items(instance) + [instance.head_rig]:
+                for i in instance.output_head_item_list:
+                    if not i.image_object and i.scene_object == scene_object:
+                        break
+                else:
+                    new_item = instance.output_head_item_list.add()
                     new_item.scene_object = scene_object
                     if scene_object == instance.head_mesh:
                         new_item.name = 'head_lod0_mesh'
@@ -527,30 +619,35 @@ def update_output_items(self, context):
                         new_item.editable_name = True
 
             # update the output items for the image textures
-            for image_object, file_name in get_image_output_items(instance):
-                for i in instance.output_item_list:
+            for image_object, file_name in get_head_image_output_items(instance):
+                for i in instance.output_head_item_list:
                     if not i.scene_object and i.image_object == image_object:
                         break
                 else:
-                    new_item = instance.output_item_list.add()
+                    new_item = instance.output_head_item_list.add()
                     new_item.image_object = image_object
                     new_item.name = file_name
                     new_item.editable_name = False
 
             # remove any output items that do not have a scene object or image object
-            for item in instance.output_item_list:
+            for item in instance.output_head_item_list:
                 if not item.scene_object and not item.image_object: # type: ignore
-                    index = instance.output_item_list.find(item.name)
-                    instance.output_item_list.remove(index)
+                    index = instance.output_head_item_list.find(item.name)
+                    instance.output_head_item_list.remove(index)
 
     # update the material slots to instance mappings
     update_material_slot_to_instance_mapping(self, context)
+
+
+def update_output_component(self, context):
+    update_head_output_items(self, context)
+    update_body_output_items(self, context)
 
 def update_material_slot_to_instance_mapping(self, context):
     instance = get_active_rig_logic()
     if instance and instance.head_rig:
         material_slot_names = []
-        for item in instance.output_item_list:
+        for item in instance.output_head_item_list:
             if item.scene_object and item.scene_object.type == 'MESH':
                 material_slot_names.extend(list(item.scene_object.material_slots.keys()))
         

@@ -330,7 +330,7 @@ class ImportMetahumanDna(bpy.types.Operator, importer.ImportAsset, MetahumanDnaI
             self.report({'INFO'}, message)
 
         # populate the output items based on what was imported
-        callbacks.update_output_items(None, bpy.context)
+        callbacks.update_head_output_items(None, bpy.context)
         # now we can evaluate the dependency graph again
         window_manager_properties.evaluate_dependency_graph = True
 
@@ -472,7 +472,7 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
                 return {'CANCELLED'}
         
         face.ingest()
-        callbacks.update_output_items(None, bpy.context)
+        callbacks.update_head_output_items(None, bpy.context)
         face.convert(mesh_object=selected_object)
         selected_object.hide_set(True)
         # populate the output items based on what was imported
@@ -526,7 +526,10 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
         properties = context.scene.meta_human_dna # type: ignore
         if selected_object and selected_object.type == 'MESH' and selected_object.select_get():
             for instance in properties.rig_logic_instance_list:
-                for item in instance.output_item_list:
+                for item in instance.output_head_item_list:
+                    if item.scene_object == selected_object:
+                        return False
+                for item in instance.output_body_item_list:
                     if item.scene_object == selected_object:
                         return False
             else:
@@ -642,7 +645,7 @@ class TestSentry(bpy.types.Operator):
     bl_label = "Test Sentry"
 
     def execute(self, context):
-        division_by_zero = 1 / 0
+        division_by_zero = 1 / 0 # noqa: F841
         return {'FINISHED'}
     
 class OpenBuildToolDocumentation(bpy.types.Operator):
@@ -663,6 +666,68 @@ class OpenMetricsCollectionAgreement(bpy.types.Operator):
     def execute(self, context):
         import webbrowser
         webbrowser.open(ToolInfo.METRICS_COLLECTION_AGREEMENT)
+        return {'FINISHED'}
+    
+class SendToMetaHumanCreator(bpy.types.Operator):
+    """Exports the MetaHuman DNA head and body components, as well as, textures in a format supported by MetaHuman Creator."""
+    bl_idname = "meta_human_dna.send_to_meta_human_creator"
+    bl_label = "Send to MetaHuman Creator"
+
+    def execute(self, context):
+        instance = callbacks.get_active_rig_logic()
+        if instance:
+            for attribute_name in ['head_mesh', 'head_rig', 'body_mesh', 'body_rig']:
+                if not getattr(instance, attribute_name):
+                    self.report({'ERROR'}, f'No {attribute_name} set on the active instance. Please ensure you have a head and body mesh and rig set before sending to MetaHuman Creator.')
+                    return {'CANCELLED'}
+
+            if not bpy.path.abspath(instance.output_folder_path) and not bpy.data.filepath:
+                self.report({'ERROR'}, 'File must be saved to use a relative path')
+                return {'CANCELLED'}
+
+            head = utilities.get_active_head()
+            body = utilities.get_active_body()
+            if not head or not body:
+                self.report({'ERROR'}, 'No active instance found. Please select an instance from the list under the RigLogic panel.')
+                return {'CANCELLED'}
+
+            last_component = None
+            for component in [head, body]:
+                dna_io_instance: DNAExporter = None # type: ignore
+                if instance.output_method == 'calibrate':
+                    dna_io_instance = DNACalibrator(
+                        instance=instance,
+                        linear_modifier=component.linear_modifier,
+                        file_name=f'{component.component_type}.dna',
+                        component_type=component.component_type
+                    )              
+                elif instance.output_method == 'overwrite':
+                    dna_io_instance = DNAExporter(
+                        instance=instance,
+                        linear_modifier=component.linear_modifier,
+                        file_name=f'{component.component_type}.dna',
+                        component_type=component.component_type
+                    )
+
+                valid, title, message, fix = dna_io_instance.run()
+                if not valid:
+                    # self.report({'ERROR'}, message)
+                    utilities.report_error(
+                        title=title,
+                        message=message,
+                        fix=fix,
+                        width=300
+                    )
+                    return {'CANCELLED'}
+                else:
+                    self.report({'INFO'}, message)
+                
+                last_component = component
+            
+            # write a manifest file to the output folder similar to the MetaHuman Creator DCC export
+            if last_component:
+                last_component.write_export_manifest()
+            
         return {'FINISHED'}
 
 class SendToUnreal(bpy.types.Operator):
@@ -739,7 +804,7 @@ class SendToUnreal(bpy.types.Operator):
             # selection, but we need to ensure only one asset is detected with its associated lods
             included_objects = []
             head_mesh_prefix = instance.head_mesh.name.split('_lod0_mesh')[0]
-            for item in instance.output_item_list:
+            for item in instance.output_head_item_list:
                 if item.include and item.scene_object and item.scene_object.name.startswith(head_mesh_prefix):
                     included_objects.append(item.scene_object)
             
@@ -767,10 +832,10 @@ class SendToUnreal(bpy.types.Operator):
     def poll(cls, context):
         return bool(getattr(context.scene, 'send2ue', False)) # type: ignore
     
-class ExportToDisk(bpy.types.Operator):
-    """Exports the metahuman DNA file to a folder on disk"""
-    bl_idname = "meta_human_dna.export_to_disk"
-    bl_label = "Export to Disk"
+class ExportActiveComponent(bpy.types.Operator):
+    """Exports the active component to a single DNA file, along with any supporting textures. The DNA file will be the name of the instance."""
+    bl_idname = "meta_human_dna.export_active_component"
+    bl_label = "Export Active Component"
 
     def execute(self, context):
         head = utilities.get_active_head()
@@ -856,8 +921,11 @@ class ShrinkWrapVertexGroup(bpy.types.Operator):
 
     def execute(self, context):
         head = utilities.get_active_head()
-        if head:
+        body = utilities.get_active_body()
+        if head and head.rig_logic_instance.mesh_topology_group_component == 'head':
             head.shrink_wrap_vertex_group()
+        elif body and body.rig_logic_instance.mesh_topology_group_component == 'body':
+            body.shrink_wrap_vertex_group()
         return {'FINISHED'}
     
 class AutoFitSelectedBones(bpy.types.Operator):
@@ -1262,7 +1330,7 @@ class DuplicateRigLogicInstance(bpy.types.Operator):
                 new_head_mesh_object.parent = new_rig_object
 
                 # now we need to duplicate the output items
-                for item in instance.output_item_list:
+                for item in instance.output_head_item_list:
                     if item.scene_object and item.scene_object.type == 'MESH':
                         if item.scene_object == instance.head_mesh:
                             continue
@@ -1303,13 +1371,13 @@ class DuplicateRigLogicInstance(bpy.types.Operator):
                 new_rig_object.parent = instance.face_board
 
                 new_dna_file_path = new_folder / f'{self.new_name}.dna'
-                shutil.copy(instance.dna_file_path, new_dna_file_path)
+                shutil.copy(instance.head_dna_file_path, new_dna_file_path)
 
 
                 # add the duplicated instance to the list and set the initial values
                 new_instance = context.scene.meta_human_dna.rig_logic_instance_list.add() # type: ignore
                 new_instance.name = self.new_name
-                new_instance.dna_file_path = str(new_dna_file_path)
+                new_instance.head_dna_file_path = str(new_dna_file_path)
                 new_instance.active_lod = instance.active_lod
                 new_instance.active_material_preview = instance.active_material_preview
                 new_instance.face_board = instance.face_board
@@ -1431,7 +1499,7 @@ class UILIST_RIG_LOGIC_OT_entry_remove(GenericUIListOperator, bpy.types.Operator
         my_list = context.scene.meta_human_dna.rig_logic_instance_list # type: ignore
 
         instance = context.scene.meta_human_dna.rig_logic_instance_list[self.active_index] # type: ignore
-        for item in instance.output_item_list:
+        for item in instance.output_head_item_list:
             if item.scene_object:
                 bpy.data.objects.remove(item.scene_object, do_unlink=True)
             if item.image_object:

@@ -43,7 +43,7 @@ class DNACalibrator(DNAExporter, DNAImporter):
                 )
         
     def calibrate_bone_transforms(self):
-        ignored_bone_names = [i for i, _ in EXTRA_BONES]
+        ignored_bone_names = [i for i, _ in self._extra_bones]
 
         logger.info('Calibrating bones...')
         dna_x_translations = self._dna_reader.getNeutralJointTranslationXs()
@@ -58,7 +58,7 @@ class DNACalibrator(DNAExporter, DNAImporter):
             for index in range(self._dna_reader.getJointCount())
         }
 
-        _, bone_names, _, _, translations, rotations = self.get_bone_transforms(self._rig_object)
+        _, bone_names, _, _, translations, rotations = self.get_bone_transforms(self._rig_object, extra_bones=self._extra_bones)
         for bone_name, bone_translation, bone_rotation  in zip(bone_names, translations, rotations):
             if bone_name in ignored_bone_names:
                 continue

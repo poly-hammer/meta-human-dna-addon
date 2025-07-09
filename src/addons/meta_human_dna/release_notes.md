@@ -1,5 +1,13 @@
+## Major Changes
+* Removed Send to Unreal functionality and refactored for Send to MetaHuman Creator. This can now be done entirely through DNA files now. (This will be more streamlined with RPC functionality in future releases)
+
+## Minor Changes
+* MetaHuman Creator - body support [#120](https://github.com/poly-hammer/meta-human-dna-addon/issues/120)
+
 ## Patch Changes
 * Fixed Normal UV Map name on import [#126](https://github.com/poly-hammer/meta-human-dna-addon/issues/126)
+* Fixed LOD import bug [#131](https://github.com/poly-hammer/meta-human-dna-addon/issues/131)
+* Head frequently gets messed up on undo [#122](https://github.com/poly-hammer/meta-human-dna-addon/issues/122)
 
 
 > [!WARNING]  

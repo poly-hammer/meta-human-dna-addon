@@ -37,7 +37,8 @@ def get_bone_rest_transformations(
         else:
             rest_to_parent_matrix = bone.matrix_local
     except ValueError as error:
-        logger.error(f'Error getting bone rest transformation. Parent bone "{bone.parent.name}" {bone.parent.matrix_local} cannot be inverted.')
+        if bone.parent:
+            logger.error(f'Error getting bone rest transformation. Parent bone "{bone.parent.name}" {bone.parent.matrix_local} cannot be inverted.')
         raise error
 
     bone_matrix_parent_space = rest_to_parent_matrix @ Matrix.Identity(4)

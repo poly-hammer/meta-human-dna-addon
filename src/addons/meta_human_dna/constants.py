@@ -11,6 +11,7 @@ class ToolInfo:
     METRICS_COLLECTION_AGREEMENT = "https://www.polyhammer.com/dpa"
 
 Axis = Literal["X", "Y", "Z"]
+ComponentType = Literal['head', 'body']
 
 FACE_BOARD_NAME = "face_gui"
 HEAD_MATERIAL_NAME = "head_shader"
@@ -41,7 +42,7 @@ BODY_TEXTURE_LOGIC_NODE_NAME = "body_texture_logic"
 BODY_TEXTURE_LOGIC_NODE_LABEL = "Body Texture Logic"
 UV_MAP_NAME = "DiffuseUV"
 VERTEX_COLOR_ATTRIBUTE_NAME = "Color"
-MESH_VERTEX_COLORS_FILE_NAME = "vertex_colors.json"
+MESH_VERTEX_COLORS_FILE_NAME = "head_vertex_colors.json"
 FLOATING_POINT_PRECISION = 0.0001
 DEFAULT_UV_TOLERANCE = 0.001
 DEFAULT_HEAD_MESH_VERTEX_POSITION_COUNT = 24408
@@ -85,7 +86,10 @@ IMAGES_FOLDER = RESOURCES_FOLDER / "images"
 MAPPINGS_FOLDER = RESOURCES_FOLDER / "mappings"
 BASE_DNA_FOLDER = RESOURCES_FOLDER / "dna"
 
-TOPOLOGY_VERTEX_GROUPS_FILE_PATH = MAPPINGS_FOLDER / "topology_vertex_groups.json"
+HEAD_TOPOLOGY_VERTEX_GROUPS_FILE_PATH = MAPPINGS_FOLDER / "head_topology_vertex_groups.json"
+
+BODY_TOPOLOGY_VERTEX_GROUPS_FILE_PATH = MAPPINGS_FOLDER / "body_topology_vertex_groups.json"
+
 MESH_VERTEX_COLORS_FILE_PATH = MAPPINGS_FOLDER / MESH_VERTEX_COLORS_FILE_NAME
 
 MASKS_TEXTURE_FILE_PATH = IMAGES_FOLDER / MASKS_TEXTURE
@@ -111,10 +115,11 @@ ALTERNATE_TEXTURE_FILE_EXTENSIONS = [
 
 ALTERNATE_HEAD_TEXTURE_FILE_NAMES = {
     "head_color_map.tga": "Head_Basecolor",
+    "head_normal_map.tga": "Head_Normal",
+    "head_cavity_map.tga": "Chest_Cavity", # TODO: This is a weird convention, but this seems to be what metahuman creator names it.
     "head_cm1_color_map.tga": "Head_Basecolor_Animated_CM1",
     "head_cm2_color_map.tga": "Head_Basecolor_Animated_CM2",
     "head_cm3_color_map.tga": "Head_Basecolor_Animated_CM3",
-    "head_normal_map.tga": "Head_Normal",
     "head_wm1_normal_map.tga": "Head_Normal_Animated_WM1",
     "head_wm2_normal_map.tga": "Head_Normal_Animated_WM2",
     "head_wm3_normal_map.tga": "Head_Normal_Animated_WM3",
@@ -124,7 +129,8 @@ ALTERNATE_HEAD_TEXTURE_FILE_NAMES = {
     "teeth_normal_map.tga": "Teeth_Normal",
     "eyelashes_color_map.tga": "Eyelashes_Color",
     "body_color_map.tga": "Body_Basecolor",
-    "body_normal_map.tga": "Body_Normal"
+    "body_normal_map.tga": "Body_Normal",
+    "body_cavity_map.tga": "Body_Cavity",
 }
 
 LEGACY_ALTERNATE_HEAD_TEXTURE_FILE_NAMES = {
@@ -141,16 +147,21 @@ LEGACY_ALTERNATE_HEAD_TEXTURE_FILE_NAMES = {
 }
 
 HEAD_MAPS = {
-    "Color_MAIN": "head_color_map.tga",
-    "Color_CM1": "head_cm1_color_map.tga",
-    "Color_CM2": "head_cm2_color_map.tga",
-    "Color_CM3": "head_cm3_color_map.tga",
-    "Normal_MAIN": "head_normal_map.tga",
-    "Normal_WM1": "head_wm1_normal_map.tga",
-    "Normal_WM2": "head_wm2_normal_map.tga",
-    "Normal_WM3": "head_wm3_normal_map.tga",
-    "Cavity_MAIN": "head_cavity_map.tga",
-    "Roughness_MAIN": "head_roughness_map.tga"
+    "Color_MAIN": "Head_Basecolor.png",
+    "Color_CM1": "Head_Basecolor_Animated_CM1.png",
+    "Color_CM2": "Head_Basecolor_Animated_CM2.png",
+    "Color_CM3": "Head_Basecolor_Animated_CM3.png",
+    "Normal_MAIN": "Head_Normal.png",
+    "Normal_WM1": "Head_Normal_Animated_WM1.png",
+    "Normal_WM2": "Head_Normal_Animated_WM2.png",
+    "Normal_WM3": "Head_Normal_Animated_WM3.png",
+    "Cavity_MAIN": "Head_Cavity.png"
+}
+
+BODY_MAPS = {
+    "Color_MAIN": "Body_Basecolor.png",
+    "Normal_MAIN": "Body_Normal.png",
+    "Cavity_MAIN": "Body_Cavity.png"
 }
 
 UNREAL_EXPORTED_HEAD_MATERIAL_NAMES = [
@@ -173,6 +184,18 @@ FACE_GUI_EMPTIES = [
     "headGui_grp",
     "headRigging_grp",
     "eyesSetup_grp"
+]
+
+BODY_HIGH_LEVEL_TOPOLOGY_GROUPS = [
+    "torso",
+    "arm_L",
+    "arm_R",
+    "hand_R",
+    "hand_L",
+    "leg_L",
+    "leg_R",
+    "foot_L",
+    "foot_R"
 ]
 
 class BodyBoneCollection(Enum):
