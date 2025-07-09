@@ -68,7 +68,7 @@ class META_HUMAN_DNA_LODS_PT_panel(bpy.types.Panel):
             if i == 0:
                 row.enabled = False
             # bodies only have one LOD, so we don't need to show the LODs for them
-            if stem == "body" and i > 0:
+            if stem == "body" and i > 3:
                 return
             row.prop(operator, f"import_lod{i}")
             row = layout.row()
