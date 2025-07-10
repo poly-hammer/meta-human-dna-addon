@@ -59,7 +59,7 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
         return valid, message
 
     @preserve_context
-    def convert(self, mesh_object: bpy.types.Object):
+    def convert(self, mesh_object: bpy.types.Object, constrain: bool = True):
         from ..bindings import meta_human_dna_core
         if self.body_mesh_object and self.body_rig_object:
             target_center = utilities.get_bounding_box_center(mesh_object)
@@ -88,33 +88,37 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
             bpy.context.scene.cursor.location = Vector((target_center.x, 0, 0)) # type: ignore
             bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
 
-            # from_bmesh_object = DNAExporter.get_bmesh(mesh_object=mesh_object, rotation=0)
-            # from_data = {
-            #     'name': mesh_object.name,
-            #     'uv_data': DNAExporter.get_mesh_vertex_uvs(from_bmesh_object),
-            #     'vertex_data': DNAExporter.get_mesh_vertex_positions(from_bmesh_object)
-            # }
-            # to_bmesh_object = DNAExporter.get_bmesh(mesh_object=mesh_object, rotation=0)
-            # to_data = {
-            #     'name': self.body_mesh_object.name,
-            #     'uv_data': DNAExporter.get_mesh_vertex_uvs(to_bmesh_object),
-            #     'vertex_data': DNAExporter.get_mesh_vertex_positions(to_bmesh_object),
-            #     'dna_reader': self.dna_reader
-            # }
+            from_bmesh_object = DNAExporter.get_bmesh(mesh_object=mesh_object, rotation=0)
+            from_data = {
+                'name': mesh_object.name,
+                'uv_data': DNAExporter.get_mesh_vertex_uvs(from_bmesh_object),
+                'vertex_data': DNAExporter.get_mesh_vertex_positions(from_bmesh_object)
+            }
+            to_bmesh_object = DNAExporter.get_bmesh(mesh_object=mesh_object, rotation=0)
+            to_data = {
+                'name': self.body_mesh_object.name,
+                'uv_data': DNAExporter.get_mesh_vertex_uvs(to_bmesh_object),
+                'vertex_data': DNAExporter.get_mesh_vertex_positions(to_bmesh_object),
+                'dna_reader': self.dna_reader
+            }
 
-            # from_bmesh_object.free()
-            # to_bmesh_object.free()
+            from_bmesh_object.free()
+            to_bmesh_object.free()
 
-            # vertex_positions = meta_human_dna_core.calculate_dna_mesh_vertex_positions(from_data, to_data)
-            # self.body_mesh_object.data.vertices.foreach_set("co", vertex_positions.ravel()) # type: ignore
-            # self.body_mesh_object.data.update() # type: ignore
+            vertex_positions = meta_human_dna_core.calculate_dna_mesh_vertex_positions(from_data, to_data)
+            self.body_mesh_object.data.vertices.foreach_set("co", vertex_positions.ravel()) # type: ignore
+            self.body_mesh_object.data.update() # type: ignore
 
-            # utilities.auto_fit_bones(
-            #     armature_object=self.body_rig_object,
-            #     mesh_object=self.body_mesh_object,
-            #     dna_reader=self.dna_reader,
-            #     only_selected=False
-            # )
+            utilities.auto_fit_bones(
+                armature_object=self.body_rig_object,
+                mesh_object=self.body_mesh_object,
+                dna_reader=self.dna_reader,
+                only_selected=False,
+                component_type='body'
+            )
+            
+            if constrain:
+                self.constrain_head_to_body(snap_rest_pose=True)
         
     def export(self):
         pass

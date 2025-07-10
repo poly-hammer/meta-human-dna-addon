@@ -733,7 +733,37 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
                 file, 
                 indent=4
             )
-    
+
+    @preserve_context
+    def constrain_head_to_body(self, snap_rest_pose: bool = False):
+        if not self.rig_logic_instance.head_rig or not self.rig_logic_instance.body_rig:
+            logger.warning("Head rig or body rig not found. Cannot constrain head rig to body rig.")
+            return
+
+        body_bone_names = [pose_bone.name for pose_bone in self.rig_logic_instance.body_rig.pose.bones] # type: ignore
+
+        if snap_rest_pose:
+            utilities.switch_to_bone_edit_mode(self.rig_logic_instance.head_rig) # type: ignore
+            # snap the head rig to the body rig in rest pose
+            for head_edit_bone in self.rig_logic_instance.head_rig.data.edit_bones:
+                # get the corresponding body bone
+                body_bone = self.rig_logic_instance.body_rig.data.bones.get(head_edit_bone.name)
+                if body_bone:
+                    head_edit_bone.head = body_bone.head
+                    head_edit_bone.tail = body_bone.tail
+
+            utilities.switch_to_object_mode()
+            utilities.switch_to_pose_mode(self.rig_logic_instance.head_rig) # type: ignore
+
+        # add copy transforms constraint to the head rig
+        for pose_bone in self.rig_logic_instance.head_rig.pose.bones:
+            if pose_bone.name in body_bone_names:
+                constraint = pose_bone.constraints.new(type='COPY_TRANSFORMS')
+                constraint.target = self.rig_logic_instance.body_rig
+                constraint.subtarget = pose_bone.name
+                constraint.target_space = 'WORLD'
+                constraint.owner_space = 'WORLD'
+
     @abstractmethod
     def ingest(
             self, 

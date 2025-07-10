@@ -392,7 +392,7 @@ def copy_armature(armature_object: bpy.types.Object, new_armature_name: str) -> 
     # set custom bone shape
     bones_shape_object = get_bone_shape()
     switch_to_pose_mode(armature_object_copy)
-    for pose_bone in armature_object_copy.pose.bones:
+    for pose_bone in armature_object_copy.pose.bones: # type: ignore
         pose_bone.custom_shape = bones_shape_object
         pose_bone.custom_shape_scale_xyz = CUSTOM_BONE_SHAPE_SCALE
 

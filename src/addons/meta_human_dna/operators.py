@@ -507,7 +507,7 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
         elif window_manager_properties.current_component_type == 'body':
             callbacks.update_body_output_items(None, bpy.context)
 
-        component.convert(mesh_object=selected_object)
+        component.convert(mesh_object=selected_object, constrain=self.constrain_head_to_body) # type: ignore
         selected_object.hide_set(True)
         # populate the output items based on what was imported
         logger.info(f'Finished converting "{window_manager_properties.base_dna}"') # type: ignore

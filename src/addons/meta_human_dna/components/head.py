@@ -86,7 +86,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
 
         # constrain the head rig to the body rig if it exists
         if constrain:
-            self.constrain_to_body()
+            self.constrain_head_to_body()
 
         # focus the view on head object
         if self.rig_logic_instance.head_mesh:
@@ -110,7 +110,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
         return valid, message
 
     @preserve_context
-    def convert(self, mesh_object: bpy.types.Object):
+    def convert(self, mesh_object: bpy.types.Object, constrain: bool = True):
         from ..bindings import meta_human_dna_core
         if self.head_mesh_object and self.face_board_object and self.head_rig_object:
             target_center = utilities.get_bounding_box_center(mesh_object)
@@ -173,22 +173,9 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
                 only_selected=False,
                 component_type='head'
             )
-    
-    def constrain_to_body(self):
-        if not self.rig_logic_instance.head_rig or not self.rig_logic_instance.body_rig:
-            logger.warning("Head rig or body rig not found. Cannot constrain head rig to body rig.")
-            return
 
-        body_bone_names = [pose_bone.name for pose_bone in self.rig_logic_instance.body_rig.pose.bones] # type: ignore
-
-        # add copy transforms constraint to the head rig
-        for pose_bone in self.rig_logic_instance.head_rig.pose.bones:
-            if pose_bone.name in body_bone_names:
-                constraint = pose_bone.constraints.new(type='COPY_TRANSFORMS')
-                constraint.target = self.rig_logic_instance.body_rig
-                constraint.subtarget = pose_bone.name
-                constraint.target_space = 'WORLD'
-                constraint.owner_space = 'WORLD'
+            if constrain:
+                self.constrain_head_to_body(snap_rest_pose=True)
 
     def export(self):
         pass
