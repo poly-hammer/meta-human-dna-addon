@@ -735,7 +735,11 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
             )
     
     @abstractmethod
-    def ingest(self) -> tuple[bool, str]:        
+    def ingest(
+            self, 
+            align: bool = True, 
+            constrain: bool = True
+        ) -> tuple[bool, str]:
         pass
         
     @abstractmethod

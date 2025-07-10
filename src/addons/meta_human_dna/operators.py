@@ -500,7 +500,7 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
                 self.report({'ERROR'}, message)
                 return {'CANCELLED'}
 
-        component.ingest()
+        component.ingest(align=False, constrain=False)
         
         if window_manager_properties.current_component_type == 'head':
             callbacks.update_head_output_items(None, bpy.context)

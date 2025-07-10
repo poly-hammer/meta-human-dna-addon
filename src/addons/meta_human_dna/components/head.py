@@ -33,7 +33,11 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
         elif file_path.suffix.lower() == '.fbx':
             utilities.import_action_from_fbx(file_path, self.face_board_object)
 
-    def ingest(self) -> tuple[bool, str]:        
+    def ingest(
+            self, 
+            align: bool = True, 
+            constrain: bool = True
+        ) -> tuple[bool, str]:
         valid, message = self.dna_importer.run()
         self.rig_logic_instance.head_rig = self.dna_importer.rig_object
 
@@ -62,7 +66,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
                 rig_object=self.head_rig_object,
             )
             
-            if self.body_rig_object:
+            if self.body_rig_object and align:
                 # Align the head rig with the body rig if it exists
                 body_object_head_bone = self.body_rig_object.pose.bones.get('head') # type: ignore
                 head_object_head_bone = self.head_rig_object.pose.bones.get('head') # type: ignore
@@ -81,7 +85,8 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
                         self.head_rig_object.location.x = utilities.get_bounding_box_left_x(last_instance.head_mesh) - (utilities.get_bounding_box_width(last_instance.head_mesh) / 2)
 
         # constrain the head rig to the body rig if it exists
-        self.constrain_to_body()
+        if constrain:
+            self.constrain_to_body()
 
         # focus the view on head object
         if self.rig_logic_instance.head_mesh:
@@ -165,7 +170,8 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
                 armature_object=self.head_rig_object,
                 mesh_object=self.head_mesh_object,
                 dna_reader=self.dna_reader,
-                only_selected=False
+                only_selected=False,
+                component_type='head'
             )
     
     def constrain_to_body(self):
