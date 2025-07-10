@@ -41,7 +41,7 @@ classes = [
     operators.MirrorSelectedBones,
     operators.SyncWithBodyBonesInBlueprint,
     operators.ShrinkWrapVertexGroup,
-    operators.AutoFitSelectedBones,
+    # operators.AutoFitSelectedBones,
     operators.RevertBoneTransformsToDna,
     operators.ForceEvaluate,
     operators.SendToMetaHumanCreator,

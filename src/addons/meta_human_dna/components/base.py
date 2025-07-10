@@ -344,10 +344,10 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
                     if new_image_path.exists():
                         node.image = bpy.data.images.load(str(new_image_path)) # type: ignore
 
-                        # reloading images defaults the color space, so reset normal map to Non-Color
-                        stem = new_image_path.stem.lower()
-                        if stem.endswith('normal_map') or stem.endswith('normal') or '_normal_animated_' in stem:
-                            node.image.colorspace_settings.name = 'Non-Color' # type: ignore
+                    # reloading images defaults the color space, so reset normal map to Non-Color
+                    stem = new_image_path.stem.lower()
+                    if stem.endswith('normal_map') or stem.endswith('normal') or '_normal_animated_' in stem:
+                        node.image.colorspace_settings.name = 'Non-Color' # type: ignore
 
         # remove any extra masks and topology images
         for image in bpy.data.images:
@@ -628,8 +628,8 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
             uv_differences = abs(len(u_values)-len(dna_u_values)) + abs(len(v_values)-len(dna_v_values))
             return False, (
                 f'UV validation failed! The mesh "{mesh_object.name}" has {uv_differences} UV values '
-                'that do not match the layout in the template DNA file. Right-click the '
-                '"Convert Selected to DNA" button to see the online manual that shows '
+                'that do not match the layout in the template DNA file. Did you select the correct component? '
+                'Right-click the "Convert Selected to DNA" button to see the online manual that shows '
                 'the correct UV layout. Otherwise, disable the UV validation or adjust '
                 'the tolerance value.'
             )
@@ -735,34 +735,67 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
             )
 
     @preserve_context
-    def constrain_head_to_body(self, snap_rest_pose: bool = False):
+    def constrain_head_to_body(self):
         if not self.rig_logic_instance.head_rig or not self.rig_logic_instance.body_rig:
             logger.warning("Head rig or body rig not found. Cannot constrain head rig to body rig.")
             return
 
         body_bone_names = [pose_bone.name for pose_bone in self.rig_logic_instance.body_rig.pose.bones] # type: ignore
 
-        if snap_rest_pose:
-            utilities.switch_to_bone_edit_mode(self.rig_logic_instance.head_rig) # type: ignore
-            # snap the head rig to the body rig in rest pose
-            for head_edit_bone in self.rig_logic_instance.head_rig.data.edit_bones:
-                # get the corresponding body bone
-                body_bone = self.rig_logic_instance.body_rig.data.bones.get(head_edit_bone.name)
-                if body_bone:
-                    head_edit_bone.head = body_bone.head
-                    head_edit_bone.tail = body_bone.tail
-
-            utilities.switch_to_object_mode()
-            utilities.switch_to_pose_mode(self.rig_logic_instance.head_rig) # type: ignore
-
         # add copy transforms constraint to the head rig
         for pose_bone in self.rig_logic_instance.head_rig.pose.bones:
             if pose_bone.name in body_bone_names:
-                constraint = pose_bone.constraints.new(type='COPY_TRANSFORMS')
+                name = utilities.get_body_constraint_name(pose_bone.name)
+                constraint = pose_bone.constraints.get(name)
+                if not constraint:
+                    constraint = pose_bone.constraints.new(type='COPY_TRANSFORMS')
+                    constraint.name = name
+
                 constraint.target = self.rig_logic_instance.body_rig
                 constraint.subtarget = pose_bone.name
                 constraint.target_space = 'WORLD'
                 constraint.owner_space = 'WORLD'
+
+        self.rig_logic_instance.head_to_body_constraint_influence = 1.0
+                
+    def set_head_to_body_constraint_influence(self, influence: float):
+        if not self.rig_logic_instance.head_rig:
+            return
+
+        for pose_bone in self.rig_logic_instance.head_rig.pose.bones:
+            constraint = pose_bone.constraints.get(utilities.get_body_constraint_name(pose_bone.name))
+            if constraint:
+                constraint.influence = influence
+    
+    @preserve_context
+    def snap_head_bones_to_body_bones(self):
+        if not self.rig_logic_instance.head_rig or not self.rig_logic_instance.body_rig:
+            return
+
+        self.rig_logic_instance.head_rig.hide_set(False)
+        self.rig_logic_instance.body_rig.hide_set(False)
+        # Switch to edit mode to access edit bones data
+        utilities.switch_to_bone_edit_mode(
+            self.rig_logic_instance.head_rig, 
+            self.rig_logic_instance.body_rig
+        )
+        
+        # snap the head rig to the body rig in rest pose
+        for head_edit_bone in self.rig_logic_instance.head_rig.data.edit_bones:
+            # get the corresponding body edit bone
+            body_edit_bone = self.rig_logic_instance.body_rig.data.edit_bones.get(head_edit_bone.name)
+            if body_edit_bone:
+                # Get world space matrices
+                body_world_matrix = self.rig_logic_instance.body_rig.matrix_world
+                head_world_matrix = self.rig_logic_instance.head_rig.matrix_world
+                
+                # Convert body bone positions to world space
+                body_head_world = body_world_matrix @ body_edit_bone.head
+                body_tail_world = body_world_matrix @ body_edit_bone.tail
+                
+                # Convert world positions to head rig local space
+                head_edit_bone.head = head_world_matrix.inverted() @ body_head_world
+                head_edit_bone.tail = head_world_matrix.inverted() @ body_tail_world
 
     @abstractmethod
     def ingest(

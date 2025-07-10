@@ -310,6 +310,15 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         default=False,
         description="Whether to also show the surface bone groups in the bone group selection dropdown",
     ) # type: ignore
+    head_to_body_constraint_influence: bpy.props.FloatProperty(
+        name="Constrain Head to Body",
+        default=0.0,
+        description="The influence of the head to body constraint",
+        update=callbacks.update_head_to_body_constraint_influence,
+        min=0.0,
+        max=1.0,
+        subtype='FACTOR'
+    ) # type: ignore
 
     # ----- Shape Keys Properties -----
     active_shape_key_mesh_name: bpy.props.EnumProperty(

@@ -494,6 +494,13 @@ def update_face_pose(self, context):
     if head:
         head.set_face_pose()
 
+def update_head_to_body_constraint_influence(self, context):
+    from ..utilities import get_active_head
+    head = get_active_head()
+    if head:
+        head.set_head_to_body_constraint_influence(self.head_to_body_constraint_influence)
+
+
 def get_head_mesh_output_items(instance: 'RigLogicInstance') -> list[bpy.types.Object]:
     mesh_objects =[]
 

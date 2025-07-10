@@ -398,6 +398,8 @@ def copy_armature(armature_object: bpy.types.Object, new_armature_name: str) -> 
 
     return armature_object_copy
 
+def get_body_constraint_name(bone_name: str) -> str:
+    return f'MH_DNA {bone_name} to body'
 
 def get_topology_group_surface_bones(
         mesh_object: bpy.types.Object,

@@ -62,7 +62,6 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
     def convert(self, mesh_object: bpy.types.Object, constrain: bool = True):
         from ..bindings import meta_human_dna_core
         if self.body_mesh_object and self.body_rig_object:
-            target_center = utilities.get_bounding_box_center(mesh_object)
             target_height = utilities.get_bounding_box_height(mesh_object)
             body_height = utilities.get_bounding_box_height(self.body_mesh_object)
             delta = target_height / body_height
@@ -72,6 +71,7 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
             self.body_rig_object.scale.y *= delta
             self.body_rig_object.scale.z *= delta
 
+            self.body_rig_object.hide_set(False)
             utilities.apply_transforms(self.body_rig_object, scale=True, recursive=True) # type: ignore
 
             # adjust the head rig origin to zero
@@ -85,7 +85,7 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
                     bpy.context.view_layer.objects.active = item.scene_object # type: ignore
             self.body_rig_object.select_set(True)
 
-            bpy.context.scene.cursor.location = Vector((target_center.x, 0, 0)) # type: ignore
+            bpy.context.scene.cursor.location = Vector((0, 0, 0)) # type: ignore
             bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
 
             from_bmesh_object = DNAExporter.get_bmesh(mesh_object=mesh_object, rotation=0)
@@ -116,9 +116,10 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
                 only_selected=False,
                 component_type='body'
             )
-            
+
             if constrain:
-                self.constrain_head_to_body(snap_rest_pose=True)
+                self.snap_head_bones_to_body_bones()
+                self.constrain_head_to_body()
         
     def export(self):
         pass

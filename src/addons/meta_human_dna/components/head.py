@@ -142,7 +142,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
             self.face_board_object.select_set(True)
             self.head_rig_object.select_set(True)
 
-            bpy.context.scene.cursor.location = Vector((target_center.x, 0, 0)) # type: ignore
+            bpy.context.scene.cursor.location = Vector((0, 0, 0)) # type: ignore
             bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
 
             from_bmesh_object = DNAExporter.get_bmesh(mesh_object=mesh_object, rotation=0)
@@ -175,7 +175,8 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
             )
 
             if constrain:
-                self.constrain_head_to_body(snap_rest_pose=True)
+                self.snap_head_bones_to_body_bones()
+                self.constrain_head_to_body()
 
     def export(self):
         pass

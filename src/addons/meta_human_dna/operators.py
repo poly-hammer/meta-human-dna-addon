@@ -626,15 +626,13 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
             row.label(text=path_error, icon='ERROR')
 
         row = self.layout.row()
-        row.prop(self, 'constrain_head_to_body')
-        row = self.layout.row()
-
         column = row.column()
         column.prop(self, 'validate_uvs')
         column = row.column()
         column.enabled = self.validate_uvs
         column.prop(self, 'uv_tolerance')
-
+        row = self.layout.row()
+        row.prop(self, 'constrain_head_to_body')
         row = self.layout.row()
         row.prop(self, 'run_calibration')
 

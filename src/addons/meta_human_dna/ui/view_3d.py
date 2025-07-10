@@ -324,16 +324,21 @@ class META_HUMAN_DNA_PT_armature_utilities_sub_panel(bpy.types.Panel):
             # split.operator('meta_human_dna.push_bones_backward_along_normals', text='', icon='REMOVE')
             # split.operator('meta_human_dna.push_bones_forward_along_normals', text='', icon='ADD')
             row = self.layout.row()
+            row.label(text='Head to Body Constraint:')
+            row = self.layout.row()
+            row.prop(instance, 'head_to_body_constraint_influence', text='')
+            row = self.layout.row()
             row.label(text='Transform and Apply Selected Bones:')
             # row = self.layout.row()
             # row.operator('meta_human_dna.sync_with_body_in_blueprint', text='Sync with Body in Blueprint')
             row = self.layout.row()
             row.operator('meta_human_dna.mirror_selected_bones', text='Mirror Selected Bones')
             row = self.layout.row()
-            split = row.split(factor=0.5)
-            split.scale_y = 1.5
-            split.operator('meta_human_dna.auto_fit_selected_bones', text='Auto Fit')
-            split.operator('meta_human_dna.revert_bone_transforms_to_dna', text='Revert')
+            # split = row.split(factor=0.5)
+            # split.scale_y = 1.5
+            # split.operator('meta_human_dna.auto_fit_selected_bones', text='Auto Fit')
+            # split.operator('meta_human_dna.revert_bone_transforms_to_dna', text='Revert')
+            row.operator('meta_human_dna.revert_bone_transforms_to_dna', text='Revert')
         else:
             draw_rig_logic_instance_error(self.layout, error)
 
