@@ -226,7 +226,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
                     bone.select = False
             
             from ..bindings import meta_human_dna_core
-            for bone_name in meta_human_dna_core.BONE_SELECTION_GROUPS.get(self.rig_logic_instance.head_rig_bone_groups, []): # type: ignore
+            for bone_name in meta_human_dna_core.HEAD_BONE_SELECTION_GROUPS.get(self.rig_logic_instance.head_rig_bone_groups, []): # type: ignore
                 bone = self.rig_logic_instance.head_rig.data.bones.get(bone_name) # type: ignore
                 if bone:
                     bone.select = True

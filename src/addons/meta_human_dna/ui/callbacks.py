@@ -161,7 +161,7 @@ def get_body_mesh_topology_groups(self, context):
 def get_head_rig_bone_groups(self, context):
     enum_items = []   
     from ..bindings import meta_human_dna_core
-    for group_name in meta_human_dna_core.BONE_SELECTION_GROUPS.keys():    
+    for group_name in meta_human_dna_core.HEAD_BONE_SELECTION_GROUPS.keys():    
         enum_items.append(
             (
                 group_name, 

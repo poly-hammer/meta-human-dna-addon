@@ -78,13 +78,13 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
 
         # determine the asset root folder based on the dna file path
         self.asset_root_folder = None
-        if dna_file_path:    
+        if dna_file_path:
             self.asset_root_folder = dna_file_path.parent
         elif rig_logic_instance:
             if rig_logic_instance.head_dna_file_path:
-                self.asset_root_folder = Path(rig_logic_instance.head_dna_file_path).parent
+                self.asset_root_folder = Path(bpy.path.abspath(str(rig_logic_instance.head_dna_file_path))).parent
             elif rig_logic_instance.body_dna_file_path:
-                self.asset_root_folder = Path(rig_logic_instance.body_dna_file_path).parent
+                self.asset_root_folder = Path(bpy.path.abspath(str(rig_logic_instance.body_dna_file_path))).parent
 
         self.rig_logic_instance: 'RigLogicInstance' = rig_logic_instance # type: ignore
         self.addon_properties = bpy.context.preferences.addons[ToolInfo.NAME].preferences # type: ignore
@@ -720,7 +720,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
         Writes the export manifest to a JSON file like MetaHuman Creator does for a DCC export.
         """
         from .. import bl_info
-        file_path = Path(self.rig_logic_instance.output_folder_path) / "ExportManifest.json"
+        file_path = Path(bpy.path.abspath(str(self.rig_logic_instance.output_folder_path))) / "ExportManifest.json"
         with open(file_path, 'w') as file:
             json.dump(
                 {
