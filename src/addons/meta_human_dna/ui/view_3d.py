@@ -780,9 +780,9 @@ class META_HUMAN_DNA_PT_buttons_sub_panel(bpy.types.Panel):
                 row.enabled = False
             row.scale_y = 2.0
             row.operator(
-                'meta_human_dna.export_active_component', 
+                'meta_human_dna.export_selected_component', 
                 icon='EXPORT',
-                text='Active Component'
+                text='Only Component'
             )
             row.operator(
                 'meta_human_dna.send_to_meta_human_creator', 

@@ -32,6 +32,8 @@ SHAPE_KEY_GROUP_PREFIX = "SHAPE_KEY_"
 
 # this is the difference in scale between unreal and blender
 SCALE_FACTOR = 100.0
+SHAPE_KEY_NAME_MAX_LENGTH = 63
+SHAPE_KEY_DELTA_THRESHOLD = 1e-6
 BONE_TAIL_OFFSET = 1 / (SCALE_FACTOR * SCALE_FACTOR * 10)
 CUSTOM_BONE_SHAPE_SCALE = Vector([0.15] * 3)
 CUSTOM_BONE_SHAPE_NAME = "sphere_control"

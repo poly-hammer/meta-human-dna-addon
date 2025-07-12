@@ -5,7 +5,11 @@ import logging
 from pathlib import Path
 from mathutils import Vector, Matrix
 from typing import Literal, TYPE_CHECKING
-from ..constants import ComponentType, SHAPE_KEY_GROUP_PREFIX
+from ..constants import (
+    ComponentType, 
+    SHAPE_KEY_GROUP_PREFIX, 
+    SHAPE_KEY_DELTA_THRESHOLD
+)
 from ..utilities import (
     exclude_rig_logic_evaluation, 
     switch_to_object_mode,
@@ -134,7 +138,7 @@ def create_shape_key(
         prefix: str = '',
         is_neutral: bool = False,
         linear_modifier: float = 1.0,
-        delta_threshold: float = 0.0001
+        delta_threshold: float = SHAPE_KEY_DELTA_THRESHOLD
     ) -> bpy.types.ShapeKey:
     if not mesh_object:
         logger.error(f"Mesh object not found for shape key {name}. Skipping creation.")
@@ -156,7 +160,7 @@ def create_shape_key(
     # Import the deltas if the shape key is not supposed to be neutral
     if not is_neutral:
         # DNA is Y-up, Blender is Z-up, so we need to rotate the deltas
-        rotation_matrix = Matrix.Rotation(math.radians(-90), 4, 'X')
+        rotation_matrix = Matrix.Rotation(math.radians(90), 4, 'X')
 
         delta_x_values = reader.getBlendShapeTargetDeltaXs(mesh_index, index)
         delta_y_values = reader.getBlendShapeTargetDeltaYs(mesh_index, index)

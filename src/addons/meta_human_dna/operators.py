@@ -333,6 +333,7 @@ class ImportMetahumanDna(bpy.types.Operator, importer.ImportAsset, MetahumanDnaI
         callbacks.update_head_output_items(None, bpy.context)
         # now we can evaluate the dependency graph again
         window_manager_properties.evaluate_dependency_graph = True
+        bpy.ops.meta_human_dna.force_evaluate() # type: ignore
 
         bpy.ops.meta_human_dna.metrics_collection_consent('INVOKE_DEFAULT') # type: ignore
 
@@ -736,6 +737,8 @@ class SendToMetaHumanCreator(bpy.types.Operator):
     def execute(self, context):
         instance = callbacks.get_active_rig_logic()
         if instance:
+            current_context = utilities.get_current_context()
+
             for attribute_name in ['head_mesh', 'head_rig', 'body_mesh', 'body_rig']:
                 if not getattr(instance, attribute_name):
                     self.report({'ERROR'}, f'No {attribute_name} set on the active instance. Please ensure you have a head and body mesh and rig set before sending to MetaHuman Creator.')
@@ -787,6 +790,9 @@ class SendToMetaHumanCreator(bpy.types.Operator):
             # write a manifest file to the output folder similar to the MetaHuman Creator DCC export
             if last_component:
                 last_component.write_export_manifest()
+                bpy.ops.meta_human_dna.force_evaluate() # type: ignore
+
+            utilities.set_context(current_context)
             
         return {'FINISHED'}
 
@@ -892,16 +898,25 @@ class SendToUnreal(bpy.types.Operator):
     def poll(cls, context):
         return bool(getattr(context.scene, 'send2ue', False)) # type: ignore
     
-class ExportActiveComponent(bpy.types.Operator):
-    """Exports the active component to a single DNA file, along with any supporting textures. The DNA file will be the name of the instance."""
-    bl_idname = "meta_human_dna.export_active_component"
-    bl_label = "Export Active Component"
+class ExportSelectedComponent(bpy.types.Operator):
+    """Export only the selected component to a single DNA file. No textures or supporting files will be exported."""
+    bl_idname = "meta_human_dna.export_selected_component"
+    bl_label = "Export Selected Component"
 
     def execute(self, context):
-        head = utilities.get_active_head()
-        if head and head.rig_logic_instance:
-            instance = head.rig_logic_instance
-            
+        instance = callbacks.get_active_rig_logic()
+        if not instance:
+            self.report({'ERROR'}, 'No active Rig Logic Instance found. Please select an instance from the list under the RigLogic panel.')
+            return {'CANCELLED'}
+        
+        current_context = utilities.get_current_context()
+        component = None
+        if instance.output_component == 'head':
+            component = utilities.get_active_head()
+        elif instance.output_component == 'body':
+            component = utilities.get_active_body()
+
+        if component:            
             if not bpy.path.abspath(instance.output_folder_path) and not bpy.data.filepath:
                 self.report({'ERROR'}, 'File must be saved to use a relative path')
                 return {'CANCELLED'}
@@ -910,17 +925,24 @@ class ExportActiveComponent(bpy.types.Operator):
             if instance.output_method == 'calibrate':
                 dna_io_instance = DNACalibrator(
                     instance=instance,
-                    linear_modifier=head.linear_modifier
+                    linear_modifier=component.linear_modifier,
+                    file_name=f'{component.component_type}.dna',
+                    component_type=component.component_type,
+                    textures=False
                 )              
             elif instance.output_method == 'overwrite':
                 dna_io_instance = DNAExporter(
                     instance=instance,
-                    linear_modifier=head.linear_modifier
+                    linear_modifier=component.linear_modifier,
+                    file_name=f'{component.component_type}.dna',
+                    component_type=component.component_type,
+                    textures=False
                 )
 
             valid, title, message, fix = dna_io_instance.run()
+            bpy.ops.meta_human_dna.force_evaluate() # type: ignore
+
             if not valid:
-                # self.report({'ERROR'}, message)
                 utilities.report_error(
                     title=title,
                     message=message,
@@ -930,7 +952,9 @@ class ExportActiveComponent(bpy.types.Operator):
                 return {'CANCELLED'}
             else:
                 self.report({'INFO'}, message)
-            
+
+        utilities.set_context(current_context)
+
         return {'FINISHED'}
 
 class SyncWithBodyBonesInBlueprint(bpy.types.Operator):

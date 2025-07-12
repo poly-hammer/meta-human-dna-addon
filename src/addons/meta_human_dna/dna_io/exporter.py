@@ -28,7 +28,9 @@ class DNAExporter:
             instance: RigLogicInstance,
             linear_modifier: float,
             meshes: bool = True,
+            shape_keys: bool = True,
             bones: bool = True,
+            textures: bool = True,
             vertex_colors: bool = True,
             file_name: str | None = None,
             component_type: ComponentType | None = None,
@@ -39,7 +41,9 @@ class DNAExporter:
         self._prefix = instance.name
 
         self._include_meshes = meshes
+        self._include_shape_keys = shape_keys
         self._include_bones = bones
+        self._include_textures = textures
         self._include_vertex_colors = vertex_colors
         self._component_type = component_type or instance.output_component
 
@@ -78,16 +82,17 @@ class DNAExporter:
                 0: [(instance.head_mesh, 0)]
             }
             self._extra_bones = EXTRA_BONES
+            self._rig_object = instance.head_rig
         elif self._component_type == 'body':
             self._export_lods = {
                 0: [(instance.body_mesh, 0)]
             }
             self._extra_bones = []
+            self._rig_object = instance.body_rig
         else:
             raise InvalidComponentTypeError(self._component_type)
         
         self._mesh_indices = [0]
-        self._rig_object = instance.head_rig
         self._non_lod_mesh_objects = []
         self._images = []
         self._bone_index_lookup = {}
@@ -180,7 +185,7 @@ class DNAExporter:
             meshes_with_mismatched_origins = []
             for _, mesh_objects in self._export_lods.items():
                 for mesh_object, _ in mesh_objects:
-                    if (self._rig_object.location.copy() - mesh_object.location).length > 1e-6:
+                    if (self._rig_object.location.copy() - mesh_object.location).length > 1e-5:
                         meshes_with_mismatched_origins.append(mesh_object)
             
             if meshes_with_mismatched_origins:
@@ -451,7 +456,7 @@ class DNAExporter:
                 meshIndex=mesh_index, 
                 vertexIndex=vertex.index,
                 weights=weights
-            )        
+            )      
 
     def set_dna_bones(
             self, 
@@ -483,6 +488,9 @@ class DNAExporter:
         self._dna_writer.setNeutralJointRotations([[x, y, z] for x, y, z in zip(dna_x_rotations, dna_y_rotations, dna_z_rotations)])
     
     def save_images(self):
+        if not self._include_textures:
+            return
+        
         for image, file_name in self._images:
             new_image_path = self._target_dna_file.parent / 'Maps' / file_name
             os.makedirs(new_image_path.parent, exist_ok=True)

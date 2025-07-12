@@ -5,7 +5,7 @@ from pprint import pformat
 from pathlib import Path
 from mathutils import Matrix, Vector, Euler
 from . import utilities
-from .constants import SCALE_FACTOR
+from .constants import SCALE_FACTOR, SHAPE_KEY_NAME_MAX_LENGTH
 from .ui import callbacks
 from typing import TYPE_CHECKING
 
@@ -616,7 +616,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                         key_block_list.append(shape_key_block)
                         shape_key_blocks[channel_index] = key_block_list
 
-                    elif len(shape_key_block_name) <= 63:
+                    elif len(shape_key_block_name) <= SHAPE_KEY_NAME_MAX_LENGTH:
                         failed_to_cache_count += 1
                 
             if failed_to_cache_count > 0:
@@ -775,11 +775,11 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 missing_name = name_lookup[index]
                 mesh_index = self.channel_index_to_mesh_index_lookup[index]
                 mesh_object = self.mesh_index_lookup[mesh_index]
-                if len(missing_name) > 63:
+                if len(missing_name) > SHAPE_KEY_NAME_MAX_LENGTH:
                     # skip warning the user about any missing shape keys names being too long.
 
                     # Currently, Blender has a limit of 63 characters for shape key names.
-                    # This is something that the user could might be able to overcome by changing blender 
+                    # This is something that the user might be able to overcome by changing blender 
                     # source and recompiling. However, this is not something that we can fix in the addon.
 
                     # Because this limitation there are 42 missing shape keys from the MetaHuman creator DNA files 

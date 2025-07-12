@@ -198,7 +198,11 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
         export_manifest = self.asset_root_folder / 'ExportManifest.json'
         if export_manifest.exists():
             with open(export_manifest, 'r') as file:
-                return json.load(file)            
+                try:
+                    return json.load(file)            
+                except json.JSONDecodeError:
+                    logger.warning(f"Failed to load metadata from '{export_manifest}'")
+                    return {}
         logger.warning('Could not load metahuman metadata file! Must not be in a metahuman directory.')
         return {}
 

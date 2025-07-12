@@ -46,7 +46,7 @@ classes = [
     operators.ForceEvaluate,
     operators.SendToMetaHumanCreator,
     operators.SendToUnreal,
-    operators.ExportActiveComponent,
+    operators.ExportSelectedComponent,
     operators.GenerateMaterial,
     operators.SculptThisShapeKey,
     operators.EditThisShapeKey,

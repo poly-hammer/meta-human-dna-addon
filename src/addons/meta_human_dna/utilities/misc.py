@@ -315,7 +315,7 @@ def setup_scene(*args):
         instance.initialize()
 
     start_listening()
-    link_send2ue_extension()
+    # link_send2ue_extension()
 
 def teardown_scene(*args):
     scene_properties = getattr(bpy.context.scene, ToolInfo.NAME, object) # type: ignore
@@ -515,8 +515,14 @@ def rename_rig_logic_instance(
         instance.head_rig.name = instance.head_rig.name.replace(old_name, new_name)
     if instance.head_material:
         instance.head_material.name = instance.head_material.name.replace(old_name, new_name)
+    if instance.body_mesh:
+        instance.body_mesh.name = instance.body_mesh.name.replace(old_name, new_name)
+    if instance.body_rig:
+        instance.body_rig.name = instance.body_rig.name.replace(old_name, new_name)
+    if instance.body_material:
+        instance.body_material.name = instance.body_material.name.replace(old_name, new_name)
 
-    for item in instance.output_head_item_list:
+    for item in (instance.output_head_item_list.values() + instance.output_body_item_list.values()):
         if item.scene_object:
             item.scene_object.name = item.scene_object.name.replace(old_name, new_name)
         if item.image_object:
