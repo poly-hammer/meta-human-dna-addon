@@ -63,13 +63,16 @@ class DNACalibrator(DNAExporter, DNAImporter):
             # DNA is Y-up, Blender is Z-up, so we need to rotate the deltas
             rotation_matrix = Matrix.Rotation(math.radians(90), 4, 'X')
 
-
             for mesh_index in self._dna_reader.getMeshIndicesForLOD(lod_index):
                 mesh_name = self._dna_reader.getMeshName(mesh_index)
                 real_mesh_name = f'{self._prefix}_{mesh_name}'
                 mesh_object = bpy.data.objects.get(real_mesh_name)
                 if not mesh_object:
                     logger.error(f"Mesh object '{real_mesh_name}' not found for shape key calibration. Skipping...")
+                    continue
+
+                if not mesh_object.data or not mesh_object.data.shape_keys: # type: ignore
+                    logger.warning(f"Mesh object '{mesh_object.name}' has no shape key data in the blender scene. Skipping shape key calibration...")
                     continue
                 
                 # helps to track the largest delta count for the shape keys
