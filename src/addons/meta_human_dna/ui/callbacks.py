@@ -161,7 +161,7 @@ def get_body_mesh_topology_groups(self, context):
 def get_head_rig_bone_groups(self, context):
     enum_items = []   
     from ..bindings import meta_human_dna_core
-    for group_name in meta_human_dna_core.BONE_SELECTION_GROUPS.keys():    
+    for group_name in meta_human_dna_core.HEAD_BONE_SELECTION_GROUPS.keys():    
         enum_items.append(
             (
                 group_name, 
@@ -177,16 +177,16 @@ def get_head_rig_bone_groups(self, context):
             enum_items.append(tuple(_item))
     return enum_items
 
-def get_base_dna_files(self, context):
+def get_base_dna_folder(self, context):
     enum_items = []   
     # get all the dna files in the addon's dna folder
-    for file in BASE_DNA_FOLDER.iterdir():    
-        if file.is_file() and file.suffix == '.dna':
+    for folder in BASE_DNA_FOLDER.iterdir():    
+        if not folder.is_file() and any(f.suffix == '.dna' for f in folder.iterdir()):
             enum_items.append(
                 (
-                    str(file.absolute()), 
-                    ' '.join([i.capitalize() for i in file.stem.split('_')]),
-                    f'Use the {file.name} file as the base DNA to convert the selected mesh'
+                    str(folder.absolute()), 
+                    ' '.join([i.capitalize() for i in folder.stem.split('_')]),
+                    f'Use the {folder.name} folder and its base DNA component files to convert the selected mesh'
                 )
             )
 
@@ -355,8 +355,10 @@ def get_copied_rig_logic_instance_name(self):
     value = self.get('copied_rig_logic_instance_name')
     if value is None:
         instance = get_active_rig_logic()
-        if instance:
+        if instance and (instance.head_mesh and instance.body_mesh):
             return f'{instance.name}_copy'
+        elif instance and (not instance.head_mesh or not instance.body_mesh):
+            return instance.name
         else:
             return ''
     return value
@@ -491,6 +493,13 @@ def update_face_pose(self, context):
     head = get_active_head()
     if head:
         head.set_face_pose()
+
+def update_head_to_body_constraint_influence(self, context):
+    from ..utilities import get_active_head
+    head = get_active_head()
+    if head:
+        head.set_head_to_body_constraint_influence(self.head_to_body_constraint_influence)
+
 
 def get_head_mesh_output_items(instance: 'RigLogicInstance') -> list[bpy.types.Object]:
     mesh_objects =[]

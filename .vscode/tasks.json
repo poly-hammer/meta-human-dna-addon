@@ -5,7 +5,7 @@
     "tasks": [
         {
             "label": "launch blender",
-            "command": "python -m poly_hammer_utils.launch blender ${input:blender-version} ${input:debug}",
+            "command": "${workspaceFolder}/.venv/Scripts/python -m poly_hammer_utils.launch blender ${input:blender-version} ${input:debug}",
             "type": "shell",
             "group": {
                 "kind": "build"
@@ -18,7 +18,7 @@
         },
         {
             "label": "launch unreal",
-            "command": "python -m poly_hammer_utils.launch unreal ${input:unreal-version} ${input:debug}",
+            "command": "${workspaceFolder}/.venv/Scripts/python -m poly_hammer_utils.launch unreal ${input:unreal-version} ${input:debug}",
             "type": "shell",
             "group": {
                 "kind": "build"
@@ -31,7 +31,7 @@
         },
         {
             "label": "Run Pytest With Coverage",
-            "command": "pytest ${input:test-suite} ${input:test-case} --cov-config=.coveragerc --cov=src/addons/meta_human_dna --cov-report=xml:reports/coverage/results.xml --cov-report=html:reports/coverage/html",
+            "command": "${workspaceFolder}/.venv/Scripts/python -m pytest ${input:test-suite} ${input:test-case} --cov-config=.coveragerc --cov=src/addons/meta_human_dna --cov-report=xml:reports/coverage/results.xml --cov-report=html:reports/coverage/html",
             "type": "shell",
             "group": {
                 "kind": "build"
@@ -44,7 +44,7 @@
         },
         {
             "label": "Mkdocs Serve",
-            "command": "mkdocs serve --dev-addr localhost:8080",
+            "command": "${workspaceFolder}/.venv/Scripts/python -m mkdocs serve --dev-addr localhost:8080",
             "type": "shell",
             "group": {
                 "kind": "build"

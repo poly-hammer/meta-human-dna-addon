@@ -367,6 +367,18 @@ def get_bounding_box_width(scene_object: bpy.types.Object) -> float:
     width = max(x_coords) - min(x_coords)
     return width
 
+def get_bounding_box_height(scene_object: bpy.types.Object) -> float:
+    # Ensure the object has a bounding box
+    if not scene_object.bound_box:
+        return 0.0
+
+    # Extract the z-coordinates from the bounding box
+    z_coords = [vertex[2] for vertex in scene_object.bound_box]
+
+    # Calculate the height
+    height = max(z_coords) - min(z_coords)
+    return height
+
 def find_closest_vertex(vertices, position):
     return min(
         vertices,

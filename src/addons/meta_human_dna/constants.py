@@ -3,7 +3,6 @@ import math
 from pathlib import Path
 from mathutils import Vector, Euler
 from typing import Literal
-from enum import Enum
 
 class ToolInfo:
     NAME = "meta_human_dna"
@@ -33,6 +32,8 @@ SHAPE_KEY_GROUP_PREFIX = "SHAPE_KEY_"
 
 # this is the difference in scale between unreal and blender
 SCALE_FACTOR = 100.0
+SHAPE_KEY_NAME_MAX_LENGTH = 63
+SHAPE_KEY_DELTA_THRESHOLD = 1e-6
 BONE_TAIL_OFFSET = 1 / (SCALE_FACTOR * SCALE_FACTOR * 10)
 CUSTOM_BONE_SHAPE_SCALE = Vector([0.15] * 3)
 CUSTOM_BONE_SHAPE_NAME = "sphere_control"
@@ -197,13 +198,6 @@ BODY_HIGH_LEVEL_TOPOLOGY_GROUPS = [
     "foot_L",
     "foot_R"
 ]
-
-class BodyBoneCollection(Enum):
-    TWIST_BONES = 'Twist Bones'
-    CORRECTIVE_ROOT_BONES = 'Corrective Root Bones'
-    DRIVER_BONES = 'Driver Bones'
-    DRIVER_LEAF_BONES = 'Driver Leaf Bones'
-    TWIST_CORRECTIVE_BONES = 'Twist Corrective Bones'
 
 # Set to Ada's height, but locations will be scaled proportionally to match spine_04 location from DNA file.
 # Also in Y-up coordinate system like the metahuman creator DNA files

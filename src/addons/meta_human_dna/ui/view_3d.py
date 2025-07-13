@@ -203,7 +203,14 @@ class META_HUMAN_DNA_PT_utilities(bpy.types.Panel):
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
-        pass
+        if not self.layout:
+            return
+        
+        row = self.layout.row()
+        row.label(text='Current Component:')
+        row = self.layout.row()
+        row.scale_y = 1.25
+        row.prop(context.window_manager.meta_human_dna, 'current_component_type', text='') # type: ignore
 
 
 class META_HUMAN_DNA_PT_mesh_utilities_sub_panel(bpy.types.Panel):
@@ -223,14 +230,10 @@ class META_HUMAN_DNA_PT_mesh_utilities_sub_panel(bpy.types.Panel):
         if not error:
             active_index = properties.rig_logic_instance_list_active_index
             instance = properties.rig_logic_instance_list[active_index]
+            current_component_type = context.window_manager.meta_human_dna.current_component_type # type: ignore
             box = self.layout.box()
             row = box.row()
             row.label(text='Topology Vertex Groups:')
-            row = box.row()
-            row.label(text='Current Component:')
-            row = box.row()
-            row.scale_y = 1.25
-            row.prop(instance, 'mesh_topology_group_component', text='')
             row = box.row()
             grid = row.grid_flow(
                 row_major=True, 
@@ -249,9 +252,9 @@ class META_HUMAN_DNA_PT_mesh_utilities_sub_panel(bpy.types.Panel):
             col.enabled = bool(instance.head_mesh)
             col.label(text='Set Selection:')
             row = col.row()
-            if instance.mesh_topology_group_component == 'head':
+            if current_component_type == 'head':
                 row.prop(instance, 'head_mesh_topology_groups', text='')
-            elif instance.mesh_topology_group_component == 'body':
+            elif current_component_type == 'body':
                 row.prop(instance, 'body_mesh_topology_groups', text='')
                 row = box.row()
                 row.prop(instance, 'body_show_only_high_level_topology_groups', text='Filter High Level Groups')
@@ -260,9 +263,9 @@ class META_HUMAN_DNA_PT_mesh_utilities_sub_panel(bpy.types.Panel):
             row = box.row()
             row.label(text='Shrink Wrap Target:')
             row = box.row()
-            if instance.mesh_topology_group_component == 'head':
+            if current_component_type == 'head':
                 row.prop(instance, 'head_shrink_wrap_target', text='')
-            elif instance.mesh_topology_group_component == 'body':
+            elif current_component_type == 'body':
                 row.prop(instance, 'body_shrink_wrap_target', text='')
             row = box.row()
             row.enabled = bool(instance.head_shrink_wrap_target)
@@ -321,16 +324,21 @@ class META_HUMAN_DNA_PT_armature_utilities_sub_panel(bpy.types.Panel):
             # split.operator('meta_human_dna.push_bones_backward_along_normals', text='', icon='REMOVE')
             # split.operator('meta_human_dna.push_bones_forward_along_normals', text='', icon='ADD')
             row = self.layout.row()
+            row.label(text='Head to Body Constraint:')
+            row = self.layout.row()
+            row.prop(instance, 'head_to_body_constraint_influence', text='')
+            row = self.layout.row()
             row.label(text='Transform and Apply Selected Bones:')
             # row = self.layout.row()
             # row.operator('meta_human_dna.sync_with_body_in_blueprint', text='Sync with Body in Blueprint')
             row = self.layout.row()
             row.operator('meta_human_dna.mirror_selected_bones', text='Mirror Selected Bones')
             row = self.layout.row()
-            split = row.split(factor=0.5)
-            split.scale_y = 1.5
-            split.operator('meta_human_dna.auto_fit_selected_bones', text='Auto Fit')
-            split.operator('meta_human_dna.revert_bone_transforms_to_dna', text='Revert')
+            # split = row.split(factor=0.5)
+            # split.scale_y = 1.5
+            # split.operator('meta_human_dna.auto_fit_selected_bones', text='Auto Fit')
+            # split.operator('meta_human_dna.revert_bone_transforms_to_dna', text='Revert')
+            row.operator('meta_human_dna.revert_bone_transforms_to_dna', text='Revert')
         else:
             draw_rig_logic_instance_error(self.layout, error)
 
@@ -772,9 +780,9 @@ class META_HUMAN_DNA_PT_buttons_sub_panel(bpy.types.Panel):
                 row.enabled = False
             row.scale_y = 2.0
             row.operator(
-                'meta_human_dna.export_active_component', 
+                'meta_human_dna.export_selected_component', 
                 icon='EXPORT',
-                text='Active Component'
+                text='Only Component'
             )
             row.operator(
                 'meta_human_dna.send_to_meta_human_creator', 

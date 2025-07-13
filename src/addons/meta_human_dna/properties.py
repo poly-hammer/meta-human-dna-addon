@@ -140,7 +140,32 @@ class MetahumanWindowMangerProperties(bpy.types.PropertyGroup, MetahumanDnaImpor
         items=callbacks.get_face_pose_previews_items,
         update=callbacks.update_face_pose
     )
-    
+    current_component_type: bpy.props.EnumProperty(
+        name="Component Type",
+        default='head',
+        items=[
+            ('head', 'Head', 'Set the head as the current component for utility operations'),
+            ('body', 'Body', 'Set the body as the current component for utility operations'),
+        ],
+        description="Choose what component to use when performing utility operations. This will determine what data is shown in the selection dropdowns as well",
+    ) # type: ignore
+    base_dna: bpy.props.EnumProperty(
+        name="Base DNA",
+        items=callbacks.get_base_dna_folder,
+        description="Choose the base DNA folder that will be used when converting the selected.",
+        options={'ANIMATABLE'}
+    ) # type: ignore
+    new_folder: bpy.props.StringProperty(
+        name="Output Folder",
+        default="",
+        subtype='DIR_PATH',
+    ) # type: ignore
+    maps_folder: bpy.props.StringProperty(
+        default='',
+        name='Maps Folder',
+        description='Optionally, this can be set to a folder location for the face wrinkle maps. Textures following the same naming convention as the metahuman source files will be found and set on the materials automatically.',
+        subtype='DIR_PATH'
+    ) # type: ignore
 
 class MetahumanSceneProperties(bpy.types.PropertyGroup):
     """

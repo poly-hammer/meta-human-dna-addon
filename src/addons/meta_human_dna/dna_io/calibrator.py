@@ -1,22 +1,28 @@
+import bpy
+import math
+from mathutils import Vector, Matrix
 import logging
-from mathutils import Vector
 from typing import Callable
 from .importer import DNAImporter
 from .exporter import DNAExporter
 from ..bindings import riglogic
-from ..constants import EXTRA_BONES
+from ..constants import (
+    SHAPE_KEY_NAME_MAX_LENGTH,
+    SHAPE_KEY_DELTA_THRESHOLD
+)
 
 logger = logging.getLogger(__name__)
 
 class DNACalibrator(DNAExporter, DNAImporter):
+
     def calibrate_vertex_positions(self):
         mesh_index_lookup = {self._dna_reader.getMeshName(index): index for index in range(self._dna_reader.getMeshCount())}
 
         for lod_index, mesh_objects in self._export_lods.items():
-            logger.info(f'Calibrating LOD {lod_index}...')
+            logger.info(f'Calibrating LOD {lod_index} vertex positions...')
             for mesh_object, _ in mesh_objects:
                 real_name = mesh_object.name.replace(f'{self._instance.name}_', '')
-                logger.info(f'Calibrating "{real_name}"...')
+                logger.info(f'Calibrating "{real_name}" vertex positions...')
                 mesh_index = mesh_index_lookup[mesh_object.name.replace(f'{self._instance.name}_', '')]
                 bmesh_object = self.get_bmesh(mesh_object)
                 vertex_indices, vertex_positions = self.get_mesh_vertex_positions(bmesh_object)
@@ -41,7 +47,91 @@ class DNACalibrator(DNAExporter, DNAImporter):
                     meshIndex=mesh_index, 
                     positions=[[x,y,z] for x,y,z in zip(x_values, y_values, z_values)]
                 )
+
+    def calibrate_shape_keys(self):
+        if self._component_type != 'head':
+            # currently, we only calibrate shape keys for the head component
+            return
         
+        for lod_index in range(self._dna_reader.getLODCount()):
+            # Skip LODs without blend shape channels
+            if len(self._dna_reader.getBlendShapeChannelIndicesForLOD(lod_index)) == 0:
+                continue
+
+            logger.info(f'Calibrating shape keys for {self._component_type} component LOD {lod_index}...')
+
+            # DNA is Y-up, Blender is Z-up, so we need to rotate the deltas
+            rotation_matrix = Matrix.Rotation(math.radians(90), 4, 'X')
+
+            for mesh_index in self._dna_reader.getMeshIndicesForLOD(lod_index):
+                mesh_name = self._dna_reader.getMeshName(mesh_index)
+                real_mesh_name = f'{self._prefix}_{mesh_name}'
+                mesh_object = bpy.data.objects.get(real_mesh_name)
+                if not mesh_object:
+                    logger.error(f"Mesh object '{real_mesh_name}' not found for shape key calibration. Skipping...")
+                    continue
+
+                if not mesh_object.data or not mesh_object.data.shape_keys: # type: ignore
+                    logger.warning(f"Mesh object '{mesh_object.name}' has no shape key data in the blender scene. Skipping shape key calibration...")
+                    continue
+                
+                # helps to track the largest delta count for the shape keys
+                largest_delta_count = 0
+                    
+                # Get the vertex positions for the mesh object
+                bmesh_object = self.get_bmesh(mesh_object)
+                vertex_indices, _ = self.get_mesh_vertex_positions(bmesh_object)
+                bmesh_object.free()
+
+                for index in range(self._dna_reader.getBlendShapeTargetCount(mesh_index)):
+                    channel_index = self._dna_reader.getBlendShapeChannelIndex(mesh_index, index)
+                    shape_key_name = self._dna_reader.getBlendShapeChannelName(channel_index)
+
+                    # Currently, Blender has a limit of 63 characters for shape key names
+                    if len(f'{mesh_name}__{shape_key_name}') > SHAPE_KEY_NAME_MAX_LENGTH:
+                        continue
+
+                    shape_key_block = mesh_object.data.shape_keys.key_blocks.get(f'{mesh_name}__{shape_key_name}') # type: ignore
+                    if not shape_key_block:
+                        logger.error(f"Shape key '{shape_key_name}' not found for mesh '{real_mesh_name}'. Skipping calibration...")
+                        continue
+
+                    dna_delta_vertex_indices = []
+                    dna_delta_values = []
+
+                    # the new shape key is the dna shape key with the deltas from the blender shape key applied
+                    for vertex_index in vertex_indices:
+                        # get the positions of the points
+                        new_delta = mesh_object.data.vertices[vertex_index].co.copy() - shape_key_block.data[vertex_index].co # type: ignore
+                        # Only modify the vertex positions that are different to avoid floating value drift
+                        if new_delta.length > SHAPE_KEY_DELTA_THRESHOLD:
+                            # Apply the coordinate system conversion and linear modifier for the scene units to the delta
+                            converted_delta = rotation_matrix @ (new_delta / self._linear_modifier)
+                            dna_delta_vertex_indices.append(vertex_index)
+                            dna_delta_values.append((
+                                converted_delta.x,
+                                converted_delta.y,
+                                converted_delta.z
+                            ))
+
+                    if len(dna_delta_vertex_indices) > largest_delta_count:
+                        largest_delta_count = len(dna_delta_vertex_indices)
+
+                    # Set the vertex indices for the delta values array for the shape key
+                    self._dna_writer.setBlendShapeTargetVertexIndices(
+                        meshIndex=mesh_index,
+                        blendShapeTargetIndex=index,
+                        vertexIndices=dna_delta_vertex_indices
+                    )
+                    # Set the actual delta value array for the shape key
+                    self._dna_writer.setBlendShapeTargetDeltas(
+                        meshIndex=mesh_index,
+                        blendShapeTargetIndex=index,
+                        deltas=dna_delta_values
+                    )
+
+                logger.debug(f'Largest Shape Key delta count for mesh {real_mesh_name} is {largest_delta_count}')
+
     def calibrate_bone_transforms(self):
         ignored_bone_names = [i for i, _ in self._extra_bones]
 
@@ -108,8 +198,10 @@ class DNACalibrator(DNAExporter, DNAImporter):
 
         if self._include_meshes:
             self.calibrate_vertex_positions()
+        if self._include_shape_keys:
+            self.calibrate_shape_keys()
         if self._include_bones:
-            self.calibrate_bone_transforms()        
+            self.calibrate_bone_transforms()
 
         logger.info(f'Saving DNA to: "{self._target_dna_file}"...')
         self._dna_writer.write()

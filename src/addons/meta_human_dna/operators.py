@@ -333,6 +333,7 @@ class ImportMetahumanDna(bpy.types.Operator, importer.ImportAsset, MetahumanDnaI
         callbacks.update_head_output_items(None, bpy.context)
         # now we can evaluate the dependency graph again
         window_manager_properties.evaluate_dependency_graph = True
+        bpy.ops.meta_human_dna.force_evaluate() # type: ignore
 
         bpy.ops.meta_human_dna.metrics_collection_consent('INVOKE_DEFAULT') # type: ignore
 
@@ -364,28 +365,16 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
     bl_idname = "meta_human_dna.convert_selected_to_dna"
     bl_label = "Convert Selected to DNA"
 
-    base_dna: bpy.props.EnumProperty(
-        name="Base DNA",
-        items=callbacks.get_base_dna_files,
-        description="Choose the base DNA file that will be used when converting the selected.",
-        options={'ANIMATABLE'}
-    ) # type: ignore
     new_name: bpy.props.StringProperty(
-        name="New Name", 
+        name="Name", 
         default="",
         get=callbacks.get_copied_rig_logic_instance_name,
         set=callbacks.set_copied_rig_logic_instance_name
     ) # type: ignore
-    new_folder: bpy.props.StringProperty(
-        name="New Output Folder",
-        default="",
-        subtype='DIR_PATH',
-    ) # type: ignore
-    maps_folder: bpy.props.StringProperty(
-        default='',
-        name='Maps Folder',
-        description='Optionally, this can be set to a folder location for the face wrinkle maps. Textures following the same naming convention as the metahuman source files will be found and set on the materials automatically.',
-        subtype='DIR_PATH'
+    constrain_head_to_body: bpy.props.BoolProperty(
+        name="Constrain Head to Body",
+        default=True,
+        description="If enabled, the head will be constrained to the body (if available) during the conversion process."
     ) # type: ignore
     validate_uvs: bpy.props.BoolProperty(
         name="Validate UVs",
@@ -403,12 +392,33 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
         default=True,
         description="Runs the calibration process after converting the selected mesh. This export the DNA to disk and re-loads it into the rig logic instance."
     ) # type: ignore
+
     # this can be used when invoking the operator programmatically to set the rig logic instance name
     new_instance_name: bpy.props.StringProperty(default="") # type: ignore
+    new_folder: bpy.props.StringProperty(
+        name="Output Folder",
+        default="",
+        subtype='DIR_PATH',
+    ) # type: ignore
+    maps_folder: bpy.props.StringProperty(
+        default='',
+        name='Maps Folder',
+        description='Optionally, this can be set to a folder location for the face wrinkle maps. Textures following the same naming convention as the metahuman source files will be found and set on the materials automatically.',
+        subtype='DIR_PATH'
+    ) # type: ignore
 
     def execute(self, context):
+        window_manager_properties = bpy.context.window_manager.meta_human_dna  # type: ignore
+
+        # If values passed to the operator, we update them.
+        # This allows clean programmatic access to the operator properties.
+        if self.new_folder:
+            window_manager_properties.new_folder = self.new_folder # type: ignore
+        if self.maps_folder:
+            window_manager_properties.maps_folder = self.maps_folder # type: ignore
+
         selected_object = context.active_object # type: ignore
-        new_folder = Path(bpy.path.abspath(self.new_folder))
+        new_folder = Path(bpy.path.abspath(window_manager_properties.new_folder))
         new_name = self.new_name or self.new_instance_name
         if not selected_object or not selected_object.type == 'MESH':
             self.report({'ERROR'}, 'You must select a mesh to convert.')
@@ -416,7 +426,7 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
         if not new_name:
             self.report({'ERROR'}, 'You must set a new name.')
             return {'CANCELLED'}
-        if not self.new_folder:
+        if not window_manager_properties.new_folder:
             self.report({'ERROR'}, 'You must set an output folder.')
             return {'CANCELLED'}
         if not new_folder.exists():
@@ -426,7 +436,6 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
             self.report({'ERROR'}, 'The scene unit scale must be set to 1.0')
             return {'CANCELLED'}
         
-        window_manager_properties = bpy.context.window_manager.meta_human_dna  # type: ignore
         kwargs = {
             'import_face_board': True,
             'import_materials': True,
@@ -435,7 +444,7 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
             'import_mesh': True,
             'import_normals': False,
             'import_shape_keys': False,
-            'alternate_maps_folder': self.maps_folder,
+            'alternate_maps_folder': window_manager_properties.maps_folder,
         }
         
         for lod_index in range(NUMBER_OF_HEAD_LODS):
@@ -447,67 +456,105 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
 
         # we don't want to evaluate the dependency graph while importing the DNA
         window_manager_properties.evaluate_dependency_graph = False
-        face = MetaHumanComponentHead(
-            name=new_name,
-            dna_file_path=Path(self.base_dna),
-            dna_import_properties=self.properties # type: ignore
-        )
-        # try to separate the selected object by its unreal head material first if it has one
-        selected_object = face.pre_convert_mesh_cleanup(mesh_object=selected_object)
-        if not selected_object:
-            window_manager_properties.evaluate_dependency_graph = True
-            self.report({'ERROR'}, 'The selected object failed to be separated by its head material.')
+        component = None
+        
+        base_dna_file = Path(window_manager_properties.base_dna) / f'{window_manager_properties.current_component_type}.dna'
+        if not base_dna_file.exists():
+            self.report({'ERROR'}, f'Base DNA file not found: {base_dna_file}')
             return {'CANCELLED'}
 
-        # check if the selected object has the same number of vertices as the base DNA
+        if window_manager_properties.current_component_type == 'head':
+            component = MetaHumanComponentHead(
+                name=new_name,
+                dna_file_path=base_dna_file,
+                component_type='head',
+                dna_import_properties=self.properties # type: ignore
+            )
+        elif window_manager_properties.current_component_type == 'body':
+            component = MetaHumanComponentBody(
+                name=new_name,
+                dna_file_path=base_dna_file,
+                component_type='body',
+                dna_import_properties=self.properties # type: ignore
+            )
+
+        if not component:
+            self.report({'ERROR'}, f'Failed to convert component {window_manager_properties.current_component_type}.')
+            return {'CANCELLED'}
+
+        # try to separate the selected object by its unreal material first if it has one
+        selected_object = component.pre_convert_mesh_cleanup(mesh_object=selected_object)
+        if not selected_object:
+            window_manager_properties.evaluate_dependency_graph = True
+            self.report({'ERROR'}, 'The selected object failed to be separated by its material.')
+            return {'CANCELLED'}
+
+        # check if the selected object has the same UVs as the base DNA
         if self.validate_uvs:
-            success, message = face.validate_conversion(
+            success, message = component.validate_conversion(
                 mesh_object=selected_object,
                 tolerance=self.uv_tolerance
             )
             if not success: # type: ignore
-                face.delete()
+                component.delete()
                 window_manager_properties.evaluate_dependency_graph = True
                 self.report({'ERROR'}, message)
                 return {'CANCELLED'}
+
+        component.ingest(align=False, constrain=False)
         
-        face.ingest()
-        callbacks.update_head_output_items(None, bpy.context)
-        face.convert(mesh_object=selected_object)
+        if window_manager_properties.current_component_type == 'head':
+            callbacks.update_head_output_items(None, bpy.context)
+        elif window_manager_properties.current_component_type == 'body':
+            callbacks.update_body_output_items(None, bpy.context)
+
+        component.convert(mesh_object=selected_object, constrain=self.constrain_head_to_body) # type: ignore
         selected_object.hide_set(True)
         # populate the output items based on what was imported
-        logger.info(f'Finished converting "{self.base_dna}"') # type: ignore
+        logger.info(f'Finished converting "{window_manager_properties.base_dna}"') # type: ignore
 
         # set the output folder path
-        face.rig_logic_instance.output_folder_path = self.new_folder
+        component.rig_logic_instance.output_folder_path = window_manager_properties.new_folder
 
         if self.run_calibration:
             # now we can export the new DNA file
             calibrator = DNACalibrator(
-                instance=face.rig_logic_instance,
-                linear_modifier=face.linear_modifier
-            )        
+                instance=component.rig_logic_instance,
+                linear_modifier=component.linear_modifier,
+                component_type=window_manager_properties.current_component_type,
+                file_name=f'{window_manager_properties.current_component_type}.dna'
+            )
             calibrator.run()
             
-            new_dna_file_path = str(new_folder / f'{new_name}.dna')
+            new_dna_file_path = str(new_folder / f'{window_manager_properties.current_component_type}.dna')
             # make the path relative to the blend file if it is saved
             if bpy.data.filepath:
                 try:
                     new_dna_file_path = bpy.path.relpath(new_dna_file_path, start=os.path.dirname(bpy.data.filepath))
                 except ValueError:
                     pass
+            
+            # now we can set the new DNA file path on the component
+            if window_manager_properties.current_component_type == 'head':
+                component.rig_logic_instance.head_dna_file_path = new_dna_file_path
+            elif window_manager_properties.current_component_type == 'body':
+                component.rig_logic_instance.body_dna_file_path = new_dna_file_path
+
+        # now hide the component rig and switch it back to object mode and change the
+        # active object to the face board
+        utilities.switch_to_object_mode()
+
+        if window_manager_properties.current_component_type == 'head':
+            bpy.context.view_layer.objects.active = component.face_board_object # type: ignore
+            utilities.switch_to_pose_mode(component.face_board_object) # type: ignore
+            component.head_rig_object.hide_set(True) # type: ignore
+        elif window_manager_properties.current_component_type == 'body':
+            bpy.context.view_layer.objects.active = component.body_mesh_object # type: ignore
+            component.body_rig_object.hide_set(True) # type: ignore
 
         # now we can evaluate the dependency graph again
         window_manager_properties.evaluate_dependency_graph = True
-        
         bpy.ops.meta_human_dna.force_evaluate() # type: ignore
-
-        # now hide the head rig and switch it back to object mode and change the 
-        # active object to the face board
-        utilities.switch_to_object_mode()
-        bpy.context.view_layer.objects.active = face.face_board_object # type: ignore
-        utilities.switch_to_pose_mode(face.face_board_object) # type: ignore
-        face.head_rig_object.hide_set(True) # type: ignore
 
         # Ask the user for consent to collect metrics
         bpy.ops.meta_human_dna.metrics_collection_consent('INVOKE_DEFAULT') # type: ignore
@@ -549,18 +596,30 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
     def draw(self, context):
         if not self.layout:
             return
-        
+        window_manager_properties = context.window_manager.meta_human_dna # type: ignore
+
         row = self.layout.row()
-        row.prop(self, 'base_dna')
+
+        column = row.column()
+        row_inner = column.row()
+        row_inner.label(text='Component Type:')
+        row_inner = column.row()
+        row_inner.prop(window_manager_properties, 'current_component_type', text='') # type: ignore
+        column = row.column()
+        row_inner = column.row()
+        row_inner.label(text='Base DNA:')
+        row_inner = column.row()
+        row_inner.prop(window_manager_properties, 'base_dna', text='')
+
         row = self.layout.row()
         row.prop(self, 'new_name')
         row = self.layout.row()
-        row.prop(self, 'new_folder')
+        row.prop(window_manager_properties, 'new_folder')
         row = self.layout.row()
-        path_error = self._get_path_error(self.maps_folder)
+        path_error = self._get_path_error(window_manager_properties.maps_folder)
         if path_error:
             row.alert = True
-        row.prop(self, 'maps_folder')
+        row.prop(window_manager_properties, 'maps_folder')
 
         if path_error:
             row = self.layout.row()
@@ -573,6 +632,8 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
         column = row.column()
         column.enabled = self.validate_uvs
         column.prop(self, 'uv_tolerance')
+        row = self.layout.row()
+        row.prop(self, 'constrain_head_to_body')
         row = self.layout.row()
         row.prop(self, 'run_calibration')
 
@@ -628,12 +689,12 @@ class ForceEvaluate(bpy.types.Operator):
             # evaluates the pose bones, otherwise bone transform updates won't be applied when the face 
             # board updates.
             current_context = utilities.get_current_context()
-            instance.head_rig.hide_set(False) # type: ignore
-            instance.head_rig.hide_viewport = False # type: ignore
-            utilities.switch_to_pose_mode(instance.head_rig) # type: ignore
+            if instance.head_rig:
+                instance.head_rig.hide_set(False) # type: ignore
+                instance.head_rig.hide_viewport = False # type: ignore
+                utilities.switch_to_pose_mode(instance.head_rig) # type: ignore
+
             utilities.set_context(current_context)
-        else:
-            self.report({'ERROR'}, 'No active Rig Logic Instance found!')
 
         context.window_manager.meta_human_dna.evaluate_dependency_graph = True # type: ignore
         return {'FINISHED'}
@@ -676,6 +737,8 @@ class SendToMetaHumanCreator(bpy.types.Operator):
     def execute(self, context):
         instance = callbacks.get_active_rig_logic()
         if instance:
+            current_context = utilities.get_current_context()
+
             for attribute_name in ['head_mesh', 'head_rig', 'body_mesh', 'body_rig']:
                 if not getattr(instance, attribute_name):
                     self.report({'ERROR'}, f'No {attribute_name} set on the active instance. Please ensure you have a head and body mesh and rig set before sending to MetaHuman Creator.')
@@ -727,6 +790,9 @@ class SendToMetaHumanCreator(bpy.types.Operator):
             # write a manifest file to the output folder similar to the MetaHuman Creator DCC export
             if last_component:
                 last_component.write_export_manifest()
+                bpy.ops.meta_human_dna.force_evaluate() # type: ignore
+
+            utilities.set_context(current_context)
             
         return {'FINISHED'}
 
@@ -832,16 +898,25 @@ class SendToUnreal(bpy.types.Operator):
     def poll(cls, context):
         return bool(getattr(context.scene, 'send2ue', False)) # type: ignore
     
-class ExportActiveComponent(bpy.types.Operator):
-    """Exports the active component to a single DNA file, along with any supporting textures. The DNA file will be the name of the instance."""
-    bl_idname = "meta_human_dna.export_active_component"
-    bl_label = "Export Active Component"
+class ExportSelectedComponent(bpy.types.Operator):
+    """Export only the selected component to a single DNA file. No textures or supporting files will be exported."""
+    bl_idname = "meta_human_dna.export_selected_component"
+    bl_label = "Export Selected Component"
 
     def execute(self, context):
-        head = utilities.get_active_head()
-        if head and head.rig_logic_instance:
-            instance = head.rig_logic_instance
-            
+        instance = callbacks.get_active_rig_logic()
+        if not instance:
+            self.report({'ERROR'}, 'No active Rig Logic Instance found. Please select an instance from the list under the RigLogic panel.')
+            return {'CANCELLED'}
+        
+        current_context = utilities.get_current_context()
+        component = None
+        if instance.output_component == 'head':
+            component = utilities.get_active_head()
+        elif instance.output_component == 'body':
+            component = utilities.get_active_body()
+
+        if component:            
             if not bpy.path.abspath(instance.output_folder_path) and not bpy.data.filepath:
                 self.report({'ERROR'}, 'File must be saved to use a relative path')
                 return {'CANCELLED'}
@@ -850,17 +925,24 @@ class ExportActiveComponent(bpy.types.Operator):
             if instance.output_method == 'calibrate':
                 dna_io_instance = DNACalibrator(
                     instance=instance,
-                    linear_modifier=head.linear_modifier
+                    linear_modifier=component.linear_modifier,
+                    file_name=f'{component.component_type}.dna',
+                    component_type=component.component_type,
+                    textures=False
                 )              
             elif instance.output_method == 'overwrite':
                 dna_io_instance = DNAExporter(
                     instance=instance,
-                    linear_modifier=head.linear_modifier
+                    linear_modifier=component.linear_modifier,
+                    file_name=f'{component.component_type}.dna',
+                    component_type=component.component_type,
+                    textures=False
                 )
 
             valid, title, message, fix = dna_io_instance.run()
+            bpy.ops.meta_human_dna.force_evaluate() # type: ignore
+
             if not valid:
-                # self.report({'ERROR'}, message)
                 utilities.report_error(
                     title=title,
                     message=message,
@@ -870,7 +952,9 @@ class ExportActiveComponent(bpy.types.Operator):
                 return {'CANCELLED'}
             else:
                 self.report({'INFO'}, message)
-            
+
+        utilities.set_context(current_context)
+
         return {'FINISHED'}
 
 class SyncWithBodyBonesInBlueprint(bpy.types.Operator):
@@ -920,11 +1004,12 @@ class ShrinkWrapVertexGroup(bpy.types.Operator):
     bl_label = "Shrink Wrap Active Group"
 
     def execute(self, context):
+        current_component_type = context.window_manager.meta_human_dna.current_component_type # type: ignore
         head = utilities.get_active_head()
         body = utilities.get_active_body()
-        if head and head.rig_logic_instance.mesh_topology_group_component == 'head':
+        if head and current_component_type == 'head':
             head.shrink_wrap_vertex_group()
-        elif body and body.rig_logic_instance.mesh_topology_group_component == 'body':
+        elif body and current_component_type == 'body':
             body.shrink_wrap_vertex_group()
         return {'FINISHED'}
     

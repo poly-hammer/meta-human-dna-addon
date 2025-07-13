@@ -19,7 +19,7 @@ from .mesh import (
 from ..constants import ( 
     CUSTOM_BONE_SHAPE_NAME, 
     CUSTOM_BONE_SHAPE_SCALE,
-    BodyBoneCollection
+    ComponentType
 )
 
 
@@ -131,13 +131,13 @@ def set_head_bone_collections(
         set_bone_collection(
             rig_object=rig_object, 
             bone_names=weighted_leaf_bones,
-            collection_name=meta_human_dna_core.BoneCollection.WEIGHTED_LEAF_BONES.value,
+            collection_name=meta_human_dna_core.HeadBoneCollection.WEIGHTED_LEAF_BONES.value,
             theme='THEME01'
         )
         set_bone_collection(
             rig_object=rig_object, 
             bone_names=weighted_non_leaf_bones,
-            collection_name=meta_human_dna_core.BoneCollection.WEIGHTED_NON_LEAF_BONES.value,
+            collection_name=meta_human_dna_core.HeadBoneCollection.WEIGHTED_NON_LEAF_BONES.value,
             theme='THEME03'
         )
 
@@ -153,13 +153,13 @@ def set_head_bone_collections(
         set_bone_collection(
             rig_object=rig_object, 
             bone_names=non_weighted_leaf_bones,
-            collection_name=meta_human_dna_core.BoneCollection.NON_WEIGHTED_LEAF_BONES.value,
+            collection_name=meta_human_dna_core.HeadBoneCollection.NON_WEIGHTED_LEAF_BONES.value,
             theme='THEME04'
         )
         set_bone_collection(
             rig_object=rig_object, 
             bone_names=non_weighted_non_leaf_bones,
-            collection_name=meta_human_dna_core.BoneCollection.NON_WEIGHTED_NON_LEAF_BONES.value,
+            collection_name=meta_human_dna_core.HeadBoneCollection.NON_WEIGHTED_NON_LEAF_BONES.value,
             theme='THEME09'
         )
 
@@ -167,12 +167,12 @@ def set_head_bone_collections(
         set_bone_collection(
             rig_object=rig_object,
             bone_names=weighted_bones,
-            collection_name=meta_human_dna_core.BoneCollection.WEIGHTED_BONES.value
+            collection_name=meta_human_dna_core.HeadBoneCollection.WEIGHTED_BONES.value
         )
         set_bone_collection(
             rig_object=rig_object,
             bone_names=weighted_leaf_bones + non_weighted_leaf_bones,
-            collection_name=meta_human_dna_core.BoneCollection.LEAF_BONES.value
+            collection_name=meta_human_dna_core.HeadBoneCollection.LEAF_BONES.value
         )
 
 
@@ -180,6 +180,7 @@ def set_body_bone_collections(
         mesh_object: bpy.types.Object,
         rig_object: bpy.types.Object
     ):
+    from ..bindings import meta_human_dna_core
     if mesh_object:
         driver_bones = []
         driver_leaf_bones = []
@@ -202,31 +203,31 @@ def set_body_bone_collections(
         set_bone_collection(
             rig_object=rig_object, 
             bone_names=driver_bones,
-            collection_name=BodyBoneCollection.DRIVER_BONES.value,
+            collection_name=meta_human_dna_core.BodyBoneCollection.DRIVER_BONES.value,
             theme='THEME09'
         )
         set_bone_collection(
             rig_object=rig_object, 
             bone_names=driver_leaf_bones,
-            collection_name=BodyBoneCollection.DRIVER_LEAF_BONES.value,
+            collection_name=meta_human_dna_core.BodyBoneCollection.DRIVER_LEAF_BONES.value,
             theme='THEME01'
         )    
         set_bone_collection(
             rig_object=rig_object, 
             bone_names=twist_bones,
-            collection_name=BodyBoneCollection.TWIST_BONES.value,
+            collection_name=meta_human_dna_core.BodyBoneCollection.TWIST_BONES.value,
             theme='THEME03'
         )    
         set_bone_collection(
             rig_object=rig_object, 
             bone_names=twist_corrective_bones,
-            collection_name=BodyBoneCollection.TWIST_CORRECTIVE_BONES.value,
+            collection_name=meta_human_dna_core.BodyBoneCollection.TWIST_CORRECTIVE_BONES.value,
             theme='THEME03'
         )
         set_bone_collection(
             rig_object=rig_object, 
             bone_names=corrective_root_bones,
-            collection_name=BodyBoneCollection.CORRECTIVE_ROOT_BONES.value,
+            collection_name=meta_human_dna_core.BodyBoneCollection.CORRECTIVE_ROOT_BONES.value,
             theme='THEME04'
         )
         
@@ -391,12 +392,14 @@ def copy_armature(armature_object: bpy.types.Object, new_armature_name: str) -> 
     # set custom bone shape
     bones_shape_object = get_bone_shape()
     switch_to_pose_mode(armature_object_copy)
-    for pose_bone in armature_object_copy.pose.bones:
+    for pose_bone in armature_object_copy.pose.bones: # type: ignore
         pose_bone.custom_shape = bones_shape_object
         pose_bone.custom_shape_scale_xyz = CUSTOM_BONE_SHAPE_SCALE
 
     return armature_object_copy
 
+def get_body_constraint_name(bone_name: str) -> str:
+    return f'MH_DNA {bone_name} to body'
 
 def get_topology_group_surface_bones(
         mesh_object: bpy.types.Object,
@@ -451,6 +454,7 @@ def auto_fit_bones(
         mesh_object: bpy.types.Object, 
         armature_object: bpy.types.Object,
         dna_reader,
+        component_type: ComponentType,
         only_selected: bool = False
     ):
     import meta_human_dna_core
@@ -467,33 +471,34 @@ def auto_fit_bones(
     switch_to_bone_edit_mode(armature_object)
     result = meta_human_dna_core.calculate_fitted_bone_positions(
         data={
-            'head_name': mesh_object.name,
+            'mesh_name': mesh_object.name,
             'vertex_indices': vertex_indices,
             'vertex_positions': vertex_positions,
             'bone_data': bone_data,
             'rig_name': armature_object.name,
             'dna_reader': dna_reader
         },
+        component_type=component_type,
         parent_depth=1,
         factor=1.0,
         only_bone_names=bone_names, # type: ignore
     )
-    for bone_name, (head, tail) in result['bone_positions'].items():
-        edit_bone = armature_object.data.edit_bones.get(bone_name) # type: ignore
-        if edit_bone:
-            edit_bone.head = Vector(head)
-            edit_bone.tail = Vector(tail)
-    for bone_name, delta in result['bone_deltas']:
-        edit_bone = armature_object.data.edit_bones.get(bone_name) # type: ignore
-        if edit_bone:
-            edit_bone.head += Vector(delta)
-            edit_bone.tail += Vector(delta)
-    for data in result['mesh_deltas']:
-        update_vertex_positions(
-            mesh_object=bpy.data.objects[data['name']],
-            vertex_indices=data['vertex_indices'],
-            offset=Vector(data['offset'])
-        )
-    
-
-    
+    if result:
+        for bone_name, (head, tail) in result['bone_positions'].items():
+            edit_bone = armature_object.data.edit_bones.get(bone_name) # type: ignore
+            if edit_bone:
+                edit_bone.head = Vector(head)
+                edit_bone.tail = Vector(tail)
+        for bone_name, delta in result['bone_deltas']:
+            edit_bone = armature_object.data.edit_bones.get(bone_name) # type: ignore
+            if edit_bone:
+                edit_bone.head += Vector(delta)
+                edit_bone.tail += Vector(delta)
+        for data in result['mesh_deltas']:
+            update_vertex_positions(
+                mesh_object=bpy.data.objects[data['name']],
+                vertex_indices=data['vertex_indices'],
+                offset=Vector(data['offset'])
+            )
+    else:
+        logger.error('Auto-fitting failed. Please check the input data.')
