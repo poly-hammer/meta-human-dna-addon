@@ -17,7 +17,8 @@ from ..constants import (
     MESH_VERTEX_COLORS_FILE_PATH,
     MESH_VERTEX_COLORS_FILE_NAME,
     FIRST_BONE_Y_LOCATION,
-    EXTRA_BONES
+    EXTRA_BONES,
+    SHAPE_KEY_BASIS_NAME
 )
 from ..bindings import riglogic
 
@@ -229,7 +230,7 @@ class DNAImporter:
         mesh_object.shape_key_clear()
 
         # create the basis shape key
-        shape_key_block = mesh_object.shape_key_add(name="Basis")
+        shape_key_block = mesh_object.shape_key_add(name=SHAPE_KEY_BASIS_NAME)
         shape_key = shape_key_block.id_data
 
         # set the shape key name to the mesh object name

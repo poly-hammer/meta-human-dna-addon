@@ -177,6 +177,27 @@ def get_head_rig_bone_groups(self, context):
             enum_items.append(tuple(_item))
     return enum_items
 
+def get_body_rig_bone_groups(self, context):
+    enum_items = []   
+    from ..bindings import meta_human_dna_core
+    for group_name in meta_human_dna_core.BODY_BONE_SELECTION_GROUPS.keys():    
+        enum_items.append(
+            (
+                group_name, 
+                ' '.join([i.capitalize() for i in group_name.split('_')]),
+                f'Select bones in the group {group_name} on the body rig'
+            )
+        )
+    
+    # TODO: Maybe add surface bone groups here as well
+    # instance = get_active_rig_logic()
+    # if instance and instance.body_mesh and instance.list_surface_bone_groups:
+    #     for item in get_body_mesh_topology_groups(self, context):
+    #         _item = list(item)
+    #         _item[1] = f'(Surface) {item[1]}'
+    #         enum_items.append(tuple(_item))
+    return enum_items
+
 def get_base_dna_folder(self, context):
     enum_items = []   
     # get all the dna files in the addon's dna folder
@@ -291,7 +312,7 @@ def set_highlight_matching_active_bone(self, value):
                 pose_bone = bpy.context.active_pose_bone # type: ignore
                 if pose_bone:
                     for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list: # type: ignore
-                        if instance and instance.head_rig and pose_bone.id_data != instance.head_rig:
+                        if instance and instance.head_rig and pose_bone.id_data not in [instance.head_rig, instance.body_rig]:
                             source_pose_bone = instance.head_rig.pose.bones.get(pose_bone.name)
                             if source_pose_bone:
                                 world_location = instance.head_rig.matrix_world @ source_pose_bone.matrix.to_translation()
@@ -300,7 +321,7 @@ def set_highlight_matching_active_bone(self, value):
                                     color=(1,0,1,1), 
                                     radius=0.001
                                 )
-                        if instance and instance.body_rig and pose_bone.id_data != instance.body_rig:
+                        if instance and instance.body_rig and pose_bone.id_data not in [instance.head_rig, instance.body_rig]:
                             source_pose_bone = instance.body_rig.pose.bones.get(pose_bone.name)
                             if source_pose_bone:
                                 world_location = instance.body_rig.matrix_world @ source_pose_bone.matrix.to_translation()
@@ -487,6 +508,12 @@ def update_head_rig_bone_group_selection(self, context):
     head = get_active_head()
     if head:
         head.select_bone_group()
+
+def update_body_rig_bone_group_selection(self, context):
+    from ..utilities import get_active_body
+    body = get_active_body()
+    if body:
+        body.select_bone_group()
 
 def update_face_pose(self, context):
     from ..utilities import get_active_head

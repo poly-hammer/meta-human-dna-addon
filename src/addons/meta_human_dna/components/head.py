@@ -220,7 +220,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
 
     def select_bone_group(self):
         if self.rig_logic_instance and self.rig_logic_instance.head_rig:
-            if self.rig_logic_instance.head_rig_bone_group_selection_mode != 'add':
+            if self.rig_logic_instance.rig_bone_group_selection_mode != 'add':
                 # deselect all bones first
                 for bone in self.rig_logic_instance.head_rig.data.bones: # type: ignore
                     bone.select = False

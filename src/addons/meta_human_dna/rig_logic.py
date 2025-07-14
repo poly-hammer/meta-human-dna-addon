@@ -289,7 +289,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     ) # type: ignore
 
     # --------------------- Armature Utilities Properties ------------------
-    head_rig_bone_group_selection_mode: bpy.props.EnumProperty(
+    rig_bone_group_selection_mode: bpy.props.EnumProperty(
         name="Selection Mode",
         default='isolate',
         items=[
@@ -304,6 +304,13 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         description="Select the bone group to display in the 3D view",
         options={'ANIMATABLE'},
         update=callbacks.update_head_rig_bone_group_selection
+    ) # type: ignore
+    body_rig_bone_groups: bpy.props.EnumProperty(
+        name="Bone Groups",
+        items=callbacks.get_body_rig_bone_groups,
+        description="Select the bone group to display in the 3D view",
+        options={'ANIMATABLE'},
+        update=callbacks.update_body_rig_bone_group_selection
     ) # type: ignore
     list_surface_bone_groups: bpy.props.BoolProperty(
         name="List Surface Bones",
@@ -639,11 +646,13 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         if self.head_rig and self.head_rig.pose:
             for pose_bone in self.head_rig.pose.bones:
                 if pose_bone.name.startswith('FACIAL_'):
-                    pose_bone.rotation_mode = "XYZ"
+                    if pose_bone.rotation_mode != "XYZ":
+                        pose_bone.rotation_mode = "XYZ"
                 # save the rest pose and their parent space matrix so we don't have to calculate it again
                 try:
                     rest_pose[pose_bone.name] = utilities.get_bone_rest_transformations(pose_bone.bone)
-                except ValueError:
+                except ValueError as error:
+                    logger.error(f'Error getting rest pose for bone "{pose_bone.name}": {error}')
                     return {}
         
         # save the rest pose so we don't have to calculate it again
@@ -913,9 +922,6 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 self.update_shape_keys()
             if self.evaluate_texture_masks:
                 self.update_texture_masks()
-
-            # clear the cached rest pose so we can re-read it next time
-            self.data['rest_pose'].clear()
 
             # turn on the dependency graph evaluation back on
             bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True # type: ignore

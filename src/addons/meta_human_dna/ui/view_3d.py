@@ -1,6 +1,7 @@
 import bpy
 from pathlib import Path
 from bl_ui.generic_ui_list import draw_ui_list
+from ..constants import SHAPE_KEY_BASIS_NAME
 
 def valid_rig_logic_instance_exists(context, ignore_face_board: bool = False) -> str:
     properties = context.scene.meta_human_dna # type: ignore
@@ -292,6 +293,7 @@ class META_HUMAN_DNA_PT_armature_utilities_sub_panel(bpy.types.Panel):
         if not error:
             active_index = properties.rig_logic_instance_list_active_index
             instance = properties.rig_logic_instance_list[active_index]
+            current_component_type = context.window_manager.meta_human_dna.current_component_type # type: ignore
             box = self.layout.box()
             row = box.row()
             row.label(text='Bone Selection Groups:')
@@ -309,13 +311,16 @@ class META_HUMAN_DNA_PT_armature_utilities_sub_panel(bpy.types.Panel):
             col.enabled = bool(instance.head_mesh)
             col.label(text='Selection Mode:')
             row = col.row()
-            row.prop(instance, 'head_rig_bone_group_selection_mode', text='')
+            row.prop(instance, 'rig_bone_group_selection_mode', text='')
 
             col = grid.column()
             col.enabled = bool(instance.head_mesh)
             col.label(text='Set Selection:')
             row = col.row()
-            row.prop(instance, 'head_rig_bone_groups', text='')
+            if current_component_type == 'head':
+                row.prop(instance, 'head_rig_bone_groups', text='')
+            elif current_component_type == 'body':
+                row.prop(instance, 'body_rig_bone_groups', text='')
             row = self.layout.row()
             # row.label(text='Push Bones:')
             # row = self.layout.row()
@@ -584,6 +589,11 @@ class META_HUMAN_DNA_PT_shape_keys(bpy.types.Panel):
                 insertion_operators=False,
                 move_operators=False # type: ignore
             )
+            split = self.layout.split(factor=0.75, align=True)
+            split.label(text='Basis Shape Key:')
+            split.operator('meta_human_dna.sculpt_this_shape_key', text='', icon='SCULPTMODE_HLT', emboss=True).shape_key_name = SHAPE_KEY_BASIS_NAME # type: ignore
+            split.operator('meta_human_dna.edit_this_shape_key', text='', icon='EDITMODE_HLT', emboss=True).shape_key_name = SHAPE_KEY_BASIS_NAME # type: ignore
+
             row = self.layout.row()
             row.prop(instance, 'solo_shape_key', text='Solo selected shape key')
             row = self.layout.row()
