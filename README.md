@@ -2,7 +2,7 @@
 
 [![Release](https://github.com/poly-hammer/meta-human-dna-addon/actions/workflows/release.yaml/badge.svg)](https://github.com/poly-hammer/meta-human-dna-addon/actions/workflows/release.yaml)
 
-Imports a Metahuman head from a DNA file, lets you customize it, then send it back to unreal. [Get Now](https://polyhammer.com/meta-human-dna-addon).
+Imports MetaHuman head and body components from a their DNA files, lets you customize them, then send them back to MetaHuman Creator. [Get Now](https://polyhammer.com/meta-human-dna-addon).
 
 <div align="center">
     <img src="docs/images/quick-start/0.gif" alt="Example Custom MetaHuman" height="250px" style="margin-right: 10px;">

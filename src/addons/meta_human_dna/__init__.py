@@ -21,7 +21,7 @@ bl_info = {
     "version": (0, 4, 0),
     "blender": (4, 2, 0),
     "location": "File > Import > Metahuman DNA",
-    "description": "Imports a Metahuman head from a DNA file, lets you customize it, then send it back to unreal.",
+    "description": "Imports MetaHuman head and body components from a their DNA files, lets you customize them, then send them back to MetaHuman Creator.",
     "warning": "",
     "wiki_url": "https://docs.polyhammer.com/meta-human-dna-addon/",
     "category": "Rigging",
