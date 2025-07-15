@@ -138,7 +138,7 @@ def create_shape_key(
         is_neutral: bool = False,
         linear_modifier: float = 1.0,
         delta_threshold: float = SHAPE_KEY_DELTA_THRESHOLD
-    ) -> bpy.types.ShapeKey:
+    ) -> bpy.types.ShapeKey | None:
     if not mesh_object:
         logger.error(f"Mesh object not found for shape key {name}. Skipping creation.")
         return
@@ -172,8 +172,8 @@ def create_shape_key(
                 delta = Vector((delta_x, delta_y, delta_z)) * linear_modifier
                 rotated_delta = rotation_matrix @ delta
                 
-                # set the positions of the points
-                shape_key_block.data[vertex_index].co = mesh_object.data.vertices[vertex_index].co + rotated_delta # type: ignore
+                # set the positions of the shape key vertices
+                shape_key_block.data[vertex_index].co = mesh_object.data.vertices[vertex_index].co.copy() + rotated_delta # type: ignore
             except IndexError:
                 logger.warning(f'Vertex index {vertex_index} is missing for shape key "{name}". Was this deleted on the base mesh "{mesh_object.name}"?')
 

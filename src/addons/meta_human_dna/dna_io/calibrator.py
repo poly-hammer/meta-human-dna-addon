@@ -1,7 +1,8 @@
 import bpy
-from mathutils import Vector
+import math
 import logging
 from typing import Callable
+from mathutils import Vector, Matrix
 from .importer import DNAImporter
 from .exporter import DNAExporter
 from ..bindings import riglogic
@@ -83,6 +84,9 @@ class DNACalibrator(DNAExporter, DNAImporter):
                 bmesh_object = self.get_bmesh(mesh_object)
                 vertex_indices, _ = self.get_mesh_vertex_positions(bmesh_object)
                 bmesh_object.free()
+                
+                # DNA is Y-up, Blender is Z-up, so we need to rotate the deltas
+                rotation_matrix = Matrix.Rotation(math.radians(-90), 4, 'X')
 
                 for index in range(self._dna_reader.getBlendShapeTargetCount(mesh_index)):
                     channel_index = self._dna_reader.getBlendShapeChannelIndex(mesh_index, index)
@@ -104,7 +108,8 @@ class DNACalibrator(DNAExporter, DNAImporter):
                     for vertex_index in vertex_indices:
                         # get the positions of the points
                         # Get the delta between the current shape key and the basis (rest) shape key
-                        new_delta = shape_key_block.data[vertex_index].co.copy() - shape_key_basis.data[vertex_index].co # type: ignore
+                        new_delta = rotation_matrix @ (shape_key_block.data[vertex_index].co.copy() - shape_key_basis.data[vertex_index].co) # type: ignore
+
                         # Only modify the vertex positions that are different to avoid floating value drift
                         if new_delta.length > SHAPE_KEY_DELTA_THRESHOLD:
                             # Apply the coordinate system conversion and linear modifier for the scene units to the delta

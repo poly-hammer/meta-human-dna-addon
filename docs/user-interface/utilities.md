@@ -34,3 +34,6 @@ Converts the selected mesh object to a valid mesh that matches the provided base
 
 ![](../images/user-interface/utilities/3.png){: class="rounded-image" style="height:400px"}
 ![](../images/user-interface/utilities/4.png){: class="rounded-image" style="height:400px"}
+<br>
+![](../images/user-interface/utilities/5.png){: class="rounded-image" style="height:365px"}
+![](../images/user-interface/utilities/6.png){: class="rounded-image" style="height:365px"}

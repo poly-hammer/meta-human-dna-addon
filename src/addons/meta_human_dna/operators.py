@@ -1,8 +1,10 @@
 import os
 import bpy
+import math
 import queue
 import shutil
 import logging
+from mathutils import Vector, Matrix
 from pathlib import Path
 from datetime import datetime, timedelta
 from .ui import importer, callbacks
@@ -10,8 +12,7 @@ from . import utilities
 from .dna_io import (
     DNACalibrator, 
     DNAExporter,
-    get_dna_reader,
-    create_shape_key
+    get_dna_reader
 )
 from .properties import MetahumanDnaImportProperties
 from .components import (
@@ -1123,8 +1124,10 @@ class ShapeKeyOperatorBase(bpy.types.Operator):
             return None, key_block, None, mesh_object
         
         if not instance.channel_name_to_index_lookup:
-            self.report({'ERROR'}, 'The shape key blocks are not initialized')
-            return False
+            instance.initialize()
+            if not instance.channel_name_to_index_lookup:
+                self.report({'ERROR'}, 'The shape key blocks are not initialized')
+                return False
 
         shape_key_index, key_block, channel_index = self.get_select_shape_key(instance)
         if shape_key_index is not None:
@@ -1304,35 +1307,55 @@ class ReImportThisShapeKey(ShapeKeyOperatorBase):
             if not result:
                 return {'CANCELLED'}
             
-            _, _, channel_index, mesh_object = result # type: ignore
+            _, shape_key_block, _, mesh_object = result # type: ignore
             mesh_index = {v.name: k for k, v in instance.mesh_index_lookup.items()}.get(mesh_object.name)
-            mesh_dna_name = mesh_object.name.replace(f'{instance.name}_', '')
             if mesh_index is None:
                 self.report({'ERROR'}, f'The mesh index for "{mesh_object.name}" is not found')
                 return {'CANCELLED'}
 
             current_context = utilities.get_current_context()
+            utilities.switch_to_object_mode()
             short_name = self.shape_key_name.split("__", 1)[-1]
-            # filter out the shape key block we are re-importing
-            shape_key_blocks = instance.data['shape_key_blocks'].pop(channel_index, [])
-            new_shape_key_blocks = [block for block in shape_key_blocks if block.name != f'{mesh_dna_name}__{short_name}']
-            new_shape_key_block = create_shape_key(
-                index=channel_index,
-                mesh_index=mesh_index,
-                mesh_object=mesh_object,
-                reader=get_dna_reader(file_path=instance.head_dna_file_path), # re-read the DNA file
-                name=short_name,
-                prefix=f'{mesh_dna_name}__',
-                is_neutral=instance.generate_neutral_shapes,
-                linear_modifier=head.linear_modifier,
-                delta_threshold=0.0001
-            )
-            mesh_object.show_only_shape_key = False
+
+            if not instance.generate_neutral_shapes:
+                reader = get_dna_reader(file_path=instance.head_dna_file_path)
+
+                # determine the shape key index in the DNA file
+                shape_key_index = None
+                for index in range(reader.getBlendShapeTargetCount(mesh_index)):
+                    channel_index = reader.getBlendShapeChannelIndex(mesh_index, index)
+                    channel_name = reader.getBlendShapeChannelName(channel_index)
+                    if channel_name == short_name:
+                        shape_key_index = index
+                        break
+
+                if shape_key_index is None:
+                    self.report({'ERROR'}, f'The shape key "{short_name}" is not found in the DNA file')
+                    return {'CANCELLED'}
+
+                # DNA is Y-up, Blender is Z-up, so we need to rotate the deltas
+                rotation_matrix = Matrix.Rotation(math.radians(90), 4, 'X')
+
+                delta_x_values = reader.getBlendShapeTargetDeltaXs(mesh_index, shape_key_index)
+                delta_y_values = reader.getBlendShapeTargetDeltaYs(mesh_index, shape_key_index)
+                delta_z_values = reader.getBlendShapeTargetDeltaZs(mesh_index, shape_key_index)
+                vertex_indices = reader.getBlendShapeTargetVertexIndices(mesh_index, shape_key_index)
+
+                # the new vertex layout is the original vertex layout with the deltas from the dna applied
+                for vertex_index, delta_x, delta_y, delta_z in zip(vertex_indices, delta_x_values, delta_y_values, delta_z_values):
+                    try:
+                        delta = Vector((delta_x, delta_y, delta_z)) * head.linear_modifier
+                        rotated_delta = rotation_matrix @ delta
+                        
+                        # set the positions of the shape key vertices
+                        shape_key_block.data[vertex_index].co = mesh_object.data.vertices[vertex_index].co.copy() + rotated_delta # type: ignore
+                    except IndexError:
+                        logger.warning(f'Vertex index {vertex_index} is missing for shape key "{short_name}". Was this deleted on the base mesh "{mesh_object.name}"?')
+            else:
+                # reset the shape key to the basis shape key
+                shape_key_block.data.foreach_set("co", [v.co for v in mesh_object.data.vertices])
+
             utilities.set_context(current_context)
-            new_shape_key_blocks.append(new_shape_key_block)
-            # swap the cached shape key blocks index in the instance
-            instance.data['shape_key_blocks'][channel_index] = new_shape_key_blocks
-            instance.evaluate()
         return {'FINISHED'}
     
 class RefreshMaterialSlotNames(bpy.types.Operator):
@@ -1375,6 +1398,9 @@ class DuplicateRigLogicInstance(bpy.types.Operator):
 
     def execute(self, context):
         new_folder = Path(bpy.path.abspath(self.new_folder))
+        if not bpy.path.abspath(self.new_folder) and not bpy.data.filepath:
+            self.report({'ERROR'}, 'File must be saved to use a relative path')
+            return {'CANCELLED'}
         if not self.new_name:
             self.report({'ERROR'}, 'You must set a new name.')
             return {'CANCELLED'}
