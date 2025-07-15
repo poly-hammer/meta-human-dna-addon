@@ -22,14 +22,10 @@ This displays a list of all the mesh objects, the armature objects, and images t
     Mesh names should follow the LOD naming convention that Metahuman's use. This is how the exporter will know which LOD level to assign a mesh to.
 
 #### Output Folder
-This is a single path to the folder where all the data will be exported. The `.dna` file will be put in this folder, using the name of the [Rig Logic Instance](../terminology.md#rig-logic-instance), as well as the `vertex_colors.json`.
-
-Textures are exported to a `maps` folder within this directory.
-
-When the [Send to Unreal](#send-to-unreal) operator is used, the FBX files as well as the minimal DNA (only includes bone position updates) are exported to a `export` folder within this directory.
+This is a single path to the folder where all the data will be exported. The `.dna` components will be put in this folder, and textures are exported to a `Maps` folder within this directory.
 
 ## Operators
-### Export to Disk
+### Export Only Component
 Export only the selected component (`head`, `body`) to a single DNA file. No textures or supporting files will be exported. This is faster then running a full export, especially if you only need to update the DNA of 1 component.
 
 ### Send to MetaHuman Creator

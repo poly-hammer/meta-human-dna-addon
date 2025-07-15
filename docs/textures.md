@@ -50,21 +50,3 @@ You can make a totally custom material node tree if you want. All you need to do
 ![](./images/textures/3.gif){: class="rounded-image center-image"}
 
 With this set, now [RigLogic](./terminology.md#riglogic) will update the wrinkle map masks for you as the GUI controls are evaluated.
-
-## Send to Unreal Integration
-
-The Send to Unreal process with do most of the major things like importing the Mesh with all the shape keys and linking Control Rig and the BPs and .dna file. Also it will import and link the 3 color/normal wrinkle map textures on the head material instance.
-
-The Texture Logic Node Input Names are 1-to-1 with Unreal Material Instance Parameter names. Any image node you plug into one of these inputs in blender will be exported and linked onto the material instance in unreal.
-
-* `Color_MAIN`
-* `Color_CM1`
-* `Color_CM2`
-* `Color_CM3`
-* `Normal_MAIN`
-* `Normal_WM1`
-* `Normal_WM2`
-* `Normal_WM3`
-
-![](./images/textures/4.png){: class="rounded-image center-image" style="height:400px"}
-![](./images/textures/5.png){: class="rounded-image center-image" style="height:400px"}
