@@ -6,8 +6,11 @@ from mathutils import Vector
 from .. import utilities
 from ..utilities import preserve_context
 from .base import MetaHumanComponentBase
-from ..constants import BODY_TOPOLOGY_VERTEX_GROUPS_FILE_PATH
 from ..dna_io import DNAExporter
+from ..constants import (
+    BODY_TOPOLOGY_VERTEX_GROUPS_FILE_PATH,
+    TOPO_GROUP_PREFIX
+)
 
 logger = logging.getLogger(__name__)
 
@@ -162,8 +165,30 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
             )
 
     def select_bone_group(self):
-        pass
+        if self.rig_logic_instance and self.rig_logic_instance.body_rig:
+            if self.rig_logic_instance.rig_bone_group_selection_mode != 'add':
+                # deselect all bones first
+                for bone in self.rig_logic_instance.body_rig.data.bones: # type: ignore
+                    bone.select = False
             
+            from ..bindings import meta_human_dna_core
+            for bone_name in meta_human_dna_core.BODY_BONE_SELECTION_GROUPS.get(self.rig_logic_instance.body_rig_bone_groups, []): # type: ignore
+                bone = self.rig_logic_instance.body_rig.data.bones.get(bone_name) # type: ignore
+                if bone:
+                    bone.select = True
+
+            if self.rig_logic_instance.body_rig_bone_groups.startswith(TOPO_GROUP_PREFIX):
+                for bone in utilities.get_topology_group_surface_bones(
+                    mesh_object=self.rig_logic_instance.body_mesh,
+                    armature_object=self.rig_logic_instance.body_rig,
+                    vertex_group_name=self.rig_logic_instance.body_rig_bone_groups,
+                    dna_reader=self.dna_reader
+                ):
+                    bone.select = True
+
+            self.rig_logic_instance.body_rig.hide_set(False)
+            utilities.switch_to_pose_mode(self.rig_logic_instance.body_rig) # type: ignore
+
     def shrink_wrap_vertex_group(self):
         if self.rig_logic_instance and self.rig_logic_instance.body_mesh:
             modifier = self.rig_logic_instance.body_mesh.modifiers.get(self.rig_logic_instance.body_mesh_topology_groups)

@@ -289,7 +289,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     ) # type: ignore
 
     # --------------------- Armature Utilities Properties ------------------
-    head_rig_bone_group_selection_mode: bpy.props.EnumProperty(
+    rig_bone_group_selection_mode: bpy.props.EnumProperty(
         name="Selection Mode",
         default='isolate',
         items=[
@@ -304,6 +304,13 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         description="Select the bone group to display in the 3D view",
         options={'ANIMATABLE'},
         update=callbacks.update_head_rig_bone_group_selection
+    ) # type: ignore
+    body_rig_bone_groups: bpy.props.EnumProperty(
+        name="Bone Groups",
+        items=callbacks.get_body_rig_bone_groups,
+        description="Select the bone group to display in the 3D view",
+        options={'ANIMATABLE'},
+        update=callbacks.update_body_rig_bone_group_selection
     ) # type: ignore
     list_surface_bone_groups: bpy.props.BoolProperty(
         name="List Surface Bones",
@@ -639,11 +646,13 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         if self.head_rig and self.head_rig.pose:
             for pose_bone in self.head_rig.pose.bones:
                 if pose_bone.name.startswith('FACIAL_'):
-                    pose_bone.rotation_mode = "XYZ"
+                    if pose_bone.rotation_mode != "XYZ":
+                        pose_bone.rotation_mode = "XYZ"
                 # save the rest pose and their parent space matrix so we don't have to calculate it again
                 try:
                     rest_pose[pose_bone.name] = utilities.get_bone_rest_transformations(pose_bone.bone)
-                except ValueError:
+                except ValueError as error:
+                    logger.error(f'Error getting rest pose for bone "{pose_bone.name}": {error}')
                     return {}
         
         # save the rest pose so we don't have to calculate it again
@@ -863,6 +872,22 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 rotation_delta = Euler([math.radians(values[3]), math.radians(values[4]), math.radians(values[5])])
                 scale_delta = Vector(values[6:9])
 
+                # TODO: Probably a compatibility issue with the Rig Logic binding version, but need to check if the location_delta is valid
+                # Otherwise we need to delete the riglogic instance from memory and reinitialize it. This is a workaround for the issue,
+                # but the proper solution is to fix the Rig Logic binding to not return invalid values.
+                # https://github.com/poly-hammer/meta-human-dna-addon/issues/122
+                if math.isinf(location_delta.length) or math.isnan(location_delta.length) or location_delta.length > 1.0:
+                    if math.isinf(location_delta.length):
+                        logger.warning(f'Infinite location delta detected for bone "{name}".')
+                    elif math.isnan(location_delta.length):
+                        logger.warning(f'Null location delta detected for bone "{name}".')
+                    elif location_delta.length > 1.0:
+                        logger.warning(f'Large location delta detected for bone "{name}" {location_delta.length:.4f}.')
+                    logger.warning('Re-initializing Rig Logic instance to fix the issue.')
+                    self.destroy()
+                    self.evaluate()
+                    return
+
                 # update the transformations using the rest pose and the delta values
                 # we need to copy the vectors so we don't modify the original rest pose
                 location = Vector((
@@ -913,9 +938,6 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 self.update_shape_keys()
             if self.evaluate_texture_masks:
                 self.update_texture_masks()
-
-            # clear the cached rest pose so we can re-read it next time
-            self.data['rest_pose'].clear()
 
             # turn on the dependency graph evaluation back on
             bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True # type: ignore

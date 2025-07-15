@@ -15,6 +15,7 @@ from .misc import (
 )
 from ..constants import (
     LOD_REGEX,
+    SHAPE_KEY_BASIS_NAME,
     Axis
 )
 
@@ -42,7 +43,7 @@ def initialize_basis_shape_key(mesh_object: bpy.types.Object) -> bpy.types.Key:
     mesh_object.shape_key_clear()
         
     # create the basis shape key
-    shape_key_block = mesh_object.shape_key_add(name='Basis')
+    shape_key_block = mesh_object.shape_key_add(name=SHAPE_KEY_BASIS_NAME)
     # mesh_object.data.shape_keys.use_relative = False
     shape_key = shape_key_block.id_data
 
@@ -196,7 +197,7 @@ def select_vertex_group(
 def get_shape_key_delta_vertices(
         mesh_object: bpy.types.Object, 
         shape_key_name: str,
-        basis_shape_key_name: str = 'Basis',
+        basis_shape_key_name: str = SHAPE_KEY_BASIS_NAME,
         delta_threshold: float = 0.0001
     ) -> list[int]:
     switch_to_object_mode()

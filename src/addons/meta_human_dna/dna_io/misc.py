@@ -6,8 +6,7 @@ from pathlib import Path
 from mathutils import Vector, Matrix
 from typing import Literal, TYPE_CHECKING
 from ..constants import (
-    ComponentType, 
-    SHAPE_KEY_GROUP_PREFIX, 
+    ComponentType,
     SHAPE_KEY_DELTA_THRESHOLD
 )
 from ..utilities import (
@@ -139,7 +138,7 @@ def create_shape_key(
         is_neutral: bool = False,
         linear_modifier: float = 1.0,
         delta_threshold: float = SHAPE_KEY_DELTA_THRESHOLD
-    ) -> bpy.types.ShapeKey:
+    ) -> bpy.types.ShapeKey | None:
     if not mesh_object:
         logger.error(f"Mesh object not found for shape key {name}. Skipping creation.")
         return
@@ -167,34 +166,16 @@ def create_shape_key(
         delta_z_values = reader.getBlendShapeTargetDeltaZs(mesh_index, index)
         vertex_indices = reader.getBlendShapeTargetVertexIndices(mesh_index, index)
 
-        # Not all vertices in the shape key are, so we need to filter out the ones that are
-        # past the threshold
-        offset_vertex_indices = []
-
         # the new vertex layout is the original vertex layout with the deltas from the dna applied
         for vertex_index, delta_x, delta_y, delta_z in zip(vertex_indices, delta_x_values, delta_y_values, delta_z_values):
             try:
                 delta = Vector((delta_x, delta_y, delta_z)) * linear_modifier
                 rotated_delta = rotation_matrix @ delta
                 
-                # set the positions of the points
-                shape_key_block.data[vertex_index].co = mesh_object.data.vertices[vertex_index].co + rotated_delta # type: ignore
-                if delta.length > delta_threshold:
-                    offset_vertex_indices.append(vertex_index)
+                # set the positions of the shape key vertices
+                shape_key_block.data[vertex_index].co = mesh_object.data.vertices[vertex_index].co.copy() + rotated_delta # type: ignore
             except IndexError:
                 logger.warning(f'Vertex index {vertex_index} is missing for shape key "{name}". Was this deleted on the base mesh "{mesh_object.name}"?')
-
-        # create a vertex group for the shape key vertices so we can easily select
-        vertex_group_name = f'{SHAPE_KEY_GROUP_PREFIX}{name}'
-        vertex_group = mesh_object.vertex_groups.get(vertex_group_name)
-        if vertex_group:
-            mesh_object.vertex_groups.remove(vertex_group)
-        vertex_group = mesh_object.vertex_groups.new(name=vertex_group_name)
-        vertex_group.add(
-            index=[int(x) for x in offset_vertex_indices], # type: ignore
-            weight=1.0,
-            type='REPLACE'
-        )
 
     shape_key_block.lock_shape = True
 

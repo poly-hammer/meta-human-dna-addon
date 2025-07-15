@@ -447,7 +447,8 @@ def move_to_collection(
     
     # link the objects to the new collection
     for scene_object in scene_objects:
-        collection.objects.link(scene_object) # type: ignore
+        if scene_object not in collection.objects.values():
+            collection.objects.link(scene_object) # type: ignore
 
 def set_origin_to_world_center(scene_object: bpy.types.Object):   
     switch_to_object_mode()

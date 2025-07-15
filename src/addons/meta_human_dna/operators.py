@@ -1,27 +1,34 @@
 import os
 import bpy
+import math
 import queue
 import shutil
 import logging
+from mathutils import Vector, Matrix
 from pathlib import Path
 from datetime import datetime, timedelta
 from .ui import importer, callbacks
 from . import utilities
-from .dna_io import DNACalibrator, DNAExporter, create_shape_key
+from .dna_io import (
+    DNACalibrator, 
+    DNAExporter,
+    get_dna_reader
+)
 from .properties import MetahumanDnaImportProperties
 from .components import (
     MetaHumanComponentHead,
     MetaHumanComponentBody,
     get_meta_human_component
 )
+from . import constants
 from .constants import (
     SEND2UE_FACE_SETTINGS,
-    HEAD_TEXTURE_LOGIC_NODE_NAME,
-    HEAD_TEXTURE_LOGIC_NODE_LABEL,
     ToolInfo,
     NUMBER_OF_HEAD_LODS,
-    SHAPE_KEY_GROUP_PREFIX,
-    DEFAULT_UV_TOLERANCE
+    DEFAULT_UV_TOLERANCE,
+    HEAD_TEXTURE_LOGIC_NODE_NAME,
+    HEAD_TEXTURE_LOGIC_NODE_LABEL,
+    SHAPE_KEY_BASIS_NAME
 )
 
 logger = logging.getLogger(__name__)
@@ -1039,7 +1046,7 @@ class AutoFitSelectedBones(bpy.types.Operator):
                 armature_object=head.head_rig_object,
                 dna_reader=head.dna_reader,
                 only_selected=True
-            )
+            ) # type: ignore
 
         return {'FINISHED'}
     
@@ -1094,10 +1101,12 @@ class ShapeKeyOperatorBase(bpy.types.Operator):
                 modifier.show_on_cage = True
 
         # lock all shape keys except the one we are editing
-        for key_block in mesh_object.data.shape_keys.key_blocks: # type: ignore
-            key_block.lock_shape = key_block.name != self.shape_key_name
+        for _key_block in mesh_object.data.shape_keys.key_blocks: # type: ignore
+            _key_block.lock_shape = _key_block.name != self.shape_key_name
         
+        # Unlock and set the active shape key block to the one we are editing
         key_block.lock_shape = False
+        mesh_object.active_shape_key_index = mesh_object.data.shape_keys.key_blocks.find(self.shape_key_name) # type: ignore
         mesh_object.use_shape_key_edit_mode = True
     
     def validate(self, context, instance) -> bool | tuple:
@@ -1105,9 +1114,20 @@ class ShapeKeyOperatorBase(bpy.types.Operator):
         if not mesh_object:
             self.report({'ERROR'}, 'The mesh object associated with the active shape key is not found')
             return False
+        
+        if self.shape_key_name == SHAPE_KEY_BASIS_NAME:
+            if not mesh_object.data.shape_keys: # type: ignore
+                self.report({'ERROR'}, 'The mesh object does not have shape keys')
+                return False
+            
+            key_block = mesh_object.data.shape_keys.key_blocks.get(SHAPE_KEY_BASIS_NAME) # type: ignore
+            return None, key_block, None, mesh_object
+        
         if not instance.channel_name_to_index_lookup:
-            self.report({'ERROR'}, 'The shape key blocks are not initialized')
-            return False
+            instance.initialize()
+            if not instance.channel_name_to_index_lookup:
+                self.report({'ERROR'}, 'The shape key blocks are not initialized')
+                return False
 
         shape_key_index, key_block, channel_index = self.get_select_shape_key(instance)
         if shape_key_index is not None:
@@ -1266,13 +1286,7 @@ class EditThisShapeKey(ShapeKeyOperatorBase):
                 instance.solo_shape_key_value(shape_key=key_block)
 
             self.lock_all_other_shape_keys(mesh_object, key_block)
-            short_name = self.shape_key_name.split("__", 1)[-1]
             utilities.switch_to_edit_mode(mesh_object)
-            utilities.select_vertex_group(
-                mesh_object=mesh_object, 
-                vertex_group_name=f'{SHAPE_KEY_GROUP_PREFIX}{short_name}',
-                add=False
-            )
             mesh_object.show_only_shape_key = False
 
         return {'FINISHED'}
@@ -1293,35 +1307,55 @@ class ReImportThisShapeKey(ShapeKeyOperatorBase):
             if not result:
                 return {'CANCELLED'}
             
-            _, shape_key_block, channel_index, mesh_object = result # type: ignore
+            _, shape_key_block, _, mesh_object = result # type: ignore
             mesh_index = {v.name: k for k, v in instance.mesh_index_lookup.items()}.get(mesh_object.name)
-            mesh_dna_name = mesh_object.name.replace(f'{instance.name}_', '')
             if mesh_index is None:
                 self.report({'ERROR'}, f'The mesh index for "{mesh_object.name}" is not found')
                 return {'CANCELLED'}
 
             current_context = utilities.get_current_context()
+            utilities.switch_to_object_mode()
             short_name = self.shape_key_name.split("__", 1)[-1]
-            # filter out the shape key block we are re-importing
-            shape_key_blocks = instance.data['shape_key_blocks'].pop(channel_index, [])
-            new_shape_key_blocks = [block for block in shape_key_blocks if block.name != f'{mesh_dna_name}__{short_name}']
-            new_shape_key_block = create_shape_key(
-                index=channel_index,
-                mesh_index=mesh_index,
-                mesh_object=mesh_object,
-                reader=instance.dna_reader,
-                name=short_name,
-                prefix=f'{mesh_dna_name}__',
-                is_neutral=instance.generate_neutral_shapes,
-                linear_modifier=head.linear_modifier,
-                delta_threshold=0.0001
-            )
-            mesh_object.show_only_shape_key = False
+
+            if not instance.generate_neutral_shapes:
+                reader = get_dna_reader(file_path=instance.head_dna_file_path)
+
+                # determine the shape key index in the DNA file
+                shape_key_index = None
+                for index in range(reader.getBlendShapeTargetCount(mesh_index)):
+                    channel_index = reader.getBlendShapeChannelIndex(mesh_index, index)
+                    channel_name = reader.getBlendShapeChannelName(channel_index)
+                    if channel_name == short_name:
+                        shape_key_index = index
+                        break
+
+                if shape_key_index is None:
+                    self.report({'ERROR'}, f'The shape key "{short_name}" is not found in the DNA file')
+                    return {'CANCELLED'}
+
+                # DNA is Y-up, Blender is Z-up, so we need to rotate the deltas
+                rotation_matrix = Matrix.Rotation(math.radians(90), 4, 'X')
+
+                delta_x_values = reader.getBlendShapeTargetDeltaXs(mesh_index, shape_key_index)
+                delta_y_values = reader.getBlendShapeTargetDeltaYs(mesh_index, shape_key_index)
+                delta_z_values = reader.getBlendShapeTargetDeltaZs(mesh_index, shape_key_index)
+                vertex_indices = reader.getBlendShapeTargetVertexIndices(mesh_index, shape_key_index)
+
+                # the new vertex layout is the original vertex layout with the deltas from the dna applied
+                for vertex_index, delta_x, delta_y, delta_z in zip(vertex_indices, delta_x_values, delta_y_values, delta_z_values):
+                    try:
+                        delta = Vector((delta_x, delta_y, delta_z)) * head.linear_modifier
+                        rotated_delta = rotation_matrix @ delta
+                        
+                        # set the positions of the shape key vertices
+                        shape_key_block.data[vertex_index].co = mesh_object.data.vertices[vertex_index].co.copy() + rotated_delta # type: ignore
+                    except IndexError:
+                        logger.warning(f'Vertex index {vertex_index} is missing for shape key "{short_name}". Was this deleted on the base mesh "{mesh_object.name}"?')
+            else:
+                # reset the shape key to the basis shape key
+                shape_key_block.data.foreach_set("co", [v.co for v in mesh_object.data.vertices])
+
             utilities.set_context(current_context)
-            new_shape_key_blocks.append(new_shape_key_block)
-            # swap the cached shape key blocks index in the instance
-            instance.data['shape_key_blocks'][channel_index] = new_shape_key_blocks
-            instance.evaluate()
         return {'FINISHED'}
     
 class RefreshMaterialSlotNames(bpy.types.Operator):
@@ -1364,6 +1398,9 @@ class DuplicateRigLogicInstance(bpy.types.Operator):
 
     def execute(self, context):
         new_folder = Path(bpy.path.abspath(self.new_folder))
+        if not bpy.path.abspath(self.new_folder) and not bpy.data.filepath:
+            self.report({'ERROR'}, 'File must be saved to use a relative path')
+            return {'CANCELLED'}
         if not self.new_name:
             self.report({'ERROR'}, 'You must set a new name.')
             return {'CANCELLED'}
@@ -1376,103 +1413,162 @@ class DuplicateRigLogicInstance(bpy.types.Operator):
 
         instance = callbacks.get_active_rig_logic()
         if instance:
-            if instance.head_mesh and instance.head_rig:
-                new_head_mesh_object = utilities.copy_mesh(
-                    mesh_object=instance.head_mesh,
-                    new_mesh_name=instance.head_mesh.name.replace(instance.name, self.new_name),
-                    modifiers=False,
-                    materials=True
-                )
-                new_rig_object = utilities.copy_armature(
-                    armature_object=instance.head_rig,
-                    new_armature_name=instance.head_rig.name.replace(instance.name, self.new_name)
-                )
+            for component_type, mesh_object, rig_object in [
+                ('body', instance.body_mesh, instance.body_rig),
+                ('head', instance.head_mesh, instance.head_rig)
+            ]:
+                if mesh_object and rig_object:
+                    new_mesh_object = utilities.copy_mesh(
+                        mesh_object=mesh_object,
+                        new_mesh_name=mesh_object.name.replace(instance.name, self.new_name),
+                        modifiers=False,
+                        materials=True
+                    )
+                    new_rig_object = utilities.copy_armature(
+                        armature_object=rig_object,
+                        new_armature_name=rig_object.name.replace(instance.name, self.new_name)
+                    )
+                    # move the new rig to the right collection
+                    utilities.move_to_collection(
+                        scene_objects=[new_mesh_object],
+                        collection_name=f'{self.new_name}_lod0',
+                        exclusively=True
+                    )
+                    # move the new rig to the right collection
+                    utilities.move_to_collection(
+                        scene_objects=[new_rig_object],
+                        collection_name=self.new_name,
+                        exclusively=True
+                    )
+                    # move the face board also to the this collection
+                    utilities.move_to_collection(
+                        scene_objects=[instance.face_board],
+                        collection_name=self.new_name,
+                        exclusively=False
+                    )
+                    
+                    # duplicate the mesh materials
+                    new_mesh_material = utilities.copy_materials(
+                        mesh_object=new_mesh_object,
+                        old_prefix=instance.name,
+                        new_prefix=self.new_name,
+                        new_folder=new_folder / self.new_name
+                    )
+                    # duplicate the texture logic node
+                    if new_mesh_material:
+                        texture_logic_node = getattr(callbacks, f'get_{component_type}_texture_logic_node')(new_mesh_material)
+                        if texture_logic_node and texture_logic_node.node_tree:
+                            new_name = f'{self.new_name}_{getattr(constants, f"{component_type.upper()}_TEXTURE_LOGIC_NODE_NAME")}'
+                            texture_logic_node.label = new_name
+                            texture_logic_node_tree_copy = texture_logic_node.node_tree.copy() # type: ignore
+                            texture_logic_node_tree_copy.name = new_name
+                            texture_logic_node.node_tree = texture_logic_node_tree_copy
 
-                # duplicate the head mesh materials
-                new_head_mesh_material = utilities.copy_materials(
-                    mesh_object=new_head_mesh_object,
-                    old_prefix=instance.name,
-                    new_prefix=self.new_name,
-                    new_folder=new_folder
-                )
-                # duplicate the texture logic node
-                if new_head_mesh_material:
-                    texture_logic_node = callbacks.get_head_texture_logic_node(new_head_mesh_material)
-                    if texture_logic_node and texture_logic_node.node_tree:
-                        new_name = f'{self.new_name}_{HEAD_TEXTURE_LOGIC_NODE_NAME}'
-                        texture_logic_node.label = new_name
-                        texture_logic_node_tree_copy = texture_logic_node.node_tree.copy() # type: ignore
-                        texture_logic_node_tree_copy.name = new_name
-                        texture_logic_node.node_tree = texture_logic_node_tree_copy
+                    # match the hide state of the original
+                    new_mesh_object.hide_set(mesh_object.hide_get())
+                    new_rig_object.hide_set(rig_object.hide_get())
 
-                # match the hide state of the original
-                new_head_mesh_object.hide_set(instance.head_mesh.hide_get())
-                new_rig_object.hide_set(instance.head_rig.hide_get())
+                    # assign the rig to the duplicated mesh
+                    modifier = new_mesh_object.modifiers.new(name='Armature', type='ARMATURE')
+                    modifier.object = new_rig_object # type: ignore
+                    new_mesh_object.parent = new_rig_object
 
-                # assign the rig to the duplicated mesh
-                modifier = new_head_mesh_object.modifiers.new(name='Armature', type='ARMATURE')
-                modifier.object = new_rig_object # type: ignore
-                new_head_mesh_object.parent = new_rig_object
+                    # now we need to duplicate the output items
+                    for item in getattr(instance, f'output_{component_type}_item_list'):
+                        if item.scene_object and item.scene_object.type == 'MESH':
+                            if item.scene_object == mesh_object:
+                                continue
 
-                # now we need to duplicate the output items
-                for item in instance.output_head_item_list:
-                    if item.scene_object and item.scene_object.type == 'MESH':
-                        if item.scene_object == instance.head_mesh:
-                            continue
+                            new_extra_mesh_object = utilities.copy_mesh(
+                                mesh_object=item.scene_object,
+                                new_mesh_name=item.scene_object.name.replace(instance.name, self.new_name),
+                                modifiers=False,
+                                materials=True
+                            )
 
-                        new_extra_mesh_object = utilities.copy_mesh(
-                            mesh_object=item.scene_object,
-                            new_mesh_name=item.scene_object.name.replace(instance.name, self.new_name),
-                            modifiers=False,
-                            materials=True
-                        )
-                        
-                        # assign the rig to the duplicated extra mesh
-                        modifier = new_extra_mesh_object.modifiers.new(name='Armature', type='ARMATURE')
-                        modifier.object = new_rig_object # type: ignore
-                        new_extra_mesh_object.parent = new_rig_object
+                            lod_index = utilities.get_lod_index(new_extra_mesh_object.name)
+                            if lod_index == -1:
+                                lod_index = 0
+                                
+                            # move the new mesh to the right collection
+                            utilities.move_to_collection(
+                                scene_objects=[new_extra_mesh_object],
+                                collection_name=f'{self.new_name}_lod{lod_index}',
+                                exclusively=True
+                            )
+                            main_collection = bpy.data.collections.get(self.new_name)
+                            lod_collection = bpy.data.collections.get(f'{self.new_name}_lod{lod_index}')
+                            if main_collection and lod_collection:
+                                # unlink the lod collection from the scene collection if it exists
+                                if lod_collection in bpy.context.scene.collection.children.values(): # type: ignore
+                                    bpy.context.scene.collection.children.unlink(lod_collection) # type: ignore
+                                # link the lod collection to the main collection if it is not already linked
+                                if lod_collection not in main_collection.children.values():
+                                    main_collection.children.link(lod_collection)
+                            
+                            # assign the rig to the duplicated extra mesh
+                            modifier = new_extra_mesh_object.modifiers.new(name='Armature', type='ARMATURE')
+                            modifier.object = new_rig_object # type: ignore
+                            new_extra_mesh_object.parent = new_rig_object
 
-                        # match the hide state of the original
-                        new_extra_mesh_object.hide_set(item.scene_object.hide_get())
-                        new_extra_mesh_object.hide_viewport = item.scene_object.hide_viewport
+                            # match the hide state of the original
+                            new_extra_mesh_object.hide_set(item.scene_object.hide_get())
+                            new_extra_mesh_object.hide_viewport = item.scene_object.hide_viewport
 
-                        # duplicate the extra mesh's materials
-                        utilities.copy_materials(
-                            mesh_object=new_extra_mesh_object,
-                            old_prefix=instance.name,
-                            new_prefix=self.new_name,
-                            new_folder=new_folder
-                        )                        
+                            # duplicate the extra mesh's materials
+                            utilities.copy_materials(
+                                mesh_object=new_extra_mesh_object,
+                                old_prefix=instance.name,
+                                new_prefix=self.new_name,
+                                new_folder=new_folder / self.new_name
+                            )                        
 
-                # move the duplicated rig to the right of the last head mesh
-                last_instance = context.scene.meta_human_dna.rig_logic_instance_list[-1] # type: ignore
-                if last_instance.head_mesh:
-                    new_rig_object.location.x = utilities.get_bounding_box_right_x(last_instance.head_mesh) - 0.5
-                # otherwise move it to the right of the current instance's head mesh
-                else:
-                    new_rig_object.location.x = utilities.get_bounding_box_right_x(instance.head_mesh) - 0.5
+                    # move the duplicated rig to the right of the last mesh
+                    last_instance = context.scene.meta_human_dna.rig_logic_instance_list[-1] # type: ignore
+                    
+                    if component_type == 'body':
+                        new_rig_object.location.x = utilities.get_bounding_box_left_x(last_instance.body_mesh) - (utilities.get_bounding_box_width(last_instance.body_mesh) / 2)
+                    
+                    if component_type == 'head' and last_instance.body_rig:
+                        # Align the head rig with the body rig if it exists
+                        body_object_head_bone = last_instance.body_rig.pose.bones.get('head') # type: ignore
+                        head_object_head_bone = new_rig_object.pose.bones.get('head') # type: ignore
+                        if body_object_head_bone and head_object_head_bone:
+                            # get the location of the body head bone and the head head bone in world space
+                            body_head_location = (body_object_head_bone.id_data.matrix_world @ body_object_head_bone.matrix).to_translation()
+                            head_head_location = (head_object_head_bone.id_data.matrix_world @ head_object_head_bone.matrix).to_translation()
+                            delta = body_head_location - head_head_location
+                            # move the head rig object to align with the body rig head bone
+                            new_rig_object.location += delta
+                    # otherwise move it to the right of the last instance's head mesh
+                    elif component_type == 'head':
+                        new_rig_object.location.x = utilities.get_bounding_box_left_x(last_instance.head_mesh) - (utilities.get_bounding_box_width(last_instance.head_mesh) / 2)
 
-                # then parent the duplicated rig to the same face board
-                new_rig_object.parent = instance.face_board
+                    new_dna_file_path = new_folder / self.new_name / f'{component_type}.dna'
+                    new_dna_file_path.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy(instance.head_dna_file_path, new_dna_file_path)
 
-                new_dna_file_path = new_folder / f'{self.new_name}.dna'
-                shutil.copy(instance.head_dna_file_path, new_dna_file_path)
+                    # add the duplicated instance to the list if it doesn't already exist
+                    for _rig_logic_instance in context.scene.meta_human_dna.rig_logic_instance_list: # type: ignore
+                        if _rig_logic_instance.name == self.new_name:
+                            new_instance = _rig_logic_instance
+                            break
+                    else:
+                        new_instance = context.scene.meta_human_dna.rig_logic_instance_list.add() # type: ignore
 
+                    # now set the values on the instance
+                    new_instance.name = self.new_name
+                    setattr(new_instance, f'{component_type}_dna_file_path', str(new_dna_file_path))
+                    new_instance.active_lod = instance.active_lod
+                    new_instance.active_material_preview = instance.active_material_preview
+                    new_instance.face_board = instance.face_board
+                    setattr(new_instance, f'{component_type}_mesh', new_mesh_object)
+                    setattr(new_instance, f'{component_type}_rig', new_rig_object)
+                    setattr(new_instance, f'{component_type}_material', new_mesh_material)
+                    new_instance.output_folder_path = self.new_folder
 
-                # add the duplicated instance to the list and set the initial values
-                new_instance = context.scene.meta_human_dna.rig_logic_instance_list.add() # type: ignore
-                new_instance.name = self.new_name
-                new_instance.head_dna_file_path = str(new_dna_file_path)
-                new_instance.active_lod = instance.active_lod
-                new_instance.active_material_preview = instance.active_material_preview
-                new_instance.face_board = instance.face_board
-                new_instance.head_mesh = new_head_mesh_object
-                new_instance.head_rig = new_rig_object
-                new_instance.head_material = new_head_mesh_material
-                new_instance.output_folder_path = self.new_folder
-
-                # set the new instance as the active one
-                context.scene.meta_human_dna.rig_logic_instance_list_active_index = len(context.scene.meta_human_dna.rig_logic_instance_list) - 1 # type: ignore
+                    # set the new instance as the active one
+                    context.scene.meta_human_dna.rig_logic_instance_list_active_index = len(context.scene.meta_human_dna.rig_logic_instance_list) - 1 # type: ignore
 
 
         return {'FINISHED'}
@@ -1584,11 +1680,18 @@ class UILIST_RIG_LOGIC_OT_entry_remove(GenericUIListOperator, bpy.types.Operator
         my_list = context.scene.meta_human_dna.rig_logic_instance_list # type: ignore
 
         instance = context.scene.meta_human_dna.rig_logic_instance_list[self.active_index] # type: ignore
-        for item in instance.output_head_item_list:
-            if item.scene_object:
-                bpy.data.objects.remove(item.scene_object, do_unlink=True)
-            if item.image_object:
-                bpy.data.images.remove(item.image_object, do_unlink=True)
+        for component_type in ['body', 'head']:
+            for item in getattr(instance, f'output_{component_type}_item_list'):
+                if item.scene_object:
+                    bpy.data.objects.remove(item.scene_object, do_unlink=True)
+                if item.image_object:
+                    bpy.data.images.remove(item.image_object, do_unlink=True)
+
+            # remove the collections for the component type
+            for collection_name in [instance.name] + [f'{instance.name}_{component_type}_lod{i}' for i in range(NUMBER_OF_HEAD_LODS)]:
+                collection = bpy.data.collections.get(collection_name)
+                if collection:
+                    bpy.data.collections.remove(collection, do_unlink=True)
 
         my_list.remove(self.active_index)
         to_index = min(self.active_index, len(my_list) - 1)
@@ -1642,14 +1745,30 @@ class UILIST_RIG_LOGIC_OT_entry_move(GenericUIListOperator, bpy.types.Operator):
         from_instance = context.scene.meta_human_dna.rig_logic_instance_list[self.active_index] # type: ignore
         to_instance = context.scene.meta_human_dna.rig_logic_instance_list[to_index] # type: ignore
 
-        if from_instance.head_rig and to_instance.head_rig:
+        if from_instance.body_rig and to_instance.body_rig:
+            to_x = to_instance.body_rig.location.x
+            from_x = from_instance.body_rig.location.x
+
+            # swap the x locations of the body rigs
+            to_instance.body_rig.location.x = from_x
+            from_instance.body_rig.location.x = to_x
+            # swap the x locations of the head rigs
+            to_instance.head_rig.location.x = from_x
+            from_instance.head_rig.location.x = to_x
+            # swap the x locations of the face boards
+            to_instance.face_board.location.x += (from_x - to_x)
+            from_instance.face_board.location.x += (to_x - from_x)
+
+        elif from_instance.head_rig and to_instance.head_rig:
             to_x = to_instance.head_rig.location.x
             from_x = from_instance.head_rig.location.x
 
-            # swap the x locations of the rigs
+            # swap the x locations of the head rigs
             to_instance.head_rig.location.x = from_x
             from_instance.head_rig.location.x = to_x
-        
+            # swap the x locations of the face boards
+            to_instance.face_board.location.x += (from_x - to_x)
+            from_instance.face_board.location.x += (to_x - from_x)
 
         my_list.move(self.active_index, to_index)
         context.scene.meta_human_dna.rig_logic_instance_list_active_index = to_index # type: ignore
