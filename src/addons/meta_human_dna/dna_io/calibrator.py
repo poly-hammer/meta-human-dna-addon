@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 class DNACalibrator(DNAExporter, DNAImporter):
 
     def calibrate_vertex_positions(self):
+        additional_meshes_by_lod = {}
         mesh_index_lookup = {self._dna_reader.getMeshName(index): index for index in range(self._dna_reader.getMeshCount())}
 
         for lod_index, mesh_objects in self._export_lods.items():
@@ -24,7 +25,16 @@ class DNACalibrator(DNAExporter, DNAImporter):
             for mesh_object, _ in mesh_objects:
                 real_name = mesh_object.name.replace(f'{self._instance.name}_', '')
                 logger.info(f'Calibrating "{real_name}" vertex positions...')
-                mesh_index = mesh_index_lookup[mesh_object.name.replace(f'{self._instance.name}_', '')]
+                mesh_index = mesh_index_lookup.get(real_name)
+                
+                # If the mesh index is not found, we assume that the mesh is not part of the DNA
+                # And we can add it to the additional meshes for this LOD
+                if mesh_index is None:
+                    additional_meshes_by_lod[lod_index] = additional_meshes_by_lod.get(lod_index, [])
+                    additional_meshes_by_lod[lod_index].append(mesh_object)
+                    logger.warning(f'Mesh "{real_name}" not found in DNA. This mesh will not be calibrated...')
+                    continue
+
                 bmesh_object = self.get_bmesh(mesh_object)
                 vertex_indices, vertex_positions = self.get_mesh_vertex_positions(bmesh_object)
                 bmesh_object.free()
