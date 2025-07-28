@@ -185,7 +185,7 @@ class DNAExporter:
             meshes_with_mismatched_origins = []
             for _, mesh_objects in self._export_lods.items():
                 for mesh_object, _ in mesh_objects:
-                    if (self._rig_object.location.copy() - mesh_object.location).length > 1e-5:
+                    if (self._rig_object.location.copy() - mesh_object.location).length > 1e-4:
                         meshes_with_mismatched_origins.append(mesh_object)
             
             if meshes_with_mismatched_origins:
@@ -501,7 +501,10 @@ class DNAExporter:
             try:
                 image.save(filepath=str(new_image_path))
             except Exception:
-                image.save_render(filepath=str(new_image_path))
+                try:
+                    image.save_render(filepath=str(new_image_path))
+                except Exception as error:
+                    logger.error(f"Failed to export image {image.name}: {error}")
             logger.info(f"Image {image.name} exported successfully to: {new_image_path}")
 
     def save_vertex_colors(self):
@@ -513,9 +516,10 @@ class DNAExporter:
 
     def run(self) -> tuple[bool, str, str, Callable| None]:
         self.initialize_scene_data()
-        valid, title, message, fix = self.validate()
-        if not valid:
-            return False, title, message, fix
+        if self._instance.output_run_validations:
+            valid, title, message, fix = self.validate()
+            if not valid:
+                return False, title, message, fix
 
         # Clear the mesh data
         self._dna_writer.clearMeshNames()

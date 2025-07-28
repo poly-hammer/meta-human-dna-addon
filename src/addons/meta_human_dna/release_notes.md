@@ -1,16 +1,9 @@
-## Major Changes
-* Removed Send to Unreal functionality and refactored for Send to MetaHuman Creator. This can now be done entirely through DNA files now. (This will be more streamlined with RPC functionality in future releases)
-* MetaHuman Creator - body support [#120](https://github.com/poly-hammer/meta-human-dna-addon/issues/120)
-
 ## Minor Changes
-* Shape keys now calibrate to DNA instead of old Send to Unreal SkeletalMesh workflow
-* Basis Shape key operator for quickly modifying the basis shape
-* DNA exporter, now use the "component" (i.e. 'head.dna', 'body.dna') name for the file instead of the instance name
+* Added validate option to output panel. By default the validations are run before export, but this option allows the user to turn them off.
 
 ## Patch Changes
-* Fixed Normal UV Map name on import [#126](https://github.com/poly-hammer/meta-human-dna-addon/issues/126)
-* Fixed LOD import bug [#131](https://github.com/poly-hammer/meta-human-dna-addon/issues/131)
-* Head frequently gets messed up on undo [#122](https://github.com/poly-hammer/meta-human-dna-addon/issues/122)
+* Fixed Edit bone rotations on the body are not calibrating[#139](https://github.com/poly-hammer/meta-human-dna-addon/issues/139)
+* Fixed Mesh origin validation [#140](https://github.com/poly-hammer/meta-human-dna-addon/issues/140)
 
 
 > [!WARNING]  
@@ -18,7 +11,7 @@
 
 ## Tests Passing On
 * Metahuman Creator Version `6.0.0`
-* Blender `4.2`, `4.3` (installed from blender.org)
+* Blender `4.5` (installed from blender.org)
 * Unreal `5.6`
 > [!NOTE]  
 > Due to all the changes in Unreal 5.6, MetaHumans v6, and the addon still being in Beta, there is no backward support for earlier versions. Please use an older addon release if needed.

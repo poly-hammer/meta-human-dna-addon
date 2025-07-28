@@ -346,6 +346,11 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     ) # type: ignore
 
     # ----- Output Properties -----
+    output_run_validations: bpy.props.BoolProperty(
+        name="Validate",
+        description="Whether to run validations before exporting",
+        default=True
+    ) # type: ignore
     output_folder_path: bpy.props.StringProperty(
         name="Output Folder",
         description="The root folder where the output files will be saved",

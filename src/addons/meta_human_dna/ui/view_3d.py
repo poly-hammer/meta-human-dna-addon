@@ -786,6 +786,8 @@ class META_HUMAN_DNA_PT_buttons_sub_panel(bpy.types.Panel):
             row = self.layout.row()
             active_index = properties.rig_logic_instance_list_active_index
             instance = properties.rig_logic_instance_list[active_index]
+            row.prop(instance, 'output_run_validations')
+            row = self.layout.row()
             if not instance.output_folder_path:
                 row.enabled = False
             row.scale_y = 2.0

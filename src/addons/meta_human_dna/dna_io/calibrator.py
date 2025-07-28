@@ -209,9 +209,10 @@ class DNACalibrator(DNAExporter, DNAImporter):
 
     def run(self) -> tuple[bool, str, str, Callable| None]:
         self.initialize_scene_data()
-        valid, title, message, fix = self.validate()
-        if not valid:
-            return False, title, message, fix
+        if self._instance.output_run_validations:
+            valid, title, message, fix = self.validate()
+            if not valid:
+                return False, title, message, fix
 
         if self._include_meshes:
             self.calibrate_vertex_positions()

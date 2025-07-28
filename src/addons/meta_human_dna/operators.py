@@ -786,7 +786,7 @@ class SendToMetaHumanCreator(bpy.types.Operator):
                         title=title,
                         message=message,
                         fix=fix,
-                        width=300
+                        width=500
                     )
                     return {'CANCELLED'}
                 else:
