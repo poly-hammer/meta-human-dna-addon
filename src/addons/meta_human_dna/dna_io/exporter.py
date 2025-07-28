@@ -474,13 +474,10 @@ class DNAExporter:
         for index, bone_name in zip(indices, bone_names):
             self._dna_writer.setJointName(index=index, name=bone_name)
             self._bone_index_lookup[bone_name] = index
-
-            # TODO: Currently we only set the bone rotations for the facial bones.
-            # We need to investigate why the local rotations of other bones are not matching.
-            if bone_name.startswith('FACIAL_'):
-                dna_x_rotations[index] = rotations[index][0]
-                dna_y_rotations[index] = rotations[index][1]
-                dna_z_rotations[index] = rotations[index][2]
+            
+            dna_x_rotations[index] = rotations[index][0]
+            dna_y_rotations[index] = rotations[index][1]
+            dna_z_rotations[index] = rotations[index][2]
         
         self._dna_writer.setJointHierarchy(hierarchy)
         self._dna_writer.setNeutralJointTranslations(translations)

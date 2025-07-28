@@ -192,8 +192,7 @@ class DNACalibrator(DNAExporter, DNAImporter):
                 ))
                 rotation_delta = Vector(bone_rotation) - dna_bone_rotation
                 # Only modify the bone rotations that are different to avoid floating point value drift
-                # TODO: Currently, we only calibrate facial bones we need to investigate why the local rotations of other bones are not matching
-                if bone_name.startswith('FACIAL_') and rotation_delta.length > 1e-3: # and not is_leaf:
+                if rotation_delta.length > 1e-3:
                     dna_x_rotations[dna_bone_index] = bone_rotation[0]
                     dna_y_rotations[dna_bone_index] = bone_rotation[1]
                     dna_z_rotations[dna_bone_index] = bone_rotation[2]
