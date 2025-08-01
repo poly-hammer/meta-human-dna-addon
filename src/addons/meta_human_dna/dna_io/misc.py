@@ -34,7 +34,8 @@ DataLayer = Literal[
 def get_dna_reader(
         file_path: Path,
         file_format: FileFormat = 'binary',
-        data_layer: DataLayer = 'All'
+        data_layer: DataLayer = 'All',
+        memory_resource: 'riglogic.MemoryResource| None' = None
     ) -> 'riglogic.BinaryStreamReader':
     from ..bindings import riglogic # noqa: F811 
     file_path = Path(file_path)
@@ -49,7 +50,7 @@ def get_dna_reader(
         path=str(file_path),
         accessMode=riglogic.AccessMode.Read, 
         openMode=mode, 
-        memRes=None
+        memRes=memory_resource
     )
     if file_format.lower() == 'json':
         reader = riglogic.JSONStreamReader.create( 

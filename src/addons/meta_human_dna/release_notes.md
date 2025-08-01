@@ -4,6 +4,7 @@
 ## Patch Changes
 * Fixed Edit bone rotations on the body are not calibrating[#139](https://github.com/poly-hammer/meta-human-dna-addon/issues/139)
 * Fixed Mesh origin validation [#140](https://github.com/poly-hammer/meta-human-dna-addon/issues/140)
+* Fixed Multi-Language support [#141](https://github.com/poly-hammer/meta-human-dna-addon/issues/141)
 
 
 > [!WARNING]  

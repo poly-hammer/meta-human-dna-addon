@@ -56,9 +56,10 @@ def create_new_material(
     material = bpy.data.materials.new(name=name)
     material.use_nodes = True
     # Create a Principled BSDF shader node
-    principled_bsdf = material.node_tree.nodes.get("Principled BSDF") # type: ignore
-    if color:
-        principled_bsdf.inputs['Base Color'].default_value = color # type: ignore
-    if alpha is not None:
-        principled_bsdf.inputs['Alpha'].default_value = alpha # type: ignore
+    for node in material.node_tree.nodes: # type: ignore
+        if node.type == 'BSDF_PRINCIPLED':
+            if color:
+                node.inputs['Base Color'].default_value = color # type: ignore
+            if alpha is not None:
+                node.inputs['Alpha'].default_value = alpha # type: ignore
     return material

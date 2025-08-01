@@ -262,11 +262,11 @@ def get_show_body_bones(self) -> bool:
 def get_shape_key_value(self) -> float:
     instance = get_active_rig_logic()
     if instance:
-        channel_index = instance.channel_name_to_index_lookup.get(self.name)
+        channel_index = instance.head_channel_name_to_index_lookup.get(self.name)
         if not channel_index:
             return 0.0      
         
-        for shape_key_block in instance.shape_key_blocks.get(channel_index, []):
+        for shape_key_block in instance.head_shape_key_blocks.get(channel_index, []):
             try:
                 if shape_key_block.name == self.name:
                     return shape_key_block.value
@@ -277,8 +277,8 @@ def get_shape_key_value(self) -> float:
 
 def get_active_shape_key_mesh_names(self, context):
     items = []
-    if self.mesh_index_lookup:
-        for mesh_index, mesh_object in self.mesh_index_lookup.items(): 
+    if self.head_mesh_index_lookup:
+        for mesh_index, mesh_object in self.head_mesh_index_lookup.items(): 
             if mesh_object.data.shape_keys and len(mesh_object.data.shape_keys.key_blocks) > 0:       
                 items.append(
                     (
