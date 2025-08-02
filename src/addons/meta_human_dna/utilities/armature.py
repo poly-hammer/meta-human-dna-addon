@@ -1,5 +1,4 @@
 import bpy
-import json
 import math
 import bmesh
 import logging
