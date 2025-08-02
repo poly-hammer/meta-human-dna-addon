@@ -186,7 +186,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     evaluate_rbfs: bpy.props.BoolProperty(
         default=True,
         name='Evaluate RBFs',
-        description='Whether to evaluate RBFs based on the quaternion bone rotations'
+        description="Whether to evaluate RBFs based on the control bone's quaternion rotations"
     ) # type: ignore
     face_board: bpy.props.PointerProperty(
         type=bpy.types.Object, # type: ignore
@@ -716,6 +716,23 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         return self.data['head_rest_pose']
     
     @property
+    def head_raw_control_bone_names(self) -> list[str]:
+        raw_control_bone_names = self.data.get('head_raw_control_bone_names', [])
+        if raw_control_bone_names:
+            return raw_control_bone_names
+        
+        raw_control_bone_names = set()
+        for index in range(self.head_dna_reader.getRawControlCount()):
+            full_name = self.head_dna_reader.getRawControlName(index)
+            control_name, _ = full_name.split('.')
+            raw_control_bone_names.add(control_name)
+
+        # save the raw control bone names so we don't have to query them again
+        self.data['head_raw_control_bone_names'] = list(raw_control_bone_names)
+        # return a copy so the original raw control bone names are not modified
+        return self.data['head_raw_control_bone_names']
+
+    @property
     def body_rest_pose(self) -> dict[str, tuple[Vector, Euler, Vector, Matrix]]:
         rest_pose = self.data.get('body_rest_pose', {})
         if rest_pose:
@@ -724,8 +741,12 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         # make sure the rig bone are using the correct rotation mode
         if self.body_rig and self.body_rig.pose:
             for pose_bone in self.body_rig.pose.bones:
-                if pose_bone.rotation_mode != "QUATERNION":
-                    pose_bone.rotation_mode = 'QUATERNION'
+                # make sure the body bones are using the correct rotation mode
+                if pose_bone.name in self.body_raw_control_bone_names:
+                    pose_bone.rotation_mode = "QUATERNION"
+                else:
+                    pose_bone.rotation_mode = "XYZ"
+
                 # save the rest pose and their parent space matrix so we don't have to calculate it again
                 try:
                     rest_pose[pose_bone.name] = utilities.get_bone_rest_transformations(pose_bone.bone)
@@ -781,6 +802,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             for pose_bone in self.head_rig.pose.bones:
                 if pose_bone.name.startswith('FACIAL_'):
                     pose_bone.rotation_mode = "XYZ"
+                else:
+                    pose_bone.rotation_mode = "QUATERNION"
 
         # set the rig logic manager and instance
         self.data['head_manager'] = riglogic.RigLogic.create(
@@ -801,6 +824,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         self.head_channel_name_to_index_lookup
         self.head_channel_index_to_mesh_index_lookup
         self.head_shape_key_blocks
+        self.head_raw_control_bone_names
         self.head_rest_pose
 
         # ---- Initialize the Body Rig Logic Instance ---
@@ -821,10 +845,13 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                     memory_resource=None
                 )
 
-                # make sure the rig bones are using the correct rotation mode
+                # make sure the body bones are using the correct rotation mode
                 if self.body_rig and self.body_rig.pose:
                     for pose_bone in self.body_rig.pose.bones:
-                        pose_bone.rotation_mode = "QUATERNION"
+                        if pose_bone.name in self.body_raw_control_bone_names:
+                            pose_bone.rotation_mode = "QUATERNION"
+                        else:
+                            pose_bone.rotation_mode = "XYZ"
 
                 # set the body dna reader
                 self.data['body_dna_reader'] = get_dna_reader(
@@ -846,6 +873,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 self.data['body_memory_resource'] = body_memory_resource
 
                 # calling theses properties will cache their values
+                self.body_raw_control_bone_names
                 self.body_rest_pose
 
         self.data['initialized'] = True
@@ -1022,17 +1050,13 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         # calculate the bones values
         self.head_manager.calculateJoints(self.head_instance)
 
-        joint_output = self.head_instance.getJointOutputs()
         raw_joint_output = self.head_instance.getRawJointOutputs()
         # update joint transforms
-        for index in range(joint_output.size):
-            if not self.head_dna_reader:
-                return
-
+        for index in range(self.head_dna_reader.getJointCount()):
             # get the bone 
             name = self.head_dna_reader.getJointName(index)
 
-            # only update facial bones
+            # only update the facial bones
             if not name.startswith('FACIAL_'):
                 continue
 
@@ -1099,12 +1123,12 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 if override_values:
                     value = override_values.get(control_name, {}).get(axis)
                     if value is not None:
-                        self.body_instance.setRawControl(index, value)
+                        self.body_instance.setRawControl(index, math.degrees(value))
                 else:
                     pose_bone = self.body_rig.pose.bones.get(control_name)
                     if pose_bone:
                         value = getattr(pose_bone.rotation_quaternion, axis)
-                        self.body_instance.setRawControl(index, value)
+                        self.body_instance.setRawControl(index, math.degrees(value))
                     else:
                         missing_raw_controls.append(control_name)
 
@@ -1114,7 +1138,12 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             logger.warning(f'This is most likely due to the these bones being missing from the rig {self.body_rig.name}.')
             self.data['logged_missing_raw_controls'] = True
 
+        # set the active LOD level for the body instance to optimize performance
+        self.body_instance.setLOD(level=int(self.active_lod[-1]))
+
         # calculate the changes
+        # self.body_manager.calculateControls(self.body_instance)
+        # self.body_manager.calculateRBFControls(self.body_instance)
         self.body_manager.calculate(self.body_instance)
 
     def update_body_bone_transforms(self):
@@ -1126,13 +1155,10 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         if not self.body_rest_pose:
             return
 
-        joint_output = self.body_instance.getJointOutputs()
         raw_joint_output = self.body_instance.getRawJointOutputs()
+        
         # update joint transforms
-        for index in range(joint_output.size):
-            if not self.body_dna_reader:
-                return
-
+        for index in range(self.body_dna_reader.getJointCount()):
             # get the bone 
             name = self.body_dna_reader.getJointName(index)
 
@@ -1180,7 +1206,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 if pose_bone.children:
                     pose_bone.rotation_euler = rotation_delta
             else:
-                logger.warning(f'The bone "{name}" was not found on "{self.head_rig.name}". Rig Logic will not update the bone.')
+                logger.warning(f'The bone "{name}" was not found on "{self.body_rig.name}". Rig Logic will not update the bone.')
 
     def evaluate(self, component: Literal['head', 'body', 'all'] = 'all'):
         # this condition prevents constant evaluation

@@ -81,10 +81,22 @@ class META_HUMAN_DNA_UL_rig_logic_instances(bpy.types.UIList):
         row.enabled = item.auto_evaluate
         row.prop(item, "name", text="", emboss=False, icon='NETWORK_DRIVE')
         row.alignment = 'RIGHT'
-        row.prop(item, "evaluate_bones", text="", icon='BONE_DATA', emboss=False)
-        row.prop(item, "evaluate_shape_keys", text="", icon='SHAPEKEY_DATA', emboss=False)
-        row.prop(item, "evaluate_texture_masks", text="", icon='NODE_TEXTURE', emboss=False)
-        row.prop(item, "evaluate_rbfs", text="", icon='DRIVER_ROTATIONAL_DIFFERENCE', emboss=False)
+        
+        col = row.column(align=True)
+        col.alert = not item.evaluate_bones
+        col.prop(item, "evaluate_bones", text="", icon='BONE_DATA', emboss=False)
+
+        col = row.column(align=True)
+        col.alert = not item.evaluate_shape_keys
+        col.prop(item, "evaluate_shape_keys", text="", icon='SHAPEKEY_DATA', emboss=False)
+
+        col = row.column(align=True)
+        col.alert = not item.evaluate_texture_masks
+        col.prop(item, "evaluate_texture_masks", text="", icon='NODE_TEXTURE', emboss=False)
+
+        col = row.column(align=True)
+        col.alert = not item.evaluate_rbfs
+        col.prop(item, "evaluate_rbfs", text="", icon='DRIVER_ROTATIONAL_DIFFERENCE', emboss=False)
 
 class META_HUMAN_DNA_UL_shape_keys(bpy.types.UIList):
     
