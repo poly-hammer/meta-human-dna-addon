@@ -4,7 +4,7 @@ import bpy
 import bpy.utils.previews
 import logging
 
-from . import operators, properties, utilities, manual_map
+from . import operators, properties, utilities, manual_map, rig_logic
 from .ui import menus, importer, view_3d, addon_preferences, callbacks
 from .resources.unreal import meta_human_dna_utilities
 
@@ -138,6 +138,8 @@ def unregister():
     utilities.teardown_scene()
 
     # remove event handlers
+    rig_logic.stop_listening()
+
     if app_handlers['undo_pre'] in bpy.app.handlers.undo_pre:
         bpy.app.handlers.undo_pre.remove(app_handlers['undo_pre'])
     if app_handlers['undo_post'] in bpy.app.handlers.undo_post:

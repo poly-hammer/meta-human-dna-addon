@@ -84,6 +84,7 @@ class META_HUMAN_DNA_UL_rig_logic_instances(bpy.types.UIList):
         row.prop(item, "evaluate_bones", text="", icon='BONE_DATA', emboss=False)
         row.prop(item, "evaluate_shape_keys", text="", icon='SHAPEKEY_DATA', emboss=False)
         row.prop(item, "evaluate_texture_masks", text="", icon='NODE_TEXTURE', emboss=False)
+        row.prop(item, "evaluate_rbfs", text="", icon='DRIVER_ROTATIONAL_DIFFERENCE', emboss=False)
 
 class META_HUMAN_DNA_UL_shape_keys(bpy.types.UIList):
     
