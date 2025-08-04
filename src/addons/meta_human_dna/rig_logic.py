@@ -3,7 +3,7 @@ import math
 import logging
 from pprint import pformat
 from pathlib import Path
-from mathutils import Matrix, Vector, Euler
+from mathutils import Matrix, Vector, Euler, Quaternion
 from . import utilities
 from .ui import callbacks
 from typing import TYPE_CHECKING, Literal
@@ -46,16 +46,24 @@ def rig_logic_listener(scene, dependency_graph):
                     if not instance.auto_evaluate:
                         continue
                     # Check if the action is being used by any face board
-                    if instance.face_board and instance.face_board.animation_data and instance.face_board.animation_data.action:
-                        if instance.face_board.animation_data.action.name == update.id.name:
-                            instance_updates.add((instance, 'head'))
-                            break
+                    if (
+                        instance.face_board and 
+                        instance.face_board.animation_data and 
+                        instance.face_board.animation_data.action and 
+                        instance.face_board.animation_data.action.name == update.id.name
+                    ):
+                        instance_updates.add((instance, 'head'))
+                        break
                     
                     # Check if the action is being used by any body rig
-                    elif instance.body_rig and instance.body_rig.animation_data and instance.body_rig.animation_data.action:
-                        if instance.body_rig.animation_data.action.name == update.id.name:
-                            instance_updates.add((instance, 'body'))
-                            break
+                    elif (
+                        instance.body_rig and 
+                        instance.body_rig.animation_data and 
+                        instance.body_rig.animation_data.action and 
+                        instance.body_rig.animation_data.action. name == update.id.name
+                    ):
+                        instance_updates.add((instance, 'body'))
+                        break
                     # Otherwise, evaluate all instances. 
                     # Todo: Not ideal, so we should probably provide a way for user to specify another armature that might have
                     # the action and be evaluated.
@@ -186,7 +194,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     evaluate_rbfs: bpy.props.BoolProperty(
         default=True,
         name='Evaluate RBFs',
-        description="Whether to evaluate RBFs based on the control bone's quaternion rotations"
+        description="Whether to evaluate RBFs based on the control bone's quaternion rotations",
+        update=callbacks.update_evaluate_rbfs_value,
     ) # type: ignore
     face_board: bpy.props.PointerProperty(
         type=bpy.types.Object, # type: ignore
@@ -1102,6 +1111,26 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             else:
                 logger.warning(f'The bone "{name}" was not found on "{self.head_rig.name}". Rig Logic will not update the bone.')
 
+    def reset_body_raw_control_values(self):
+        # skip if the body rig is not set
+        if not self.initialized:
+            self.initialize()
+
+        if not self.body_dna_reader:
+            logger.warning('The body DNA reader is not set. The body raw control values will not be reset.')
+            return
+        
+        if not self.evaluate_rbfs:
+            # reset all raw controls to 0.0
+            for index in range(self.body_dna_reader.getRawControlCount()):
+                self.body_instance.setRawControl(index, 0.0)
+            self.body_instance.setLOD(level=int(self.active_lod[-1]))
+            self.body_manager.calculate(self.body_instance)
+        else:
+            self.update_body_raw_control_values()
+
+        self.update_body_bone_transforms()
+
     def update_body_raw_control_values(self, override_values: dict[str, dict[str, float]] | None = None):
         # skip if the body rig is not set
         if not self.body_rig or not self.body_dna_reader:
@@ -1112,6 +1141,17 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             return
         
         missing_raw_controls = []
+        converted_quaternions = {}
+
+        # convert the quaternion values to the correct coordinate system
+        for pose_bone in self.body_rig.pose.bones:
+            # This effectively mirrors the rotation around the Y-axis
+            converted_quaternions[pose_bone.name] = Quaternion((
+                pose_bone.rotation_quaternion.w, 
+                pose_bone.rotation_quaternion.x, 
+                -pose_bone.rotation_quaternion.y, 
+                pose_bone.rotation_quaternion.z
+            )).normalized()
 
         for index in range(self.body_dna_reader.getRawControlCount()):
             full_name = self.body_dna_reader.getRawControlName(index)
@@ -1123,14 +1163,15 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 if override_values:
                     value = override_values.get(control_name, {}).get(axis)
                     if value is not None:
-                        self.body_instance.setRawControl(index, math.degrees(value))
+                        self.body_instance.setRawControl(index, value)
                 else:
-                    pose_bone = self.body_rig.pose.bones.get(control_name)
-                    if pose_bone:
-                        value = getattr(pose_bone.rotation_quaternion, axis)
-                        self.body_instance.setRawControl(index, math.degrees(value))
+                    quaternion = converted_quaternions.get(control_name)
+                    if quaternion:
+                        value = getattr(quaternion, axis)
+                        self.body_instance.setRawControl(index, value)
                     else:
                         missing_raw_controls.append(control_name)
+                
 
         if missing_raw_controls and not self.data.get('logged_missing_raw_controls'):
             logger.warning(f'The following raw controls are missing on "{self.body_rig.name}":\n{pformat(missing_raw_controls)}.')
@@ -1234,9 +1275,9 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                     self.update_head_texture_masks()
 
             if component in ('body', 'all'):
-                self.update_body_raw_control_values()
                 # apply the changes
                 if self.evaluate_rbfs:
+                    self.update_body_raw_control_values()
                     self.update_body_bone_transforms()
 
             # turn on the dependency graph evaluation back on

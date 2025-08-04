@@ -491,6 +491,9 @@ def poll_shrink_wrap_target(self, scene_object: bpy.types.Object) -> bool:
                 return True
     return False
 
+def update_evaluate_rbfs_value(self, context):
+    self.reset_body_raw_control_values()
+
 def update_head_topology_selection(self, context):
     from ..utilities import get_active_head
     head = get_active_head()
