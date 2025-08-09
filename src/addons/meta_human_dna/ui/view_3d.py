@@ -104,9 +104,9 @@ class META_HUMAN_DNA_UL_rig_logic_instances(bpy.types.UIList):
         col.alert = not item.evaluate_texture_masks
         col.prop(item, "evaluate_texture_masks", text="", icon='NODE_TEXTURE', emboss=False)
 
-        col = row.column(align=True)
-        col.alert = not item.evaluate_rbfs
-        col.prop(item, "evaluate_rbfs", text="", icon='DRIVER_ROTATIONAL_DIFFERENCE', emboss=False)
+        # col = row.column(align=True)
+        # col.alert = not item.evaluate_rbfs
+        # col.prop(item, "evaluate_rbfs", text="", icon='DRIVER_ROTATIONAL_DIFFERENCE', emboss=False)
 
 class META_HUMAN_DNA_UL_shape_keys(bpy.types.UIList):
     

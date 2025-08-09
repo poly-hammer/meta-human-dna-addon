@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 bl_info = {
     "name": "Meta-Human DNA",
     "author": "Poly Hammer",
-    "version": (0, 4, 0),
-    "blender": (4, 2, 0),
+    "version": (0, 4, 1),
+    "blender": (4, 5, 0),
     "location": "File > Import > Metahuman DNA",
     "description": "Imports MetaHuman head and body components from a their DNA files, lets you customize them, then send them back to MetaHuman Creator.",
     "warning": "",
@@ -141,7 +141,8 @@ def unregister():
     utilities.teardown_scene()
 
     # remove event handlers
-    rig_logic.stop_listening()
+    if not os.environ.get('META_HUMAN_DNA_DEV'):
+        rig_logic.stop_listening()
 
     if app_handlers['undo_pre'] in bpy.app.handlers.undo_pre:
         bpy.app.handlers.undo_pre.remove(app_handlers['undo_pre'])

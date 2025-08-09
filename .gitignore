@@ -7,6 +7,7 @@ venv
 *.blend*
 .env
 
+tests/test_files/fbx
 tests/test_files/unreal_projects
 src/addons/meta_human_dna/resources/packages
 src/addons/meta_human_dna/bindings/windows

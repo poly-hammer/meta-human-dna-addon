@@ -53,17 +53,14 @@ def rig_logic_listener(scene, dependency_graph):
                         instance.face_board.animation_data.action.name == update.id.name
                     ):
                         instance_updates.add((instance, 'head'))
-                        break
-                    
                     # Check if the action is being used by any body rig
                     elif (
                         instance.body_rig and 
                         instance.body_rig.animation_data and 
                         instance.body_rig.animation_data.action and 
-                        instance.body_rig.animation_data.action. name == update.id.name
+                        instance.body_rig.animation_data.action.name == update.id.name
                     ):
                         instance_updates.add((instance, 'body'))
-                        break
                     # Otherwise, evaluate all instances. 
                     # Todo: Not ideal, so we should probably provide a way for user to specify another armature that might have
                     # the action and be evaluated.
@@ -81,10 +78,8 @@ def rig_logic_listener(scene, dependency_graph):
                         # Check if the armature is the face board
                         if instance.face_board and instance.face_board.name.endswith(armature_name):
                             instance_updates.add((instance, 'head'))
-                            break
                         elif instance.body_rig and instance.body_rig.name.endswith(armature_name):
                             instance_updates.add((instance, 'body'))
-                            break
 
     # apply the updates to the instances
     for instance, component in instance_updates:
@@ -941,7 +936,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         # map the GUI changes to the raw controls
         self.head_manager.mapGUIToRawControls(self.head_instance)
         # calculate the controls
-        self.head_manager.calculateControls(self.head_instance)
+        self.head_manager.calculate(self.head_instance)
 
     def solo_head_shape_key_value(self, shape_key: bpy.types.ShapeKey):
         # skip if the head mesh is not set
@@ -969,9 +964,6 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         # skip if there are no shape keys
         if len(bpy.data.shape_keys) == 0:
             return []
-        
-        # calculate the blend shapes values
-        self.head_manager.calculateBlendShapes(self.head_instance)
         
         missing_shape_keys = []
         shape_key_values = []
@@ -1028,9 +1020,6 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             logger.warning(f'The texture masks node was not found on the material "{self.head_material.name}"')
             return []
         
-        # calculate the animated maps
-        self.head_manager.calculateAnimatedMaps(self.head_instance)
-        
         texture_mask_values = []
 
         # update texture masks values
@@ -1055,9 +1044,6 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         # https://github.com/poly-hammer/meta-human-dna-addon/issues/58
         if not self.head_rest_pose:
             return
-        
-        # calculate the bones values
-        self.head_manager.calculateJoints(self.head_instance)
 
         raw_joint_output = self.head_instance.getRawJointOutputs()
         # update joint transforms
@@ -1142,6 +1128,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         
         missing_raw_controls = []
         converted_quaternions = {}
+
+        # self.body_manager.getNeutralJointValues() / 9
 
         # convert the quaternion values to the correct coordinate system
         for pose_bone in self.body_rig.pose.bones:
@@ -1264,8 +1252,6 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             
             if component in ('head', 'all'):
                 self.update_head_gui_control_values()
-                # self.head_manager.calculateRBFControls(self.head_instance)
-                # self.head_manager.calculateMachineLearnedBehaviorControls(self.head_instance)
                 # apply the changes
                 if self.evaluate_bones:
                     self.update_head_bone_transforms()
@@ -1274,11 +1260,11 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 if self.evaluate_texture_masks:
                     self.update_head_texture_masks()
 
-            if component in ('body', 'all'):
-                # apply the changes
-                if self.evaluate_rbfs:
-                    self.update_body_raw_control_values()
-                    self.update_body_bone_transforms()
+            # if component in ('body', 'all'):
+            #     # apply the changes
+            #     if self.evaluate_rbfs:
+            #         self.update_body_raw_control_values()
+            #         self.update_body_bone_transforms()
 
             # turn on the dependency graph evaluation back on
             bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True # type: ignore
