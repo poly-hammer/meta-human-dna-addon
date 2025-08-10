@@ -157,7 +157,7 @@ def test_pose(
     load_dna, 
     pose_name: str, 
     source_rig_name: str, 
-    changed_bone_name: str,
+    changed_head_bone_name: str,
     show: bool = False,
     skip_fbx_import: bool = False
 ):
@@ -211,7 +211,7 @@ def test_pose(
         )
 
     # ignore differences caused by testing bone changes
-    differences = [(bone_name, value) for (bone_name, value) in differences if bone_name != changed_bone_name]
+    differences = [(bone_name, value) for (bone_name, value) in differences if bone_name != changed_head_bone_name]
 
     assert not differences, \
     (

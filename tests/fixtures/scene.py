@@ -51,12 +51,12 @@ def head_armature(load_dna) -> bpy.types.Object | None:
 def modify_scene(
     load_dna,
     dna_file_name: str,
-    changed_bone_name: str,
-    changed_bone_location: tuple[Vector, Vector],
-    changed_bone_rotation: tuple[Euler, Euler],
-    changed_mesh_name: str,
-    changed_vertex_index: int,
-    changed_vertex_location: tuple[Vector, Vector, Vector],
+    changed_head_bone_name: str,
+    changed_head_bone_location: tuple[Vector, Vector],
+    changed_head_bone_rotation: tuple[Euler, Euler],
+    changed_head_mesh_name: str,
+    changed_head_vertex_index: int,
+    changed_head_vertex_location: tuple[Vector, Vector, Vector],
     temp_folder
     ):
     from utilities.modify import apply_bone_transform, apply_vertex_transform
@@ -64,16 +64,16 @@ def modify_scene(
     # Make some changes
     apply_vertex_transform(
         prefix=name,
-        mesh_name=changed_mesh_name,
-        vertex_index=changed_vertex_index,
-        location=changed_vertex_location[0]
+        mesh_name=changed_head_mesh_name,
+        vertex_index=changed_head_vertex_index,
+        location=changed_head_vertex_location[0]
     )
     apply_bone_transform(
         prefix=name,
         component='head',
-        bone_name=changed_bone_name,
-        location=changed_bone_location[0],
-        rotation=changed_bone_rotation[0],
+        bone_name=changed_head_bone_name,
+        location=changed_head_bone_location[0],
+        rotation=changed_head_bone_rotation[0],
     )
 
     # Save the blend file

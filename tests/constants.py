@@ -11,6 +11,10 @@ TEST_DNA_FOLDER = TEST_FILES_FOLDER / 'dna'
 
 SAMPLE_DNA_FILE = TEST_DNA_FOLDER / 'ada.dna'
 
+HEAD_DNA_FILE = TEST_DNA_FOLDER / 'ada' / 'head.dna'
+
+BODY_DNA_FILE = TEST_DNA_FOLDER / 'ada' / 'body.dna'
+
 TOLERANCE = {
     'neutralJointRotations': 1e-3,
     'neutralJointTranslations': 1e-3, 
