@@ -22,3 +22,9 @@ TOLERANCE = {
     'positions': 1e-2, # these assertions are in centimeters
     'textureCoordinates': 1e-3,
 }
+
+DNA_DEFINITION_VERSION = "defn1.1"
+
+DNA_BEHAVIOR_VERSION = "bhvr1.1"
+
+DNA_GEOMETRY_VERSION = "geom1.1"

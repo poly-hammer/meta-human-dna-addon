@@ -96,8 +96,8 @@ def addons() -> list:
     ]
 
 @pytest.fixture(scope='session')
-def dna_file_name() -> str:
-    return 'ada.dna'
+def dna_folder_name() -> str:
+    return 'ada'
 
 @pytest.fixture(scope='session')
 def import_shape_keys() -> bool:
