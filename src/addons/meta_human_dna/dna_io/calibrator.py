@@ -9,6 +9,7 @@ from ..bindings import riglogic
 from ..constants import (
     SHAPE_KEY_NAME_MAX_LENGTH,
     SHAPE_KEY_DELTA_THRESHOLD,
+    BONE_DELTA_THRESHOLD,
     SHAPE_KEY_BASIS_NAME
 )
 
@@ -170,6 +171,11 @@ class DNACalibrator(DNAExporter, DNAImporter):
             if bone_name in ignored_bone_names:
                 continue
 
+            if bone_name.startswith('FACIAL_C_') and bone_name.endswith('Root'):
+                # TODO: Investigate edge case where only these bone rotation values are always slightly rotated 
+                # by a few degrees on the x and z: FACIAL_C_FacialRoot, FACIAL_C_Neck1Root, FACIAL_C_Neck2Root
+                continue
+
             dna_bone_index = self._bone_index_lookup.get(bone_name)
             if dna_bone_index is not None:
                 dna_bone_translation = Vector((
@@ -180,7 +186,7 @@ class DNACalibrator(DNAExporter, DNAImporter):
                 translation_delta = Vector(bone_translation) - dna_bone_translation
 
                 # Only modify the bone translations that are different to avoid floating point value drift
-                if translation_delta.length > 1e-3:
+                if translation_delta.length > BONE_DELTA_THRESHOLD:
                     dna_x_translations[dna_bone_index] = bone_translation[0]
                     dna_y_translations[dna_bone_index] = bone_translation[1]
                     dna_z_translations[dna_bone_index] = bone_translation[2]
@@ -191,10 +197,14 @@ class DNACalibrator(DNAExporter, DNAImporter):
                     dna_z_rotations[dna_bone_index]
                 ))
                 rotation_delta = Vector(bone_rotation) - dna_bone_rotation
+                
                 # Only modify the bone rotations that are different to avoid floating point value drift
-                if rotation_delta.length > 1e-3:
+                # Also, handle angle wrapping (e.g., 180 vs -180 degrees) issues
+                if BONE_DELTA_THRESHOLD < abs(rotation_delta.x) < 360:
                     dna_x_rotations[dna_bone_index] = bone_rotation[0]
+                if BONE_DELTA_THRESHOLD < abs(rotation_delta.y) < 360:
                     dna_y_rotations[dna_bone_index] = bone_rotation[1]
+                if BONE_DELTA_THRESHOLD < abs(rotation_delta.z) < 360:
                     dna_z_rotations[dna_bone_index] = bone_rotation[2]
             else:
                 logger.warning(f'No DNA bone index found for bone "{bone_name}". Ignored from calibration...')

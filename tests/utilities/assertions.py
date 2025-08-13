@@ -1,4 +1,5 @@
 import pytest
+from typing import Literal
 from mathutils import Euler, Vector
 from constants import (
     DNA_DEFINITION_VERSION,
@@ -15,8 +16,13 @@ def assert_bone_definitions(
     changed_bone_name: str,
     changed_bone_rotation: tuple[Euler, Euler],
     changed_bone_location: tuple[Vector, Vector],
+    output_method: Literal['calibrate', 'export'] = 'calibrate',
+    ignored_bones: list[str] = [],
     tolerance: float = 1e-3
 ):
+    if bone_name in ignored_bones:
+        return
+
     expected_bone_index = expected_data[DNA_DEFINITION_VERSION]['jointNames'].index(bone_name)
     current_bone_index = current_data[DNA_DEFINITION_VERSION]['jointNames'].index(bone_name)
     assert current_bone_index == expected_bone_index, f'Bone index mismatch. {bone_name} should be at index {expected_bone_index} but is at {current_bone_index}'
@@ -36,6 +42,11 @@ def assert_bone_definitions(
     changed_rotation = False
     if attribute == 'neutralJointRotations':
         changed_rotation = getattr(changed_bone_rotation[0], axis_name) != 0.0
+
+        # for exports, ignore cases were angle wrapping (e.g., 180 vs -180 degrees) occurs
+        if output_method == 'export' and abs(expected_value - current_value) == 360:
+            current_value = expected_value
+
         # reduce the tolerance for joint rotations since they are in degrees
         tolerance = 1e-2
 
@@ -86,6 +97,7 @@ def assert_mesh_geometry(
     changed_vertex_location: tuple[Vector, Vector, Vector],
     assert_mesh_indices: bool = True,
     assert_index_order: bool = True,
+    output_method: Literal['calibrate', 'export'] = 'calibrate',
     tolerance: float = 1e-3
 ):
     expected_mesh_index = expected_data[DNA_DEFINITION_VERSION]['meshNames'].index(mesh_name)

@@ -35,7 +35,8 @@ def test_bone_definitions(
         axis_name=axis_name,
         changed_bone_name=changed_head_bone_name,
         changed_bone_rotation=changed_head_bone_rotation,
-        changed_bone_location=changed_head_bone_location
+        changed_bone_location=changed_head_bone_location,
+        output_method='calibrate'
     )
 
 
@@ -84,5 +85,6 @@ def test_mesh_geometry(
         changed_vertex_index=changed_head_vertex_index,
         changed_vertex_location=changed_head_vertex_location,
         tolerance=TOLERANCE[attribute],
-        assert_mesh_indices=True
+        assert_mesh_indices=True,
+        output_method='calibrate'
     )

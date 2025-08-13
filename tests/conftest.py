@@ -147,9 +147,9 @@ def changed_head_vertex_location() -> tuple[Vector, Vector, Vector]:
     # change vertex location (blender value, dna value)
     # Moves vertex on the back of the head up 0.01 meters
     return (
-        Vector((0.008358, 0.047561, 1.67178)),  # new blender value Z-up
-        Vector((0.8358, 166.178, 4.7561)),  # original dna value Y-up
-        Vector((0.8358, 167.178, 4.7561)), # new dna value Y-up
+        Vector((0.008358, 0.059853, 1.75288)),  # new blender value Z-up
+        Vector((0.85206276, 170.66174, -4.644782)),  # original dna value Y-up
+        Vector((0.8358, 175.288, -5.9853077)), # new dna value Y-up
     )
 
 @pytest.fixture(scope='session')

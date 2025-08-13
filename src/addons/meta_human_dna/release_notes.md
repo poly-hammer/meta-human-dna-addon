@@ -1,4 +1,5 @@
 ## Minor Changes
+* Created new bindings for Unreal 5.6. (You must update your build tool to `0.6.0` or greater now or the built addon won't work)
 * Added validate option to output panel. By default the validations are run before export, but this option allows the user to turn them off.
 
 ## Patch Changes

@@ -481,7 +481,6 @@ class DNAExporter:
         
         self._dna_writer.setJointHierarchy(hierarchy)
         self._dna_writer.setNeutralJointTranslations(translations)
-        # TODO: Implement bone rotation export with correct bone space rotation. For now, just set using the original values plus the changes made to the facial bones.
         self._dna_writer.setNeutralJointRotations([[x, y, z] for x, y, z in zip(dna_x_rotations, dna_y_rotations, dna_z_rotations)])
     
     def save_images(self):
