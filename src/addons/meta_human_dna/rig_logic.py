@@ -850,11 +850,10 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                     alignment=MEMORY_RESOURCE_ALIGNMENT
                 )
 
-                # set the dna reader
+                # set the body dna reader
                 self.data['body_dna_reader'] = get_dna_reader(
                     file_path=Path(bpy.path.abspath(self.body_dna_file_path)).absolute(),
-                    # memory_resource=body_memory_resource
-                    memory_resource=None
+                    memory_resource=body_memory_resource
                 )
 
                 # make sure the body bones are using the correct rotation mode
@@ -864,12 +863,6 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                             pose_bone.rotation_mode = "QUATERNION"
                         else:
                             pose_bone.rotation_mode = "XYZ"
-
-                # set the body dna reader
-                self.data['body_dna_reader'] = get_dna_reader(
-                    file_path=body_dna_file_path,
-                    memory_resource=body_memory_resource
-                )
 
                 # set the rig logic manager and instance
                 self.data['body_manager'] = riglogic.RigLogic.create(
@@ -897,6 +890,16 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         if head_memory_resource and head_memory_resource_pointer:
             head_memory_resource.deallocate(
                 ptr=head_memory_resource_pointer,
+                size=MEMORY_RESOURCE_SIZE,
+                alignment=MEMORY_RESOURCE_ALIGNMENT
+            )
+
+        # Deallocate the body memory resource
+        body_memory_resource = self.data.get('body_memory_resource')
+        body_memory_resource_pointer = self.data.get('body_memory_resource_pointer')
+        if body_memory_resource and body_memory_resource_pointer:
+            body_memory_resource.deallocate(
+                ptr=body_memory_resource_pointer,
                 size=MEMORY_RESOURCE_SIZE,
                 alignment=MEMORY_RESOURCE_ALIGNMENT
             )
