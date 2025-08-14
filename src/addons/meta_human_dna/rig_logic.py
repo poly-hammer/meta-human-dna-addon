@@ -796,17 +796,10 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         from .dna_io import get_dna_reader
 
         # ---- Initialize the Head Rig Logic Instance ---
-        head_memory_resource = riglogic.DefaultMemoryResource()
-
-        self.data['head_memory_resource_pointer'] = head_memory_resource.allocate(
-            size=MEMORY_RESOURCE_SIZE, 
-            alignment=MEMORY_RESOURCE_ALIGNMENT
-        )
-
         # set the dna reader
         self.data['head_dna_reader'] = get_dna_reader(
             file_path=Path(bpy.path.abspath(self.head_dna_file_path)).absolute(),
-            memory_resource=head_memory_resource
+            memory_resource=None
         )
 
         # make sure the rig bones are using the correct rotation mode
@@ -821,14 +814,12 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         self.data['head_manager'] = riglogic.RigLogic.create(
             reader=self.data['head_dna_reader'],
             config=riglogic.Configuration(),
-            memRes=head_memory_resource
+            memRes=None
         )
         self.data['head_instance'] = riglogic.RigInstance.create(
             rigLogic=self.data['head_manager'], 
-            memRes=head_memory_resource
+            memRes=None
         )
-
-        self.data['head_memory_resource'] = head_memory_resource
 
         # calling theses properties will cache their values
         self.head_texture_masks_node
@@ -843,17 +834,10 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         if self.body_dna_file_path:
             body_dna_file_path = Path(bpy.path.abspath(self.body_dna_file_path)).absolute()
             if body_dna_file_path.exists():
-                body_memory_resource = riglogic.DefaultMemoryResource()
-
-                self.data['body_memory_resource_pointer'] = body_memory_resource.allocate(
-                    size=MEMORY_RESOURCE_SIZE,
-                    alignment=MEMORY_RESOURCE_ALIGNMENT
-                )
-
                 # set the body dna reader
                 self.data['body_dna_reader'] = get_dna_reader(
-                    file_path=Path(bpy.path.abspath(self.body_dna_file_path)).absolute(),
-                    memory_resource=body_memory_resource
+                    file_path=body_dna_file_path,
+                    memory_resource=None
                 )
 
                 # make sure the body bones are using the correct rotation mode
@@ -868,14 +852,12 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 self.data['body_manager'] = riglogic.RigLogic.create(
                     reader=self.data['body_dna_reader'],
                     config=riglogic.Configuration(),
-                    memRes=body_memory_resource
+                    memRes=None
                 )
                 self.data['body_instance'] = riglogic.RigInstance.create(
                     rigLogic=self.data['body_manager'], 
-                    memRes=body_memory_resource
+                    memRes=None
                 )
-
-                self.data['body_memory_resource'] = body_memory_resource
 
                 # calling theses properties will cache their values
                 self.body_raw_control_bone_names
@@ -883,27 +865,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
         self.data['initialized'] = True
 
-    def destroy(self):
-        # Deallocate the head memory resource
-        head_memory_resource = self.data.get('head_memory_resource')
-        head_memory_resource_pointer = self.data.get('head_memory_resource_pointer')
-        if head_memory_resource and head_memory_resource_pointer:
-            head_memory_resource.deallocate(
-                ptr=head_memory_resource_pointer,
-                size=MEMORY_RESOURCE_SIZE,
-                alignment=MEMORY_RESOURCE_ALIGNMENT
-            )
-
-        # Deallocate the body memory resource
-        body_memory_resource = self.data.get('body_memory_resource')
-        body_memory_resource_pointer = self.data.get('body_memory_resource_pointer')
-        if body_memory_resource and body_memory_resource_pointer:
-            body_memory_resource.deallocate(
-                ptr=body_memory_resource_pointer,
-                size=MEMORY_RESOURCE_SIZE,
-                alignment=MEMORY_RESOURCE_ALIGNMENT
-            )
-            
+    def destroy(self):            
         # clears these data items from the dictionary, this frees them up to be garbage collected
         self.data.clear()
         self.data['initialized'] = False
