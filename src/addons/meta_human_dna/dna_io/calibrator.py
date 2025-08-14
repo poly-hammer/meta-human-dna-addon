@@ -29,7 +29,7 @@ class DNACalibrator(DNAExporter, DNAImporter):
         if not self._instance.body_dna_reader:
             self._instance.initialize()
 
-        # If this is the head, and the head-to-body constraint influence is 1.0, then we want to use the
+        # If this is the head, and the align head and body option is on, then we want to use the
         # exact same transforms for the body and head bones so that they match perfectly. So we need to 
         # create a body bone lookup so these can be used as the source of truth.
         if (
@@ -275,7 +275,7 @@ class DNACalibrator(DNAExporter, DNAImporter):
         dna_y_rotations = self._dna_reader.getNeutralJointRotationYs()
         dna_z_rotations = self._dna_reader.getNeutralJointRotationZs()
 
-        # If this is the head, and the head-to-body constraint influence is 1.0, then we want to use the
+        # If this is the head, and the align head and body option is on, then we want to use the
         # exact same transforms for the body and head bones that match.
         (
             dna_body_translation_lookup, 
