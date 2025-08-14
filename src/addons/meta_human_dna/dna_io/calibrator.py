@@ -104,7 +104,6 @@ class DNACalibrator(DNAExporter, DNAImporter):
             self._component_type == 'head' and
             self._instance.output_method == 'calibrate' and
             self._instance.output_align_head_and_body and
-            self._instance.head_to_body_constraint_influence == 1.0 and
             body_mesh_lod
         ):
             bmesh_object = self.get_bmesh(body_mesh_lod)
