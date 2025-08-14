@@ -201,7 +201,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     head_dna_file_path: bpy.props.StringProperty(
         name="Head DNA File",
         description="The path to the head DNA file that rig logic reads from when evaluating the face board controls",
-        subtype='FILE_PATH'
+        subtype='FILE_PATH',
+        options={'PATH_SUPPORTS_BLEND_RELATIVE'}
     ) # type: ignore
     head_mesh: bpy.props.PointerProperty(
         type=bpy.types.Object, # type: ignore
@@ -227,7 +228,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     body_dna_file_path: bpy.props.StringProperty(
         name="Body DNA File",
         description="The path to the body DNA file",
-        subtype='FILE_PATH'
+        subtype='FILE_PATH',
+        options={'PATH_SUPPORTS_BLEND_RELATIVE'}
     ) # type: ignore
     body_mesh: bpy.props.PointerProperty(
         type=bpy.types.Object, # type: ignore
@@ -396,7 +398,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     output_folder_path: bpy.props.StringProperty(
         name="Output Folder",
         description="The root folder where the output files will be saved",
-        subtype='DIR_PATH'
+        subtype='DIR_PATH',
+        options={'PATH_SUPPORTS_BLEND_RELATIVE'}
     ) # type: ignore
     output_method: bpy.props.EnumProperty(
         name='DNA Output Method',
@@ -425,6 +428,11 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             ('json', 'JSON', 'Writes the dna file in a human readable json format. Use this method if you want to manually edit the dna file'),
             ('binary', 'Binary', 'Writes the dna file in a binary format. Use this method if you want to use the dna file with the rig logic system'),
         ]
+    ) # type: ignore
+    output_align_head_and_body: bpy.props.BoolProperty(
+        name="Align Head and Body",
+        description="Whether to align the overlapping head and body bones, as well as, aligning the vertices in the edge loop around the neck during the calibration process",
+        default=True
     ) # type: ignore
     send2ue_settings_template: bpy.props.EnumProperty(
         name='Send to Unreal Settings Template',

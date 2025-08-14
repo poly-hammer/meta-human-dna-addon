@@ -1,5 +1,4 @@
 import pytest
-from constants import TOLERANCE, HEAD_DNA_FILE
 from mathutils import Euler, Vector
 from utilities.dna_data import (
     get_test_bone_definitions_params, 
@@ -10,6 +9,11 @@ from utilities.assertions import (
     assert_bone_definitions, 
     assert_bone_behaviors, 
     assert_mesh_geometry
+)
+from constants import (
+    TOLERANCE, 
+    HEAD_DNA_FILE, 
+    IGNORED_BONE_ROTATIONS_ON_CALIBRATE
 )
 
 
@@ -36,7 +40,8 @@ def test_bone_definitions(
         changed_bone_name=changed_head_bone_name,
         changed_bone_rotation=changed_head_bone_rotation,
         changed_bone_location=changed_head_bone_location,
-        output_method='calibrate'
+        output_method='calibrate',
+        ignored_bones=IGNORED_BONE_ROTATIONS_ON_CALIBRATE
     )
 
 

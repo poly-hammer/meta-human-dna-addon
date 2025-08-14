@@ -14,9 +14,12 @@ from .misc import (
     preserve_context
 )
 from ..constants import (
+    Axis,
     LOD_REGEX,
     SHAPE_KEY_BASIS_NAME,
-    Axis
+    HEAD_TO_BODY_EDGE_LOOP_FILE_PATH,
+    NUMBER_OF_HEAD_LODS,
+    HEAD_TO_BODY_LOD_MAPPING
 )
 
 
@@ -492,6 +495,50 @@ def save_topology_vertex_groups(mesh_object: bpy.types.Object, file_path: Path):
     with open(file_path, 'w') as file:
         json.dump(vertex_groups, file)
 
+
+def save_head_to_body_edge_loop():
+    if not bpy.context.active_object:
+        return
+    
+    file_path = HEAD_TO_BODY_EDGE_LOOP_FILE_PATH
+    if file_path.exists():
+        with open(file_path, 'r') as file:
+            data = json.load(file)
+    else:
+        data = {}
+
+    for head_lod_index in range(NUMBER_OF_HEAD_LODS):
+        head_lod_name = f"head_lod{head_lod_index}_mesh"
+        body_lod_index = HEAD_TO_BODY_LOD_MAPPING[head_lod_index]
+        body_lod_name = f"body_lod{body_lod_index}_mesh"
+
+        if len(bpy.context.selected_objects) != 2:
+            return
+
+        if not all(o.name.endswith((head_lod_name, body_lod_name)) for o in bpy.context.selected_objects):
+            continue
+
+        head_selected_verts = []
+        body_selected_verts = []
+        for selected_object in bpy.context.selected_objects:
+            if selected_object.name.endswith(head_lod_name):
+                head_selected_verts = [(v.index, v.co) for v in selected_object.data.vertices if v.select] # type: ignore
+            elif selected_object.name.endswith(body_lod_name):
+                body_selected_verts = [(v.index, v.co) for v in selected_object.data.vertices if v.select] # type: ignore
+
+        # sort the indexes so the closest vertex position matches the closest vertex in the other LOD
+        head_selected_verts.sort(key=lambda x: x[1].length)
+        body_selected_verts.sort(key=lambda x: x[1].length)
+
+        # map the head LOD vertices to the body LOD vertices
+        data[head_lod_index] = {head_vert[0]: body_vert[0] for head_vert, body_vert in zip(head_selected_verts, body_selected_verts)}
+
+    with open(file_path, 'w') as file:
+        json.dump(data, file, indent=4)
+
+def get_head_to_body_edge_loop_mapping() -> dict[str, dict[int, int]]:
+    with open(HEAD_TO_BODY_EDGE_LOOP_FILE_PATH, 'r') as file:
+        return json.load(file)
 
 def get_vertex_group_vertices(
         mesh_object: bpy.types.Object, 

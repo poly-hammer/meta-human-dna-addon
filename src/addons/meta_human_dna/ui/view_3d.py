@@ -45,9 +45,8 @@ def draw_rig_logic_instance_error(layout, error: str):
 class SubPanelBase(bpy.types.Panel):
     @classmethod
     def poll(cls, context):
-        from ..utilities import send2ue_addon_is_valid
         error = valid_rig_logic_instance_exists(context, ignore_face_board=True)
-        if not error and send2ue_addon_is_valid():
+        if not error:
             return True
         return False
     
@@ -392,7 +391,7 @@ class META_HUMAN_DNA_PT_materials_utilities_sub_panel(SubPanelBase):
 
 
 
-class META_HUMAN_DNA_PT_utilities_sub_panel(SubPanelBase):
+class META_HUMAN_DNA_PT_utilities_sub_panel(bpy.types.Panel):
     bl_parent_id = "META_HUMAN_DNA_PT_utilities"
     bl_label = "(Not Shown)"
     bl_space_type = 'VIEW_3D'
@@ -846,6 +845,11 @@ class META_HUMAN_DNA_PT_buttons_sub_panel(bpy.types.Panel):
             instance = properties.rig_logic_instance_list[active_index]
             row.prop(instance, 'output_run_validations')
             row = self.layout.row()
+            
+            if instance.output_method == 'calibrate':
+                row.prop(instance, 'output_align_head_and_body')
+                row = self.layout.row()
+
             if not instance.output_folder_path:
                 row.enabled = False
             row.scale_y = 2.0

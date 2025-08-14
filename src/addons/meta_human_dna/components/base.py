@@ -800,6 +800,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
                 # Convert world positions to head rig local space
                 head_edit_bone.head = head_world_matrix.inverted() @ body_head_world
                 head_edit_bone.tail = head_world_matrix.inverted() @ body_tail_world
+                head_edit_bone.roll = body_edit_bone.roll
 
     @abstractmethod
     def ingest(

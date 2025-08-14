@@ -13,6 +13,7 @@ from ..constants import (
     POSES_FOLDER,
     NUMBER_OF_HEAD_LODS,
     MATERIAL_SLOT_TO_MATERIAL_INSTANCE_DEFAULTS,
+    HEAD_TO_BODY_LOD_MAPPING,
     SEND2UE_FACE_SETTINGS,
     BASE_DNA_FOLDER,
     BODY_HIGH_LEVEL_TOPOLOGY_GROUPS,
@@ -355,11 +356,18 @@ def set_active_lod(self, value):
                 f'{self.name}_eyeshell_lod{value}_mesh',
                 f'{self.name}_eyeEdge_lod{value}_mesh',
                 f'{self.name}_cartilage_lod{value}_mesh',
-                f'{self.name}_saliva_lod{value}_mesh'
+                f'{self.name}_saliva_lod{value}_mesh',
+                f'{self.name}_body_lod{value}_mesh'
             ]
             scene_object.hide_set(True)
             if scene_object.name.endswith(f'_lod{value}_mesh') and scene_object.name not in ignored_names:
                 scene_object.hide_set(False)
+
+    # un-hide the body lod. There are 2 head lods per body lod
+    body_lod_index = HEAD_TO_BODY_LOD_MAPPING.get(value)
+    body_lod_object = bpy.data.objects.get(f'{self.name}_body_lod{body_lod_index}_mesh')
+    if body_lod_object:
+        body_lod_object.hide_set(False)
 
 def set_show_head_bones(self, value):
     if self.head_rig:
