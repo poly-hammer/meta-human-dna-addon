@@ -15,11 +15,6 @@ def addon(addons: list[tuple[str, Path]]):
         script_directory.directory = str(scripts_folder)
         sys.path.append(str(scripts_folder))
 
-    try:
-        bpy.ops.script.reload()
-    except ValueError:
-        pass
-
     for addon_name, _ in addons:
         bpy.ops.preferences.addon_enable(module=addon_name)
 
