@@ -159,12 +159,14 @@ class MetahumanWindowMangerProperties(bpy.types.PropertyGroup, MetahumanDnaImpor
         name="Output Folder",
         default="",
         subtype='DIR_PATH',
+        options={'PATH_SUPPORTS_BLEND_RELATIVE'}
     ) # type: ignore
     maps_folder: bpy.props.StringProperty(
         default='',
         name='Maps Folder',
         description='Optionally, this can be set to a folder location for the face wrinkle maps. Textures following the same naming convention as the metahuman source files will be found and set on the materials automatically.',
-        subtype='DIR_PATH'
+        subtype='DIR_PATH',
+        options={'PATH_SUPPORTS_BLEND_RELATIVE'}
     ) # type: ignore
 
 class MetahumanSceneProperties(bpy.types.PropertyGroup):

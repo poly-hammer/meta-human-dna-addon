@@ -212,6 +212,8 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
 
     def select_vertex_group(self):
         if self.rig_logic_instance and self.rig_logic_instance.head_mesh:
+            # TODO: Fix once there are topology vertex groups for all LODS
+            self.rig_logic_instance.active_lod = 'lod0'
             utilities.select_vertex_group(
                 mesh_object=self.rig_logic_instance.head_mesh,
                 vertex_group_name=self.rig_logic_instance.head_mesh_topology_groups,

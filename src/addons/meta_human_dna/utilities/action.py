@@ -176,17 +176,17 @@ def bake_control_curve_values_for_frame(
             })
 
     # set and update the control curve values based on the fcurve values
-    instance.update_gui_control_values(override_values=control_curve_values)
+    instance.update_head_gui_control_values(override_values=control_curve_values)
     
     # now get the calculated values and bake them to the shape keys value
     if shape_keys:
-        for shape_key, value in instance.update_shape_keys():
+        for shape_key, value in instance.update_head_shape_keys():
             shape_key.value = value
             shape_key.keyframe_insert(data_path="value", frame=frame)
 
     # now bake the texture mask values
     if texture_logic_node and masks:
-        for slider_name, value in instance.update_texture_masks():
+        for slider_name, value in instance.update_head_texture_masks():
             texture_logic_node.inputs[slider_name].default_value = value # type: ignore
             texture_logic_node.inputs[slider_name].keyframe_insert(
                 data_path="default_value", 

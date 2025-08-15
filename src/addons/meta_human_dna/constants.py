@@ -33,6 +33,7 @@ TOPO_GROUP_PREFIX = "TOPO_GROUP_"
 SCALE_FACTOR = 100.0
 SHAPE_KEY_NAME_MAX_LENGTH = 63
 SHAPE_KEY_DELTA_THRESHOLD = 1e-6
+BONE_DELTA_THRESHOLD = 1e-3
 SHAPE_KEY_BASIS_NAME = 'Basis'
 BONE_TAIL_OFFSET = 1 / (SCALE_FACTOR * SCALE_FACTOR * 10)
 CUSTOM_BONE_SHAPE_SCALE = Vector([0.15] * 3)
@@ -47,6 +48,7 @@ MESH_VERTEX_COLORS_FILE_NAME = "head_vertex_colors.json"
 FLOATING_POINT_PRECISION = 0.0001
 DEFAULT_UV_TOLERANCE = 0.001
 DEFAULT_HEAD_MESH_VERTEX_POSITION_COUNT = 24408
+RBF_SOLVER_POSTFIX = "_UERBFSolver"
 
 HEAD_MESH_SHADER_MAPPING = {
     "head_lod": "head_shader",
@@ -90,6 +92,8 @@ BASE_DNA_FOLDER = RESOURCES_FOLDER / "dna"
 HEAD_TOPOLOGY_VERTEX_GROUPS_FILE_PATH = MAPPINGS_FOLDER / "head_topology_vertex_groups.json"
 
 BODY_TOPOLOGY_VERTEX_GROUPS_FILE_PATH = MAPPINGS_FOLDER / "body_topology_vertex_groups.json"
+
+HEAD_TO_BODY_EDGE_LOOP_FILE_PATH = MAPPINGS_FOLDER / "head_to_body_edge_loop.json"
 
 MESH_VERTEX_COLORS_FILE_PATH = MAPPINGS_FOLDER / MESH_VERTEX_COLORS_FILE_NAME
 
@@ -198,6 +202,17 @@ BODY_HIGH_LEVEL_TOPOLOGY_GROUPS = [
     "foot_L",
     "foot_R"
 ]
+
+HEAD_TO_BODY_LOD_MAPPING = {
+    0: 0,
+    1: 0,
+    2: 1,
+    3: 1,
+    4: 2,
+    5: 2,
+    6: 3,
+    7: 3
+}
 
 # Set to Ada's height, but locations will be scaled proportionally to match spine_04 location from DNA file.
 # Also in Y-up coordinate system like the metahuman creator DNA files

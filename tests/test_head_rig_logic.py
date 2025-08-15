@@ -1,5 +1,6 @@
 import os
 import bpy
+import math
 import json
 import pytest
 from mathutils import Vector
@@ -32,18 +33,22 @@ def get_all_pose_names() -> list[str]:
     return pose_names
 
 def import_fbx_pose(metahuman_id: str, file_path: Path) -> bpy.types.Object:
-    bpy.ops.import_scene.fbx(filepath=str(file_path))
+    armature_name = 'joints_grp'
+
+    bpy.ops.wm.fbx_import(filepath=str(file_path))
     file_path = Path(file_path)
 
     # Remove the extra empties
     rig_empty = bpy.data.objects.get('rig')
     if rig_empty:
         for child in rig_empty.children_recursive:
+            if child.name in [armature_name, 'head_lod0_mesh']:
+                continue
             bpy.data.objects.remove(child)
         bpy.data.objects.remove(rig_empty)
 
     # rename the armature
-    armature_object = bpy.data.objects.get('Armature')
+    armature_object = bpy.data.objects.get(armature_name)
     armature_object.name = f'{file_path.stem}_head_rig' # type: ignore
     armature_object.data.name = f'{file_path.stem}_head_rig' # type: ignore
     sphere_object = bpy.data.objects[CUSTOM_BONE_SHAPE_NAME] 
@@ -61,11 +66,10 @@ def import_fbx_pose(metahuman_id: str, file_path: Path) -> bpy.types.Object:
     head_mesh.name = f'{file_path.stem}_mesh' # type: ignore
     head_mesh.data.name = f'{file_path.stem}_mesh' # type: ignore
 
-    # move the armature to align with the mesh imported from the dna file
-    armature = bpy.data.objects[f'{metahuman_id}_head_rig']
-    pose_bone = armature.pose.bones['spine_04'] # type: ignore
-    world_location = armature.matrix_world @ pose_bone.matrix.translation
-    armature_object.location = world_location # type: ignore
+    # fix the head mesh rotation and scale
+    armature_object.scale = Vector((0.01, 0.01, 0.01)) # type: ignore
+    armature_object.rotation_mode = 'XYZ' # type: ignore
+    armature_object.rotation_euler.x += math.radians(90) # type: ignore
     armature_object.hide_set(True) # type: ignore
 
     return armature_object # type: ignore
@@ -157,7 +161,7 @@ def test_pose(
     load_dna, 
     pose_name: str, 
     source_rig_name: str, 
-    changed_bone_name: str,
+    changed_head_bone_name: str,
     show: bool = False,
     skip_fbx_import: bool = False
 ):
@@ -211,7 +215,7 @@ def test_pose(
         )
 
     # ignore differences caused by testing bone changes
-    differences = [(bone_name, value) for (bone_name, value) in differences if bone_name != changed_bone_name]
+    differences = [(bone_name, value) for (bone_name, value) in differences if bone_name != changed_head_bone_name]
 
     assert not differences, \
     (

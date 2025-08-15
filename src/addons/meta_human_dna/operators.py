@@ -406,12 +406,14 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
         name="Output Folder",
         default="",
         subtype='DIR_PATH',
+        options={'PATH_SUPPORTS_BLEND_RELATIVE'}
     ) # type: ignore
     maps_folder: bpy.props.StringProperty(
         default='',
         name='Maps Folder',
         description='Optionally, this can be set to a folder location for the face wrinkle maps. Textures following the same naming convention as the metahuman source files will be found and set on the materials automatically.',
-        subtype='DIR_PATH'
+        subtype='DIR_PATH',
+        options={'PATH_SUPPORTS_BLEND_RELATIVE'}
     ) # type: ignore
 
     def execute(self, context):
@@ -786,7 +788,7 @@ class SendToMetaHumanCreator(bpy.types.Operator):
                         title=title,
                         message=message,
                         fix=fix,
-                        width=300
+                        width=500
                     )
                     return {'CANCELLED'}
                 else:
@@ -1082,8 +1084,8 @@ class ShapeKeyOperatorBase(bpy.types.Operator):
 
     def get_select_shape_key(self, instance):
         # find the related mesh objects for the head rig
-        channel_index = instance.channel_name_to_index_lookup[self.shape_key_name]
-        for shape_key_block in instance.shape_key_blocks.get(channel_index, []):
+        channel_index = instance.head_channel_name_to_index_lookup[self.shape_key_name]
+        for shape_key_block in instance.head_shape_key_blocks.get(channel_index, []):
             for index, key_block in enumerate(shape_key_block.id_data.key_blocks):
                 if key_block.name == self.shape_key_name:
                     # set this as the active shape key so we can edit it
@@ -1123,9 +1125,9 @@ class ShapeKeyOperatorBase(bpy.types.Operator):
             key_block = mesh_object.data.shape_keys.key_blocks.get(SHAPE_KEY_BASIS_NAME) # type: ignore
             return None, key_block, None, mesh_object
         
-        if not instance.channel_name_to_index_lookup:
+        if not instance.head_channel_name_to_index_lookup:
             instance.initialize()
-            if not instance.channel_name_to_index_lookup:
+            if not instance.head_channel_name_to_index_lookup:
                 self.report({'ERROR'}, 'The shape key blocks are not initialized')
                 return False
 
@@ -1259,7 +1261,7 @@ class SculptThisShapeKey(ShapeKeyOperatorBase):
 
             # solo the shape key before sculpting if the solo option is enabled
             if instance.solo_shape_key:
-                instance.solo_shape_key_value(shape_key=key_block)
+                instance.solo_head_shape_key_value(shape_key=key_block)
 
             self.lock_all_other_shape_keys(mesh_object, key_block)
             utilities.switch_to_sculpt_mode(mesh_object)
@@ -1283,7 +1285,7 @@ class EditThisShapeKey(ShapeKeyOperatorBase):
 
             # solo the shape key before editing if the solo option is enabled
             if instance.solo_shape_key:
-                instance.solo_shape_key_value(shape_key=key_block)
+                instance.solo_head_shape_key_value(shape_key=key_block)
 
             self.lock_all_other_shape_keys(mesh_object, key_block)
             utilities.switch_to_edit_mode(mesh_object)
@@ -1308,7 +1310,7 @@ class ReImportThisShapeKey(ShapeKeyOperatorBase):
                 return {'CANCELLED'}
             
             _, shape_key_block, _, mesh_object = result # type: ignore
-            mesh_index = {v.name: k for k, v in instance.mesh_index_lookup.items()}.get(mesh_object.name)
+            mesh_index = {v.name: k for k, v in instance.head_mesh_index_lookup.items()}.get(mesh_object.name)
             if mesh_index is None:
                 self.report({'ERROR'}, f'The mesh index for "{mesh_object.name}" is not found')
                 return {'CANCELLED'}
@@ -1394,6 +1396,7 @@ class DuplicateRigLogicInstance(bpy.types.Operator):
         name="New Output Folder", 
         default="",
         subtype='DIR_PATH',
+        options={'PATH_SUPPORTS_BLEND_RELATIVE'}
     ) # type: ignore
 
     def execute(self, context):

@@ -3,12 +3,15 @@ import math
 import logging
 from typing import Callable
 from mathutils import Vector, Matrix
+from .. import utilities
 from .importer import DNAImporter
 from .exporter import DNAExporter
 from ..bindings import riglogic
 from ..constants import (
     SHAPE_KEY_NAME_MAX_LENGTH,
     SHAPE_KEY_DELTA_THRESHOLD,
+    HEAD_TO_BODY_LOD_MAPPING,
+    BONE_DELTA_THRESHOLD,
     SHAPE_KEY_BASIS_NAME
 )
 
@@ -16,15 +19,136 @@ logger = logging.getLogger(__name__)
 
 class DNACalibrator(DNAExporter, DNAImporter):
 
+    def _get_body_bone_lookups(self) -> tuple[dict, dict, dict, dict]:
+        dna_body_bone_translation_lookup = {}
+        dna_body_bone_rotation_lookup = {}
+        body_bone_translation_lookup = {}
+        body_bone_rotation_lookup = {}
+
+        # Ensure the body DNA reader is initialized
+        if not self._instance.body_dna_reader:
+            self._instance.initialize()
+
+        # If this is the head, and the align head and body option is on, then we want to use the
+        # exact same transforms for the body and head bones so that they match perfectly. So we need to 
+        # create a body bone lookup so these can be used as the source of truth.
+        if (
+            self._component_type == 'head' and
+            self._instance.output_method == 'calibrate' and
+            self._instance.output_align_head_and_body and
+            self._instance.body_dna_reader and
+            self._instance.body_rig
+        ):
+            # Extract the body bone transforms from the dna file
+            body_dna_x_translations = self._instance.body_dna_reader.getNeutralJointTranslationXs()
+            body_dna_y_translations = self._instance.body_dna_reader.getNeutralJointTranslationYs()
+            body_dna_z_translations = self._instance.body_dna_reader.getNeutralJointTranslationZs()
+            body_dna_x_rotations = self._instance.body_dna_reader.getNeutralJointRotationXs()
+            body_dna_y_rotations = self._instance.body_dna_reader.getNeutralJointRotationYs()
+            body_dna_z_rotations = self._instance.body_dna_reader.getNeutralJointRotationZs()
+            dna_body_bone_translation_lookup = {
+                self._instance.body_dna_reader.getJointName(index): 
+                    Vector((
+                    body_dna_x_translations[index],
+                    body_dna_y_translations[index],
+                    body_dna_z_translations[index]
+                ))
+                for index in range(self._instance.body_dna_reader.getJointCount())
+            }
+            dna_body_bone_rotation_lookup = {
+                self._instance.body_dna_reader.getJointName(index): 
+                    Vector((
+                        body_dna_x_rotations[index],
+                        body_dna_y_rotations[index],
+                        body_dna_z_rotations[index]
+                    ))
+                for index in range(self._instance.body_dna_reader.getJointCount())
+            }
+
+            # Extract the body bone transforms from the scene
+            indices, bone_names, _, _, translations, rotations = self.get_bone_transforms(self._instance.body_rig, extra_bones=[])
+
+            body_bone_translation_lookup = {
+                bone_name: Vector(translations[index])
+                for index, bone_name in zip(indices, bone_names)
+            }
+
+            body_bone_rotation_lookup = {
+                bone_name: Vector(rotations[index])
+                for index, bone_name in zip(indices, bone_names)
+            }
+
+        return (
+            dna_body_bone_translation_lookup, 
+            dna_body_bone_rotation_lookup, 
+            body_bone_translation_lookup, 
+            body_bone_rotation_lookup
+        )
+
+    def _get_body_mesh_lookup(
+            self, 
+            lod_index: int,
+            mesh_name: str,
+            head_to_body_edge_loop_mapping: dict[str, dict[int, int]]
+        ) -> dict[int, Vector]:
+        # If this is the head, and the align head and body option is on, then we want to use the
+        # exact same vertex positions for the body and head vertices where they overlap. This needs to
+        # be precised to the exact floating point value.
+        if mesh_name != f'{self._instance.name}_head_lod{lod_index}_mesh':
+            return {}
+
+        body_lod_index = HEAD_TO_BODY_LOD_MAPPING.get(lod_index)
+        body_mesh_name = f'{self._instance.name}_body_lod{body_lod_index}_mesh'
+        body_mesh_lod = bpy.data.objects.get(body_mesh_name)
+        if (
+            self._component_type == 'head' and
+            self._instance.output_method == 'calibrate' and
+            self._instance.output_align_head_and_body and
+            body_mesh_lod
+        ):
+            bmesh_object = self.get_bmesh(body_mesh_lod)
+            vertex_indices, vertex_positions = self.get_mesh_vertex_positions(bmesh_object)
+            bmesh_object.free()
+            vert_lookup = dict(zip(vertex_indices, vertex_positions))
+
+            try:
+                return {
+                    int(head_vertex_index): Vector(vert_lookup[body_vertex_index])
+                    for head_vertex_index, body_vertex_index in head_to_body_edge_loop_mapping.get(str(lod_index), {}).items()
+                }
+            except KeyError as error:
+                logger.warning(
+                    f'Head to body vertex mapping not found for LOD {lod_index}: {error}. A vertex on '
+                    f'mesh {mesh_name} or {body_mesh_name} may have been deleted.'
+                )
+        return {}
+
     def calibrate_vertex_positions(self):
+        additional_meshes_by_lod = {}
         mesh_index_lookup = {self._dna_reader.getMeshName(index): index for index in range(self._dna_reader.getMeshCount())}
+        head_to_body_edge_loop_mapping = utilities.get_head_to_body_edge_loop_mapping()
 
         for lod_index, mesh_objects in self._export_lods.items():
             logger.info(f'Calibrating LOD {lod_index} vertex positions...')
             for mesh_object, _ in mesh_objects:
+                body_mesh_lookup = self._get_body_mesh_lookup(
+                    lod_index=lod_index, 
+                    mesh_name=mesh_object.name,
+                    head_to_body_edge_loop_mapping=head_to_body_edge_loop_mapping
+                )
+
                 real_name = mesh_object.name.replace(f'{self._instance.name}_', '')
                 logger.info(f'Calibrating "{real_name}" vertex positions...')
-                mesh_index = mesh_index_lookup[mesh_object.name.replace(f'{self._instance.name}_', '')]
+                mesh_index = mesh_index_lookup.get(real_name)
+                
+                # If the mesh index is not found, we assume that the mesh is not part of the DNA
+                # And we can add it to the additional meshes for this LOD
+                if mesh_index is None:
+                    additional_meshes_by_lod[lod_index] = additional_meshes_by_lod.get(lod_index, [])
+                    additional_meshes_by_lod[lod_index].append(mesh_object)
+                    logger.warning(f'Mesh "{real_name}" not found in DNA. This mesh will not be calibrated...')
+                    continue
+
                 bmesh_object = self.get_bmesh(mesh_object)
                 vertex_indices, vertex_positions = self.get_mesh_vertex_positions(bmesh_object)
                 bmesh_object.free()
@@ -35,7 +159,8 @@ class DNACalibrator(DNAExporter, DNAImporter):
                 z_values = self._dna_reader.getVertexPositionZs(mesh_index)
 
                 for vertex_index in vertex_indices:
-                    vertex_position = Vector(vertex_positions[vertex_index])
+                    # See if we can get the vertex position from the body mesh lookup first, so that we have an exact match
+                    vertex_position = body_mesh_lookup.get(int(vertex_index), Vector(vertex_positions[vertex_index]))
                     dna_vertex_position = Vector((x_values[vertex_index], y_values[vertex_index], z_values[vertex_index]))
                     delta = vertex_position - dna_vertex_position
                     # This ensures that we only modify the vertex positions that are different to avoid floating value drift
@@ -150,6 +275,15 @@ class DNACalibrator(DNAExporter, DNAImporter):
         dna_y_rotations = self._dna_reader.getNeutralJointRotationYs()
         dna_z_rotations = self._dna_reader.getNeutralJointRotationZs()
 
+        # If this is the head, and the align head and body option is on, then we want to use the
+        # exact same transforms for the body and head bones that match.
+        (
+            dna_body_translation_lookup, 
+            dna_body_rotation_lookup, 
+            body_translation_lookup, 
+            body_rotation_lookup
+        ) = self._get_body_bone_lookups()
+
         self._bone_index_lookup = {
             self._dna_reader.getJointName(index): index
             for index in range(self._dna_reader.getJointCount())
@@ -160,32 +294,47 @@ class DNACalibrator(DNAExporter, DNAImporter):
             if bone_name in ignored_bone_names:
                 continue
 
+            # First check for the matching body bone, and use that instead if it exists
+            bone_translation = body_translation_lookup.get(bone_name, Vector(bone_translation))
+            bone_rotation = body_rotation_lookup.get(bone_name, Vector(bone_rotation))
+
             dna_bone_index = self._bone_index_lookup.get(bone_name)
             if dna_bone_index is not None:
-                dna_bone_translation = Vector((
-                    dna_x_translations[dna_bone_index],
-                    dna_y_translations[dna_bone_index],
-                    dna_z_translations[dna_bone_index]
-                ))
-                translation_delta = Vector(bone_translation) - dna_bone_translation
+                # first check for the matching body bone, and use that instead if it exists
+                dna_bone_translation = dna_body_translation_lookup.get(
+                    bone_name,
+                    Vector((
+                        dna_x_translations[dna_bone_index],
+                        dna_y_translations[dna_bone_index],
+                        dna_z_translations[dna_bone_index]
+                    ))
+                )
+                translation_delta = bone_translation - dna_bone_translation
 
                 # Only modify the bone translations that are different to avoid floating point value drift
-                if translation_delta.length > 1e-3:
+                if translation_delta.length > BONE_DELTA_THRESHOLD:
                     dna_x_translations[dna_bone_index] = bone_translation[0]
                     dna_y_translations[dna_bone_index] = bone_translation[1]
                     dna_z_translations[dna_bone_index] = bone_translation[2]
 
-                dna_bone_rotation = Vector((
-                    dna_x_rotations[dna_bone_index],
-                    dna_y_rotations[dna_bone_index],
-                    dna_z_rotations[dna_bone_index]
-                ))
-                rotation_delta = Vector(bone_rotation) - dna_bone_rotation
+                # Get the DNA bone rotation from the body rotation lookup, and use that if it exists
+                dna_bone_rotation = dna_body_rotation_lookup.get(
+                    bone_name, 
+                    Vector((
+                        dna_x_rotations[dna_bone_index],
+                        dna_y_rotations[dna_bone_index],
+                        dna_z_rotations[dna_bone_index]
+                    ))
+                )
+                rotation_delta = bone_rotation - dna_bone_rotation
+
                 # Only modify the bone rotations that are different to avoid floating point value drift
-                # TODO: Currently, we only calibrate facial bones we need to investigate why the local rotations of other bones are not matching
-                if bone_name.startswith('FACIAL_') and rotation_delta.length > 1e-3: # and not is_leaf:
+                # Also, handle angle wrapping (e.g., 180 vs -180 degrees) issues
+                if BONE_DELTA_THRESHOLD < abs(rotation_delta.x) < 360:
                     dna_x_rotations[dna_bone_index] = bone_rotation[0]
+                if BONE_DELTA_THRESHOLD < abs(rotation_delta.y) < 360:
                     dna_y_rotations[dna_bone_index] = bone_rotation[1]
+                if BONE_DELTA_THRESHOLD < abs(rotation_delta.z) < 360:
                     dna_z_rotations[dna_bone_index] = bone_rotation[2]
             else:
                 logger.warning(f'No DNA bone index found for bone "{bone_name}". Ignored from calibration...')
@@ -199,9 +348,10 @@ class DNACalibrator(DNAExporter, DNAImporter):
 
     def run(self) -> tuple[bool, str, str, Callable| None]:
         self.initialize_scene_data()
-        valid, title, message, fix = self.validate()
-        if not valid:
-            return False, title, message, fix
+        if self._instance.output_run_validations:
+            valid, title, message, fix = self.validate()
+            if not valid:
+                return False, title, message, fix
 
         if self._include_meshes:
             self.calibrate_vertex_positions()
@@ -220,4 +370,4 @@ class DNACalibrator(DNAExporter, DNAImporter):
         
         self.save_images()
 
-        return True, "Success", "Calibration successful.", None
+        return True, "Success", f"Calibration of {self._component_type} successful.", None

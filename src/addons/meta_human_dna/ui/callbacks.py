@@ -13,6 +13,7 @@ from ..constants import (
     POSES_FOLDER,
     NUMBER_OF_HEAD_LODS,
     MATERIAL_SLOT_TO_MATERIAL_INSTANCE_DEFAULTS,
+    HEAD_TO_BODY_LOD_MAPPING,
     SEND2UE_FACE_SETTINGS,
     BASE_DNA_FOLDER,
     BODY_HIGH_LEVEL_TOPOLOGY_GROUPS,
@@ -262,11 +263,11 @@ def get_show_body_bones(self) -> bool:
 def get_shape_key_value(self) -> float:
     instance = get_active_rig_logic()
     if instance:
-        channel_index = instance.channel_name_to_index_lookup.get(self.name)
+        channel_index = instance.head_channel_name_to_index_lookup.get(self.name)
         if not channel_index:
             return 0.0      
         
-        for shape_key_block in instance.shape_key_blocks.get(channel_index, []):
+        for shape_key_block in instance.head_shape_key_blocks.get(channel_index, []):
             try:
                 if shape_key_block.name == self.name:
                     return shape_key_block.value
@@ -277,8 +278,8 @@ def get_shape_key_value(self) -> float:
 
 def get_active_shape_key_mesh_names(self, context):
     items = []
-    if self.mesh_index_lookup:
-        for mesh_index, mesh_object in self.mesh_index_lookup.items(): 
+    if self.head_mesh_index_lookup:
+        for mesh_index, mesh_object in self.head_mesh_index_lookup.items(): 
             if mesh_object.data.shape_keys and len(mesh_object.data.shape_keys.key_blocks) > 0:       
                 items.append(
                     (
@@ -355,11 +356,18 @@ def set_active_lod(self, value):
                 f'{self.name}_eyeshell_lod{value}_mesh',
                 f'{self.name}_eyeEdge_lod{value}_mesh',
                 f'{self.name}_cartilage_lod{value}_mesh',
-                f'{self.name}_saliva_lod{value}_mesh'
+                f'{self.name}_saliva_lod{value}_mesh',
+                f'{self.name}_body_lod{value}_mesh'
             ]
             scene_object.hide_set(True)
             if scene_object.name.endswith(f'_lod{value}_mesh') and scene_object.name not in ignored_names:
                 scene_object.hide_set(False)
+
+    # un-hide the body lod. There are 2 head lods per body lod
+    body_lod_index = HEAD_TO_BODY_LOD_MAPPING.get(value)
+    body_lod_object = bpy.data.objects.get(f'{self.name}_body_lod{body_lod_index}_mesh')
+    if body_lod_object:
+        body_lod_object.hide_set(False)
 
 def set_show_head_bones(self, value):
     if self.head_rig:
@@ -490,6 +498,9 @@ def poll_shrink_wrap_target(self, scene_object: bpy.types.Object) -> bool:
             if scene_object not in [self.head_mesh, self.body_mesh]:
                 return True
     return False
+
+def update_evaluate_rbfs_value(self, context):
+    self.reset_body_raw_control_values()
 
 def update_head_topology_selection(self, context):
     from ..utilities import get_active_head

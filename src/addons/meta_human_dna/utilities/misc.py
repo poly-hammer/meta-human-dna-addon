@@ -600,7 +600,7 @@ def import_head_texture_logic_node() -> bpy.types.NodeTree | None:
 
 
 def dependencies_are_valid() -> bool:
-    for module_name in ['dna', 'dnacalib', 'riglogic', 'meta_human_dna_core']:
+    for module_name in ['riglogic', 'meta_human_dna_core']:
         module = sys.modules.get(module_name)
         if module and getattr(module, '__is_fake__', False):
             return False

@@ -185,7 +185,7 @@ class DNAExporter:
             meshes_with_mismatched_origins = []
             for _, mesh_objects in self._export_lods.items():
                 for mesh_object, _ in mesh_objects:
-                    if (self._rig_object.location.copy() - mesh_object.location).length > 1e-5:
+                    if (self._rig_object.location.copy() - mesh_object.location).length > 1e-4:
                         meshes_with_mismatched_origins.append(mesh_object)
             
             if meshes_with_mismatched_origins:
@@ -474,17 +474,13 @@ class DNAExporter:
         for index, bone_name in zip(indices, bone_names):
             self._dna_writer.setJointName(index=index, name=bone_name)
             self._bone_index_lookup[bone_name] = index
-
-            # TODO: Currently we only set the bone rotations for the facial bones.
-            # We need to investigate why the local rotations of other bones are not matching.
-            if bone_name.startswith('FACIAL_'):
-                dna_x_rotations[index] = rotations[index][0]
-                dna_y_rotations[index] = rotations[index][1]
-                dna_z_rotations[index] = rotations[index][2]
+            
+            dna_x_rotations[index] = rotations[index][0]
+            dna_y_rotations[index] = rotations[index][1]
+            dna_z_rotations[index] = rotations[index][2]
         
         self._dna_writer.setJointHierarchy(hierarchy)
         self._dna_writer.setNeutralJointTranslations(translations)
-        # TODO: Implement bone rotation export with correct bone space rotation. For now, just set using the original values plus the changes made to the facial bones.
         self._dna_writer.setNeutralJointRotations([[x, y, z] for x, y, z in zip(dna_x_rotations, dna_y_rotations, dna_z_rotations)])
     
     def save_images(self):
@@ -501,7 +497,10 @@ class DNAExporter:
             try:
                 image.save(filepath=str(new_image_path))
             except Exception:
-                image.save_render(filepath=str(new_image_path))
+                try:
+                    image.save_render(filepath=str(new_image_path))
+                except Exception as error:
+                    logger.error(f"Failed to export image {image.name}: {error}")
             logger.info(f"Image {image.name} exported successfully to: {new_image_path}")
 
     def save_vertex_colors(self):
@@ -513,9 +512,10 @@ class DNAExporter:
 
     def run(self) -> tuple[bool, str, str, Callable| None]:
         self.initialize_scene_data()
-        valid, title, message, fix = self.validate()
-        if not valid:
-            return False, title, message, fix
+        if self._instance.output_run_validations:
+            valid, title, message, fix = self.validate()
+            if not valid:
+                return False, title, message, fix
 
         # Clear the mesh data
         self._dna_writer.clearMeshNames()

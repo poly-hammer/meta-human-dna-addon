@@ -96,8 +96,8 @@ def addons() -> list:
     ]
 
 @pytest.fixture(scope='session')
-def dna_file_name() -> str:
-    return 'ada.dna'
+def dna_folder_name() -> str:
+    return 'ada'
 
 @pytest.fixture(scope='session')
 def import_shape_keys() -> bool:
@@ -110,11 +110,11 @@ def import_lods() -> list:
     ]
 
 @pytest.fixture(scope='session')
-def changed_bone_name() -> str:
+def changed_head_bone_name() -> str:
     return 'FACIAL_C_12IPV_Chin3' # has no children
 
 @pytest.fixture(scope='session')
-def changed_bone_location() -> tuple[Vector, Vector]:
+def changed_head_bone_location() -> tuple[Vector, Vector]:
     # change bone location (blender value, dna value)
     return (
         Vector((0.0, 0.005, 0.02)),  # relative change blender value Z-up
@@ -123,7 +123,7 @@ def changed_bone_location() -> tuple[Vector, Vector]:
     )
 
 @pytest.fixture(scope='session')
-def changed_bone_rotation() -> tuple[Euler, Euler]:
+def changed_head_bone_rotation() -> tuple[Euler, Euler]:
     # change rotation of bone (blender value, dna value)
     return (
         Euler((
@@ -135,21 +135,21 @@ def changed_bone_rotation() -> tuple[Euler, Euler]:
     )
 
 @pytest.fixture(scope='session')
-def changed_mesh_name() -> str:
+def changed_head_mesh_name() -> str:
     return 'head_lod0_mesh'
 
 @pytest.fixture(scope='session')
-def changed_vertex_index() -> int:
+def changed_head_vertex_index() -> int:
     return 11955
 
 @pytest.fixture(scope='session')
-def changed_vertex_location() -> tuple[Vector, Vector, Vector]:
+def changed_head_vertex_location() -> tuple[Vector, Vector, Vector]:
     # change vertex location (blender value, dna value)
     # Moves vertex on the back of the head up 0.01 meters
     return (
-        Vector((0.008358, 0.047561, 1.67178)),  # new blender value Z-up
-        Vector((0.8358, 166.178, 4.7561)),  # original dna value Y-up
-        Vector((0.8358, 167.178, 4.7561)), # new dna value Y-up
+        Vector((0.008358, 0.059853, 1.75288)),  # new blender value Z-up
+        Vector((0.85206276, 170.66174, -4.644782)),  # original dna value Y-up
+        Vector((0.8358, 175.288, -5.9853077)), # new dna value Y-up
     )
 
 @pytest.fixture(scope='session')

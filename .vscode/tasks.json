@@ -60,11 +60,12 @@
         {
             "id": "blender-version",
             "type": "pickString",
-            "default": "4.2",
+            "default": "4.5",
             "options": [
                 "4.2",
                 "4.3",
-                "4.4"
+                "4.4",
+                "4.5"
             ],
             "description": "What blender version to launch"
         },
@@ -96,9 +97,9 @@
             "options": [
                 "",
                 "tests/test_addon_registration.py",
-                "tests/test_calibrator.py",
-                "tests/test_exporter.py",
-                "tests/test_rig_logic.py"
+                "tests/test_head_calibrator.py",
+                "tests/test_head_exporter.py",
+                "tests/test_head_rig_logic.py"
             ],
             "description": "What test suite do you want to run?"
         },

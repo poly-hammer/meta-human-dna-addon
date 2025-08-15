@@ -4,7 +4,7 @@ import bpy
 import bpy.utils.previews
 import logging
 
-from . import operators, properties, utilities, manual_map
+from . import operators, properties, utilities, manual_map, rig_logic
 from .ui import menus, importer, view_3d, addon_preferences, callbacks
 from .resources.unreal import meta_human_dna_utilities
 
@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 bl_info = {
     "name": "Meta-Human DNA",
     "author": "Poly Hammer",
-    "version": (0, 4, 0),
-    "blender": (4, 2, 0),
+    "version": (0, 4, 1),
+    "blender": (4, 5, 0),
     "location": "File > Import > Metahuman DNA",
     "description": "Imports MetaHuman head and body components from a their DNA files, lets you customize them, then send them back to MetaHuman Creator.",
     "warning": "",
@@ -68,6 +68,9 @@ classes = [
     view_3d.META_HUMAN_DNA_PT_face_board,
     view_3d.META_HUMAN_DNA_PT_view_options,
     view_3d.META_HUMAN_DNA_PT_rig_logic,
+    view_3d.META_HUMAN_DNA_PT_rig_logic_head_sub_panel,
+    view_3d.META_HUMAN_DNA_PT_rig_logic_body_sub_panel,
+    view_3d.META_HUMAN_DNA_PT_rig_logic_footer_sub_panel,
     view_3d.META_HUMAN_DNA_PT_shape_keys,
     view_3d.META_HUMAN_DNA_UL_shape_keys,
     view_3d.META_HUMAN_DNA_PT_utilities,
@@ -138,6 +141,9 @@ def unregister():
     utilities.teardown_scene()
 
     # remove event handlers
+    if not os.environ.get('META_HUMAN_DNA_DEV'):
+        rig_logic.stop_listening()
+
     if app_handlers['undo_pre'] in bpy.app.handlers.undo_pre:
         bpy.app.handlers.undo_pre.remove(app_handlers['undo_pre'])
     if app_handlers['undo_post'] in bpy.app.handlers.undo_post:

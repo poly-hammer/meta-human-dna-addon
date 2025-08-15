@@ -7,11 +7,11 @@ from constants import TEST_DNA_FOLDER
 @pytest.fixture(scope='session')
 def load_dna(
     addon, 
-    dna_file_name: str, 
+    dna_folder_name: str, 
     import_shape_keys: bool,
     import_lods: list,
 ):
-    file_path = TEST_DNA_FOLDER / dna_file_name
+    file_path = TEST_DNA_FOLDER / dna_folder_name / 'head.dna'
 
     lods_to_import = {}
     # Set all LODs to False by default
@@ -29,6 +29,7 @@ def load_dna(
         import_vertex_groups=True,
         import_materials=True,
         import_face_board=True,
+        include_body=True,
         **lods_to_import
     )
 
@@ -50,31 +51,30 @@ def head_armature(load_dna) -> bpy.types.Object | None:
 @pytest.fixture(scope='session')
 def modify_scene(
     load_dna,
-    dna_file_name: str,
-    changed_bone_name: str,
-    changed_bone_location: tuple[Vector, Vector],
-    changed_bone_rotation: tuple[Euler, Euler],
-    changed_mesh_name: str,
-    changed_vertex_index: int,
-    changed_vertex_location: tuple[Vector, Vector, Vector],
+    dna_folder_name: str,
+    changed_head_bone_name: str,
+    changed_head_bone_location: tuple[Vector, Vector],
+    changed_head_bone_rotation: tuple[Euler, Euler],
+    changed_head_mesh_name: str,
+    changed_head_vertex_index: int,
+    changed_head_vertex_location: tuple[Vector, Vector, Vector],
     temp_folder
     ):
     from utilities.modify import apply_bone_transform, apply_vertex_transform
-    name = dna_file_name.split(".")[0]
     # Make some changes
     apply_vertex_transform(
-        prefix=name,
-        mesh_name=changed_mesh_name,
-        vertex_index=changed_vertex_index,
-        location=changed_vertex_location[0]
+        prefix=dna_folder_name,
+        mesh_name=changed_head_mesh_name,
+        vertex_index=changed_head_vertex_index,
+        location=changed_head_vertex_location[0]
     )
     apply_bone_transform(
-        prefix=name,
+        prefix=dna_folder_name,
         component='head',
-        bone_name=changed_bone_name,
-        location=changed_bone_location[0],
-        rotation=changed_bone_rotation[0],
+        bone_name=changed_head_bone_name,
+        location=changed_head_bone_location[0],
+        rotation=changed_head_bone_rotation[0],
     )
 
     # Save the blend file
-    bpy.ops.wm.save_as_mainfile(filepath=str(temp_folder / f'{name}_modified.blend'))
+    bpy.ops.wm.save_as_mainfile(filepath=str(temp_folder / f'{dna_folder_name}_modified.blend'))

@@ -40,6 +40,15 @@ def draw_rig_logic_instance_error(layout, error: str):
     row.alignment = 'CENTER'
     row.alert = True
     row.label(text=error)
+
+
+class SubPanelBase(bpy.types.Panel):
+    @classmethod
+    def poll(cls, context):
+        error = valid_rig_logic_instance_exists(context, ignore_face_board=True)
+        if not error:
+            return True
+        return False
     
 
 class META_HUMAN_DNA_UL_output_items(bpy.types.UIList):
@@ -81,9 +90,22 @@ class META_HUMAN_DNA_UL_rig_logic_instances(bpy.types.UIList):
         row.enabled = item.auto_evaluate
         row.prop(item, "name", text="", emboss=False, icon='NETWORK_DRIVE')
         row.alignment = 'RIGHT'
-        row.prop(item, "evaluate_bones", text="", icon='BONE_DATA', emboss=False)
-        row.prop(item, "evaluate_shape_keys", text="", icon='SHAPEKEY_DATA', emboss=False)
-        row.prop(item, "evaluate_texture_masks", text="", icon='NODE_TEXTURE', emboss=False)
+        
+        col = row.column(align=True)
+        col.alert = not item.evaluate_bones
+        col.prop(item, "evaluate_bones", text="", icon='BONE_DATA', emboss=False)
+
+        col = row.column(align=True)
+        col.alert = not item.evaluate_shape_keys
+        col.prop(item, "evaluate_shape_keys", text="", icon='SHAPEKEY_DATA', emboss=False)
+
+        col = row.column(align=True)
+        col.alert = not item.evaluate_texture_masks
+        col.prop(item, "evaluate_texture_masks", text="", icon='NODE_TEXTURE', emboss=False)
+
+        # col = row.column(align=True)
+        # col.alert = not item.evaluate_rbfs
+        # col.prop(item, "evaluate_rbfs", text="", icon='DRIVER_ROTATIONAL_DIFFERENCE', emboss=False)
 
 class META_HUMAN_DNA_UL_shape_keys(bpy.types.UIList):
     
@@ -214,7 +236,7 @@ class META_HUMAN_DNA_PT_utilities(bpy.types.Panel):
         row.prop(context.window_manager.meta_human_dna, 'current_component_type', text='') # type: ignore
 
 
-class META_HUMAN_DNA_PT_mesh_utilities_sub_panel(bpy.types.Panel):
+class META_HUMAN_DNA_PT_mesh_utilities_sub_panel(SubPanelBase):
     bl_parent_id = "META_HUMAN_DNA_PT_utilities"
     bl_label = "Mesh"
     bl_space_type = 'VIEW_3D'
@@ -275,7 +297,7 @@ class META_HUMAN_DNA_PT_mesh_utilities_sub_panel(bpy.types.Panel):
             draw_rig_logic_instance_error(self.layout, error)
 
 
-class META_HUMAN_DNA_PT_armature_utilities_sub_panel(bpy.types.Panel):
+class META_HUMAN_DNA_PT_armature_utilities_sub_panel(SubPanelBase):
     bl_parent_id = "META_HUMAN_DNA_PT_utilities"
     bl_label = "Armature"
     bl_space_type = 'VIEW_3D'
@@ -348,7 +370,7 @@ class META_HUMAN_DNA_PT_armature_utilities_sub_panel(bpy.types.Panel):
             draw_rig_logic_instance_error(self.layout, error)
 
 
-class META_HUMAN_DNA_PT_materials_utilities_sub_panel(bpy.types.Panel):
+class META_HUMAN_DNA_PT_materials_utilities_sub_panel(SubPanelBase):
     bl_parent_id = "META_HUMAN_DNA_PT_utilities"
     bl_label = "Material"
     bl_space_type = 'VIEW_3D'
@@ -480,56 +502,99 @@ class META_HUMAN_DNA_PT_rig_logic(bpy.types.Panel):
             props.direction = 'DOWN' # type: ignore
             props.active_index = properties.rig_logic_instance_list_active_index # type: ignore
 
+
+class META_HUMAN_DNA_PT_rig_logic_head_sub_panel(SubPanelBase):
+    bl_parent_id = "META_HUMAN_DNA_PT_rig_logic"
+    bl_label = "Head"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'Meta-Human DNA'
+    # bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        if not self.layout:
+            return
+        
+        properties = context.scene.meta_human_dna # type: ignore
         active_index = properties.rig_logic_instance_list_active_index
         if len(properties.rig_logic_instance_list) > 0:
             instance = properties.rig_logic_instance_list[active_index]
-            row = self.layout.row()
-            box = row.box()
+        
+            box = self.layout.box()
             row = box.row()
-            row.label(text='Rig Logic Instance:')
-            # draw the head box
-            head_box = box.box()
-            row = head_box.row()
             row.alert = False
             bad_path = instance.head_dna_file_path and not Path(bpy.path.abspath(instance.head_dna_file_path)).exists()
             if not instance.head_dna_file_path or bad_path:
                 row.alert = True
             row.prop(instance, 'head_dna_file_path', icon='RNA')
             if bad_path:
-                row = head_box.row()
+                row = box.row()
                 row.alert = True
                 row.label(text='DNA File not found on disk.', icon='ERROR')
-            row = head_box.row()
+            row = box.row()
             row.alert = False
             if not instance.face_board:
                 row.alert = True
             row.prop(instance, 'face_board', icon='PIVOT_BOUNDBOX')
-            row = head_box.row()
+            row = box.row()
             row.prop(instance, 'head_mesh', icon='OUTLINER_OB_MESH')
-            row = head_box.row()
+            row = box.row()
             row.prop(instance, 'head_rig', icon='OUTLINER_OB_ARMATURE')
-            row = head_box.row()
+            row = box.row()
             row.prop(instance, 'head_material', icon='MATERIAL')
-            # draw the body box
-            body_box = box.box()
-            row = body_box.row()
+
+
+class META_HUMAN_DNA_PT_rig_logic_body_sub_panel(SubPanelBase):
+    bl_parent_id = "META_HUMAN_DNA_PT_rig_logic"
+    bl_label = "Body"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'Meta-Human DNA'
+    # bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        if not self.layout:
+            return
+        
+        properties = context.scene.meta_human_dna # type: ignore
+        active_index = properties.rig_logic_instance_list_active_index
+        if len(properties.rig_logic_instance_list) > 0:
+            instance = properties.rig_logic_instance_list[active_index]
+        
+            box = self.layout.box()
+            row = box.row()
             row.alert = False
             bad_path = instance.body_dna_file_path and not Path(bpy.path.abspath(instance.body_dna_file_path)).exists()
             if not instance.body_dna_file_path or bad_path:
                 row.alert = True
             row.prop(instance, 'body_dna_file_path', icon='RNA')
             if bad_path:
-                row = body_box.row()
+                row = box.row()
                 row.alert = True
                 row.label(text='DNA File not found on disk.', icon='ERROR')
-            row = body_box.row()
-            row.prop(instance, 'body_mesh', icon='OUTLINER_OB_MESH')
-            row = body_box.row()
-            row.prop(instance, 'body_rig', icon='OUTLINER_OB_ARMATURE')
-            row = body_box.row()
-            row.prop(instance, 'body_material', icon='MATERIAL')
             row = box.row()
-            row.operator('meta_human_dna.force_evaluate', icon='FILE_REFRESH')
+            row.prop(instance, 'body_mesh', icon='OUTLINER_OB_MESH')
+            row = box.row()
+            row.prop(instance, 'body_rig', icon='OUTLINER_OB_ARMATURE')
+            row = box.row()
+            row.prop(instance, 'body_material', icon='MATERIAL')
+
+
+class META_HUMAN_DNA_PT_rig_logic_footer_sub_panel(SubPanelBase):
+    bl_parent_id = "META_HUMAN_DNA_PT_rig_logic"
+    bl_label = "(Not Shown)"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'Meta-Human DNA'
+    bl_options = {'HIDE_HEADER'}
+
+    def draw(self, context):
+        if not self.layout:
+            return
+        
+        row = self.layout.row()
+        row.scale_y = 1.5
+        row.operator('meta_human_dna.force_evaluate', icon='FILE_REFRESH')
 
 
 class META_HUMAN_DNA_PT_shape_keys(bpy.types.Panel):
@@ -675,21 +740,13 @@ class META_HUMAN_DNA_PT_output_panel(bpy.types.Panel):
             draw_rig_logic_instance_error(self.layout, error)
 
 
-class META_HUMAN_DNA_PT_send2ue_settings_sub_panel(bpy.types.Panel):
+class META_HUMAN_DNA_PT_send2ue_settings_sub_panel(SubPanelBase):
     bl_parent_id = "META_HUMAN_DNA_PT_output_panel"
     bl_label = "Send to Unreal Settings"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = 'Meta-Human DNA'
     bl_options = {'DEFAULT_CLOSED'}
-
-    @classmethod
-    def poll(cls, context):
-        from ..utilities import send2ue_addon_is_valid
-        error = valid_rig_logic_instance_exists(context, ignore_face_board=True)
-        if not error and send2ue_addon_is_valid():
-            return True
-        return False
 
     def draw(self, context):
         from ..utilities import send2ue_addon_is_valid
@@ -786,6 +843,13 @@ class META_HUMAN_DNA_PT_buttons_sub_panel(bpy.types.Panel):
             row = self.layout.row()
             active_index = properties.rig_logic_instance_list_active_index
             instance = properties.rig_logic_instance_list[active_index]
+            row.prop(instance, 'output_run_validations')
+            row = self.layout.row()
+            
+            if instance.output_method == 'calibrate':
+                row.prop(instance, 'output_align_head_and_body')
+                row = self.layout.row()
+
             if not instance.output_folder_path:
                 row.enabled = False
             row.scale_y = 2.0

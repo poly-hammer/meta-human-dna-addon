@@ -48,26 +48,27 @@ def get_mesh_names(dna_file_path: Path) -> list[str]:
     return [reader.getMeshName(index) for index in range(reader.getMeshCount())]
 
 
-def get_test_bone_definitions_params():
+def get_test_bone_definitions_params(dna_file_path: Path):
 
-    for bone_name in get_bone_names(SAMPLE_DNA_FILE):
+    for bone_name in get_bone_names(dna_file_path):
         attributes = ['neutralJointRotations', 'neutralJointTranslations']
         axis_names = ['x', 'y', 'z']
         for attribute in attributes:
             for axis_name in axis_names:
                 yield bone_name, attribute, axis_name
 
-def get_test_bone_behaviors_params():
-    for bone_name in get_bone_names(SAMPLE_DNA_FILE):
+def get_test_bone_behaviors_params(dna_file_path: Path):
+    for bone_name in get_bone_names(dna_file_path):
         yield bone_name
 
 def get_test_mesh_geometry_params(
+        dna_file_path: Path,
         lods: list[int] | None = None,
         vertex_positions: bool = True,
         normals: bool = True,
-        uvs: bool = True
+        uvs: bool = True,
     ):
-    for mesh_name in get_mesh_names(SAMPLE_DNA_FILE):
+    for mesh_name in get_mesh_names(dna_file_path):
         if lods:
             # skip checking meshes that are not in the specified lods
             if not any(mesh_name.endswith(f'_lod{lod}_mesh') for lod in lods):

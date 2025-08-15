@@ -15,11 +15,6 @@ def addon(addons: list[tuple[str, Path]]):
         script_directory.directory = str(scripts_folder)
         sys.path.append(str(scripts_folder))
 
-    try:
-        bpy.ops.script.reload()
-    except ValueError:
-        pass
-
     for addon_name, _ in addons:
         bpy.ops.preferences.addon_enable(module=addon_name)
 
@@ -30,5 +25,7 @@ def addon(addons: list[tuple[str, Path]]):
         sys.path.remove(str(scripts_folder))
         bpy.context.preferences.filepaths.script_directories.remove(script_directory) # type: ignore
 
+    # Forces Blender to free memory blocks
+    bpy.ops.wm.read_factory_settings(use_empty=True)
     # Close Blender
     bpy.ops.wm.quit_blender()
