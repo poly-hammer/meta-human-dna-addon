@@ -16,6 +16,7 @@ def get_bone_differences(
         target_bone_locations: dict | None = None,
         tolerance: float = 0.01,
         ignore_prefix: str | None = None,
+        isolated_bones: list[str] | None = None
     ) -> tuple[list, dict]:
     differences = []
     if not target_bone_locations:
@@ -25,10 +26,14 @@ def get_bone_differences(
     # switch to pose mode this ensures the bone locations are updated when we access them
     switch_to_pose_mode(source_rig)
 
+    bone_names = source_rig.pose.bones.keys() # type: ignore
+    if isolated_bones:
+        bone_names = isolated_bones
+
     # get the bone differences against the passed in target bone locations
     # this is used to test against the saved json files for more speed
     if target_bone_locations:
-        for bone_name in source_rig.pose.bones.keys(): # type: ignore
+        for bone_name in bone_names:
             # skip the extra bones
             if bone_name in [i for i, _ in EXTRA_BONES]:
                 continue
@@ -44,7 +49,10 @@ def get_bone_differences(
     # get the bone differences against the target rig in the scene
     elif target_rig_name:
         target_rig = bpy.data.objects[target_rig_name]
-        for bone_name in source_rig.pose.bones.keys(): # type: ignore
+        for bone_name in bone_names: # type: ignore
+            if ignore_prefix and bone_name.startswith(ignore_prefix):
+                continue
+
             source_bone = source_rig.pose.bones[bone_name] # type: ignore
             target_bone = target_rig.pose.bones.get(bone_name) # type: ignore
             

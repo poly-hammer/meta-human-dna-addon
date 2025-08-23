@@ -16,8 +16,10 @@ from utilities.bones import (
     show_differences
 )
 from constants import TEST_FBX_POSES_FOLDER, TEST_JSON_POSES_FOLDER
+from meta_human_dna.ui.callbacks import get_active_rig_logic
 from meta_human_dna.utilities import (
     switch_to_pose_mode,
+    switch_to_object_mode,
     copy_mesh
 )
 
@@ -42,15 +44,21 @@ def get_all_pose_names() -> list[str]:
     
     return pose_names
 
-def set_body_pose(pose_name: str, source_rig_name: str):
-    source_rig_object = bpy.data.objects[source_rig_name]
-    switch_to_pose_mode(source_rig_object)
+def reset_body_pose(rig_object: bpy.types.Object):
+    switch_to_pose_mode(rig_object)
 
     # reset to rest pose
-    for pose_bone in source_rig_object.pose.bones: # type: ignore
+    for pose_bone in rig_object.pose.bones: # type: ignore
         pose_bone.rotation_quaternion = Quaternion((1, 0, 0, 0)) # type: ignore
+        pose_bone.rotation_euler = Euler((0, 0, 0)) # type: ignore
         pose_bone.location = Vector((0, 0, 0)) # type: ignore
         pose_bone.scale = Vector((1, 1, 1)) # type: ignore
+
+    switch_to_object_mode()
+
+def set_body_pose(pose_name: str, source_rig_name: str):
+    source_rig_object = bpy.data.objects[source_rig_name]
+    reset_body_pose(source_rig_object)
 
     if sys.platform == 'win32':
         chunks = pose_name.split('\\')[-1].rsplit('_', 2)
@@ -68,11 +76,16 @@ def set_body_pose(pose_name: str, source_rig_name: str):
     elif direction == 'back':
         euler_rotation.z = -rotation
     elif direction == 'up':
-        euler_rotation.y = -rotation
-    elif direction == 'down':
         euler_rotation.y = rotation
+    elif direction == 'down':
+        euler_rotation.y = -rotation
 
+    switch_to_pose_mode(source_rig_object)
+
+    source_rig_object.pose.bones[bone_name].rotation_euler = euler_rotation # type: ignore
     source_rig_object.pose.bones[bone_name].rotation_quaternion = euler_rotation.to_quaternion() # type: ignore
+
+    switch_to_object_mode()
 
 def import_fbx_pose(file_path: Path, source_rig_name: str) -> bpy.types.Object:
     armature_name = 'joints_grp'
@@ -134,7 +147,7 @@ def test_pose(
     show: bool = False,
     skip_fbx_import: bool = False
 ):
-    pytest.skip('TODO: Implement body RBF calculations correctly in RigLogic')
+    # pytest.skip('TODO: Implement body RBF calculations correctly in RigLogic')
     use_fbx_files = os.environ.get('META_HUMAN_DNA_ADDON_TESTS_UPDATE_BODY_JSON_POSES')
     
     tolerance = 0.001
@@ -156,12 +169,14 @@ def test_pose(
             source_rig_name=source_rig_name
         )
 
+        instance = get_active_rig_logic()
+
         # check that the poses match
         differences, target_locations = get_bone_differences(
             source_rig_name=source_rig_name, 
             target_rig_name=armature_object.name, 
             tolerance=tolerance,
-            ignore_prefix='FACIAL_'
+            isolated_bones=instance.body_raw_control_bone_names # type: ignore
         )
 
         # cache bone locations to json for faster testing than importing fbx files
@@ -183,16 +198,20 @@ def test_pose(
             source_rig_name=source_rig_name
         )
 
+        instance = get_active_rig_logic()
+
         # check that the poses match
         differences, target_locations = get_bone_differences(
             source_rig_name=source_rig_name,
             target_bone_locations=target_locations,
-            tolerance=tolerance
+            tolerance=tolerance,
+            isolated_bones=instance.body_raw_control_bone_names # type: ignore
         )
 
     # ignore differences caused by testing bone changes
     differences = [(bone_name, value) for (bone_name, value) in differences if bone_name != changed_head_bone_name]
 
+    reset_body_pose(bpy.data.objects[source_rig_name])
     assert not differences, \
     (
         f'In the pose "{pose_name}" the following bone location differences '

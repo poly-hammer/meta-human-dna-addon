@@ -755,7 +755,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             for pose_bone in self.body_rig.pose.bones:
                 # make sure the body bones are using the correct rotation mode
                 if pose_bone.name in self.body_raw_control_bone_names:
-                    pose_bone.rotation_mode = "QUATERNION"
+                    # pose_bone.rotation_mode = "QUATERNION"
+                    pose_bone.rotation_mode = "XYZ"
                 else:
                     pose_bone.rotation_mode = "XYZ"
 
@@ -1102,17 +1103,15 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         missing_raw_controls = []
         converted_quaternions = {}
 
-        # self.body_manager.getNeutralJointValues() / 9
-
         # convert the quaternion values to the correct coordinate system
         for pose_bone in self.body_rig.pose.bones:
             # This effectively mirrors the rotation around the Y-axis
-            converted_quaternions[pose_bone.name] = Quaternion((
-                pose_bone.rotation_quaternion.w, 
-                pose_bone.rotation_quaternion.x, 
-                -pose_bone.rotation_quaternion.y, 
-                pose_bone.rotation_quaternion.z
-            )).normalized()
+            rotation_euler = pose_bone.rotation_euler.copy()
+            # rotation_euler.x = -rotation_euler.x
+            # rotation_euler.z = -rotation_euler.z
+
+            quaternion = pose_bone.rotation_euler.to_quaternion()
+            converted_quaternions[pose_bone.name] = rotation_euler.to_quaternion().normalized()
 
         for index in range(self.body_dna_reader.getRawControlCount()):
             full_name = self.body_dna_reader.getRawControlName(index)
@@ -1233,11 +1232,11 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 if self.evaluate_texture_masks:
                     self.update_head_texture_masks()
 
-            # if component in ('body', 'all'):
-            #     # apply the changes
-            #     if self.evaluate_rbfs:
-            #         self.update_body_raw_control_values()
-            #         self.update_body_bone_transforms()
+            if component in ('body', 'all'):
+                self.update_body_raw_control_values()
+                # apply the changes
+                if self.evaluate_rbfs:
+                    self.update_body_bone_transforms()
 
             # turn on the dependency graph evaluation back on
             bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True # type: ignore
