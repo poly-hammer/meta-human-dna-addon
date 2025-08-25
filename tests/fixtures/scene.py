@@ -11,6 +11,13 @@ def load_dna(
     import_shape_keys: bool,
     import_lods: list,
 ):
+    # open default scene
+    bpy.ops.wm.read_homefile(app_template="")
+
+    # remove all default objects
+    for obj in bpy.data.objects:
+        bpy.data.objects.remove(obj, do_unlink=True)
+
     file_path = TEST_DNA_FOLDER / dna_folder_name / 'head.dna'
 
     lods_to_import = {}

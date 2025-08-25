@@ -79,7 +79,7 @@ def import_fbx_pose(file_path: Path) -> bpy.types.Object:
         (pose_name, 'ada_head_rig') for pose_name in get_all_pose_names()
     ]
 )
-def test_pose(
+def test_head_pose(
     load_dna, 
     pose_name: str, 
     source_rig_name: str, 
