@@ -1,5 +1,8 @@
+## Minor Changes
+* Added Custom Color space support [#173](https://github.com/poly-hammer/meta-human-dna-addon/issues/173)
+
 ## Patch Changes
-* Fixed disappearing component sub-panels under RigLogic panel[#167](https://github.com/poly-hammer/meta-human-dna-addon/issues/167)
+* Fixed disappearing component sub-panels under RigLogic panel [#167](https://github.com/poly-hammer/meta-human-dna-addon/issues/167)
 
 
 > [!WARNING]  
