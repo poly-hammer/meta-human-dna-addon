@@ -99,7 +99,8 @@
                 "tests/test_addon_registration.py",
                 "tests/test_head_calibrator.py",
                 "tests/test_head_exporter.py",
-                "tests/test_head_rig_logic.py"
+                "tests/test_head_rig_logic.py",
+                "tests/test_body_rig_logic.py"
             ],
             "description": "What test suite do you want to run?"
         },

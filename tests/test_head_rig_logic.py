@@ -9,14 +9,12 @@ from pprint import pformat
 from meta_human_dna.constants import (
     POSES_FOLDER, 
     CUSTOM_BONE_SHAPE_NAME, 
-    CUSTOM_BONE_SHAPE_SCALE,
-    EXTRA_BONES
+    CUSTOM_BONE_SHAPE_SCALE
 )
 from constants import TEST_FBX_POSES_FOLDER, TEST_JSON_POSES_FOLDER
-from meta_human_dna.utilities import (
-    switch_to_pose_mode,
-    switch_to_object_mode,
-    deselect_all
+from utilities.bones import (
+    get_bone_differences,
+    show_differences
 )
 from meta_human_dna.ui.callbacks import (
     get_active_rig_logic,
@@ -32,7 +30,7 @@ def get_all_pose_names() -> list[str]:
                     pose_names.append(str(Path(root).relative_to(POSES_FOLDER)))
     return pose_names
 
-def import_fbx_pose(metahuman_id: str, file_path: Path) -> bpy.types.Object:
+def import_fbx_pose(file_path: Path) -> bpy.types.Object:
     armature_name = 'joints_grp'
 
     bpy.ops.wm.fbx_import(filepath=str(file_path))
@@ -73,82 +71,6 @@ def import_fbx_pose(metahuman_id: str, file_path: Path) -> bpy.types.Object:
     armature_object.hide_set(True) # type: ignore
 
     return armature_object # type: ignore
-        
-
-def get_bone_differences(
-        source_rig_name: str,
-        target_rig_name: str | None = None,
-        target_bone_locations: dict | None = None,
-        tolerance: float = 0.01,
-    ) -> tuple[list, dict]:
-    differences = []
-    if not target_bone_locations:
-        target_bone_locations = {}
-
-    source_rig = bpy.data.objects[source_rig_name]
-    # switch to pose mode this ensures the bone locations are updated when we access them
-    switch_to_pose_mode(source_rig)
-
-    # get the bone differences against the passed in target bone locations
-    # this is used to test against the saved json files for more speed
-    if target_bone_locations:
-        for bone_name in source_rig.pose.bones.keys(): # type: ignore
-            # skip the extra bones
-            if bone_name in [i for i, _ in EXTRA_BONES]:
-                continue
-
-            source_bone = source_rig.pose.bones[bone_name] # type: ignore
-            source_world_location = source_rig.matrix_world @ source_bone.head
-            loc_diff = (source_world_location - Vector(target_bone_locations[bone_name])).length
-            if loc_diff >= tolerance:
-                differences.append((bone_name, loc_diff))
-    # get the bone differences against the target rig in the scene
-    elif target_rig_name:
-        target_rig = bpy.data.objects[target_rig_name]
-        for bone_name in source_rig.pose.bones.keys(): # type: ignore
-            source_bone = source_rig.pose.bones[bone_name] # type: ignore
-            target_bone = target_rig.pose.bones.get(bone_name) # type: ignore
-            
-            if target_bone:
-                source_world_location = source_rig.matrix_world @ source_bone.head
-                target_world_location = target_rig.matrix_world @ target_bone.head
-                target_bone_locations[bone_name] = target_world_location[:]
-
-                loc_diff = (source_world_location - target_world_location).length
-                if loc_diff >= tolerance:
-                    differences.append((bone_name, loc_diff))
-    
-    return differences, target_bone_locations
-
-def show_differences(
-        source_rig_name: str, 
-        target_rig_name: str, 
-        differences: list[tuple[str, float]]
-    ):
-    # hide all bones
-    source_rig = bpy.data.objects[source_rig_name]
-    source_rig.hide_set(False) 
-    for bone in source_rig.data.bones: # type: ignore
-        bone.hide = True
-    target_rig = bpy.data.objects[target_rig_name]
-    target_rig.hide_set(False) 
-    for bone in target_rig.data.bones: # type: ignore
-        bone.hide = True
-
-    # switch to pose mode with both rigs selected
-    deselect_all()
-    switch_to_object_mode()
-    source_rig.select_set(True)
-    target_rig.select_set(True)
-    bpy.context.view_layer.objects.active = target_rig # type: ignore
-    bpy.ops.object.mode_set(mode='POSE')
-
-    # show the bones with differences
-    for bone_name, _ in differences:
-        source_bone = source_rig.data.bones[bone_name] # type: ignore
-        target_bone = target_rig.data.bones[bone_name] # type: ignore
-        source_bone.hide = False
-        target_bone.hide = False
 
 @pytest.mark.parametrize(
     ('pose_name', 'source_rig_name'), 
@@ -157,7 +79,7 @@ def show_differences(
         (pose_name, 'ada_head_rig') for pose_name in get_all_pose_names()
     ]
 )
-def test_pose(
+def test_head_pose(
     load_dna, 
     pose_name: str, 
     source_rig_name: str, 
@@ -165,17 +87,15 @@ def test_pose(
     show: bool = False,
     skip_fbx_import: bool = False
 ):
-    use_fbx_files = os.environ.get('META_HUMAN_DNA_ADDON_TESTS_UPDATE_JSON_POSES')
+    use_fbx_files = os.environ.get('META_HUMAN_DNA_ADDON_TESTS_UPDATE_HEAD_JSON_POSES')
     
     tolerance = 0.001
-    metahuman_id = source_rig_name.replace('_head_rig', '')
     
     if use_fbx_files:
         fbx_file_path = TEST_FBX_POSES_FOLDER / source_rig_name / f"{pose_name}.fbx"
         # import the fbx file
         if not skip_fbx_import:
             armature_object = import_fbx_pose(
-                metahuman_id=metahuman_id,
                 file_path=fbx_file_path
             )
         else:

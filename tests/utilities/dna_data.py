@@ -1,5 +1,4 @@
 import json
-from constants import SAMPLE_DNA_FILE
 from pathlib import Path
 
 def get_dna_json_data(dna_file_path: Path, json_file_path: Path) -> dict:

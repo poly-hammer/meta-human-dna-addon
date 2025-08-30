@@ -3,7 +3,7 @@ import math
 import bmesh
 import logging
 from typing import Literal
-from mathutils import Vector, Matrix, Euler
+from mathutils import Vector, Matrix, Euler, Quaternion
 from .misc import (
     exclude_rig_logic_evaluation,
     preserve_context,
@@ -501,3 +501,14 @@ def auto_fit_bones(
             )
     else:
         logger.error('Auto-fitting failed. Please check the input data.')
+
+@preserve_context
+def reset_pose(rig_object: bpy.types.Object):
+    switch_to_pose_mode(rig_object)
+
+    # reset to rest pose
+    for pose_bone in rig_object.pose.bones: # type: ignore
+        pose_bone.rotation_quaternion = Quaternion((1, 0, 0, 0)) # type: ignore
+        pose_bone.rotation_euler = Euler((0, 0, 0)) # type: ignore
+        pose_bone.location = Vector((0, 0, 0)) # type: ignore
+        pose_bone.scale = Vector((1, 1, 1)) # type: ignore

@@ -103,9 +103,9 @@ class META_HUMAN_DNA_UL_rig_logic_instances(bpy.types.UIList):
         col.alert = not item.evaluate_texture_masks
         col.prop(item, "evaluate_texture_masks", text="", icon='NODE_TEXTURE', emboss=False)
 
-        # col = row.column(align=True)
-        # col.alert = not item.evaluate_rbfs
-        # col.prop(item, "evaluate_rbfs", text="", icon='DRIVER_ROTATIONAL_DIFFERENCE', emboss=False)
+        col = row.column(align=True)
+        col.alert = not item.evaluate_rbfs
+        col.prop(item, "evaluate_rbfs", text="", icon='DRIVER_ROTATIONAL_DIFFERENCE', emboss=False)
 
 class META_HUMAN_DNA_UL_shape_keys(bpy.types.UIList):
     
@@ -503,7 +503,7 @@ class META_HUMAN_DNA_PT_rig_logic(bpy.types.Panel):
             props.active_index = properties.rig_logic_instance_list_active_index # type: ignore
 
 
-class META_HUMAN_DNA_PT_rig_logic_head_sub_panel(SubPanelBase):
+class META_HUMAN_DNA_PT_rig_logic_head_sub_panel(bpy.types.Panel):
     bl_parent_id = "META_HUMAN_DNA_PT_rig_logic"
     bl_label = "Head"
     bl_space_type = 'VIEW_3D'
@@ -544,7 +544,7 @@ class META_HUMAN_DNA_PT_rig_logic_head_sub_panel(SubPanelBase):
             row.prop(instance, 'head_material', icon='MATERIAL')
 
 
-class META_HUMAN_DNA_PT_rig_logic_body_sub_panel(SubPanelBase):
+class META_HUMAN_DNA_PT_rig_logic_body_sub_panel(bpy.types.Panel):
     bl_parent_id = "META_HUMAN_DNA_PT_rig_logic"
     bl_label = "Body"
     bl_space_type = 'VIEW_3D'

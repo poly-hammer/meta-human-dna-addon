@@ -348,10 +348,24 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
                     if new_image_path.exists():
                         node.image = bpy.data.images.load(str(new_image_path)) # type: ignore
 
-                    # reloading images defaults the color space, so reset normal map to Non-Color
+                    # Set the color space for color and normal textures, taking into account alternate
+                    # color management workflows like ACES
                     stem = new_image_path.stem.lower()
-                    if stem.endswith('normal_map') or stem.endswith('normal') or '_normal_animated_' in stem:
-                        node.image.colorspace_settings.name = 'Non-Color' # type: ignore
+                    try:
+                        if stem.endswith('color_map') or stem.endswith('color') or 'color_animated_' in stem:
+                            try:
+                                node.image.colorspace_settings.name = 'sRGB' # type: ignore
+                            except TypeError:
+                                node.image.colorspace_settings.name = 'sRGB - Display' # type: ignore
+
+                        if stem.endswith('normal_map') or stem.endswith('normal') or 'normal_animated_' in stem:
+                            try:
+                                node.image.colorspace_settings.name = 'Non-Color' # type: ignore
+                            except TypeError:
+                                node.image.colorspace_settings.name = 'Raw' # type: ignore
+
+                    except Exception as error:
+                        logger.error(f"Failed to set colorspace for {node.image.name}: {error}") # type: ignore
 
         # remove any extra masks and topology images
         for image in bpy.data.images:
