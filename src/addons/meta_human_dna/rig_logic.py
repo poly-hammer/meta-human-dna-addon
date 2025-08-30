@@ -755,8 +755,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             for pose_bone in self.body_rig.pose.bones:
                 # make sure the body bones are using the correct rotation mode
                 if pose_bone.name in self.body_raw_control_bone_names:
-                    # pose_bone.rotation_mode = "QUATERNION"
-                    pose_bone.rotation_mode = "XYZ"
+                    pose_bone.rotation_mode = "QUATERNION"
                 else:
                     pose_bone.rotation_mode = "XYZ"
 
@@ -1105,13 +1104,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
         # convert the quaternion values to the correct coordinate system
         for pose_bone in self.body_rig.pose.bones:
-            # This effectively mirrors the rotation around the Y-axis
-            rotation_euler = pose_bone.rotation_euler.copy()
-            # rotation_euler.x = -rotation_euler.x
-            # rotation_euler.z = -rotation_euler.z
-
-            quaternion = pose_bone.rotation_euler.to_quaternion()
-            converted_quaternions[pose_bone.name] = rotation_euler.to_quaternion().normalized()
+            quaternion = pose_bone.rotation_quaternion.copy()
+            converted_quaternions[pose_bone.name] = quaternion.normalized()
 
         for index in range(self.body_dna_reader.getRawControlCount()):
             full_name = self.body_dna_reader.getRawControlName(index)
