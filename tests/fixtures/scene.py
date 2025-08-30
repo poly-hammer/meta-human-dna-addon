@@ -36,7 +36,7 @@ def load_dna(
         import_vertex_groups=True,
         import_materials=True,
         import_face_board=True,
-        include_body=True,
+        include_body=False,
         **lods_to_import
     )
 
