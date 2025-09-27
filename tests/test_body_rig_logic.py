@@ -21,7 +21,8 @@ from meta_human_dna.utilities import (
     switch_to_pose_mode,
     switch_to_object_mode,
     copy_mesh,
-    reset_pose
+    reset_pose,
+    select_only
 )
 
 def get_all_pose_names() -> list[str]:
@@ -120,6 +121,10 @@ def import_fbx_pose(file_path: Path, source_rig_name: str) -> bpy.types.Object:
     armature_object.rotation_euler.x += math.radians(90) # type: ignore
     body_mesh.modifiers['Armature'].object = armature_object # type: ignore
     armature_object.hide_set(True) # type: ignore
+
+    # apply the transformations
+    select_only(armature_object)
+    bpy.ops.object.transforms_to_deltas(mode='ALL')
 
     return armature_object # type: ignore
 

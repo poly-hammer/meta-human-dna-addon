@@ -761,7 +761,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
                 # save the rest pose and their parent space matrix so we don't have to calculate it again
                 try:
-                    rest_pose[pose_bone.name] = utilities.get_bone_rest_transformations(pose_bone.bone)
+                    rest_pose[pose_bone.name] = utilities.get_bone_rest_transformations(pose_bone.bone, rotation_mode='XYZ')
                 except ValueError as error:
                     logger.error(f'Error getting rest pose for bone "{pose_bone.name}": {error}')
                     return {}
@@ -1082,7 +1082,14 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         if not self.evaluate_rbfs:
             # reset all raw controls to 0.0
             for index in range(self.body_dna_reader.getRawControlCount()):
-                self.body_instance.setRawControl(index, 0.0)
+                full_name = self.body_dna_reader.getRawControlName(index)
+                control_name, axis = full_name.split('.')
+                axis = axis.rsplit('q',-1)[-1].lower()
+                if axis == 'w':
+                    self.body_instance.setRawControl(index, 1.0)
+                else:
+                    self.body_instance.setRawControl(index, 0.0)
+
             self.body_instance.setLOD(level=int(self.active_lod[-1]))
             self.body_manager.calculate(self.body_instance)
         else:
