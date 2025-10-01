@@ -3,6 +3,7 @@
 
 ## Patch Changes
 * Fixed disappearing component sub-panels under RigLogic panel [#167](https://github.com/poly-hammer/meta-human-dna-addon/issues/167)
+[#186](https://github.com/poly-hammer/meta-human-dna-addon/issues/186)
 
 
 > [!WARNING]  

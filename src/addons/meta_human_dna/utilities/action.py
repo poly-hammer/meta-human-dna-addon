@@ -4,10 +4,12 @@ import json
 import logging
 from typing import TYPE_CHECKING
 from pathlib import Path
-from ..constants import Axis
+from mathutils import Euler
+from ..constants import Axis, SCALE_FACTOR
 from . import (
     switch_to_pose_mode,
-    switch_to_object_mode
+    switch_to_object_mode,
+    apply_transforms
 )
 
 if TYPE_CHECKING:
@@ -51,8 +53,199 @@ def set_keys_on_bone(
         keyframe_point.co[0] = frame
         keyframe_point.co[1] = value * scale_factor
 
+def remove_object_scale_keyframes(actions: list[bpy.types.Action]):
+    for action in actions:
+        for fcurve in action.fcurves:
+            if fcurve.data_path == 'scale':
+                action.fcurves.remove(fcurve)
 
-def import_action_from_fbx(file_path: Path, armature: bpy.types.Object):
+def scale_object_actions(
+        unordered_objects: list[bpy.types.Object], 
+        actions: list[bpy.types.Action], 
+        scale_factor: float
+    ):
+    # get the list of objects that do not have parents
+    no_parents = [unordered_object for unordered_object in unordered_objects if not unordered_object.parent]
+
+    # get the list of objects that have parents
+    parents = [unordered_object for unordered_object in unordered_objects if unordered_object.parent]
+
+    # re-order the imported objects to have the top of the hierarchies iterated first
+    ordered_objects = no_parents + parents
+
+    for ordered_object in ordered_objects:
+        # run the export iteration but with "scale" set to the scale of the object as it was imported
+        scale = (
+            ordered_object.scale[0] * scale_factor,
+            ordered_object.scale[1] * scale_factor,
+            ordered_object.scale[2] * scale_factor
+        )
+
+        # if the imported object is an armature
+        if ordered_object.type == 'ARMATURE':
+            # iterate over any imported actions first this time...
+            for action in actions:
+                # iterate through the location curves
+                for fcurve in [fcurve for fcurve in action.fcurves if fcurve.data_path.endswith('location')]:
+                    # the location fcurve of the object
+                    if fcurve.data_path == 'location':
+                        for keyframe_point in fcurve.keyframe_points:
+                            # just the location to preserve root motion
+                            keyframe_point.co[1] = keyframe_point.co[1] * scale[fcurve.array_index] * scale_factor
+                        # don't scale the objects location handles
+                        continue
+
+                    # and iterate through the keyframe values
+                    for keyframe_point in fcurve.keyframe_points:
+                        # multiply the location keyframes by the scale per channel
+                        keyframe_point.co[1] = keyframe_point.co[1] * scale[fcurve.array_index]
+                        keyframe_point.handle_left[1] = keyframe_point.handle_left[1] * scale[fcurve.array_index]
+                        keyframe_point.handle_right[1] = keyframe_point.handle_right[1] * scale[fcurve.array_index]
+
+            # apply the scale on the object
+            apply_transforms(ordered_object, scale=True)
+
+def convert_action_rotation_from_euler_to_quaternion(
+        action: bpy.types.Action, 
+        bone_names: list[str] | None = None
+    ):
+    rotation_curves_by_bone = {}
+    if bone_names is None:
+        bone_names = []
+
+    for fcurve in action.fcurves:
+        # save the euler rotation curves by bone for later conversion
+        if 'rotation_euler' in fcurve.data_path:
+            bone_name = fcurve.data_path.split('"')[1]
+            # if we have a list of bone names to filter by, skip any that are not in the list
+            if bone_name not in bone_names:
+                continue
+
+            rotation_curves_by_bone[bone_name] = rotation_curves_by_bone.get(bone_name, {})
+            rotation_curves_by_bone[bone_name][fcurve.array_index] = fcurve
+    
+    # convert euler curves to quaternion curves
+    for bone_name, euler_curves in rotation_curves_by_bone.items():
+        # collect all frames from all euler curves
+        frames = set()
+        for fcurve in euler_curves.values():
+            for keyframe in fcurve.keyframe_points:
+                frames.add(int(keyframe.co[0]))
+        
+        # create quaternion fcurves
+        quat_fcurves = {}
+        for i in range(4):  # w, x, y, z
+            quat_fcurves[i] = action.fcurves.new(
+                data_path=f'pose.bones["{bone_name}"].rotation_quaternion',
+                index=i
+            )
+            quat_fcurves[i].keyframe_points.add(len(frames))
+        
+        # convert euler values to quaternion for each frame
+        for frame_idx, frame in enumerate(sorted(frames)):
+            euler_values = [0.0, 0.0, 0.0]
+            for axis, fcurve in euler_curves.items():
+                euler_values[axis] = fcurve.evaluate(frame)
+            
+            # convert euler to quaternion
+            euler = Euler(euler_values, 'XYZ')
+            quat = euler.to_quaternion()
+            
+            # set quaternion keyframe values
+            for i, value in enumerate([quat.w, quat.x, quat.y, quat.z]):
+                quat_fcurves[i].keyframe_points[frame_idx].co = (frame, value)
+        
+        # remove original euler curves
+        for fcurve in euler_curves.values():
+            action.fcurves.remove(fcurve)
+
+def import_action_from_fbx(
+        file_path: Path, 
+        armature: bpy.types.Object,
+        include_only_bones: list[str] | None = None
+    ) -> bpy.types.Action:
+    file_path = Path(file_path)
+
+    # remove the action if it already exists
+    new_action = bpy.data.actions.get(file_path.stem)
+    if new_action:
+        bpy.data.actions.remove(new_action)
+    new_action = bpy.data.actions.new(name=file_path.stem)
+
+    # remember the current actions and objects
+    current_actions = [action for action in bpy.data.actions]
+    current_objects = [scene_object for scene_object in bpy.data.objects]
+    # remember the current frame rate
+    current_frame_rate = bpy.context.scene.render.fps # type: ignore
+    # then import the fbx
+    bpy.ops.import_scene.fbx(filepath=str(file_path))
+
+    # apply the scale fixes since this was exported from unreal at 100x scale
+    imported_objects = [obj for obj in bpy.data.objects if obj not in current_objects]
+    imported_actions = [action for action in bpy.data.actions if action not in current_actions]
+    scale_object_actions(
+        unordered_objects=imported_objects,
+        actions=imported_actions,
+        scale_factor=SCALE_FACTOR
+    )
+    remove_object_scale_keyframes(actions=imported_actions)
+
+    # get the frame rate of the imported fbx
+    imported_frame_rate = bpy.context.scene.render.fps # type: ignore
+    # calculate the frame scale factor
+    frame_scale_factor = current_frame_rate / imported_frame_rate
+    # restore the original frame rate
+    bpy.context.scene.render.fps = current_frame_rate # type: ignore
+
+    # copy all the fcurves from the imported action to the new one
+    for action in bpy.data.actions:
+        if action in current_actions:
+            continue
+
+        for source_fcurve in action.fcurves:
+            if len(source_fcurve.data_path.split('"')) > 1:
+                bone_name = source_fcurve.data_path.split('"')[1]
+                curve_name = source_fcurve.data_path.split('.')[-1]
+
+                if not armature.pose.bones.get(bone_name): # type: ignore
+                    logger.warning(f'Skipping fcurve for unknown bone: {bone_name}')
+                    continue
+
+                if include_only_bones and bone_name not in include_only_bones:
+                    continue
+
+                target_fcurve = new_action.fcurves.new(
+                    data_path=f'pose.bones["{bone_name}"].{curve_name}',
+                    index=source_fcurve.array_index
+                )
+                # then add as many points as keyframes
+                target_fcurve.keyframe_points.add(len(source_fcurve.keyframe_points))
+                # then set all all their values
+                for index, keyframe in enumerate(source_fcurve.keyframe_points):
+                    # Adjust keyframe position based on frame rate scale factor
+                    target_fcurve.keyframe_points[index].co = (keyframe.co[0] * frame_scale_factor, keyframe.co[1])
+                    target_fcurve.keyframe_points[index].interpolation = keyframe.interpolation
+
+    # assign the new action to as the current action of the armature
+    if not armature.animation_data:
+        armature.animation_data_create()
+    armature.animation_data.action = new_action # type: ignore
+    armature.animation_data.action_slot = new_action.slots[0] # type: ignore
+
+    # # remove the imported actions
+    for action in bpy.data.actions:
+        if action not in current_actions:
+            bpy.data.actions.remove(action, do_unlink=True)
+
+    # remove the imported objects
+    for scene_object in bpy.data.objects:
+        if scene_object not in current_objects:
+            bpy.data.objects.remove(scene_object, do_unlink=True)
+
+    return new_action
+
+
+def import_face_board_action_from_fbx(file_path: Path, armature: bpy.types.Object):
     file_path = Path(file_path)
 
     # remove the action if it already exists
@@ -64,8 +257,16 @@ def import_action_from_fbx(file_path: Path, armature: bpy.types.Object):
     # remember the current actions and objects
     current_actions = [action for action in bpy.data.actions]
     current_objects = [scene_object for scene_object in bpy.data.objects]
+    # remember the current frame rate
+    current_frame_rate = bpy.context.scene.render.fps # type: ignore
     # then import the fbx
     bpy.ops.import_scene.fbx(filepath=str(file_path))
+    # get the frame rate of the imported fbx
+    imported_frame_rate = bpy.context.scene.render.fps # type: ignore
+    # calculate the frame scale factor
+    frame_scale_factor = current_frame_rate / imported_frame_rate
+    # restore the original frame rate
+    bpy.context.scene.render.fps = current_frame_rate # type: ignore
 
     # copy all the fcurves from the imported action to the new one
     for action in bpy.data.actions:
@@ -82,7 +283,8 @@ def import_action_from_fbx(file_path: Path, armature: bpy.types.Object):
             target_fcurve.keyframe_points.add(len(source_fcurve.keyframe_points))
             # then set all all their values
             for index, keyframe in enumerate(source_fcurve.keyframe_points):
-                target_fcurve.keyframe_points[index].co = keyframe.co
+                # Adjust keyframe position based on frame rate scale factor
+                target_fcurve.keyframe_points[index].co = (keyframe.co[0] * frame_scale_factor, keyframe.co[1])
                 target_fcurve.keyframe_points[index].interpolation = keyframe.interpolation
 
     # remove the imported objects
@@ -99,8 +301,7 @@ def import_action_from_fbx(file_path: Path, armature: bpy.types.Object):
         armature.animation_data_create()
     armature.animation_data.action = face_board_action # type: ignore
 
-
-def import_action_from_json(file_path: Path, armature: bpy.types.Object):
+def import_face_board_action_from_json(file_path: Path, armature: bpy.types.Object):
     # create animation data if it does not exist
     if not armature.animation_data:
         armature.animation_data_create()

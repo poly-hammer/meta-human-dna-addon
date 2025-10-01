@@ -326,12 +326,26 @@ def teardown_scene(*args):
         logging.info('De-allocated Rig Logic instances...')
 
 def pre_undo(*args):
-    bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False # type: ignore
-    for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list: # type: ignore
-        instance.destroy()
+    # Only run the pre-undo logic if the current context is a 3D view area
+    if (
+        bpy.context.area and 
+        bpy.context.area.type == 'VIEW_3D' and
+        bpy.context.region and
+        bpy.context.region.type == 'WINDOW'
+    ):
+        bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False # type: ignore
+        for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list: # type: ignore
+            instance.destroy()
 
 def post_undo(*args):
-    bpy.ops.meta_human_dna.force_evaluate() # type: ignore
+    # Only run the post-undo logic if the current context is a 3D view area
+    if (
+        bpy.context.area and 
+        bpy.context.area.type == 'VIEW_3D' and
+        bpy.context.region and
+        bpy.context.region.type == 'WINDOW'
+    ):
+        bpy.ops.meta_human_dna.force_evaluate() # type: ignore
 
 def pre_render(*args):
     pre_undo(*args)

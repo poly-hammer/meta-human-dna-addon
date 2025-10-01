@@ -614,9 +614,9 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
             return
         
         if file_path.suffix.lower() == '.json':
-            utilities.import_action_from_json(file_path, self.face_board_object)    
+            utilities.import_face_board_action_from_json(file_path, self.face_board_object)    
         elif file_path.suffix.lower() == '.fbx':
-            utilities.import_action_from_fbx(file_path, self.face_board_object)
+            utilities.import_face_board_action_from_fbx(file_path, self.face_board_object)
 
     def validate_conversion(
             self, 

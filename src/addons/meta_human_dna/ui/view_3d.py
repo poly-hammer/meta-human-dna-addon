@@ -370,6 +370,26 @@ class META_HUMAN_DNA_PT_armature_utilities_sub_panel(SubPanelBase):
             draw_rig_logic_instance_error(self.layout, error)
 
 
+class META_HUMAN_DNA_PT_action_utilities_sub_panel(SubPanelBase):
+    bl_parent_id = "META_HUMAN_DNA_PT_utilities"
+    bl_label = "Action"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'Meta-Human DNA'
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        error = valid_rig_logic_instance_exists(context)
+
+        if not self.layout:
+            return
+        
+        if not error:
+            current_component_type = context.window_manager.meta_human_dna.current_component_type # type: ignore
+            row = self.layout.row()
+            row.operator('meta_human_dna.import_component_animation', text='Import Animation').component_type = current_component_type # type: ignore
+
+
 class META_HUMAN_DNA_PT_materials_utilities_sub_panel(SubPanelBase):
     bl_parent_id = "META_HUMAN_DNA_PT_utilities"
     bl_label = "Material"

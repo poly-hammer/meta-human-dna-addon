@@ -110,7 +110,7 @@ class GenericProgressQueueOperator(bpy.types.Operator):
         pass   
 
 
-class ImportAnimation(bpy.types.Operator, importer.ImportAsset):
+class ImportFaceBoardAnimation(bpy.types.Operator, importer.ImportAsset):
     """Import an animation for the metahuman face board exported from an Unreal Engine Level Sequence"""
     bl_idname = "meta_human_dna.import_animation"
     bl_label = "Import Animation"
@@ -129,7 +129,40 @@ class ImportAnimation(bpy.types.Operator, importer.ImportAsset):
             head.import_action(Path(self.filepath))  # type: ignore
         return {'FINISHED'}
     
-class BakeAnimation(bpy.types.Operator):
+class ImportComponentAnimation(bpy.types.Operator, importer.ImportAsset):
+    """Import an animation for the selected metahuman component that has been exported from an Unreal Engine"""
+    bl_idname = "meta_human_dna.import_component_animation"
+    bl_label = "Import Component Animation"
+    filename_ext = ".fbx"
+
+    filter_glob: bpy.props.StringProperty(
+        default="*.fbx",
+        options={"HIDDEN"},
+        subtype="FILE_PATH",
+    ) # type: ignore
+
+    component_type: bpy.props.StringProperty(
+        default="body",
+        options={"HIDDEN"},
+        subtype="FILE_PATH",
+    ) # type: ignore
+
+    def execute(self, context):
+        file_path = Path(bpy.path.abspath(self.filepath)) # type: ignore
+        logger.info(f'Importing animation {file_path}')  # type: ignore
+        if self.component_type == 'head':
+            head = utilities.get_active_head()
+            if head:
+                head.import_action(file_path, is_face_board=False)  # type: ignore
+            
+        elif self.component_type == 'body':
+            body = utilities.get_active_body()
+            if body:
+                body.import_action(file_path)  # type: ignore
+
+        return {'FINISHED'}
+    
+class BakeFaceBoardAnimation(bpy.types.Operator):
     """Bakes the active face board action to the pose bones, shape key values, and texture logic mask values. Useful for rendering, simulations, etc. where rig logic evaluation is not available"""
     bl_idname = "meta_human_dna.bake_animation"
     bl_label = "Bake Animation"
