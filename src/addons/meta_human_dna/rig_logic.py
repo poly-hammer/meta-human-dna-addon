@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
 MEMORY_RESOURCE_SIZE = 1024 * 1024 * 4  # 4MB
 MEMORY_RESOURCE_ALIGNMENT = 16
+ATTR_COUNT_PER_JOINT = 10
 
 logger = logging.getLogger(__name__)
 
@@ -846,12 +847,27 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                         if pose_bone.name in self.body_raw_control_bone_names:
                             pose_bone.rotation_mode = "QUATERNION"
                         else:
-                            pose_bone.rotation_mode = "XYZ"
+                            pose_bone.rotation_mode = "QUATERNION"
 
                 # set the rig logic manager and instance
                 self.data['body_manager'] = riglogic.RigLogic.create(
                     reader=self.data['body_dna_reader'],
-                    config=riglogic.Configuration(),
+                    config=riglogic.Configuration(
+                        calculationType=riglogic.CalculationType.SSE,
+                        loadJoints=True,
+                        loadBlendShapes=False,
+                        loadAnimatedMaps=False,
+                        loadMachineLearnedBehavior=False,
+                        loadRBFBehavior=True,
+                        loadTwistSwingBehavior=False,
+                        translationType=riglogic.TranslationType.Vector,
+                        rotationType=riglogic.RotationType.Quaternions,
+                        # rotationOrder=riglogic.RotationOrder.XYZ,
+                        scaleType=riglogic.ScaleType.Vector,
+                        # translationPruningThreshold=0.0001,
+                        # rotationPruningThreshold=0.1,
+                        # scalePruningThreshold=0.001
+                    ),
                     memRes=None
                 )
                 self.data['body_instance'] = riglogic.RigInstance.create(
@@ -1157,12 +1173,14 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         if not self.body_rest_pose:
             return
 
-        raw_joint_output = self.body_instance.getRawJointOutputs()
+        D = self.body_instance.getRawJointOutputs()
+        N = self.body_manager.getNeutralJointValues()
+
         
         # update joint transforms
-        for index in range(self.body_dna_reader.getJointCount()):
+        for joint_index in range(self.body_dna_reader.getJointCount()):
             # get the bone 
-            name = self.body_dna_reader.getJointName(index)
+            name = self.body_dna_reader.getJointName(joint_index)
 
             # Only update driven bones
             if name in self.body_raw_control_bone_names:
@@ -1170,43 +1188,15 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
             pose_bone = self.body_rig.pose.bones.get(name)
             if pose_bone:
-                # get the rest pose values that we saved during initialization
-                rest_location, rest_rotation, rest_scale, rest_to_parent_matrix = self.body_rest_pose[pose_bone.name]
+                attr_index = joint_index * ATTR_COUNT_PER_JOINT
 
-                # get the values
-                matrix_index = (index + 1) * 9
-                values = raw_joint_output[(index * 9):matrix_index]
-
-                # extract the delta values
-                location_delta = Vector([values[0]/SCALE_FACTOR, values[1]/SCALE_FACTOR, values[2]/SCALE_FACTOR])
-                rotation_delta = Euler([math.radians(values[3]), math.radians(values[4]), math.radians(values[5])])
-                scale_delta = Vector(values[6:9])
-
-                # update the transformations using the rest pose and the delta values
-                # we need to copy the vectors so we don't modify the original rest pose
-                location = Vector((
-                    rest_location.x + location_delta.x,
-                    rest_location.y + location_delta.y,
-                    rest_location.z + location_delta.z
-                ))
-                rotation = Euler((
-                    rest_rotation.x + rotation_delta.x,
-                    rest_rotation.y + rotation_delta.y,
-                    rest_rotation.z + rotation_delta.z
-                ))
-                scale = Vector((
-                    rest_scale.x + scale_delta.x,
-                    rest_scale.y + scale_delta.y,
-                    rest_scale.z + scale_delta.z
-                ))
+                translation = Vector(((N[attr_index + 0] + D[attr_index + 0])/SCALE_FACTOR, (N[attr_index + 1] + D[attr_index + 1])/SCALE_FACTOR, (N[attr_index + 2] + D[attr_index + 2])/SCALE_FACTOR))
+                rotation_quaternion = Quaternion((N[attr_index + 3], N[attr_index + 4], N[attr_index + 5], N[attr_index + 6])) * Quaternion((D[attr_index + 3], D[attr_index + 4], D[attr_index + 5], D[attr_index + 6]))
+                scale = Vector((N[attr_index + 7] + D[attr_index + 7], N[attr_index + 8] + D[attr_index + 8], N[attr_index + 9] + D[attr_index + 9]))
 
                 # update the bone matrix
-                modified_matrix = Matrix.LocRotScale(location, rotation, scale)
-                pose_bone.matrix_basis = rest_to_parent_matrix.inverted() @ modified_matrix
-
-                # if the bone is not a leaf bone, we need to update the rotation again
-                if pose_bone.children:
-                    pose_bone.rotation_euler = rotation_delta
+                modified_matrix = Matrix.LocRotScale(translation, rotation_quaternion, scale)
+                pose_bone.matrix = modified_matrix
             else:
                 logger.warning(f'The bone "{name}" was not found on "{self.body_rig.name}". Rig Logic will not update the bone.')
 
