@@ -23,7 +23,11 @@ ATTR_COUNT_PER_JOINT = 10
 logger = logging.getLogger(__name__)
 
 
-def rig_logic_listener(scene, dependency_graph):
+def rig_logic_listener(
+        scene: bpy.types.Scene, 
+        dependency_graph: bpy.types.Depsgraph, 
+        is_frame_change: bool = False
+    ):
     # this condition prevents constant evaluation
     if not bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph: # type: ignore
         return
@@ -39,7 +43,7 @@ def rig_logic_listener(scene, dependency_graph):
                 instance_updates.add((instance, 'all'))
 
     # only evaluate if in pose mode or if animation is
-    if bpy.context.mode == 'POSE' or (bpy.context.screen and bpy.context.screen.is_animation_playing): # type: ignore
+    if is_frame_change or bpy.context.mode == 'POSE': # type: ignore
         for update in dependency_graph.updates:
             data_type = update.id.bl_rna.name
             if data_type == 'Action':
@@ -86,13 +90,16 @@ def rig_logic_listener(scene, dependency_graph):
     for instance, component in instance_updates:
         instance.evaluate(component=component)
 
+def frame_change_handler(*args):
+    rig_logic_listener(*args, is_frame_change=True)
+
 def stop_listening():
     for handler in bpy.app.handlers.depsgraph_update_post:
         if handler.__name__ == rig_logic_listener.__name__:
             bpy.app.handlers.depsgraph_update_post.remove(handler)
 
     for handler in bpy.app.handlers.frame_change_post:
-        if handler.__name__ == rig_logic_listener.__name__:
+        if handler.__name__ == frame_change_handler.__name__:
             bpy.app.handlers.frame_change_post.remove(handler)
 
 def start_listening():
@@ -100,7 +107,7 @@ def start_listening():
     logging.info('Listening for Rig Logic...')
     callbacks.update_head_output_items(None, bpy.context)
     bpy.app.handlers.depsgraph_update_post.append(rig_logic_listener) # type: ignore
-    bpy.app.handlers.frame_change_post.append(rig_logic_listener) # type: ignore
+    bpy.app.handlers.frame_change_post.append(frame_change_handler) # type: ignore
 
 
 class MaterialSlotToInstance(bpy.types.PropertyGroup):
@@ -788,6 +795,30 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         self.data['body_raw_control_bone_names'] = list(raw_control_bone_names)
         # return a copy so the original raw control bone names are not modified
         return self.data['body_raw_control_bone_names']
+    
+    @property
+    def body_dna_rest_pose(self) -> dict[str, int]:
+        if not self.body_dna_reader:
+            return {}
+        
+        body_dna_rest_pose = self.data.get('body_dna_rest_pose', {})
+        if body_dna_rest_pose:
+            return body_dna_rest_pose
+        
+        N = self.body_manager.getNeutralJointValues()
+
+        for joint_index in range(self.body_dna_reader.getJointCount()):
+            attr_index = joint_index * ATTR_COUNT_PER_JOINT
+
+            joint_name = self.body_dna_reader.getJointName(joint_index)
+            location = Vector((N[attr_index + 0]/SCALE_FACTOR, N[attr_index + 1]/SCALE_FACTOR, N[attr_index + 2]/SCALE_FACTOR))
+            rotation = Quaternion((N[attr_index + 3], N[attr_index + 4], N[attr_index + 5], N[attr_index + 6]))
+            scale = Vector((N[attr_index + 7], N[attr_index + 8], N[attr_index + 9]))
+            matrix = Matrix.Rotation(math.radians(90), 4, 'X').to_4x4() @ Matrix.LocRotScale(location, rotation, scale)
+            body_dna_rest_pose[joint_name] = matrix
+
+        self.data['body_dna_rest_pose'] = body_dna_rest_pose
+        return self.data['body_dna_rest_pose'] # type: ignore
 
     def initialize(self):
         if not self.valid:
@@ -847,7 +878,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                         if pose_bone.name in self.body_raw_control_bone_names:
                             pose_bone.rotation_mode = "QUATERNION"
                         else:
-                            pose_bone.rotation_mode = "QUATERNION"
+                            pose_bone.rotation_mode = "XYZ"
 
                 # set the rig logic manager and instance
                 self.data['body_manager'] = riglogic.RigLogic.create(
@@ -855,11 +886,11 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                     config=riglogic.Configuration(
                         calculationType=riglogic.CalculationType.SSE,
                         loadJoints=True,
-                        loadBlendShapes=False,
-                        loadAnimatedMaps=False,
-                        loadMachineLearnedBehavior=False,
+                        loadBlendShapes=True,
+                        loadAnimatedMaps=True,
+                        loadMachineLearnedBehavior=True,
                         loadRBFBehavior=True,
-                        loadTwistSwingBehavior=False,
+                        loadTwistSwingBehavior=True,
                         translationType=riglogic.TranslationType.Vector,
                         rotationType=riglogic.RotationType.Quaternions,
                         # rotationOrder=riglogic.RotationOrder.XYZ,
@@ -1127,8 +1158,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
         # convert the quaternion values to the correct coordinate system
         for pose_bone in self.body_rig.pose.bones:
-            quaternion = pose_bone.rotation_quaternion.copy()
-            converted_quaternions[pose_bone.name] = quaternion.normalized()
+            quaternion = pose_bone.rotation_quaternion.copy().normalized()
+            converted_quaternions[pose_bone.name] = Quaternion((-quaternion.x, quaternion.y, -quaternion.z, quaternion.w))
 
         for index in range(self.body_dna_reader.getRawControlCount()):
             full_name = self.body_dna_reader.getRawControlName(index)
@@ -1140,12 +1171,12 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 if override_values:
                     value = override_values.get(control_name, {}).get(axis)
                     if value is not None:
-                        self.body_instance.setRawControl(index, value)
+                        self.body_instance.setRawControl(index, max(0.0, min(1.0, value)))
                 else:
                     quaternion = converted_quaternions.get(control_name)
                     if quaternion:
                         value = getattr(quaternion, axis)
-                        self.body_instance.setRawControl(index, value)
+                        self.body_instance.setRawControl(index, max(0.0, min(1.0, value)))
                     else:
                         missing_raw_controls.append(control_name)
                 
@@ -1175,6 +1206,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
         D = self.body_instance.getRawJointOutputs()
         N = self.body_manager.getNeutralJointValues()
+        raw_joint_output = self.body_instance.getRawJointOutputs()
 
         
         # update joint transforms
@@ -1188,17 +1220,74 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
             pose_bone = self.body_rig.pose.bones.get(name)
             if pose_bone:
-                attr_index = joint_index * ATTR_COUNT_PER_JOINT
+                # get the rest pose values that we saved during initialization
+                rest_location, rest_rotation, rest_scale, rest_to_parent_matrix = self.body_rest_pose[pose_bone.name]
 
-                translation = Vector(((N[attr_index + 0] + D[attr_index + 0])/SCALE_FACTOR, (N[attr_index + 1] + D[attr_index + 1])/SCALE_FACTOR, (N[attr_index + 2] + D[attr_index + 2])/SCALE_FACTOR))
-                rotation_quaternion = Quaternion((N[attr_index + 3], N[attr_index + 4], N[attr_index + 5], N[attr_index + 6])) * Quaternion((D[attr_index + 3], D[attr_index + 4], D[attr_index + 5], D[attr_index + 6]))
-                scale = Vector((N[attr_index + 7] + D[attr_index + 7], N[attr_index + 8] + D[attr_index + 8], N[attr_index + 9] + D[attr_index + 9]))
+                # get the values
+                matrix_index = (joint_index + 1) * ATTR_COUNT_PER_JOINT
+                values = raw_joint_output[(joint_index * ATTR_COUNT_PER_JOINT):matrix_index]
+
+                # extract the delta values
+                location_delta = Vector([values[0]/SCALE_FACTOR, values[1]/SCALE_FACTOR, values[2]/SCALE_FACTOR])
+                rotation_delta = Quaternion((-values[3], values[4], -values[5], values[6]))
+                # rotation_delta = Quaternion((values[3], values[4], values[5], values[6]))
+                scale_delta = Vector((values[7], values[8], values[9]))
+
+                delta_matrix = Matrix.LocRotScale(location_delta, rotation_delta, scale_delta)
+                converted_delta_matrix = Matrix.Rotation(math.radians(90), 4, 'X').to_4x4() @ delta_matrix
+                location_delta, rotation_delta, scale_delta = converted_delta_matrix.decompose()
+
+                # update the transformations using the rest pose and the delta values
+                # we need to copy the vectors so we don't modify the original rest pose
+                location = Vector((
+                    rest_location.x + location_delta.x,
+                    rest_location.y + location_delta.y,
+                    rest_location.z + location_delta.z
+                ))
+
+                rotation = rest_rotation.to_quaternion() @ rotation_delta
+
+                scale = Vector((
+                    rest_scale.x + scale_delta.x,
+                    rest_scale.y + scale_delta.y,
+                    rest_scale.z + scale_delta.z
+                ))
 
                 # update the bone matrix
-                modified_matrix = Matrix.LocRotScale(translation, rotation_quaternion, scale)
-                pose_bone.matrix = modified_matrix
+                modified_matrix = Matrix.LocRotScale(location, rotation, scale)
+                pose_bone.matrix_basis = rest_to_parent_matrix.inverted() @ modified_matrix
+
+                # if the bone is not a leaf bone, we need to update the rotation again
+                # if pose_bone.children:
+                #     pose_bone.rotation_euler = rotation_delta.to_euler('XYZ')
             else:
                 logger.warning(f'The bone "{name}" was not found on "{self.body_rig.name}". Rig Logic will not update the bone.')
+            # ----------------------------------------
+            # Does not work but, kept for reference
+            # if pose_bone:
+            #     attr_index = joint_index * ATTR_COUNT_PER_JOINT
+
+            #     rest_location = Vector(((N[attr_index + 0] + D[attr_index + 0])/SCALE_FACTOR, (N[attr_index + 1] + D[attr_index + 1])/SCALE_FACTOR, (N[attr_index + 2] + D[attr_index + 2])/SCALE_FACTOR))
+            #     rest_rotation = Quaternion((N[attr_index + 3], N[attr_index + 4], N[attr_index + 5], N[attr_index + 6]))
+            #     rest_scale = Vector((N[attr_index + 7] + D[attr_index + 7], N[attr_index + 8] + D[attr_index + 8], N[attr_index + 9] + D[attr_index + 9]))
+
+            #     rest_matrix = Matrix.LocRotScale(rest_location, rest_rotation, rest_scale)
+            #     converted_rest_matrix = Matrix.Rotation(math.radians(90), 4, 'X').to_4x4() @ rest_matrix
+
+            #     # extract the delta values
+            #     location_delta = Vector((D[attr_index + 0]/SCALE_FACTOR, D[attr_index + 1]/SCALE_FACTOR, D[attr_index + 2]/SCALE_FACTOR))
+            #     rotation_delta = Quaternion((-D[attr_index + 3], D[attr_index + 4], -D[attr_index + 5], D[attr_index + 6]))
+            #     scale_delta = Vector((D[attr_index + 7], D[attr_index + 8], D[attr_index + 9]))
+
+            #     delta_matrix = Matrix.LocRotScale(location_delta, rotation_delta, scale_delta)
+            #     converted_delta_matrix = Matrix.Rotation(math.radians(90), 4, 'X').to_4x4() @ delta_matrix
+
+            #     pose_bone.matrix_basis = converted_rest_matrix.inverted() @ converted_delta_matrix
+
+            #     if pose_bone.children:
+            #         pose_bone.rotation_euler = rotation_delta.to_euler('XYZ')
+            # else:
+            #     logger.warning(f'The bone "{name}" was not found on "{self.body_rig.name}". Rig Logic will not update the bone.')
 
     def evaluate(self, component: Literal['head', 'body', 'all'] = 'all'):
         # this condition prevents constant evaluation
