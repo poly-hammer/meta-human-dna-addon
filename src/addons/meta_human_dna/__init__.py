@@ -77,7 +77,7 @@ classes = [
     view_3d.META_HUMAN_DNA_PT_utilities,
     view_3d.META_HUMAN_DNA_PT_mesh_utilities_sub_panel,
     view_3d.META_HUMAN_DNA_PT_armature_utilities_sub_panel,
-    view_3d.META_HUMAN_DNA_PT_action_utilities_sub_panel,
+    # view_3d.META_HUMAN_DNA_PT_action_utilities_sub_panel,
     # view_3d.META_HUMAN_DNA_PT_materials_utilities_sub_panel,
     view_3d.META_HUMAN_DNA_PT_utilities_sub_panel,
     view_3d.META_HUMAN_DNA_UL_output_items,

@@ -82,11 +82,12 @@ class META_HUMAN_DNA_UL_material_slot_to_instance_mapping(bpy.types.UIList):
 
 class META_HUMAN_DNA_UL_rig_logic_instances(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_prop_name):
-        split = layout.split(factor=0.5, align=True)
-        split.scale_x = 0.4
-        split.prop(item, "auto_evaluate_head", text="H", emboss=True, toggle=True)
-        split.scale_x = 0.4
-        split.prop(item, "auto_evaluate_body", text="B", emboss=True, toggle=True)
+        # split = layout.split(factor=0.5, align=True)
+        # split.scale_x = 0.4
+        # split.prop(item, "auto_evaluate_head", text="H", emboss=True, toggle=True)
+        # split.scale_x = 0.4
+        # split.prop(item, "auto_evaluate_body", text="B", emboss=True, toggle=True)
+        layout.prop(item, "auto_evaluate_head", text="")
         row = layout.row()
         row.enabled = True
     
@@ -108,10 +109,10 @@ class META_HUMAN_DNA_UL_rig_logic_instances(bpy.types.UIList):
         col.alert = not item.evaluate_texture_masks
         col.prop(item, "evaluate_texture_masks", text="", icon='NODE_TEXTURE', emboss=False)
 
-        col = row.column(align=True)
-        col.enabled = item.auto_evaluate_body
-        col.alert = not item.evaluate_rbfs
-        col.prop(item, "evaluate_rbfs", text="", icon='DRIVER_ROTATIONAL_DIFFERENCE', emboss=False)
+        # col = row.column(align=True)
+        # col.enabled = item.auto_evaluate_body
+        # col.alert = not item.evaluate_rbfs
+        # col.prop(item, "evaluate_rbfs", text="", icon='DRIVER_ROTATIONAL_DIFFERENCE', emboss=False)
 
 class META_HUMAN_DNA_UL_shape_keys(bpy.types.UIList):
     

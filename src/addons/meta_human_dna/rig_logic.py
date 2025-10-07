@@ -913,7 +913,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
     def initialize(self):
         self.head_initialize()
-        self.body_initialize()
+        # self.body_initialize()
 
     def destroy(self):            
         # clears these data items from the dictionary, this frees them up to be garbage collected
@@ -1258,8 +1258,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             if not self.head_initialized:
                 self.head_initialize()
             
-            if not self.body_initialized:
-                self.body_initialize()
+            # if not self.body_initialized:
+            #     self.body_initialize()
 
             # turn off the dependency graph evaluation so we can update the controls without triggering an update
             bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False # type: ignore
