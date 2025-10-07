@@ -417,7 +417,7 @@ def bake_to_action(
             if not action:
                 return
             
-            instance.auto_evaluate = True            
+            instance.auto_evaluate_head = True            
             switch_to_object_mode()
             armature_object.hide_set(False)
             bpy.context.view_layer.objects.active = armature_object # type: ignore
@@ -446,7 +446,7 @@ def bake_to_action(
                 clean_curves=clean_curves,
                 channel_types=channel_types
             )
-            instance.auto_evaluate = False
+            instance.auto_evaluate_head = False
 
             bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False # type: ignore
             texture_logic_node = get_head_texture_logic_node(instance.head_material)
