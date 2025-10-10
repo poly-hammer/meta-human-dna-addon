@@ -5,6 +5,13 @@ from ..constants import NUMBER_OF_HEAD_LODS
 from ..dna_io import get_dna_reader
 from pathlib import Path
 
+class META_HUMAN_DNA_UL_append_link_items(bpy.types.UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_prop_name):
+        layout.separator(factor=0.1)
+        layout.prop(item, "include", text="")
+        layout.label(text=item.name, icon='MESH_DATA')
+
+
 class META_HUMAN_DNA_FILE_DATA_PT_panel(bpy.types.Panel):
     bl_space_type = 'FILE_BROWSER'
     bl_region_type = 'TOOL_PROPS'
@@ -206,10 +213,69 @@ class META_HUMAN_DNA_FILE_INFO_PT_panel(bpy.types.Panel):
 
 class ImportAsset(ImportHelper):
     """
-    This class subclasses the export helper to define a custom file browser
+    This class subclasses the import helper to define a custom file browser
     """
     bl_idname = "meta_human_dna.import_dna"
     bl_options = {'UNDO', 'PRESET'}
 
     def draw(self, context):
         pass
+
+class LinkAppendMetaHumanImportHelper(ImportHelper):
+    """
+    This class subclasses the import helper to define a custom file browser
+    """
+    bl_options = {'UNDO'}
+
+    def refresh_meta_human_list(self, operator):
+        self.meta_human_list.clear() # type: ignore
+        with bpy.data.libraries.load(operator.filepath) as (data_from, data_to): # type: ignore
+            object_names = list(data_from.objects)
+
+            for name in data_from.collections:
+                if (f"{name}_head_lod0_mesh" in object_names and f"{name}_head_rig" in object_names) or \
+                   (f"{name}_body_lod0_mesh" in object_names and f"{name}_body_rig" in object_names):
+                    item = operator.meta_human_list.add()
+                    item.name = name
+                    item.include = False
+
+        # save the current filepath to detect changes        
+        operator.previous_file_path = operator.filepath
+
+    def draw(self, context):
+        layout = self.layout # type: ignore
+        if not layout:
+            return
+        
+        operator = context.space_data.active_operator # type: ignore
+
+        row = layout.row()
+        row.prop(operator, "operation_type", expand=True)
+
+        if not operator.filepath or not Path(operator.filepath).is_file():
+            row = layout.row()
+            row.alert = True
+            row.label(text="Select a .blend file to see MetaHuman(s)")
+            return
+        
+        if bpy.data.filepath == operator.filepath:
+            row = layout.row()
+            row.alert = True
+            row.label(text="Select different .blend than current")
+            return
+        
+        file_path = Path(operator.filepath)
+        if not file_path.exists() or not file_path.is_file() or not file_path.suffix.lower() == '.blend':
+            return
+
+        row = layout.row()
+        row.label(text=f"Choose MetaHuman(s) to {operator.operation_type.lower()}:")
+
+        # only refresh the list if the selected file path has changed
+        if operator.previous_file_path != operator.filepath: # type: ignore
+            self.refresh_meta_human_list(operator) # type: ignore
+
+        for item in operator.meta_human_list:
+            row = layout.row()
+            row.prop(item, "include", text="")
+            row.label(text=item.name)

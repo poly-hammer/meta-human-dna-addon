@@ -21,7 +21,8 @@
 #     switch_to_pose_mode,
 #     switch_to_object_mode,
 #     copy_mesh,
-#     reset_pose
+#     reset_pose,
+#     select_only
 # )
 
 # def get_all_pose_names() -> list[str]:
@@ -121,6 +122,10 @@
 #     body_mesh.modifiers['Armature'].object = armature_object # type: ignore
 #     armature_object.hide_set(True) # type: ignore
 
+#     # apply the transformations
+#     select_only(armature_object)
+#     bpy.ops.object.transforms_to_deltas(mode='ALL')
+
 #     return armature_object # type: ignore
 
 # @pytest.mark.parametrize(
@@ -137,7 +142,7 @@
 #     show: bool = False,
 #     skip_fbx_import: bool = False
 # ):
-#     pytest.skip('TODO: Implement body RBF calculations correctly in RigLogic')
+#     # pytest.skip('TODO: Implement body RBF calculations correctly in RigLogic')
 #     use_fbx_files = os.environ.get('META_HUMAN_DNA_ADDON_TESTS_UPDATE_BODY_JSON_POSES')
     
 #     tolerance = 0.001
@@ -166,7 +171,7 @@
 #             source_rig_name=source_rig_name, 
 #             target_rig_name=armature_object.name, 
 #             tolerance=tolerance,
-#             isolated_bones=instance.body_raw_control_bone_names # type: ignore
+#             # isolated_bones=instance.body_raw_control_bone_names # type: ignore
 #         )
 
 #         # cache bone locations to json for faster testing than importing fbx files
@@ -195,7 +200,7 @@
 #             source_rig_name=source_rig_name,
 #             target_bone_locations=target_locations,
 #             tolerance=tolerance,
-#             isolated_bones=instance.body_raw_control_bone_names # type: ignore
+#             # isolated_bones=instance.body_raw_control_bone_names # type: ignore
 #         )
 
 #     # ignore differences caused by testing bone changes

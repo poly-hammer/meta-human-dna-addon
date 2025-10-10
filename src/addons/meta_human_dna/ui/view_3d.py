@@ -35,7 +35,7 @@ def draw_rig_logic_instance_error(layout, error: str):
 
     row = layout.row()
     # row.alignment = 'CENTER'
-    row.label(text="Rig Logic Instance Error:", icon='ERROR')
+    row.label(text="Rig Logic Error:", icon='ERROR')
     row = layout.row()
     row.alignment = 'CENTER'
     row.alert = True
@@ -82,30 +82,37 @@ class META_HUMAN_DNA_UL_material_slot_to_instance_mapping(bpy.types.UIList):
 
 class META_HUMAN_DNA_UL_rig_logic_instances(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_prop_name):
-        layout.split(factor=0.2)
-        layout.prop(item, "auto_evaluate", text="")
+        # split = layout.split(factor=0.5, align=True)
+        # split.scale_x = 0.4
+        # split.prop(item, "auto_evaluate_head", text="H", emboss=True, toggle=True)
+        # split.scale_x = 0.4
+        # split.prop(item, "auto_evaluate_body", text="B", emboss=True, toggle=True)
+        layout.prop(item, "auto_evaluate_head", text="")
         row = layout.row()
         row.enabled = True
     
-        row.enabled = item.auto_evaluate
         row.prop(item, "name", text="", emboss=False, icon='NETWORK_DRIVE')
         row.alignment = 'RIGHT'
         
         col = row.column(align=True)
+        col.enabled = item.auto_evaluate_head
         col.alert = not item.evaluate_bones
         col.prop(item, "evaluate_bones", text="", icon='BONE_DATA', emboss=False)
 
         col = row.column(align=True)
+        col.enabled = item.auto_evaluate_head
         col.alert = not item.evaluate_shape_keys
         col.prop(item, "evaluate_shape_keys", text="", icon='SHAPEKEY_DATA', emboss=False)
 
         col = row.column(align=True)
+        col.enabled = item.auto_evaluate_head
         col.alert = not item.evaluate_texture_masks
         col.prop(item, "evaluate_texture_masks", text="", icon='NODE_TEXTURE', emboss=False)
 
-        col = row.column(align=True)
-        col.alert = not item.evaluate_rbfs
-        col.prop(item, "evaluate_rbfs", text="", icon='DRIVER_ROTATIONAL_DIFFERENCE', emboss=False)
+        # col = row.column(align=True)
+        # col.enabled = item.auto_evaluate_body
+        # col.alert = not item.evaluate_rbfs
+        # col.prop(item, "evaluate_rbfs", text="", icon='DRIVER_ROTATIONAL_DIFFERENCE', emboss=False)
 
 class META_HUMAN_DNA_UL_shape_keys(bpy.types.UIList):
     
@@ -370,6 +377,26 @@ class META_HUMAN_DNA_PT_armature_utilities_sub_panel(SubPanelBase):
             draw_rig_logic_instance_error(self.layout, error)
 
 
+class META_HUMAN_DNA_PT_action_utilities_sub_panel(SubPanelBase):
+    bl_parent_id = "META_HUMAN_DNA_PT_utilities"
+    bl_label = "Action"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'Meta-Human DNA'
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        error = valid_rig_logic_instance_exists(context)
+
+        if not self.layout:
+            return
+        
+        if not error:
+            current_component_type = context.window_manager.meta_human_dna.current_component_type # type: ignore
+            row = self.layout.row()
+            row.operator('meta_human_dna.import_component_animation', text='Import Animation').component_type = current_component_type # type: ignore
+
+
 class META_HUMAN_DNA_PT_materials_utilities_sub_panel(SubPanelBase):
     bl_parent_id = "META_HUMAN_DNA_PT_utilities"
     bl_label = "Material"
@@ -452,7 +479,7 @@ class META_HUMAN_DNA_PT_view_options(bpy.types.Panel):
 
 
 class META_HUMAN_DNA_PT_rig_logic(bpy.types.Panel):
-    bl_label = "Rig Logic"
+    bl_label = "Rig Instances"
     bl_category = 'Meta-Human DNA'
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -502,6 +529,9 @@ class META_HUMAN_DNA_PT_rig_logic(bpy.types.Panel):
             props.direction = 'DOWN' # type: ignore
             props.active_index = properties.rig_logic_instance_list_active_index # type: ignore
 
+            row = self.layout.row()
+            row.label(text='Rig Logic Linked Data:')
+
 
 class META_HUMAN_DNA_PT_rig_logic_head_sub_panel(bpy.types.Panel):
     bl_parent_id = "META_HUMAN_DNA_PT_rig_logic"
@@ -510,6 +540,10 @@ class META_HUMAN_DNA_PT_rig_logic_head_sub_panel(bpy.types.Panel):
     bl_region_type = 'UI'
     bl_category = 'Meta-Human DNA'
     # bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        return len(context.scene.meta_human_dna.rig_logic_instance_list) > 0 # type: ignore
 
     def draw(self, context):
         if not self.layout:
@@ -551,6 +585,10 @@ class META_HUMAN_DNA_PT_rig_logic_body_sub_panel(bpy.types.Panel):
     bl_region_type = 'UI'
     bl_category = 'Meta-Human DNA'
     # bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        return len(context.scene.meta_human_dna.rig_logic_instance_list) > 0 # type: ignore
 
     def draw(self, context):
         if not self.layout:

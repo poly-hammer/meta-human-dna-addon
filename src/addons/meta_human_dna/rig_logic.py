@@ -18,11 +18,17 @@ if TYPE_CHECKING:
 
 MEMORY_RESOURCE_SIZE = 1024 * 1024 * 4  # 4MB
 MEMORY_RESOURCE_ALIGNMENT = 16
+ATTR_COUNT_PER_QUATERNION_JOINT = 10
+ATTR_COUNT_PER_EULER_JOINT = 9
 
 logger = logging.getLogger(__name__)
 
 
-def rig_logic_listener(scene, dependency_graph):
+def rig_logic_listener(
+        scene: bpy.types.Scene, 
+        dependency_graph: bpy.types.Depsgraph, 
+        is_frame_change: bool = False
+    ):
     # this condition prevents constant evaluation
     if not bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph: # type: ignore
         return
@@ -33,20 +39,24 @@ def rig_logic_listener(scene, dependency_graph):
     # TODO: Investigate if this is needed and if there is a better way to do this
     # if the screen is the temp screen, then is is rendering and we need to evaluate
     if bpy.context.screen and 'temp' in bpy.context.screen.name.lower(): # type: ignore
-        for instance in scene.meta_human_dna.rig_logic_instance_list:
-            if instance.auto_evaluate:
-                instance_updates.add((instance, 'all'))
+        for instance in scene.meta_human_dna.rig_logic_instance_list: # type: ignore
+            if instance.auto_evaluate_head:
+                instance_updates.add((instance, 'head'))
+            if instance.auto_evaluate_body:
+                instance_updates.add((instance, 'body'))
 
     # only evaluate if in pose mode or if animation is
-    if bpy.context.mode == 'POSE' or (bpy.context.screen and bpy.context.screen.is_animation_playing): # type: ignore
+    if is_frame_change or bpy.context.mode == 'POSE': # type: ignore
         for update in dependency_graph.updates:
-            data_type = update.id.bl_rna.name
+            if not update.id:
+                continue
+
+            data_type = update.id.bl_rna.name # type: ignore
             if data_type == 'Action':
                 for instance in scene.meta_human_dna.rig_logic_instance_list: # type: ignore
-                    if not instance.auto_evaluate:
-                        continue
                     # Check if the action is being used by any face board
                     if (
+                        instance.auto_evaluate_head and
                         instance.face_board and 
                         instance.face_board.animation_data and 
                         instance.face_board.animation_data.action and 
@@ -55,6 +65,7 @@ def rig_logic_listener(scene, dependency_graph):
                         instance_updates.add((instance, 'head'))
                     # Check if the action is being used by any body rig
                     elif (
+                        instance.auto_evaluate_body and
                         instance.body_rig and 
                         instance.body_rig.animation_data and 
                         instance.body_rig.animation_data.action and 
@@ -64,26 +75,26 @@ def rig_logic_listener(scene, dependency_graph):
                     # Otherwise, evaluate all instances. 
                     # Todo: Not ideal, so we should probably provide a way for user to specify another armature that might have
                     # the action and be evaluated.
-                    else:
-                        instance_updates.add((instance, 'all'))
+                    # else:
+                    #     instance_updates.add((instance, 'all'))
 
             elif data_type == 'Armature':
-                if update.is_updated_transform:
-                    for instance in scene.meta_human_dna.rig_logic_instance_list:
-                        if not instance.auto_evaluate:
-                            continue
-
+                 if update.is_updated_transform:
+                    for instance in scene.meta_human_dna.rig_logic_instance_list: # type: ignore
                         armature_name = update.id.name.split('.')[0]
                         
                         # Check if the armature is the face board
-                        if instance.face_board and instance.face_board.name.endswith(armature_name):
+                        if instance.auto_evaluate_head and instance.face_board and instance.face_board.name.endswith(armature_name):
                             instance_updates.add((instance, 'head'))
-                        elif instance.body_rig and instance.body_rig.name.endswith(armature_name):
+                        elif instance.auto_evaluate_body and instance.body_rig and instance.body_rig.name.endswith(armature_name):
                             instance_updates.add((instance, 'body'))
 
     # apply the updates to the instances
     for instance, component in instance_updates:
         instance.evaluate(component=component)
+
+def frame_change_handler(*args):
+    rig_logic_listener(*args, is_frame_change=True)
 
 def stop_listening():
     for handler in bpy.app.handlers.depsgraph_update_post:
@@ -91,7 +102,7 @@ def stop_listening():
             bpy.app.handlers.depsgraph_update_post.remove(handler)
 
     for handler in bpy.app.handlers.frame_change_post:
-        if handler.__name__ == rig_logic_listener.__name__:
+        if handler.__name__ == frame_change_handler.__name__:
             bpy.app.handlers.frame_change_post.remove(handler)
 
 def start_listening():
@@ -99,7 +110,7 @@ def start_listening():
     logging.info('Listening for Rig Logic...')
     callbacks.update_head_output_items(None, bpy.context)
     bpy.app.handlers.depsgraph_update_post.append(rig_logic_listener) # type: ignore
-    bpy.app.handlers.frame_change_post.append(rig_logic_listener) # type: ignore
+    bpy.app.handlers.frame_change_post.append(frame_change_handler) # type: ignore
 
 
 class MaterialSlotToInstance(bpy.types.PropertyGroup):
@@ -166,10 +177,15 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         set=callbacks.set_instance_name,
         get=callbacks.get_instance_name
     ) # type: ignore
-    auto_evaluate: bpy.props.BoolProperty(
+    auto_evaluate_head: bpy.props.BoolProperty(
         default=True,
-        name='Auto Evaluate',
-        description='Whether to automatically evaluate this rig logic instance when the scene is updated',
+        name='Auto Evaluate Head',
+        description='Whether to automatically evaluate the head on this rig instance when the scene is updated',
+    ) # type: ignore
+    auto_evaluate_body: bpy.props.BoolProperty(
+        default=True,
+        name='Auto Evaluate Body',
+        description='Whether to automatically evaluate the body on this rig instance when the scene is updated',
     ) # type: ignore
     evaluate_bones: bpy.props.BoolProperty(
         default=True,
@@ -547,13 +563,21 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                         return key_block
 
     @property
-    def valid(self) -> bool: 
+    def head_valid(self) -> bool: 
         dna_file_path = Path(bpy.path.abspath(self.head_dna_file_path))
         if not dna_file_path.exists():
-            logger.warning(f'The DNA file path "{dna_file_path}" does not exist. The Rig Logic Instance {self.name} will not be initialized.')
+            logger.warning(f'The Head DNA file path "{dna_file_path}" does not exist. The Rig Logic Instance {self.name} will not be initialized.')
             return False
         if not self.face_board:
             logger.warning(f'The Face board is not set. The Rig Logic Instance {self.name} will not be initialized.')
+            return False
+        return True
+    
+    @property
+    def body_valid(self) -> bool: 
+        dna_file_path = Path(bpy.path.abspath(self.body_dna_file_path))
+        if not dna_file_path.exists():
+            logger.warning(f'The Body DNA file path "{dna_file_path}" does not exist. The Rig Logic Instance {self.name} will not be initialized.')
             return False
         return True
         
@@ -574,9 +598,13 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         self.data['head_texture_masks_node'] = False
 
     @property
-    def initialized(self) -> bool:
-        return bool(self.data.get('initialized'))
+    def head_initialized(self) -> bool:
+        return bool(self.data.get('head_initialized'))
     
+    @property
+    def body_initialized(self) -> bool:
+        return bool(self.data.get('body_initialized'))
+
     @property
     def head_mesh_index_lookup(self) -> dict[int, bpy.types.Object]:
         if not self.head_dna_reader:
@@ -755,14 +783,13 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             for pose_bone in self.body_rig.pose.bones:
                 # make sure the body bones are using the correct rotation mode
                 if pose_bone.name in self.body_raw_control_bone_names:
-                    # pose_bone.rotation_mode = "QUATERNION"
-                    pose_bone.rotation_mode = "XYZ"
+                    pose_bone.rotation_mode = "QUATERNION"
                 else:
                     pose_bone.rotation_mode = "XYZ"
 
                 # save the rest pose and their parent space matrix so we don't have to calculate it again
                 try:
-                    rest_pose[pose_bone.name] = utilities.get_bone_rest_transformations(pose_bone.bone)
+                    rest_pose[pose_bone.name] = utilities.get_bone_rest_transformations(pose_bone.bone, rotation_mode='XYZ')
                 except ValueError as error:
                     logger.error(f'Error getting rest pose for bone "{pose_bone.name}": {error}')
                     return {}
@@ -789,12 +816,12 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         # return a copy so the original raw control bone names are not modified
         return self.data['body_raw_control_bone_names']
 
-    def initialize(self):
-        if not self.valid:
-            return
-        
+    def head_initialize(self):        
         from .bindings import riglogic
         from .dna_io import get_dna_reader
+
+        if not self.head_valid:
+            return
 
         # ---- Initialize the Head Rig Logic Instance ---
         # set the dna reader
@@ -831,45 +858,68 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         self.head_raw_control_bone_names
         self.head_rest_pose
 
+        self.data['head_initialized'] = True
+
+    def body_initialize(self):
+        from .bindings import riglogic
+        from .dna_io import get_dna_reader
+
+        if not self.body_valid:
+            return
+
         # ---- Initialize the Body Rig Logic Instance ---
-        if self.body_dna_file_path:
-            body_dna_file_path = Path(bpy.path.abspath(self.body_dna_file_path)).absolute()
-            if body_dna_file_path.exists():
-                # set the body dna reader
-                self.data['body_dna_reader'] = get_dna_reader(
-                    file_path=body_dna_file_path,
-                    memory_resource=None
-                )
+        # set the body dna reader
+        self.data['body_dna_reader'] = get_dna_reader(
+            file_path=Path(bpy.path.abspath(self.body_dna_file_path)).absolute(),
+            memory_resource=None
+        )
 
-                # make sure the body bones are using the correct rotation mode
-                if self.body_rig and self.body_rig.pose:
-                    for pose_bone in self.body_rig.pose.bones:
-                        if pose_bone.name in self.body_raw_control_bone_names:
-                            pose_bone.rotation_mode = "QUATERNION"
-                        else:
-                            pose_bone.rotation_mode = "XYZ"
+        # make sure the body bones are using the correct rotation mode
+        if self.body_rig and self.body_rig.pose:
+            for pose_bone in self.body_rig.pose.bones:
+                if pose_bone.name in self.body_raw_control_bone_names:
+                    pose_bone.rotation_mode = "QUATERNION"
+                else:
+                    pose_bone.rotation_mode = "XYZ"
 
-                # set the rig logic manager and instance
-                self.data['body_manager'] = riglogic.RigLogic.create(
-                    reader=self.data['body_dna_reader'],
-                    config=riglogic.Configuration(),
-                    memRes=None
-                )
-                self.data['body_instance'] = riglogic.RigInstance.create(
-                    rigLogic=self.data['body_manager'], 
-                    memRes=None
-                )
+        # set the rig logic manager and instance
+        self.data['body_manager'] = riglogic.RigLogic.create(
+            reader=self.data['body_dna_reader'],
+            config=riglogic.Configuration(
+                calculationType=riglogic.CalculationType.AnyVector,
+                loadJoints=True,
+                loadBlendShapes=True,
+                loadAnimatedMaps=True,
+                loadMachineLearnedBehavior=True,
+                loadRBFBehavior=True,
+                loadTwistSwingBehavior=True,
+                translationType=riglogic.TranslationType.Vector,
+                rotationType=riglogic.RotationType.Quaternions,
+                rotationOrder=riglogic.RotationOrder.ZYX,
+                scaleType=riglogic.ScaleType.Vector
+            ),
+            memRes=None
+        )
+        self.data['body_instance'] = riglogic.RigInstance.create(
+            rigLogic=self.data['body_manager'], 
+            memRes=None
+        )
 
-                # calling theses properties will cache their values
-                self.body_raw_control_bone_names
-                self.body_rest_pose
+        # calling theses properties will cache their values
+        self.body_raw_control_bone_names
+        self.body_rest_pose
 
-        self.data['initialized'] = True
+        self.data['body_initialized'] = True
+
+    def initialize(self):
+        self.head_initialize()
+        # self.body_initialize()
 
     def destroy(self):            
         # clears these data items from the dictionary, this frees them up to be garbage collected
         self.data.clear()
-        self.data['initialized'] = False
+        self.data['head_initialized'] = False
+        self.data['body_initialized'] = False
 
 
     def update_head_gui_control_values(self, override_values: dict[str, dict[str, float]] | None = None):
@@ -1073,8 +1123,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
     def reset_body_raw_control_values(self):
         # skip if the body rig is not set
-        if not self.initialized:
-            self.initialize()
+        if not self.body_initialized:
+            self.body_initialize()
 
         if not self.body_dna_reader:
             logger.warning('The body DNA reader is not set. The body raw control values will not be reset.')
@@ -1083,7 +1133,14 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         if not self.evaluate_rbfs:
             # reset all raw controls to 0.0
             for index in range(self.body_dna_reader.getRawControlCount()):
-                self.body_instance.setRawControl(index, 0.0)
+                full_name = self.body_dna_reader.getRawControlName(index)
+                _, axis = full_name.split('.')
+                axis = axis.rsplit('q',-1)[-1].lower()
+                if axis == 'w':
+                    self.body_instance.setRawControl(index, 1.0)
+                else:
+                    self.body_instance.setRawControl(index, 0.0)
+
             self.body_instance.setLOD(level=int(self.active_lod[-1]))
             self.body_manager.calculate(self.body_instance)
         else:
@@ -1105,13 +1162,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
         # convert the quaternion values to the correct coordinate system
         for pose_bone in self.body_rig.pose.bones:
-            # This effectively mirrors the rotation around the Y-axis
-            rotation_euler = pose_bone.rotation_euler.copy()
-            # rotation_euler.x = -rotation_euler.x
-            # rotation_euler.z = -rotation_euler.z
-
-            quaternion = pose_bone.rotation_euler.to_quaternion()
-            converted_quaternions[pose_bone.name] = rotation_euler.to_quaternion().normalized()
+            quaternion = pose_bone.rotation_quaternion.copy()
+            converted_quaternions[pose_bone.name] = quaternion.normalized()
 
         for index in range(self.body_dna_reader.getRawControlCount()):
             full_name = self.body_dna_reader.getRawControlName(index)
@@ -1143,8 +1195,6 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         self.body_instance.setLOD(level=int(self.active_lod[-1]))
 
         # calculate the changes
-        # self.body_manager.calculateControls(self.body_instance)
-        # self.body_manager.calculateRBFControls(self.body_instance)
         self.body_manager.calculate(self.body_instance)
 
     def update_body_bone_transforms(self):
@@ -1156,12 +1206,13 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         if not self.body_rest_pose:
             return
 
-        raw_joint_output = self.body_instance.getRawJointOutputs()
+        # get the delta values
+        D = self.body_instance.getRawJointOutputs()
         
         # update joint transforms
-        for index in range(self.body_dna_reader.getJointCount()):
+        for joint_index in range(self.body_dna_reader.getJointCount()):
             # get the bone 
-            name = self.body_dna_reader.getJointName(index)
+            name = self.body_dna_reader.getJointName(joint_index)
 
             # Only update driven bones
             if name in self.body_raw_control_bone_names:
@@ -1169,17 +1220,14 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
             pose_bone = self.body_rig.pose.bones.get(name)
             if pose_bone:
+                # get the values
+                attr_index = joint_index * ATTR_COUNT_PER_QUATERNION_JOINT
                 # get the rest pose values that we saved during initialization
                 rest_location, rest_rotation, rest_scale, rest_to_parent_matrix = self.body_rest_pose[pose_bone.name]
-
-                # get the values
-                matrix_index = (index + 1) * 9
-                values = raw_joint_output[(index * 9):matrix_index]
-
                 # extract the delta values
-                location_delta = Vector([values[0]/SCALE_FACTOR, values[1]/SCALE_FACTOR, values[2]/SCALE_FACTOR])
-                rotation_delta = Euler([math.radians(values[3]), math.radians(values[4]), math.radians(values[5])])
-                scale_delta = Vector(values[6:9])
+                location_delta = Vector([D[attr_index]/SCALE_FACTOR, D[attr_index+1]/SCALE_FACTOR, D[attr_index+2]/SCALE_FACTOR])
+                rotation_delta = Quaternion((D[attr_index+6], D[attr_index+3], D[attr_index+4], D[attr_index+5]))
+                scale_delta = Vector((D[attr_index+7], D[attr_index+8], D[attr_index+9]))
 
                 # update the transformations using the rest pose and the delta values
                 # we need to copy the vectors so we don't modify the original rest pose
@@ -1188,11 +1236,9 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                     rest_location.y + location_delta.y,
                     rest_location.z + location_delta.z
                 ))
-                rotation = Euler((
-                    rest_rotation.x + rotation_delta.x,
-                    rest_rotation.y + rotation_delta.y,
-                    rest_rotation.z + rotation_delta.z
-                ))
+
+                rotation = rest_rotation.to_quaternion() @ rotation_delta
+
                 scale = Vector((
                     rest_scale.x + scale_delta.x,
                     rest_scale.y + scale_delta.y,
@@ -1203,26 +1249,22 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 modified_matrix = Matrix.LocRotScale(location, rotation, scale)
                 pose_bone.matrix_basis = rest_to_parent_matrix.inverted() @ modified_matrix
 
-                # if the bone is not a leaf bone, we need to update the rotation again
-                if pose_bone.children:
-                    pose_bone.rotation_euler = rotation_delta
             else:
                 logger.warning(f'The bone "{name}" was not found on "{self.body_rig.name}". Rig Logic will not update the bone.')
 
     def evaluate(self, component: Literal['head', 'body', 'all'] = 'all'):
         # this condition prevents constant evaluation
         if bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph: # type: ignore
-            if not self.initialized:
-                self.initialize()
-
-            if not self.initialized:
-                logger.error(f'The Rig Logic Instance {self.name} could not be initialized.')
-                return
+            if not self.head_initialized:
+                self.head_initialize()
             
+            # if not self.body_initialized:
+            #     self.body_initialize()
+
             # turn off the dependency graph evaluation so we can update the controls without triggering an update
             bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False # type: ignore
             
-            if component in ('head', 'all'):
+            if component in ('head', 'all') and self.head_initialized:
                 self.update_head_gui_control_values()
                 # apply the changes
                 if self.evaluate_bones:
@@ -1232,7 +1274,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 if self.evaluate_texture_masks:
                     self.update_head_texture_masks()
 
-            if component in ('body', 'all'):
+            if component in ('body', 'all') and self.body_initialized:
                 self.update_body_raw_control_values()
                 # apply the changes
                 if self.evaluate_rbfs:

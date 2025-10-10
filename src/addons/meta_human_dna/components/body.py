@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 from mathutils import Vector
 from .. import utilities
-from ..utilities import preserve_context
+from ..utilities import preserve_context, exclude_rig_logic_evaluation
 from .base import MetaHumanComponentBase
 from ..dna_io import DNAExporter
 from ..constants import (
@@ -16,8 +16,22 @@ logger = logging.getLogger(__name__)
 
 
 class MetaHumanComponentBody(MetaHumanComponentBase):
+    @exclude_rig_logic_evaluation
     def import_action(self, file_path: Path):
-        pass
+        file_path = Path(file_path)
+        
+        if self.body_rig_object:
+            # ensure the rig logic instance is initialized
+            self.rig_logic_instance.initialize()
+            action = utilities.import_action_from_fbx(
+                file_path=file_path, 
+                armature=self.body_rig_object,
+                include_only_bones=self.rig_logic_instance.body_raw_control_bone_names
+            )
+            # utilities.convert_action_rotation_from_euler_to_quaternion(
+            #     action=action,
+            #     bone_names=self.rig_logic_instance.body_raw_control_bone_names
+            # )
 
     def ingest(
             self, 

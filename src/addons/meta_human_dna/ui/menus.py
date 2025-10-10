@@ -2,7 +2,8 @@ import bpy
 
 
 def dna_import_operator_menu_item(self, context):
-    self.layout.operator('meta_human_dna.import_dna', text='Metahuman DNA (.dna)')
+    self.layout.operator('meta_human_dna.import_dna', text='MetaHuman DNA (.dna)')
+    self.layout.operator('meta_human_dna.append_or_link_metahuman', text='MetaHuman Append/Link (.blend)')
 
 
 def add_dna_import_menu():

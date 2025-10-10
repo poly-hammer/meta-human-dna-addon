@@ -45,7 +45,7 @@ head_wm3_normal_map.tga -> Normal_WM3
 
 ## Custom Materials in Blender
 You can make a totally custom material node tree if you want. All you need to do is add a single
-[Texture Logic](./terminology.md#texture-logic) node to the graph, then link your material in the [Rig Logic Instance](./terminology.md#rig-logic-instance) outputs.
+[Texture Logic](./terminology.md#texture-logic) node to the graph, then link your material in the [Rig Instance](./terminology.md#rig-instance) outputs.
 
 ![](./images/textures/3.gif){: class="rounded-image center-image"}
 

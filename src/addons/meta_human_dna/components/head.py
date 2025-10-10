@@ -7,7 +7,7 @@ from pathlib import Path
 from mathutils import Vector, Matrix
 from .base import MetaHumanComponentBase
 from .. import utilities
-from ..utilities import preserve_context
+from ..utilities import preserve_context, exclude_rig_logic_evaluation
 from ..dna_io import (
     create_shape_key,
     DNAExporter
@@ -23,15 +23,21 @@ logger = logging.getLogger(__name__)
 
 
 class MetaHumanComponentHead(MetaHumanComponentBase):
-    def import_action(self, file_path: Path):
+    @exclude_rig_logic_evaluation
+    def import_action(
+            self, 
+            file_path: Path, 
+            is_face_board: bool = True
+        ):
         file_path = Path(file_path)
-        if not self.face_board_object:
-            return
         
-        if file_path.suffix.lower() == '.json':
-            utilities.import_action_from_json(file_path, self.face_board_object)    
-        elif file_path.suffix.lower() == '.fbx':
-            utilities.import_action_from_fbx(file_path, self.face_board_object)
+        if is_face_board and self.face_board_object:
+            if file_path.suffix.lower() == '.json':
+                utilities.import_face_board_action_from_json(file_path, self.face_board_object)
+            elif file_path.suffix.lower() == '.fbx':
+                utilities.import_face_board_action_from_fbx(file_path, self.face_board_object)
+        elif self.head_rig_object:
+            utilities.import_action_from_fbx(file_path, self.head_rig_object)
 
     def ingest(
             self, 
@@ -43,11 +49,16 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
 
         self._organize_viewport()
         self.import_materials()
+        
+        face_board_object = None
         # import the face board if one does not already exist in the scene
         if not any(i.face_board for i in self.scene_properties.rig_logic_instance_list):
-            face_board_object = self._import_face_board()
+            if self.dna_import_properties.import_face_board:
+                face_board_object = utilities.import_face_board(name=self.name)
+            
         elif not self.rig_logic_instance.face_board and not self.dna_import_properties.reuse_face_board:
-            face_board_object = self._duplicate_face_board()
+            if self.dna_import_properties.import_face_board:
+                face_board_object = utilities.duplicate_face_board(name=self.name)
         else:
             face_board_object = next(i.face_board for i in self.scene_properties.rig_logic_instance_list if i.face_board)
 
@@ -99,7 +110,11 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
         # switch to pose mode on the face gui object
         if face_board_object:
             bpy.context.view_layer.objects.active = face_board_object # type: ignore
-            self._position_face_board(face_board_object)
+            utilities.position_face_board(
+                head_mesh_object=self.head_mesh_object, # type: ignore
+                head_rig_object=self.head_rig_object, # type: ignore
+                face_board_object=face_board_object
+            )
             utilities.move_to_collection(
                 scene_objects=[face_board_object],
                 collection_name=self.name,
