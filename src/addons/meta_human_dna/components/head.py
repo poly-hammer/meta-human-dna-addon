@@ -49,11 +49,16 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
 
         self._organize_viewport()
         self.import_materials()
+        
+        face_board_object = None
         # import the face board if one does not already exist in the scene
         if not any(i.face_board for i in self.scene_properties.rig_logic_instance_list):
-            face_board_object = self._import_face_board()
+            if self.dna_import_properties.import_face_board:
+                face_board_object = utilities.import_face_board(name=self.name)
+            
         elif not self.rig_logic_instance.face_board and not self.dna_import_properties.reuse_face_board:
-            face_board_object = self._duplicate_face_board()
+            if self.dna_import_properties.import_face_board:
+                face_board_object = utilities.duplicate_face_board(name=self.name)
         else:
             face_board_object = next(i.face_board for i in self.scene_properties.rig_logic_instance_list if i.face_board)
 
@@ -105,7 +110,11 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
         # switch to pose mode on the face gui object
         if face_board_object:
             bpy.context.view_layer.objects.active = face_board_object # type: ignore
-            self._position_face_board(face_board_object)
+            utilities.position_face_board(
+                head_mesh_object=self.head_mesh_object, # type: ignore
+                head_rig_object=self.head_rig_object, # type: ignore
+                face_board_object=face_board_object
+            )
             utilities.move_to_collection(
                 scene_objects=[face_board_object],
                 collection_name=self.name,

@@ -31,6 +31,7 @@ classes = [
     operators.ImportMetahumanDna,
     operators.DNA_FH_import_dna,
     operators.ConvertSelectedToDna,
+    operators.AppendOrLinkMetaHuman,
     operators.ImportFaceBoardAnimation,
     operators.ImportComponentAnimation,
     operators.BakeFaceBoardAnimation,

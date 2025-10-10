@@ -26,13 +26,11 @@ from ..constants import (
     HEAD_TOPOLOGY_TEXTURE_FILE_PATH,
     BODY_TOPOLOGY_TEXTURE_FILE_PATH,
     MATERIALS_FILE_PATH,
-    FACE_BOARD_FILE_PATH,
     FACE_BOARD_NAME,
     MASKS_TEXTURE,
     HEAD_TOPOLOGY_TEXTURE,
     BODY_TOPOLOGY_TEXTURE,
     NUMBER_OF_HEAD_LODS,
-    FACE_GUI_EMPTIES, 
     SCALE_FACTOR,
     INVALID_NAME_CHARACTERS_REGEX,
     HEAD_TEXTURE_LOGIC_NODE_NAME,
@@ -217,28 +215,6 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
             if thumbnail_path.exists():
                 return thumbnail_path
             
-    @staticmethod
-    def _hide_face_board_widgets():
-        # unlink from scene and make fake users so they are not deleted by garbage collection
-        for empty_name in FACE_GUI_EMPTIES:
-            empty = bpy.data.objects.get(empty_name)
-            if empty:
-                for collection in [
-                    bpy.data.collections.get('Collection'),
-                    bpy.context.scene.collection # type: ignore
-                ]:
-                    if not collection:
-                        continue
-
-                    for child in empty.children_recursive:
-                        if child in collection.objects.values(): # type: ignore
-                            collection.objects.unlink(child) # type: ignore
-                        child.use_fake_user = True
-                    
-                    if empty in collection.objects.values(): # type: ignore
-                        collection.objects.unlink(empty) # type: ignore
-                    empty.use_fake_user = True
-            
     def _get_name(
             self, name: str | None = None, 
             dna_file_path: Path | None = None
@@ -413,72 +389,6 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
             body_topology_image = bpy.data.images.get(BODY_TOPOLOGY_TEXTURE)
             if body_topology_image:
                 bpy.data.images.remove(body_topology_image)
-
-    def _purge_face_board_components(self):
-        with bpy.data.libraries.load(str(FACE_BOARD_FILE_PATH)) as (data_from, data_to):
-            if data_from.objects:
-                for name in data_from.objects:
-                    scene_object = bpy.data.objects.get(name)
-                    if scene_object:
-                        bpy.data.objects.remove(scene_object, do_unlink=True)
-
-    def _position_face_board(self, face_board_object: bpy.types.Object) -> None:
-        if self.head_mesh_object and self.head_rig_object:
-            head_mesh_center = utilities.get_bounding_box_center(self.head_mesh_object)
-            face_gui_center = utilities.get_bounding_box_center(face_board_object)
-            head_mesh_right_x = utilities.get_bounding_box_right_x(self.head_mesh_object)
-            face_gui_left_x = utilities.get_bounding_box_left_x(face_board_object)
-
-            # align the face gui object to the head mesh vertically
-            translation_vector = head_mesh_center - face_gui_center
-            face_board_object.location.z += translation_vector.z
-
-            # offset the face gui object to the left of the head mesh
-            x_value = head_mesh_right_x - face_gui_left_x
-            face_board_object.location.x = x_value
-
-            # apply the translation to the face gui object
-            utilities.apply_transforms(face_board_object, location=True) # type: ignore
-
-    def _import_face_board(self) -> bpy.types.Object | None:
-        if not self.dna_import_properties.import_face_board:
-            return
-
-        sep = '\\'
-        if sys.platform != 'win32':
-            sep = '/'
-
-        # delete all face board objects in the scene that already exist
-        self._purge_face_board_components()
-
-        bpy.ops.wm.append(
-            filepath=f'{FACE_BOARD_FILE_PATH}{sep}Object{sep}{FACE_BOARD_NAME}',
-            filename=FACE_BOARD_NAME,
-            directory=f'{FACE_BOARD_FILE_PATH}{sep}Object{sep}'
-        )
-        face_board_object = bpy.data.objects[FACE_BOARD_NAME]
-        # rename to be prefixed with a unique name
-        face_board_object.name = f'{self.name}_{FACE_BOARD_NAME}' # type: ignore
-
-        # hide all face board elements
-        self._hide_face_board_widgets()
-
-        face_board_object.data.relation_line_position = 'HEAD' # type: ignore
-        return face_board_object
-    
-    def _duplicate_face_board(self) -> bpy.types.Object | None:
-        if not self.dna_import_properties.import_face_board:
-            return
-        
-        for instance in self.scene_properties.rig_logic_instance_list:
-            if instance.face_board:
-                # Duplicate the face board object
-                face_board_duplicate = instance.face_board.copy()
-                face_board_duplicate.name = f'{self.name}_{FACE_BOARD_NAME}'
-                face_board_duplicate.data = instance.face_board.data.copy()
-                face_board_duplicate.data.name = f'{self.name}_{FACE_BOARD_NAME}'
-                bpy.context.collection.objects.link(face_board_duplicate) # type: ignore
-                return face_board_duplicate
 
     def _mirror_bone_to(
             self, 

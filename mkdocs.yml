@@ -6,6 +6,7 @@ nav:
   - Unreal Configuration: "unreal-configuration.md"
   - Textures: "textures.md"
   - User Interface:
+    - Import: "user-interface/import.md"
     - Face Board: "user-interface/face-board.md"
     - Utilities: "user-interface/utilities.md"
     - View Options: "user-interface/view-options.md"

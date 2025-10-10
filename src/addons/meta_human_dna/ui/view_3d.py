@@ -35,7 +35,7 @@ def draw_rig_logic_instance_error(layout, error: str):
 
     row = layout.row()
     # row.alignment = 'CENTER'
-    row.label(text="Rig Logic Instance Error:", icon='ERROR')
+    row.label(text="Rig Logic Error:", icon='ERROR')
     row = layout.row()
     row.alignment = 'CENTER'
     row.alert = True
@@ -479,7 +479,7 @@ class META_HUMAN_DNA_PT_view_options(bpy.types.Panel):
 
 
 class META_HUMAN_DNA_PT_rig_logic(bpy.types.Panel):
-    bl_label = "Rig Logic"
+    bl_label = "Rig Instances"
     bl_category = 'Meta-Human DNA'
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -529,6 +529,9 @@ class META_HUMAN_DNA_PT_rig_logic(bpy.types.Panel):
             props.direction = 'DOWN' # type: ignore
             props.active_index = properties.rig_logic_instance_list_active_index # type: ignore
 
+            row = self.layout.row()
+            row.label(text='Rig Logic Linked Data:')
+
 
 class META_HUMAN_DNA_PT_rig_logic_head_sub_panel(bpy.types.Panel):
     bl_parent_id = "META_HUMAN_DNA_PT_rig_logic"
@@ -537,6 +540,10 @@ class META_HUMAN_DNA_PT_rig_logic_head_sub_panel(bpy.types.Panel):
     bl_region_type = 'UI'
     bl_category = 'Meta-Human DNA'
     # bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        return len(context.scene.meta_human_dna.rig_logic_instance_list) > 0 # type: ignore
 
     def draw(self, context):
         if not self.layout:
@@ -578,6 +585,10 @@ class META_HUMAN_DNA_PT_rig_logic_body_sub_panel(bpy.types.Panel):
     bl_region_type = 'UI'
     bl_category = 'Meta-Human DNA'
     # bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        return len(context.scene.meta_human_dna.rig_logic_instance_list) > 0 # type: ignore
 
     def draw(self, context):
         if not self.layout:

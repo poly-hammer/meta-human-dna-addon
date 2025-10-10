@@ -14,7 +14,7 @@ from .dna_io import (
     DNAExporter,
     get_dna_reader
 )
-from .properties import MetahumanDnaImportProperties
+from .properties import MetahumanDnaImportProperties, BlendFileMetaHumanCollection
 from .components import (
     MetaHumanComponentHead,
     MetaHumanComponentBody,
@@ -28,7 +28,8 @@ from .constants import (
     DEFAULT_UV_TOLERANCE,
     HEAD_TEXTURE_LOGIC_NODE_NAME,
     HEAD_TEXTURE_LOGIC_NODE_LABEL,
-    SHAPE_KEY_BASIS_NAME
+    SHAPE_KEY_BASIS_NAME,
+    FACE_BOARD_NAME
 )
 
 logger = logging.getLogger(__name__)
@@ -109,6 +110,121 @@ class GenericProgressQueueOperator(bpy.types.Operator):
         ):
         pass   
 
+
+class AppendOrLinkMetaHuman(bpy.types.Operator, importer.LinkAppendMetaHumanImportHelper):
+    """Append or link a MetaHuman from a .blend file. The .blend file must contain a collection with all data related to the MetaHuman asset."""
+    bl_idname = "meta_human_dna.append_or_link_metahuman"
+    bl_label = "Import"
+    filename_ext = ".blend"
+
+    filter_glob: bpy.props.StringProperty(
+        default="*.blend",
+        options={"HIDDEN"},
+        subtype="FILE_PATH",
+    ) # type: ignore
+
+    relative_path: bpy.props.BoolProperty(default=True) # type: ignore
+    previous_file_path: bpy.props.StringProperty(default="") # type: ignore
+    operation_type: bpy.props.EnumProperty(
+        items=[
+            ('APPEND', "Append", "Append the selected MetaHuman"),
+            ('LINK', "Link", "Link the selected MetaHuman"),
+        ],
+        default='APPEND'
+    ) # type: ignore
+    meta_human_list: bpy.props.CollectionProperty(type=BlendFileMetaHumanCollection) # type: ignore
+
+    def execute(self, context):
+        if not self.filepath: # type: ignore
+            self.report({'ERROR'}, 'You must select a .blend file')
+            return {'CANCELLED'}
+        
+        if not Path(bpy.path.abspath(self.filepath)).exists(): # type: ignore
+            self.report({'ERROR'}, f'File not found: {self.filepath}') # type: ignore
+            return {'CANCELLED'}
+
+        if bpy.data.filepath == self.filepath: # type: ignore
+            self.report({'ERROR'}, 'You cannot import a MetaHuman from the current .blend file')
+            return {'CANCELLED'}
+
+
+        # track the current control objects
+        current_control_objects = []
+        for instance in context.scene.meta_human_dna.rig_logic_instance_list: # type: ignore
+            if instance.face_board: 
+                for pose_bone in instance.face_board.pose.bones:
+                    current_control_objects.append(pose_bone.custom_shape)
+                
+        collection_names = []
+        with bpy.data.libraries.load(
+            filepath=self.filepath, # type: ignore
+            link=self.operation_type=='LINK',
+            relative=self.relative_path) as (data_from, data_to): # type: ignore
+            
+            # we only append/link the collections that the user has selected
+            for item in self.meta_human_list:
+                if item.include:
+                    for collection_name in data_from.collections:
+                        if collection_name == item.name:
+                            data_to.collections.append(collection_name)
+                            collection_names.append(collection_name)
+
+        # extract the rig instance data from the blend file
+        data = utilities.extract_rig_instance_data_from_blend_file(Path(bpy.path.abspath(self.filepath))) # type: ignore
+
+        # link the collections to the scene
+        for collection_name in collection_names:
+            collection = bpy.data.collections.get(collection_name)
+            if collection:
+                bpy.context.scene.collection.children.link(collection) # type: ignore
+
+            # delete the face board and its control object shapes if they exist
+            face_board = bpy.data.objects.get(f'{collection_name}_{FACE_BOARD_NAME}')
+            if face_board:
+                for pose_bone in face_board.pose.bones: # type: ignore
+                    if pose_bone.custom_shape and pose_bone.custom_shape not in current_control_objects:
+                        control_object = pose_bone.custom_shape
+                        pose_bone.custom_shape = None
+                        bpy.data.objects.remove(control_object, do_unlink=True)
+                # remove the face board object
+                bpy.data.objects.remove(face_board, do_unlink=True)
+
+            # Extract the rig instance data from the .blend file and set them on the new rig instance
+            instance = utilities.add_rig_instance(name=collection_name)
+            instance.head_dna_file_path = data[collection_name]['head_dna_file_path']
+            instance.head_mesh = bpy.data.objects.get(data[collection_name]['head_mesh'])
+            instance.head_rig = bpy.data.objects.get(data[collection_name]['head_rig'])
+            instance.head_material = bpy.data.materials.get(data[collection_name]['head_material'])
+            instance.body_mesh = bpy.data.objects.get(data[collection_name]['body_mesh'])
+            instance.body_rig = bpy.data.objects.get(data[collection_name]['body_rig'])
+            instance.body_material = bpy.data.materials.get(data[collection_name]['body_material'])
+            instance.body_dna_file_path = data[collection_name]['body_dna_file_path']
+            instance.output_folder_path = data[collection_name]['output_folder_path']
+
+            face_board = bpy.data.objects.get(data[collection_name]['face_board'])
+            if data[collection_name]['face_board']:
+                # duplicate the face board if there is one already in the scene
+                if any(i.face_board for i in context.scene.meta_human_dna.rig_logic_instance_list): # type: ignore
+                    instance.face_board = utilities.duplicate_face_board(name=collection_name)
+                # otherwise import it
+                else:
+                    instance.face_board = utilities.import_face_board(name=collection_name)
+                
+                # position the face board next to the head mesh
+                if instance.face_board:
+                    utilities.position_face_board(
+                        head_mesh_object=instance.head_mesh, 
+                        head_rig_object=instance.head_rig, 
+                        face_board_object=instance.face_board
+                    )
+                    if self.operation_type != 'LINK':
+                        utilities.move_to_collection(
+                            scene_objects=[instance.face_board],
+                            collection_name=collection_name,
+                            exclusively=True
+                        )
+
+        return {'FINISHED'}
 
 class ImportFaceBoardAnimation(bpy.types.Operator, importer.ImportAsset):
     """Import an animation for the metahuman face board exported from an Unreal Engine Level Sequence"""
@@ -1742,11 +1858,7 @@ class UILIST_RIG_LOGIC_OT_entry_add(GenericUIListOperator, bpy.types.Operator):
     bl_label = "Add Entry"
 
     def execute(self, context):
-        my_list = context.scene.meta_human_dna.rig_logic_instance_list # type: ignore
-        to_index = min(len(my_list), self.active_index + 1)
-        my_list.add()
-        my_list.move(len(my_list) - 1, to_index)
-        context.scene.meta_human_dna.rig_logic_instance_list_active_index = to_index # type: ignore
+        utilities.add_rig_instance()
         return {'FINISHED'}
     
     @classmethod

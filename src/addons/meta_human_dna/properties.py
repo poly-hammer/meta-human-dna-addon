@@ -37,6 +37,16 @@ def get_dna_import_property_group_base_class():
         }
     )
 
+class BlendFileMetaHumanCollection(bpy.types.PropertyGroup):
+    include: bpy.props.BoolProperty(
+        default=True,
+        description='Whether to include this data in the append or link operation',
+    ) # type: ignore
+    name: bpy.props.StringProperty(
+        default='',
+        description='The name of the MetaHuman',
+    ) # type: ignore
+
 class ExtraDnaFolder(bpy.types.PropertyGroup):
     folder_path: bpy.props.StringProperty(
         default='',
@@ -209,6 +219,7 @@ def register():
     bpy.utils.register_class(OutputData)
     bpy.utils.register_class(ShapeKeyData)
     bpy.utils.register_class(RigLogicInstance)
+    bpy.utils.register_class(BlendFileMetaHumanCollection)
 
     try:
         bpy.utils.register_class(MetahumanSceneProperties)
@@ -252,6 +263,7 @@ def unregister():
     bpy.utils.unregister_class(ShapeKeyData)
     bpy.utils.unregister_class(OutputData)
     bpy.utils.unregister_class(MaterialSlotToInstance)
+    bpy.utils.unregister_class(BlendFileMetaHumanCollection)
 
     if hasattr(bpy.types.WindowManager, ToolInfo.NAME):
         del bpy.types.WindowManager.meta_human_dna # type: ignore

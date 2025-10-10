@@ -1,14 +1,24 @@
+import json
 import os
 import re
 import bpy
 import sys
 import math
+import uuid
+import tempfile
 import logging
+import subprocess
 import addon_utils
+from typing import Generator
 from pathlib import Path
 from mathutils import Vector
 from typing import TYPE_CHECKING, Callable
-from ..constants import MATERIALS_FILE_PATH, HEAD_TEXTURE_LOGIC_NODE_LABEL
+from ..constants import (
+    MATERIALS_FILE_PATH, 
+    HEAD_TEXTURE_LOGIC_NODE_LABEL,
+    SCRIPTS_FOLDER,
+    FACE_BOARD_NAME
+)
 from ..rig_logic import start_listening
 from ..constants import (
     SENTRY_DSN,
@@ -17,8 +27,11 @@ from ..constants import (
     NUMBER_OF_HEAD_LODS,
     INVALID_NAME_CHARACTERS_REGEX,
     DEFAULT_UV_TOLERANCE,
+    FACE_GUI_EMPTIES,
+    FACE_BOARD_FILE_PATH,
     ToolInfo
 )
+
 if TYPE_CHECKING:
     from ..components.head import MetaHumanComponentHead
     from ..components.body import MetaHumanComponentBody
@@ -538,6 +551,16 @@ def rename_rig_logic_instance(
         instance.body_material.name = instance.body_material.name.replace(old_name, new_name)
 
     for item in (instance.output_head_item_list.values() + instance.output_body_item_list.values()):
+        # don't rename these again
+        if item.scene_object in [
+            instance.face_board, 
+            instance.head_mesh, 
+            instance.head_rig, 
+            instance.body_mesh,
+            instance.body_rig
+        ]:
+            continue
+
         if item.scene_object:
             item.scene_object.name = item.scene_object.name.replace(old_name, new_name)
         if item.image_object:
@@ -546,7 +569,12 @@ def rename_rig_logic_instance(
     instance.unreal_content_folder = instance.unreal_content_folder.replace(old_name, new_name)
     instance.unreal_blueprint_asset_path = instance.unreal_blueprint_asset_path.replace(old_name, new_name)
 
-    # rename the face LOD collections
+    # rename the main collection
+    main_collection = bpy.data.collections.get(old_name)
+    if main_collection:
+        main_collection.name = new_name
+
+    # rename the LOD collections
     for index in range(NUMBER_OF_HEAD_LODS):
         collection = bpy.data.collections.get(f'{old_name}_lod{index}')
         if collection:
@@ -645,3 +673,173 @@ def reduce_close_floats(float_list: list[float], tolerance: float = DEFAULT_UV_T
         if not math.isclose(sorted_list[i], reduced_list[-1], abs_tol=tolerance):
             reduced_list.append(sorted_list[i])
     return reduced_list
+
+
+def shell(command: str, **kwargs) -> Generator[str, None, None]:
+    """
+    Runs the command is a fully qualified shell.
+
+    Args:
+        command (str): A command.
+
+    Yields:
+        str: The output of the command line by line.
+
+    Raises:
+        OSError: The error cause by the shell.
+    """
+    process = subprocess.Popen(
+        command,
+        shell=True,
+        universal_newlines=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        **kwargs
+    )
+
+    output = []
+    for line in iter(process.stdout.readline, ""): # type: ignore
+        output += [line.rstrip()]
+        yield line.rstrip()
+
+    process.wait()
+
+    if process.returncode != 0:
+        raise OSError("\n".join(output))
+
+
+def add_rig_instance(name: None | str = None) -> 'RigLogicInstance':
+    my_list = bpy.context.scene.meta_human_dna.rig_logic_instance_list # type: ignore
+    active_index = bpy.context.scene.meta_human_dna.rig_logic_instance_list_active_index # type: ignore
+    to_index = min(len(my_list), active_index + 1)
+    instance = my_list.add()
+    
+    if not name:
+        instance.name = f"Untitled{len(my_list)}"
+    else:
+        instance.name = name
+
+    my_list.move(len(my_list) - 1, to_index)
+    bpy.context.scene.meta_human_dna.rig_logic_instance_list_active_index = to_index # type: ignore
+    return instance
+
+
+def extract_rig_instance_data_from_blend_file(blend_file_path: Path) -> list[dict]:
+    extracted_data = []
+
+    script_file = SCRIPTS_FOLDER / 'save_rig_instance_data.py'
+    data_file = Path(tempfile.gettempdir()) / f"{uuid.uuid4()}.json"
+
+    if sys.platform == 'win32':
+        command = f'"{bpy.app.binary_path}" --background --python "{script_file}" -- --data-file "{data_file}" --blend-file "{blend_file_path}"'
+    else:
+        command = f"{Path(bpy.app.binary_path).as_posix()} --background --python {script_file} -- --data-file {data_file.as_posix()} --blend-file {blend_file_path.as_posix()}"
+
+    for line in shell(command=command):
+        pass
+
+    with open(data_file, 'r') as f:
+        extracted_data = json.load(f)
+
+    try:
+        os.remove(data_file)
+    except OSError as error:
+        logger.debug(error)
+
+    return extracted_data
+
+
+def duplicate_face_board(name: str) -> bpy.types.Object | None:    
+    for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list: # type: ignore
+        if instance.face_board:
+            # Duplicate the face board object
+            face_board_duplicate = instance.face_board.copy()
+            face_board_duplicate.name = f'{name}_{FACE_BOARD_NAME}'
+            face_board_duplicate.data = instance.face_board.data.copy()
+            face_board_duplicate.data.name = f'{name}_{FACE_BOARD_NAME}'
+            bpy.context.collection.objects.link(face_board_duplicate) # type: ignore
+            return face_board_duplicate
+        
+
+def hide_face_board_widgets():
+    # unlink from scene and make fake users so they are not deleted by garbage collection
+    for empty_name in FACE_GUI_EMPTIES:
+        empty = bpy.data.objects.get(empty_name)
+        if empty:
+            for collection in [
+                bpy.data.collections.get('Collection'),
+                bpy.context.scene.collection # type: ignore
+            ]:
+                if not collection:
+                    continue
+
+                for child in empty.children_recursive:
+                    if child in collection.objects.values(): # type: ignore
+                        collection.objects.unlink(child) # type: ignore
+                    child.use_fake_user = True
+                
+                if empty in collection.objects.values(): # type: ignore
+                    collection.objects.unlink(empty) # type: ignore
+                empty.use_fake_user = True
+
+
+def purge_face_board_components():
+        with bpy.data.libraries.load(str(FACE_BOARD_FILE_PATH)) as (data_from, data_to):
+            if data_from.objects:
+                for name in data_from.objects:
+                    scene_object = bpy.data.objects.get(name)
+                    if scene_object:
+                        bpy.data.objects.remove(scene_object, do_unlink=True)
+
+
+def import_face_board(name: str) -> bpy.types.Object | None:
+    sep = '\\'
+    if sys.platform != 'win32':
+        sep = '/'
+
+    # delete all face board objects in the scene that already exist
+    purge_face_board_components()
+
+    bpy.ops.wm.append(
+        filepath=f'{FACE_BOARD_FILE_PATH}{sep}Object{sep}{FACE_BOARD_NAME}',
+        filename=FACE_BOARD_NAME,
+        directory=f'{FACE_BOARD_FILE_PATH}{sep}Object{sep}'
+    )
+    face_board_object = bpy.data.objects[FACE_BOARD_NAME]
+    # rename to be prefixed with a unique name
+    face_board_object.name = f'{name}_{FACE_BOARD_NAME}' # type: ignore
+
+    # hide all face board elements
+    hide_face_board_widgets()
+
+    face_board_object.data.relation_line_position = 'HEAD' # type: ignore
+    return face_board_object
+
+
+def position_face_board(
+        head_mesh_object: bpy.types.Object,
+        head_rig_object: bpy.types.Object,
+        face_board_object: bpy.types.Object
+    ) -> None:
+    from .mesh import (
+        get_bounding_box_center,
+        get_bounding_box_left_x,
+        get_bounding_box_right_x
+    )
+
+    if head_mesh_object and head_rig_object:
+        head_mesh_center = get_bounding_box_center(head_mesh_object)
+        face_gui_center = get_bounding_box_center(face_board_object)
+        head_mesh_right_x = get_bounding_box_right_x(head_mesh_object)
+        face_gui_left_x = get_bounding_box_left_x(face_board_object)
+
+        # align the face gui object to the head mesh vertically
+        translation_vector = head_mesh_center - face_gui_center
+        face_board_object.location.z += translation_vector.z
+
+        # offset the face gui object to the left of the head mesh
+        x_value = head_mesh_right_x - face_gui_left_x
+        face_board_object.location.x = x_value
+
+        # apply the translation to the face gui object
+        apply_transforms(face_board_object, location=True) # type: ignore
