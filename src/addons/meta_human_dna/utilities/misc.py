@@ -784,12 +784,12 @@ def hide_face_board_widgets():
 
 
 def purge_face_board_components():
-        with bpy.data.libraries.load(str(FACE_BOARD_FILE_PATH)) as (data_from, data_to):
-            if data_from.objects:
-                for name in data_from.objects:
-                    scene_object = bpy.data.objects.get(name)
-                    if scene_object:
-                        bpy.data.objects.remove(scene_object, do_unlink=True)
+    with bpy.data.libraries.load(str(FACE_BOARD_FILE_PATH)) as (data_from, data_to):
+        if data_from.objects:
+            for name in data_from.objects:
+                scene_object = bpy.data.objects.get(name)
+                if scene_object:
+                    bpy.data.objects.remove(scene_object, do_unlink=True)
 
 
 def import_face_board(name: str) -> bpy.types.Object | None:
