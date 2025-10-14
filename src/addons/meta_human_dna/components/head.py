@@ -121,6 +121,21 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
                 exclusively=True
             )
             utilities.switch_to_pose_mode(face_board_object) # type: ignore
+
+            # constrain the face board to the head rig if it was just created
+            if not self.dna_import_properties.reuse_face_board:
+                utilities.constrain_face_board_to_head(
+                    face_board_object=face_board_object,
+                    head_rig_object=self.rig_logic_instance.head_rig,
+                    body_rig_object=self.rig_logic_instance.body_rig,
+                    bone_name='CTRL_faceGUI'
+                )
+                utilities.constrain_face_board_to_head(
+                    face_board_object=face_board_object,
+                    head_rig_object=self.rig_logic_instance.head_rig,
+                    body_rig_object=self.rig_logic_instance.body_rig,
+                    bone_name='CTRL_C_eyesAim'
+                )
         
         return valid, message
 

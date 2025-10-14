@@ -5,7 +5,12 @@ import logging
 from typing import TYPE_CHECKING
 from pathlib import Path
 from mathutils import Euler
-from ..constants import Axis, SCALE_FACTOR
+from ..constants import (
+    Axis, 
+    SCALE_FACTOR,  
+    EYE_AIM_BONES,
+    FACE_BOARD_SWITCHES
+)
 from . import (
     switch_to_pose_mode,
     switch_to_object_mode,
@@ -245,7 +250,12 @@ def import_action_from_fbx(
     return new_action
 
 
-def import_face_board_action_from_fbx(file_path: Path, armature: bpy.types.Object):
+def import_face_board_action_from_fbx(
+        file_path: Path, 
+        armature: bpy.types.Object,
+        round_sub_frames: bool = True,
+        match_frame_rate: bool = True
+    ):
     file_path = Path(file_path)
 
     # remove the action if it already exists
@@ -264,7 +274,10 @@ def import_face_board_action_from_fbx(file_path: Path, armature: bpy.types.Objec
     # get the frame rate of the imported fbx
     imported_frame_rate = bpy.context.scene.render.fps # type: ignore
     # calculate the frame scale factor
-    frame_scale_factor = current_frame_rate / imported_frame_rate
+    if match_frame_rate:
+        frame_scale_factor = current_frame_rate / imported_frame_rate
+    else:
+        frame_scale_factor = 1.0
     # restore the original frame rate
     bpy.context.scene.render.fps = current_frame_rate # type: ignore
 
@@ -274,6 +287,11 @@ def import_face_board_action_from_fbx(file_path: Path, armature: bpy.types.Objec
             continue
 
         curve_name = action.name.split('.')[0]
+
+        # skip any eye aim controls
+        if curve_name in EYE_AIM_BONES + FACE_BOARD_SWITCHES:
+            continue
+
         for source_fcurve in action.fcurves:
             target_fcurve = face_board_action.fcurves.new(
                 data_path=f'pose.bones["{curve_name}"].{source_fcurve.data_path}',
@@ -284,7 +302,13 @@ def import_face_board_action_from_fbx(file_path: Path, armature: bpy.types.Objec
             # then set all all their values
             for index, keyframe in enumerate(source_fcurve.keyframe_points):
                 # Adjust keyframe position based on frame rate scale factor
-                target_fcurve.keyframe_points[index].co = (keyframe.co[0] * frame_scale_factor, keyframe.co[1])
+                frame = keyframe.co[0] * frame_scale_factor
+                
+                # optionally round sub frames to the nearest whole frame
+                if round_sub_frames:
+                    frame = round(frame)
+
+                target_fcurve.keyframe_points[index].co = (frame, keyframe.co[1])
                 target_fcurve.keyframe_points[index].interpolation = keyframe.interpolation
 
     # remove the imported objects

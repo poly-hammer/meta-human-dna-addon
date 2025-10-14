@@ -604,6 +604,11 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     @property
     def body_initialized(self) -> bool:
         return bool(self.data.get('body_initialized'))
+    
+    @property
+    def head_use_eye_aim(self) -> bool:
+        look_at_switch = self.face_board.pose.bones.get('CTRL_lookAtSwitch')
+        return look_at_switch and look_at_switch.location.y >= 0.99
 
     @property
     def head_mesh_index_lookup(self) -> dict[int, bpy.types.Object]:
@@ -921,6 +926,32 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         self.data['head_initialized'] = False
         self.data['body_initialized'] = False
 
+    def update_head_switch_values(self):
+        # update the head follow body switch constraint influence
+        face_gui_control = self.face_board.pose.bones.get('CTRL_faceGUI')
+        face_follow_head_switch = self.face_board.pose.bones.get('CTRL_faceGUIfollowHead')
+        if face_follow_head_switch and face_gui_control:
+            constraint = face_gui_control.constraints.get('Child Of')
+            if constraint and round(constraint.influence, 3) != round(face_follow_head_switch.location.y, 3):
+                constraint.influence = face_follow_head_switch.location.y
+
+        # update the eye aim follow head switch constraint influence
+        eye_aim_control = self.face_board.pose.bones.get('CTRL_C_eyesAim')
+        eye_aim_follow_head_switch = self.face_board.pose.bones.get('CTRL_eyesAimFollowHead')
+        if eye_aim_follow_head_switch and eye_aim_control:
+            constraint = eye_aim_control.constraints.get('Child Of')
+            if constraint and round(constraint.influence, 3) != round(eye_aim_follow_head_switch.location.y, 3):
+                constraint.influence = eye_aim_follow_head_switch.location.y
+
+        # update the eye aim control visibility if needed
+        if eye_aim_control:
+            if self.head_use_eye_aim == eye_aim_control.bone.hide:
+                eye_aim_control.bone.hide = not self.head_use_eye_aim
+
+            for child in eye_aim_control.children_recursive:
+                if not child.name.startswith(('GRP_', 'LOC_')):
+                    if self.head_use_eye_aim == child.bone.hide:
+                        child.bone.hide = not self.head_use_eye_aim
 
     def update_head_gui_control_values(self, override_values: dict[str, dict[str, float]] | None = None):
         # skip if the face board is not set
@@ -1265,6 +1296,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False # type: ignore
             
             if component in ('head', 'all') and self.head_initialized:
+                self.update_head_switch_values()
                 self.update_head_gui_control_values()
                 # apply the changes
                 if self.evaluate_bones:
