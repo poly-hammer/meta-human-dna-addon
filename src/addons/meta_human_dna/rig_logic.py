@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Literal
 from .constants import (
     SCALE_FACTOR, 
     SHAPE_KEY_NAME_MAX_LENGTH,
-    RBF_SOLVER_POSTFIX
+    FLOATING_POINT_PRECISION
 )
 
 if TYPE_CHECKING:
@@ -953,6 +953,66 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                     if self.head_use_eye_aim == child.bone.hide:
                         child.bone.hide = not self.head_use_eye_aim
 
+    def get_head_gui_control_values_from_eye_aim(self) -> dict[str, dict[str, float]]:
+        values = {}
+        if not self.face_board:
+            return values
+        
+        for target_name, eye_bone_name, control_name in [
+            ('CTRL_L_eyeAim', 'FACIAL_L_Eye', 'CTRL_L_eye'), 
+            ('CTRL_R_eyeAim', 'FACIAL_R_Eye', 'CTRL_R_eye')
+        ]:
+            target = self.face_board.pose.bones.get(target_name)
+            eye = self.head_rig.pose.bones.get(eye_bone_name)
+            if target and eye:
+                eye_rest_matrix = self.face_board.matrix_world @ eye.bone.matrix_local
+                
+                # Current eye-to-target direction in world space
+                eye_pos = self.face_board.matrix_world @ eye.head
+                target_pos = self.face_board.matrix_world @ target.head
+                look_direction = target_pos - eye_pos
+
+                if look_direction.length < FLOATING_POINT_PRECISION:
+                    continue
+
+                look_direction.normalize()
+
+                # Convert look direction to eye's local space
+                eye_matrix_inv = eye_rest_matrix.inverted()
+                local_look_direction = (eye_matrix_inv.to_3x3() @ look_direction).normalized()
+
+                # Calculate horizontal distance (projection onto XZ plane)
+                horizontal_dist = math.sqrt(local_look_direction.x**2 + local_look_direction.z**2)
+                
+                if horizontal_dist > FLOATING_POINT_PRECISION:
+                    # Remap yaw to continuous range centered on forward direction (-Z)
+                    # Instead of atan2(x, -z), we use the normalized x component directly
+                    # This gives us a smooth -1 to 1 range for horizontal movement
+                    x_normalized = local_look_direction.x / horizontal_dist
+                    
+                    # For better control, we can use asin which gives -90° to 90° range
+                    yaw = math.asin(max(-1.0, min(1.0, x_normalized)))
+                else:
+                    # Looking straight up/down, yaw is undefined
+                    yaw = 0.0
+                
+                # Pitch is the angle from the horizontal plane
+                pitch = math.atan2(local_look_direction.y, horizontal_dist)
+                
+                # Map angles to -1..1 range based on max rotation
+                x_max_rad = math.radians(60.0)
+                y_max_rad = math.radians(30.0)
+
+                x_control = max(-1.0, min(1.0, yaw / x_max_rad))
+                y_control = max(-1.0, min(1.0, pitch / y_max_rad))
+
+                values[control_name] = {
+                    'x': x_control,
+                    'y': y_control
+                }
+
+        return values
+
     def update_head_gui_control_values(self, override_values: dict[str, dict[str, float]] | None = None):
         # skip if the face board is not set
         if not self.face_board or not self.head_dna_reader:
@@ -960,6 +1020,12 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         
         missing_gui_controls = []
         
+        center_eye_control = self.face_board.pose.bones.get('CTRL_C_eye')
+        
+        eye_aim_override_values = {}
+        if self.head_use_eye_aim:
+            eye_aim_override_values = self.get_head_gui_control_values_from_eye_aim()
+
         for index in range(self.head_dna_reader.getGUIControlCount()):
             full_name = self.head_dna_reader.getGUIControlName(index)
             control_name, axis = full_name.split('.')
@@ -975,6 +1041,17 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                     pose_bone = self.face_board.pose.bones.get(control_name)
                     if pose_bone:
                         value = getattr(pose_bone.location, axis)
+                        # special case for the eye controls, if the center eye control is above 0, use that value instead
+                        if control_name in ['CTRL_L_eye', 'CTRL_R_eye']:
+                            center_value = eye_aim_override_values.get(control_name, {}).get(axis)
+                            if center_value is not None:
+                                if abs(center_value) > FLOATING_POINT_PRECISION:
+                                    value = center_value
+                            elif center_eye_control:
+                                center_value = getattr(center_eye_control.location, axis)
+                                if abs(center_value) > FLOATING_POINT_PRECISION:
+                                    value = center_value
+
                         self.head_instance.setGUIControl(index, value)
                     else:
                         missing_gui_controls.append(control_name)

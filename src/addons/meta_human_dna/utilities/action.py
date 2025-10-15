@@ -289,7 +289,7 @@ def import_face_board_action_from_fbx(
         curve_name = action.name.split('.')[0]
 
         # skip any eye aim controls
-        if curve_name in EYE_AIM_BONES + FACE_BOARD_SWITCHES:
+        if curve_name in EYE_AIM_BONES + FACE_BOARD_SWITCHES + ['CTRL_C_eye']:
             continue
 
         for source_fcurve in action.fcurves:
