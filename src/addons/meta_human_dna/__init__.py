@@ -55,7 +55,7 @@ classes = [
     operators.ReImportThisShapeKey,
     operators.RefreshMaterialSlotNames,
     operators.RevertMaterialSlotValues,
-    operators.DuplicateRigLogicInstance,
+    operators.DuplicateRigInstance,
     operators.AddRigLogicTextureNode,
     operators.MetaHumanDnaReportError,
     operators.UILIST_RIG_LOGIC_OT_entry_move,

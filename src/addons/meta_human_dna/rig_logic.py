@@ -538,7 +538,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     warning_messages = []
     
     def get_shape_key(self, mesh_index: int) -> bpy.types.Key | None:
-        shape_key = self.data.get('shape_key', {}).get(mesh_index)
+        shape_key = self.data.get(f'{self.name}_shape_key', {}).get(mesh_index)
         try:
             if shape_key:
                 shape_key.name
@@ -553,13 +553,13 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
         mesh_object = self.head_mesh_index_lookup.get(mesh_index)
         if mesh_object:
-            self.data['shape_key'] = self.data.get('shape_key', {})
+            self.data[f'{self.name}_shape_key'] = self.data.get(f'{self.name}_shape_key', {})
             for shape_key in bpy.data.shape_keys:
                 if shape_key.user == mesh_object.data:
                     key_block = shape_key.key_blocks.get(name)
                     if key_block:
                         # store the shape key in the shape key property so we don't have to search for it again
-                        self.data['shape_key'][mesh_index] = shape_key
+                        self.data[f'{self.name}_shape_key'][mesh_index] = shape_key
                         return key_block
 
     @property
@@ -584,7 +584,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     @property
     def head_texture_masks_node(self) -> bpy.types.ShaderNodeGroup | None:
         # first check if the texture masks node is set
-        texture_masks_node = self.data.get('head_texture_masks_node')
+        texture_masks_node = self.data.get(f'{self.name}_head_texture_masks_node')
         if texture_masks_node is False:
             return None
         elif texture_masks_node is not None:
@@ -592,19 +592,19 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         else:
             node = callbacks.get_head_texture_logic_node(self.head_material)
             if node:
-                self.data['head_texture_masks_node'] = node
-                return self.data['head_texture_masks_node']
+                self.data[f'{self.name}_head_texture_masks_node'] = node
+                return self.data[f'{self.name}_head_texture_masks_node']
 
-        self.data['head_texture_masks_node'] = False
+        self.data[f'{self.name}_head_texture_masks_node'] = False
 
     @property
     def head_initialized(self) -> bool:
-        return bool(self.data.get('head_initialized'))
-    
+        return bool(self.data.get(f'{self.name}_head_initialized'))
+
     @property
     def body_initialized(self) -> bool:
-        return bool(self.data.get('body_initialized'))
-    
+        return bool(self.data.get(f'{self.name}_body_initialized'))
+
     @property
     def head_use_eye_aim(self) -> bool:
         look_at_switch = self.face_board.pose.bones.get('CTRL_lookAtSwitch')
@@ -615,7 +615,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         if not self.head_dna_reader:
             return {}
 
-        mesh_index_lookup = self.data.get('head_mesh_index_lookup', {})
+        mesh_index_lookup = self.data.get(f'{self.name}_head_mesh_index_lookup', {})
         if mesh_index_lookup:
             return mesh_index_lookup
         
@@ -625,15 +625,15 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             if mesh_object:
                 mesh_index_lookup[mesh_index] = mesh_object
 
-        self.data['head_mesh_index_lookup'] = mesh_index_lookup
-        return self.data['head_mesh_index_lookup'] # type: ignore
+        self.data[f'{self.name}_head_mesh_index_lookup'] = mesh_index_lookup
+        return self.data[f'{self.name}_head_mesh_index_lookup'] # type: ignore
 
     @property
     def head_channel_name_to_index_lookup(self) -> dict[str, int]:
         if not self.head_dna_reader:
             return {}
-        
-        channel_name_to_index_lookup = self.data.get('head_channel_name_to_index_lookup', {})
+
+        channel_name_to_index_lookup = self.data.get(f'{self.name}_head_channel_name_to_index_lookup', {})
         if channel_name_to_index_lookup:
             return channel_name_to_index_lookup
         
@@ -644,15 +644,15 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 shape_key_name = self.head_dna_reader.getBlendShapeChannelName(channel_index)
                 channel_name_to_index_lookup[f'{mesh_name}__{shape_key_name}'] = channel_index
 
-        self.data['head_channel_name_to_index_lookup'] = channel_name_to_index_lookup
-        return self.data['head_channel_name_to_index_lookup'] # type: ignore
+        self.data[f'{self.name}_head_channel_name_to_index_lookup'] = channel_name_to_index_lookup
+        return self.data[f'{self.name}_head_channel_name_to_index_lookup'] # type: ignore
 
     @property
     def head_channel_index_to_mesh_index_lookup(self) -> dict[int, int]:
         if not self.head_dna_reader:
             return {}
 
-        mesh_shape_key_index_lookup = self.data.get('head_mesh_shape_key_index_lookup', {})
+        mesh_shape_key_index_lookup = self.data.get(f'{self.name}_head_mesh_shape_key_index_lookup', {})
         if mesh_shape_key_index_lookup:
             return mesh_shape_key_index_lookup
         
@@ -661,39 +661,39 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             for index in range(self.head_dna_reader.getBlendShapeTargetCount(mesh_index)):
                 channel_index = self.head_dna_reader.getBlendShapeChannelIndex(mesh_index, index)
                 mesh_shape_key_index_lookup[channel_index] = mesh_index
-        self.data['head_mesh_shape_key_index_lookup'] = mesh_shape_key_index_lookup
+        self.data[f'{self.name}_head_mesh_shape_key_index_lookup'] = mesh_shape_key_index_lookup
         return mesh_shape_key_index_lookup
     
     @property
     def head_manager(self) -> 'riglogic.RigLogic':
-        return self.data.get('head_manager')
+        return self.data.get(f'{self.name}_head_manager')
     
     @property
     def head_instance(self) -> 'riglogic.RigInstance':
-        return self.data.get('head_instance')
-    
+        return self.data.get(f'{self.name}_head_instance')
+
     @property
     def head_dna_reader(self) -> 'riglogic.BinaryStreamReader':
-        return self.data.get('head_dna_reader') # type: ignore
-    
+        return self.data.get(f'{self.name}_head_dna_reader') # type: ignore
+
     @property
     def body_manager(self) -> 'riglogic.RigLogic':
-        return self.data.get('body_manager')
+        return self.data.get(f'{self.name}_body_manager')
 
     @property
     def body_instance(self) -> 'riglogic.RigInstance':
-        return self.data.get('body_instance')
+        return self.data.get(f'{self.name}_body_instance')
 
     @property
     def body_dna_reader(self) -> 'riglogic.BinaryStreamReader':
-        return self.data.get('body_dna_reader') # type: ignore
+        return self.data.get(f'{self.name}_body_dna_reader') # type: ignore
 
     @property
     def head_shape_key_blocks(self) -> dict[int, list[bpy.types.ShapeKey]]:
         if not self.head_dna_reader:
             return {}
 
-        shape_key_blocks = self.data.get('head_shape_key_blocks')
+        shape_key_blocks = self.data.get(f'{self.name}_head_shape_key_blocks')
         if shape_key_blocks is None:
             self.shape_key_list.clear()
             mesh_index = 0 # this is the head lod 0 mesh index
@@ -731,14 +731,14 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                     f'Rig Logic Instance {self.name} did not cache {failed_to_cache_count} shape key blocks, '
                     'because they are not in the scene. However they are in the DNA file. Import all shape keys to cache them.'
                 )
-            
-            self.data['head_shape_key_blocks'] = shape_key_blocks
 
-        return self.data['head_shape_key_blocks']
-    
+            self.data[f'{self.name}_head_shape_key_blocks'] = shape_key_blocks
+
+        return self.data[f'{self.name}_head_shape_key_blocks']
+
     @property
     def head_rest_pose(self) -> dict[str, tuple[Vector, Euler, Vector, Matrix]]:
-        rest_pose = self.data.get('head_rest_pose', {})
+        rest_pose = self.data.get(f'{self.name}_head_rest_pose', {})
         if rest_pose:
             return rest_pose
         
@@ -756,13 +756,13 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                     return {}
         
         # save the rest pose so we don't have to calculate it again
-        self.data['head_rest_pose'] = rest_pose
+        self.data[f'{self.name}_head_rest_pose'] = rest_pose
         # return a copy so the original rest position is not modified
-        return self.data['head_rest_pose']
-    
+        return self.data[f'{self.name}_head_rest_pose']
+
     @property
     def head_raw_control_bone_names(self) -> list[str]:
-        raw_control_bone_names = self.data.get('head_raw_control_bone_names', [])
+        raw_control_bone_names = self.data.get(f'{self.name}_head_raw_control_bone_names', [])
         if raw_control_bone_names:
             return raw_control_bone_names
         
@@ -773,13 +773,13 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             raw_control_bone_names.add(control_name)
 
         # save the raw control bone names so we don't have to query them again
-        self.data['head_raw_control_bone_names'] = list(raw_control_bone_names)
+        self.data[f'{self.name}_head_raw_control_bone_names'] = list(raw_control_bone_names)
         # return a copy so the original raw control bone names are not modified
-        return self.data['head_raw_control_bone_names']
+        return self.data[f'{self.name}_head_raw_control_bone_names']
 
     @property
     def body_rest_pose(self) -> dict[str, tuple[Vector, Euler, Vector, Matrix]]:
-        rest_pose = self.data.get('body_rest_pose', {})
+        rest_pose = self.data.get(f'{self.name}_body_rest_pose', {})
         if rest_pose:
             return rest_pose
         
@@ -800,13 +800,13 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                     return {}
         
         # save the rest pose so we don't have to calculate it again
-        self.data['body_rest_pose'] = rest_pose
+        self.data[f'{self.name}_body_rest_pose'] = rest_pose
         # return a copy so the original rest position is not modified
-        return self.data['body_rest_pose']
-    
+        return self.data[f'{self.name}_body_rest_pose']
+
     @property
     def body_raw_control_bone_names(self) -> list[str]:
-        raw_control_bone_names = self.data.get('body_raw_control_bone_names', [])
+        raw_control_bone_names = self.data.get(f'{self.name}_body_raw_control_bone_names', [])
         if raw_control_bone_names:
             return raw_control_bone_names
         
@@ -817,9 +817,9 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             raw_control_bone_names.add(control_name)
 
         # save the raw control bone names so we don't have to query them again
-        self.data['body_raw_control_bone_names'] = list(raw_control_bone_names)
+        self.data[f'{self.name}_body_raw_control_bone_names'] = list(raw_control_bone_names)
         # return a copy so the original raw control bone names are not modified
-        return self.data['body_raw_control_bone_names']
+        return self.data[f'{self.name}_body_raw_control_bone_names']
 
     def head_initialize(self):        
         from .bindings import riglogic
@@ -830,7 +830,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
         # ---- Initialize the Head Rig Logic Instance ---
         # set the dna reader
-        self.data['head_dna_reader'] = get_dna_reader(
+        self.data[f'{self.name}_head_dna_reader'] = get_dna_reader(
             file_path=Path(bpy.path.abspath(self.head_dna_file_path)).absolute(),
             memory_resource=None
         )
@@ -844,13 +844,13 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                     pose_bone.rotation_mode = "QUATERNION"
 
         # set the rig logic manager and instance
-        self.data['head_manager'] = riglogic.RigLogic.create(
-            reader=self.data['head_dna_reader'],
+        self.data[f'{self.name}_head_manager'] = riglogic.RigLogic.create(
+            reader=self.data[f'{self.name}_head_dna_reader'],
             config=riglogic.Configuration(),
             memRes=None
         )
-        self.data['head_instance'] = riglogic.RigInstance.create(
-            rigLogic=self.data['head_manager'], 
+        self.data[f'{self.name}_head_instance'] = riglogic.RigInstance.create(
+            rigLogic=self.data[f'{self.name}_head_manager'], 
             memRes=None
         )
 
@@ -863,7 +863,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         self.head_raw_control_bone_names
         self.head_rest_pose
 
-        self.data['head_initialized'] = True
+        self.data[f'{self.name}_head_initialized'] = True
 
     def body_initialize(self):
         from .bindings import riglogic
@@ -874,7 +874,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
         # ---- Initialize the Body Rig Logic Instance ---
         # set the body dna reader
-        self.data['body_dna_reader'] = get_dna_reader(
+        self.data[f'{self.name}_body_dna_reader'] = get_dna_reader(
             file_path=Path(bpy.path.abspath(self.body_dna_file_path)).absolute(),
             memory_resource=None
         )
@@ -888,8 +888,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                     pose_bone.rotation_mode = "XYZ"
 
         # set the rig logic manager and instance
-        self.data['body_manager'] = riglogic.RigLogic.create(
-            reader=self.data['body_dna_reader'],
+        self.data[f'{self.name}_body_manager'] = riglogic.RigLogic.create(
+            reader=self.data[f'{self.name}_body_dna_reader'],
             config=riglogic.Configuration(
                 calculationType=riglogic.CalculationType.AnyVector,
                 loadJoints=True,
@@ -905,8 +905,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             ),
             memRes=None
         )
-        self.data['body_instance'] = riglogic.RigInstance.create(
-            rigLogic=self.data['body_manager'], 
+        self.data[f'{self.name}_body_instance'] = riglogic.RigInstance.create(
+            rigLogic=self.data[f'{self.name}_body_manager'], 
             memRes=None
         )
 
@@ -914,7 +914,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         self.body_raw_control_bone_names
         self.body_rest_pose
 
-        self.data['body_initialized'] = True
+        self.data[f'{self.name}_body_initialized'] = True
 
     def initialize(self):
         self.head_initialize()
@@ -923,8 +923,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     def destroy(self):            
         # clears these data items from the dictionary, this frees them up to be garbage collected
         self.data.clear()
-        self.data['head_initialized'] = False
-        self.data['body_initialized'] = False
+        self.data[f'{self.name}_head_initialized'] = False
+        self.data[f'{self.name}_body_initialized'] = False
 
     def update_head_switch_values(self):
         # update the head follow body switch constraint influence
@@ -1056,12 +1056,12 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                     else:
                         missing_gui_controls.append(control_name)
 
-        if missing_gui_controls and not self.data.get('logged_missing_gui_controls'):
+        if missing_gui_controls and not self.data.get(f'{self.name}_logged_missing_gui_controls'):
             logger.warning(f'The following GUI controls are missing on "{self.face_board.name}":\n{pformat(missing_gui_controls)}.')
             logger.warning(f'You are not listening to {len(missing_gui_controls)} GUI controls')
             logger.warning('This is most likely due to the DNA file being an older version then what the face board currently supports.')
             logger.warning('Using a new .dna file created from the latest version of MetaHuman Creator will probably resolve this.')
-            self.data['logged_missing_gui_controls'] = True
+            self.data[f'{self.name}_logged_missing_gui_controls'] = True
 
         # set the active LOD level for the head instance to optimize performance
         self.head_instance.setLOD(level=int(self.active_lod[-1]))
@@ -1109,7 +1109,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 else:
                     missing_shape_keys.append(index)
 
-        if missing_shape_keys and not self.data.get('logged_missing_shape_keys'):
+        if missing_shape_keys and not self.data.get(f'{self.name}_logged_missing_shape_keys'):
             name_lookup = {v:k for k,v in self.head_channel_name_to_index_lookup.items()}
             missing_data = {}
             # group the missing shape keys by mesh object
@@ -1137,8 +1137,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
             if len(missing_data.keys()) > 0:
                 logger.warning(f'A total of {len(missing_data.keys())} shape key blocks are not being updated by Rig Logic.')
-            
-            self.data['logged_missing_shape_keys'] = True
+
+            self.data[f'{self.name}_logged_missing_shape_keys'] = True
 
         return shape_key_values
 
@@ -1294,11 +1294,11 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                         missing_raw_controls.append(control_name)
                 
 
-        if missing_raw_controls and not self.data.get('logged_missing_raw_controls'):
+        if missing_raw_controls and not self.data.get(f'{self.name}_logged_missing_raw_controls'):
             logger.warning(f'The following raw controls are missing on "{self.body_rig.name}":\n{pformat(missing_raw_controls)}.')
             logger.warning(f'You are not listening to {len(missing_raw_controls)} raw controls')
             logger.warning(f'This is most likely due to the these bones being missing from the rig {self.body_rig.name}.')
-            self.data['logged_missing_raw_controls'] = True
+            self.data[f'{self.name}_logged_missing_raw_controls'] = True
 
         # set the active LOD level for the body instance to optimize performance
         self.body_instance.setLOD(level=int(self.active_lod[-1]))
