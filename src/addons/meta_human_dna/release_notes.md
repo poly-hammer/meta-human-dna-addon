@@ -1,10 +1,15 @@
 ## Minor Changes
 * Added Custom Color space support [#173](https://github.com/poly-hammer/meta-human-dna-addon/issues/173)
+* Added Eye Aim Control [#189](https://github.com/poly-hammer/meta-human-dna-addon/issues/189)
 
 ## Patch Changes
 * Fixed disappearing component sub-panels under RigLogic panel [#167](https://github.com/poly-hammer/meta-human-dna-addon/issues/167)
 * Fixed fps scale when importing face board animation [#186](https://github.com/poly-hammer/meta-human-dna-addon/issues/186)
+* Fixed Face Board pose order [#177](https://github.com/poly-hammer/meta-human-dna-addon/issues/177)
 * Added custom operator `File > Import > MetaHuman Link/Append` that allows users to link and append metahuman rigs from other .blend files [#169](https://github.com/poly-hammer/meta-human-dna-addon/issues/169)
+* Fixed face board switches [#165](https://github.com/poly-hammer/meta-human-dna-addon/issues/165)
+* Fixed Multiplied Textures [#145](https://github.com/poly-hammer/meta-human-dna-addon/issues/145)
+* Fixed Incorrect wrinkle map poses [#42](https://github.com/poly-hammer/meta-human-dna-addon/issues/42)
 
 
 > [!WARNING]  

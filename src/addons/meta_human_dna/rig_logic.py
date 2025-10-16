@@ -1156,8 +1156,9 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
         # update texture masks values
         for index, value in enumerate(self.head_instance.getAnimatedMapOutputs()):
-            name = self.head_dna_reader.getAnimatedMapName(index) 
-            slider_name = f"{name.split('.')[-1]}_msk"
+            name = self.head_dna_reader.getAnimatedMapName(index)
+            slider_name = f"{name.split('.')[0].split('_')[1].lower().replace('cm', 'wm')}.{name.split('.')[-1]}_msk"
+            
             mask_slider = self.head_texture_masks_node.inputs.get(slider_name)
             if mask_slider:
                 mask_slider.default_value = value # type: ignore

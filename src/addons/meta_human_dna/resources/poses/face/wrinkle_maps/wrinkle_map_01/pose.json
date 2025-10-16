@@ -716,28 +716,28 @@
     "CTRL_L_mouth_purseD": {
         "location": [
             0.0,
-            0.0,
+            1.0,
             0.0
         ]
     },
     "CTRL_L_mouth_purseU": {
         "location": [
             0.0,
-            0.0,
+            1.0,
             0.0
         ]
     },
     "CTRL_R_mouth_purseD": {
         "location": [
             0.0,
-            0.0,
+            1.0,
             0.0
         ]
     },
     "CTRL_R_mouth_purseU": {
         "location": [
             0.0,
-            0.0,
+            1.0,
             0.0
         ]
     },
