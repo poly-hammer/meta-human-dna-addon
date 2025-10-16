@@ -224,6 +224,19 @@ class AppendOrLinkMetaHuman(bpy.types.Operator, importer.LinkAppendMetaHumanImpo
                             exclusively=True
                         )
 
+                    utilities.constrain_face_board_to_head(
+                        face_board_object=instance.face_board,
+                        head_rig_object=instance.head_rig,
+                        body_rig_object=instance.body_rig,
+                        bone_name='CTRL_faceGUI'
+                    )
+                    utilities.constrain_face_board_to_head(
+                        face_board_object=instance.face_board,
+                        head_rig_object=instance.head_rig,
+                        body_rig_object=instance.body_rig,
+                        bone_name='CTRL_C_eyesAim'
+                    )
+
         return {'FINISHED'}
 
 class ImportFaceBoardAnimation(bpy.types.Operator, importer.ImportAsset):

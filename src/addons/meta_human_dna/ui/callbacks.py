@@ -55,7 +55,7 @@ def get_head_texture_logic_node(material: bpy.types.Material) -> bpy.types.Shade
         if node.type == 'GROUP':
             # Check if this is the right group node by checking one input name
             # We don't check all to avoid performance issues
-            if node.inputs.get('head_wm1_jawOpen_msk'):
+            if node.inputs.get('wm1.head_wm1_jawOpen_msk'):
                 return node # type: ignore
             
 def get_body_texture_logic_node(material: bpy.types.Material) -> bpy.types.ShaderNodeGroup | None:

@@ -192,6 +192,36 @@ FACE_GUI_EMPTIES = [
     "eyesSetup_grp"
 ]
 
+EYE_AIM_BONES = [
+    'LOC_R_eyeUIDriver',
+    'LOC_L_eyeUIDriver',
+    'LOC_C_eyeUIDriver',
+    'LOC_R_eyeDriver',
+    'LOC_L_eyeDriver',
+    'LOC_C_eyeDriver',
+    'LOC_R_eyeAimDriver',
+    'LOC_L_eyeAimDriver',
+    'LOC_R_eyeAimUp',
+    'LOC_L_eyeAimUp',
+    'GRP_convergenceGUI',
+    'GRP_L_eyeAim',
+    'GRP_R_eyeAim',
+    'FRM_convergenceGUI',
+    'FRM_convergenceSwitch',
+    'TEXT_convergence',
+    'CTRL_C_eyesAim',
+    'CTRL_L_eyeAim',
+    'CTRL_R_eyeAim',
+    'CTRL_convergenceSwitch'
+]
+
+FACE_BOARD_SWITCHES = [
+    'CTRL_rigLogicSwitch',
+    'CTRL_lookAtSwitch',
+    'CTRL_faceGUIfollowHead',
+    'CTRL_eyesAimFollowHead'
+]
+
 BODY_HIGH_LEVEL_TOPOLOGY_GROUPS = [
     "torso",
     "arm_L",

@@ -29,6 +29,7 @@ from ..constants import (
     DEFAULT_UV_TOLERANCE,
     FACE_GUI_EMPTIES,
     FACE_BOARD_FILE_PATH,
+    EYE_AIM_BONES,
     ToolInfo
 )
 
@@ -816,6 +817,73 @@ def import_face_board(name: str) -> bpy.types.Object | None:
     return face_board_object
 
 
+def un_constrain_face_board_to_head(
+        face_board_object: bpy.types.Object,
+        bone_name: str
+    ) -> None:
+    if face_board_object:
+        switch_to_pose_mode(face_board_object)
+        pose_bone = face_board_object.pose.bones.get(bone_name) # type: ignore
+        if pose_bone:
+            constraint = pose_bone.constraints.get('Child Of')
+            if constraint:
+                pose_bone.constraints.remove(constraint)
+
+
+def constrain_face_board_to_head(
+        head_rig_object: bpy.types.Object,
+        body_rig_object: bpy.types.Object,
+        face_board_object: bpy.types.Object,
+        bone_name: str
+    ) -> None:
+    if head_rig_object and face_board_object:
+        switch_to_pose_mode(face_board_object)
+        pose_bone = face_board_object.pose.bones.get(bone_name) # type: ignore
+        if pose_bone:
+            constraint = pose_bone.constraints.get('Child Of')
+            if not constraint:
+                constraint = pose_bone.constraints.new(type='CHILD_OF')
+
+            rig_object = body_rig_object or head_rig_object
+            constraint.target = rig_object # type: ignore
+            constraint.subtarget = 'head' # type: ignore
+            # Set the inverse matrix using the operator
+            with bpy.context.temp_override(active_object=face_board_object, active_pose_bone=pose_bone): # type: ignore
+                bpy.ops.constraint.childof_set_inverse(constraint=constraint.name, owner='BONE')
+
+
+@preserve_context
+def position_eye_aim(
+        head_rig_object: bpy.types.Object,
+        face_board_object: bpy.types.Object
+    ) -> None:
+
+    if head_rig_object and face_board_object:
+
+        un_constrain_face_board_to_head(face_board_object, bone_name='CTRL_C_eyesAim')
+
+        left_eye_bone = head_rig_object.pose.bones.get('FACIAL_L_Eye') # type: ignore
+        right_eye_bone = head_rig_object.pose.bones.get('FACIAL_R_Eye') # type: ignore
+        if left_eye_bone and right_eye_bone:
+            eye_center = head_rig_object.matrix_world.inverted() @ ((left_eye_bone.head + right_eye_bone.head) / 2)
+            target_eye_aim_world_location = eye_center + Vector((0, -0.3, 0))
+
+            switch_to_edit_mode(face_board_object)
+            eye_aim_center = face_board_object.data.edit_bones.get('CTRL_C_eyesAim') # type: ignore
+            if eye_aim_center:
+                eye_aim_world_location = face_board_object.matrix_world.inverted() @ eye_aim_center.head
+
+                # calculate the offset between the current eye aim location and the target location
+                offset = eye_aim_world_location - target_eye_aim_world_location
+
+                # move all eye aim bones by the offset
+                for bone_name in EYE_AIM_BONES:
+                    bone = face_board_object.data.edit_bones.get(bone_name) # type: ignore
+                    if bone:
+                        bone.head -= offset
+                        bone.tail -= offset
+
+
 def position_face_board(
         head_mesh_object: bpy.types.Object,
         head_rig_object: bpy.types.Object,
@@ -828,6 +896,8 @@ def position_face_board(
     )
 
     if head_mesh_object and head_rig_object:
+        un_constrain_face_board_to_head(face_board_object, bone_name='CTRL_faceGUI')
+
         head_mesh_center = get_bounding_box_center(head_mesh_object)
         face_gui_center = get_bounding_box_center(face_board_object)
         head_mesh_right_x = get_bounding_box_right_x(head_mesh_object)
@@ -843,3 +913,6 @@ def position_face_board(
 
         # apply the translation to the face gui object
         apply_transforms(face_board_object, location=True) # type: ignore
+
+        # position the eye aim controls
+        position_eye_aim(head_rig_object, face_board_object)
