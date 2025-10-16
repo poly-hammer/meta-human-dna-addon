@@ -215,11 +215,27 @@ class ImportAsset(ImportHelper):
     """
     This class subclasses the import helper to define a custom file browser
     """
-    bl_idname = "meta_human_dna.import_dna"
     bl_options = {'UNDO', 'PRESET'}
 
     def draw(self, context):
         pass
+
+class ImportAnimation(ImportAsset):
+    def draw(self, context):
+        layout = self.layout # type: ignore
+        if not layout:
+            return
+        
+        operator = context.space_data.active_operator # type: ignore
+        if not operator:
+            return
+        
+        row = layout.row()
+        row.label(text="Animation Import Options:")
+        row = layout.row()
+        row.prop(operator, "round_sub_frames")
+        row = layout.row()
+        row.prop(operator, "match_frame_rate")
 
 class LinkAppendMetaHumanImportHelper(ImportHelper):
     """

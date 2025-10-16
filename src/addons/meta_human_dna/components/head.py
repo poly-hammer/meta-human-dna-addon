@@ -27,7 +27,9 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
     def import_action(
             self, 
             file_path: Path, 
-            is_face_board: bool = True
+            is_face_board: bool = True,
+            round_sub_frames: bool = True,
+            match_frame_rate: bool = True
         ):
         file_path = Path(file_path)
         
@@ -35,7 +37,12 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
             if file_path.suffix.lower() == '.json':
                 utilities.import_face_board_action_from_json(file_path, self.face_board_object)
             elif file_path.suffix.lower() == '.fbx':
-                utilities.import_face_board_action_from_fbx(file_path, self.face_board_object)
+                utilities.import_face_board_action_from_fbx(
+                    file_path, 
+                    self.face_board_object,
+                    round_sub_frames=round_sub_frames,
+                    match_frame_rate=match_frame_rate
+                )
         elif self.head_rig_object:
             utilities.import_action_from_fbx(file_path, self.head_rig_object)
 

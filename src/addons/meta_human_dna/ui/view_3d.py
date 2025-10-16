@@ -517,7 +517,7 @@ class META_HUMAN_DNA_PT_rig_logic(bpy.types.Panel):
 
         if enabled:
             row = col.row()
-            row.operator('meta_human_dna.duplicate_rig_logic_instance', icon='DUPLICATE', text='')
+            row.operator('meta_human_dna.duplicate_rig_instance', icon='DUPLICATE', text='')
 
             row = col.row()
             props = row.operator("meta_human_dna.rig_logic_instance_entry_move", text="", icon='TRIA_UP')

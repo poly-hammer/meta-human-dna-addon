@@ -239,7 +239,7 @@ class AppendOrLinkMetaHuman(bpy.types.Operator, importer.LinkAppendMetaHumanImpo
 
         return {'FINISHED'}
 
-class ImportFaceBoardAnimation(bpy.types.Operator, importer.ImportAsset):
+class ImportFaceBoardAnimation(bpy.types.Operator, importer.ImportAnimation):
     """Import an animation for the metahuman face board exported from an Unreal Engine Level Sequence"""
     bl_idname = "meta_human_dna.import_animation"
     bl_label = "Import Animation"
@@ -251,14 +251,37 @@ class ImportFaceBoardAnimation(bpy.types.Operator, importer.ImportAsset):
         subtype="FILE_PATH",
     ) # type: ignore
 
+    round_sub_frames: bpy.props.BoolProperty(
+        name="Round Sub Frames",
+        default=True,
+        description=(
+            "Whether to round sub frames when importing the animation. This "
+            "ensure all keyframes are on whole frames with integer values"
+        )
+    ) # type: ignore
+
+    match_frame_rate: bpy.props.BoolProperty(
+        name="Match Frame Rate",
+        default=True,
+        description=(
+            "Whether to match the frame rate when importing the animation. This "
+            "will scale the animation curves to match the current scene frame rate"
+        )
+    ) # type: ignore
+
     def execute(self, context):
         logger.info(f'Importing animation {self.filepath}')  # type: ignore
         head = utilities.get_active_head()
         if head:
-            head.import_action(Path(self.filepath))  # type: ignore
+            head.import_action(
+                Path(self.filepath), # type: ignore
+                is_face_board=True,
+                round_sub_frames=self.round_sub_frames,
+                match_frame_rate=self.match_frame_rate
+            )
         return {'FINISHED'}
     
-class ImportComponentAnimation(bpy.types.Operator, importer.ImportAsset):
+class ImportComponentAnimation(bpy.types.Operator, importer.ImportAnimation):
     """Import an animation for the selected metahuman component that has been exported from an Unreal Engine"""
     bl_idname = "meta_human_dna.import_component_animation"
     bl_label = "Import Component Animation"
@@ -274,6 +297,24 @@ class ImportComponentAnimation(bpy.types.Operator, importer.ImportAsset):
         default="body",
         options={"HIDDEN"},
         subtype="FILE_PATH",
+    ) # type: ignore
+
+    round_sub_frames: bpy.props.BoolProperty(
+        name="Round Sub Frames",
+        default=True,
+        description=(
+            "Whether to round sub frames when importing the animation. This "
+            "ensure all keyframes are on whole frames with integer values"
+        )
+    ) # type: ignore
+
+    match_frame_rate: bpy.props.BoolProperty(
+        name="Match Frame Rate",
+        default=True,
+        description=(
+            "Whether to match the frame rate when importing the animation. This "
+            "will scale the animation curves to match the current scene frame rate"
+        )
     ) # type: ignore
 
     def execute(self, context):
@@ -1543,10 +1584,10 @@ class RevertMaterialSlotValues(bpy.types.Operator):
         callbacks.update_material_slot_to_instance_mapping(self, context)
         return {'FINISHED'}
     
-class DuplicateRigLogicInstance(bpy.types.Operator):
-    """Duplicate the active Rig Logic Instance. This copies all it's associated data and offsets it to the right"""
-    bl_idname = "meta_human_dna.duplicate_rig_logic_instance"
-    bl_label = "Duplicate Rig Logic Instance"
+class DuplicateRigInstance(bpy.types.Operator):
+    """Duplicate the active Rig Instance. This copies all it's associated data and offsets it to the right"""
+    bl_idname = "meta_human_dna.duplicate_rig_instance"
+    bl_label = "Duplicate Rig Instance"
 
     new_name: bpy.props.StringProperty(
         name="New Name", 
