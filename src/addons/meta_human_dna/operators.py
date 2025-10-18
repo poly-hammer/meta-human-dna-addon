@@ -170,7 +170,11 @@ class AppendOrLinkMetaHuman(bpy.types.Operator, importer.LinkAppendMetaHumanImpo
                             collection_names.append(collection_name)
 
         # extract the rig instance data from the blend file
-        data = utilities.extract_rig_instance_data_from_blend_file(Path(bpy.path.abspath(self.filepath))) # type: ignore
+        data, error = utilities.extract_rig_instance_data_from_blend_file(Path(bpy.path.abspath(self.filepath))) # type: ignore
+        if error:
+            logger.error(error)
+            self.report({'ERROR'}, f'Failed to extract rig instance data from blend file: {error}')
+            return {'CANCELLED'}
 
         # link the collections to the scene
         for collection_name in collection_names:

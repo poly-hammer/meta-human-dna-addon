@@ -5,7 +5,6 @@ import bpy
 import sys
 import math
 import uuid
-import tempfile
 import logging
 import subprocess
 import addon_utils
@@ -30,6 +29,7 @@ from ..constants import (
     FACE_GUI_EMPTIES,
     FACE_BOARD_FILE_PATH,
     EYE_AIM_BONES,
+    TEMP_FOLDER,
     ToolInfo
 )
 
@@ -725,11 +725,13 @@ def add_rig_instance(name: None | str = None) -> 'RigLogicInstance':
     return instance
 
 
-def extract_rig_instance_data_from_blend_file(blend_file_path: Path) -> list[dict]:
+def extract_rig_instance_data_from_blend_file(blend_file_path: Path) -> tuple[list[dict], str]:
     extracted_data = []
 
+    file_id = uuid.uuid4()
     script_file = SCRIPTS_FOLDER / 'save_rig_instance_data.py'
-    data_file = Path(tempfile.gettempdir()) / f"{uuid.uuid4()}.json"
+    data_file = TEMP_FOLDER / f"{file_id}.json"
+    error_file = TEMP_FOLDER / f"{file_id}_error.log"
 
     if sys.platform == 'win32':
         command = f'"{bpy.app.binary_path}" --background --python "{script_file}" -- --data-file "{data_file}" --blend-file "{blend_file_path}"'
@@ -739,15 +741,29 @@ def extract_rig_instance_data_from_blend_file(blend_file_path: Path) -> list[dic
     for line in shell(command=command):
         pass
 
-    with open(data_file, 'r') as f:
-        extracted_data = json.load(f)
+    if error_file.exists():
+        with open(error_file, 'r') as f:
+            error_message = f.read()
 
-    try:
-        os.remove(data_file)
-    except OSError as error:
-        logger.debug(error)
+        try:
+            os.remove(error_file)
+        except OSError as error:
+            logger.debug(error)
 
-    return extracted_data
+        return [], error_message
+
+    if data_file.exists():
+        with open(data_file, 'r') as f:
+            extracted_data = json.load(f)
+
+        try:
+            os.remove(data_file)
+        except OSError as error:
+            logger.debug(error)
+
+        return extracted_data, ''
+    
+    return [], 'Failed to extract rig instance data.'
 
 
 def duplicate_face_board(name: str) -> bpy.types.Object | None:    

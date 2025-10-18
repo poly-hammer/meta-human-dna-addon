@@ -3,6 +3,7 @@ import bpy
 import json
 import sys
 import argparse
+from pathlib import Path
 
 def main():
     # Get arguments after '--'
@@ -16,9 +17,16 @@ def main():
     parser.add_argument('--blend-file', type=str, help='The blend file to extract data from')
     args = parser.parse_args(argv)
 
+    data_file = Path(args.data_file)
     bpy.ops.wm.open_mainfile(filepath=args.blend_file)
 
-    os.makedirs(os.path.dirname(args.data_file), exist_ok=True)
+    # Ensure the addon is enabled
+    try:
+        bpy.ops.preferences.addon_enable(module='meta_human_dna')
+    except Exception:
+        pass
+
+    os.makedirs(data_file.parent, exist_ok=True)
     data = {}
     try:
         data = {
@@ -36,10 +44,12 @@ def main():
             }
             for i in bpy.context.scene.meta_human_dna.rig_logic_instance_list # type: ignore
         }
-    except KeyError as error:
-        print(error)
+    except Exception as error:
+        with open(f'{data_file.parent / data_file.stem}_error.log', 'w') as f:
+            f.write(str(error))
+            return
 
-    with open(args.data_file, 'w') as f:        
+    with open(data_file, 'w') as f:
         json.dump(data, f)
 
 if __name__ == "__main__":

@@ -1,5 +1,6 @@
 import os
 import math
+import tempfile
 from pathlib import Path
 from mathutils import Vector, Euler
 from typing import Literal
@@ -79,7 +80,7 @@ MATERIAL_SLOT_TO_MATERIAL_INSTANCE_DEFAULTS = {
     "cartilage_shader": "/Game/MetaHumans/Common/Face/Materials/M_Cartilage",
 }
 
-
+TEMP_FOLDER = Path(tempfile.gettempdir()) /  f"{ToolInfo.NAME}_addon"
 RESOURCES_FOLDER = Path(os.path.dirname(__file__), "resources")
 BINDINGS_FOLDER = Path(os.path.dirname(__file__), "bindings")
 PACKAGES_FOLDER = RESOURCES_FOLDER / "packages"
