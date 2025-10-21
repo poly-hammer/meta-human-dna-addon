@@ -170,6 +170,18 @@ class ShapeKeyData(bpy.types.PropertyGroup):
     ) # type: ignore
 
 
+class RBFSolverData(bpy.types.PropertyGroup):
+    name: bpy.props.StringProperty(
+        default='',
+        description='The name of the RBF solver',
+    ) # type: ignore
+    value: bpy.props.FloatProperty(
+        default=0.0,
+        description='The value of the RBF solver',
+        get=callbacks.get_shape_key_value, # this makes the value read-only
+    ) # type: ignore
+
+
 class RigLogicInstance(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty(
         default='my_metahuman',
@@ -523,6 +535,18 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     # ----- Internal Properties -----
     shape_key_list: bpy.props.CollectionProperty(type=ShapeKeyData) # type: ignore
     shape_key_list_active_index: bpy.props.IntProperty() # type: ignore
+
+    rbf_solver_list: bpy.props.CollectionProperty(type=RBFSolverData) # type: ignore
+    rbf_solver_list_active_index: bpy.props.IntProperty() # type: ignore
+
+    rbf_poses_list: bpy.props.CollectionProperty(type=RBFSolverData) # type: ignore
+    rbf_poses_list_active_index: bpy.props.IntProperty() # type: ignore
+
+    rbf_driver_list: bpy.props.CollectionProperty(type=RBFSolverData) # type: ignore
+    rbf_driver_list_active_index: bpy.props.IntProperty() # type: ignore
+
+    rbf_driven_list: bpy.props.CollectionProperty(type=RBFSolverData) # type: ignore
+    rbf_driven_list_active_index: bpy.props.IntProperty() # type: ignore
 
     output_head_item_list: bpy.props.CollectionProperty(type=OutputData) # type: ignore
     output_head_item_active_index: bpy.props.IntProperty() # type: ignore
@@ -1367,8 +1391,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             if not self.head_initialized:
                 self.head_initialize()
             
-            # if not self.body_initialized:
-            #     self.body_initialize()
+            if not self.body_initialized:
+                self.body_initialize()
 
             # turn off the dependency graph evaluation so we can update the controls without triggering an update
             bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False # type: ignore

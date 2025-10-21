@@ -1354,6 +1354,28 @@ class ShapeKeyOperatorBase(bpy.types.Operator):
         return shape_key_index, key_block, channel_index, mesh_object
     
 
+class RBFEditorOperatorBase(bpy.types.Operator):
+    active_index: bpy.props.IntProperty() # type: ignore
+
+    def validate(self, context, instance) -> tuple[bool, str]:
+        return True, ""
+    
+    def execute(self, context):
+        instance = callbacks.get_active_rig_logic()
+        if instance and instance.body_rig:
+            result, message = self.validate(context, instance)
+            if not result:
+                self.report({'ERROR'}, message)
+                return {'CANCELLED'}
+            
+            self.run(instance)
+
+        return {'FINISHED'}
+    
+    def run(self, instance):
+        pass
+
+
 class MetaHumanDnaReportError(ShapeKeyOperatorBase):
     """Reports and error message to the user with a optional fix"""
     bl_idname = "meta_human_dna.report_error"
@@ -1566,6 +1588,95 @@ class ReImportThisShapeKey(ShapeKeyOperatorBase):
 
             utilities.set_context(current_context)
         return {'FINISHED'}
+    
+
+class AddRBFSolver(RBFEditorOperatorBase):
+    """Add a new RBF Solver"""
+    bl_idname = "meta_human_dna.add_rbf_solver"
+    bl_label = "Add RBF Solver"
+
+    def run(self, instance):
+        pass
+    
+
+class RemoveRBFSolver(RBFEditorOperatorBase):
+    """Remove the selected RBF Solver"""
+    bl_idname = "meta_human_dna.remove_rbf_solver"
+    bl_label = "Remove RBF Solver"
+
+    def run(self, instance):
+        pass
+    
+
+class RefreshRBFSolvers(RBFEditorOperatorBase):
+    """Refresh the RBF Solvers"""
+    bl_idname = "meta_human_dna.refresh_rbf_solvers"
+    bl_label = "Refresh RBF Solvers"
+
+    def run(self, instance):
+        pass
+    
+
+class AddRBFPose(RBFEditorOperatorBase):
+    """Add a new RBF Pose"""
+    bl_idname = "meta_human_dna.add_rbf_pose"
+    bl_label = "Add RBF Pose"
+
+    def run(self, instance):
+        pass
+    
+
+class UpdateRBFPose(RBFEditorOperatorBase):
+    """Update the current RBF Pose with the current transforms"""
+    bl_idname = "meta_human_dna.update_rbf_pose"
+    bl_label = "Update RBF Pose"
+
+    def run(self, instance):
+        pass
+
+
+class RemoveRBFPose(RBFEditorOperatorBase):
+    """Remove the selected RBF Pose"""
+    bl_idname = "meta_human_dna.remove_rbf_pose"
+    bl_label = "Remove RBF Pose"
+
+    def run(self, instance):
+        pass
+
+
+class AddRBFDriver(RBFEditorOperatorBase):
+    """Add a new RBF Driver bone"""
+    bl_idname = "meta_human_dna.add_rbf_driver"
+    bl_label = "Add RBF Driver"
+
+    def run(self, instance):
+        pass
+
+
+class RemoveRBFDriver(RBFEditorOperatorBase):
+    """Remove the selected RBF Driver bone"""
+    bl_idname = "meta_human_dna.remove_rbf_driver"
+    bl_label = "Remove RBF Driver"
+
+    def run(self, instance):
+        pass
+
+class AddRBFDriven(RBFEditorOperatorBase):
+    """Add a new RBF Driven bone"""
+    bl_idname = "meta_human_dna.add_rbf_driven"
+    bl_label = "Add RBF Driven Bone"
+
+    def run(self, instance):
+        pass
+
+
+class RemoveRBFDriven(RBFEditorOperatorBase):
+    """Remove the selected RBF Driven bone"""
+    bl_idname = "meta_human_dna.remove_rbf_driven"
+    bl_label = "Remove RBF Driven Bone"
+
+    def run(self, instance):
+        pass
     
 class RefreshMaterialSlotNames(bpy.types.Operator):
     """Refresh the material slot names by re-reading them from the meshes in the output list"""
