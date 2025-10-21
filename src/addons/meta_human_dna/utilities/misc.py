@@ -538,16 +538,21 @@ def rename_rig_logic_instance(
     ):
     if instance.face_board:
         instance.face_board.name = instance.face_board.name.replace(old_name, new_name)
+        instance.face_board.data.name = instance.face_board.data.name.replace(old_name, new_name)
     if instance.head_mesh:
         instance.head_mesh.name = instance.head_mesh.name.replace(old_name, new_name)
+        instance.head_mesh.data.name = instance.head_mesh.data.name.replace(old_name, new_name)
     if instance.head_rig:
         instance.head_rig.name = instance.head_rig.name.replace(old_name, new_name)
+        instance.head_rig.data.name = instance.head_rig.data.name.replace(old_name, new_name)
     if instance.head_material:
         instance.head_material.name = instance.head_material.name.replace(old_name, new_name)
     if instance.body_mesh:
         instance.body_mesh.name = instance.body_mesh.name.replace(old_name, new_name)
+        instance.body_mesh.data.name = instance.body_mesh.data.name.replace(old_name, new_name)
     if instance.body_rig:
         instance.body_rig.name = instance.body_rig.name.replace(old_name, new_name)
+        instance.body_rig.data.name = instance.body_rig.data.name.replace(old_name, new_name)
     if instance.body_material:
         instance.body_material.name = instance.body_material.name.replace(old_name, new_name)
 
@@ -564,6 +569,7 @@ def rename_rig_logic_instance(
 
         if item.scene_object:
             item.scene_object.name = item.scene_object.name.replace(old_name, new_name)
+            item.scene_object.data.name = item.scene_object.data.name.replace(old_name, new_name)
         if item.image_object:
             item.image_object.name = item.image_object.name.replace(old_name, new_name)
 
@@ -580,6 +586,10 @@ def rename_rig_logic_instance(
         collection = bpy.data.collections.get(f'{old_name}_lod{index}')
         if collection:
             collection.name = collection.name.replace(old_name, new_name)
+
+    # this frees up the instance data under the old name, since all data is 
+    # namespaced under the instance name
+    instance.destroy()
 
 def rename_as_lod0_meshes(mesh_objects: list[bpy.types.Object]):
     from ..ui.callbacks import get_active_rig_logic, update_head_output_items

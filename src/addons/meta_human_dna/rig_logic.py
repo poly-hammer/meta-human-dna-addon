@@ -10,7 +10,8 @@ from typing import TYPE_CHECKING, Literal
 from .constants import (
     SCALE_FACTOR, 
     SHAPE_KEY_NAME_MAX_LENGTH,
-    FLOATING_POINT_PRECISION
+    FLOATING_POINT_PRECISION,
+    RBF_SOLVER_POSTFIX
 )
 
 if TYPE_CHECKING:
@@ -84,9 +85,19 @@ def rig_logic_listener(
                         armature_name = update.id.name.split('.')[0]
                         
                         # Check if the armature is the face board
-                        if instance.auto_evaluate_head and instance.face_board and instance.face_board.name.endswith(armature_name):
+                        if (
+                            instance.auto_evaluate_head and 
+                            instance.face_board and 
+                            instance.face_board.data and 
+                            instance.face_board.data.name == armature_name
+                        ):
                             instance_updates.add((instance, 'head'))
-                        elif instance.auto_evaluate_body and instance.body_rig and instance.body_rig.name.endswith(armature_name):
+                        elif (
+                            instance.auto_evaluate_body and 
+                            instance.body_rig and 
+                            instance.body_rig.data and 
+                            instance.body_rig.data.name == armature_name
+                        ):
                             instance_updates.add((instance, 'body'))
 
     # apply the updates to the instances
@@ -170,16 +181,97 @@ class ShapeKeyData(bpy.types.PropertyGroup):
     ) # type: ignore
 
 
+class RBFBaseData(bpy.types.PropertyGroup):
+    name: bpy.props.StringProperty(
+        default='',
+        description='The name of the pose',
+    ) # type: ignore
+
+class RBFPoseData(RBFBaseData):
+    pass
+
+class RBFDriverData(RBFBaseData):
+    pass
+
+class RBFDrivenData(RBFBaseData):
+    pass
+
 class RBFSolverData(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty(
         default='',
         description='The name of the RBF solver',
     ) # type: ignore
-    value: bpy.props.FloatProperty(
-        default=0.0,
-        description='The value of the RBF solver',
-        get=callbacks.get_shape_key_value, # this makes the value read-only
+    mode: bpy.props.EnumProperty(
+        items=[
+            ('Additive', 'Additive', 'Use the additive RBF solver mode'),
+            ('Interpolative', 'Interpolative', 'Use the interpolative RBF solver mode'),
+        ],
+        default='Additive',
+        description='The mode of the RBF solver',
     ) # type: ignore
+    radius: bpy.props.FloatProperty(
+        default=50.0,
+        description='The radius of the RBF solver',
+        min=0.0
+    ) # type: ignore
+    weight_threshold: bpy.props.FloatProperty(
+        default=0.001,
+        description='The weight threshold of the RBF solver',
+        min=0.0
+    ) # type: ignore
+    distance_method: bpy.props.EnumProperty(
+        items=[
+            ('Euclidean', 'Euclidean', 'Use the Euclidean distance method for the RBF solver'),
+            ('Quaternion', 'Quaternion', 'Use the Quaternion distance method for the RBF solver'),
+            ('SwingAngle', 'Swing Angle', 'Use the Swing Angle distance method for the RBF solver'),
+            ('TwistAngle', 'Twist Angle', 'Use the Twist Angle distance method for the RBF solver'),
+
+        ],
+        default='TwistAngle',
+        description='The distance method of the RBF solver',
+    ) # type: ignore
+    normalize_method: bpy.props.EnumProperty(
+        items=[
+            ('OnlyNormalizeAboveOne', 'Only Normalize Above One', 'Use the Only Normalize Above One method for the normalization method of the RBF solver'),
+            ('AlwaysNormalize', 'Always Normalize', 'Use the Always Normalize method for the normalization method of the RBF solver'),
+        ],
+        default='AlwaysNormalize',
+        description='The normalization method of the RBF solver',
+    ) # type: ignore
+    function_type: bpy.props.EnumProperty(
+        items=[
+            ('Gaussian', 'Gaussian', 'Use the Gaussian method for the function type of the RBF solver'),
+            ('Exponential', 'Exponential', 'Use the Exponential method for the function type of the RBF solver'),
+            ('Linear', 'Linear', 'Use the Linear method for the function type of the RBF solver'),
+            ('Cubic', 'Cubic', 'Use the Cubic method for the function type of the RBF solver'),
+            ('Quintic', 'Quintic', 'Use the Quintic method for the function type of the RBF solver'),
+        ],
+        default='Gaussian',
+        description='The function type of the RBF solver',
+    ) # type: ignore
+    twist_axis: bpy.props.EnumProperty(
+        items=[
+            ('X', 'X-Axis', 'Use the X axis for twisting'),
+            ('Y', 'Y-Axis', 'Use the Y axis for twisting'),
+            ('Z', 'Z-Axis', 'Use the Z axis for twisting'),
+        ],
+        default='X',
+        description='The axis around which to twists are calculated',
+    ) # type: ignore
+    automatic_radius: bpy.props.BoolProperty(
+        default=False,
+        name='Automatic Radius',
+        description='Whether to automatically calculate the radius for the RBF solver',
+    ) # type: ignore
+
+    poses: bpy.props.CollectionProperty(type=RBFPoseData) # type: ignore
+    poses_active_index: bpy.props.IntProperty() # type: ignore
+
+    drivers: bpy.props.CollectionProperty(type=RBFDriverData) # type: ignore
+    drivers_active_index: bpy.props.IntProperty() # type: ignore
+
+    driven: bpy.props.CollectionProperty(type=RBFDrivenData) # type: ignore
+    driven_active_index: bpy.props.IntProperty() # type: ignore
 
 
 class RigLogicInstance(bpy.types.PropertyGroup):
@@ -538,15 +630,6 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
     rbf_solver_list: bpy.props.CollectionProperty(type=RBFSolverData) # type: ignore
     rbf_solver_list_active_index: bpy.props.IntProperty() # type: ignore
-
-    rbf_poses_list: bpy.props.CollectionProperty(type=RBFSolverData) # type: ignore
-    rbf_poses_list_active_index: bpy.props.IntProperty() # type: ignore
-
-    rbf_driver_list: bpy.props.CollectionProperty(type=RBFSolverData) # type: ignore
-    rbf_driver_list_active_index: bpy.props.IntProperty() # type: ignore
-
-    rbf_driven_list: bpy.props.CollectionProperty(type=RBFSolverData) # type: ignore
-    rbf_driven_list_active_index: bpy.props.IntProperty() # type: ignore
 
     output_head_item_list: bpy.props.CollectionProperty(type=OutputData) # type: ignore
     output_head_item_active_index: bpy.props.IntProperty() # type: ignore
@@ -934,6 +1017,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             memRes=None
         )
 
+        # populate the body rbf solver list
+        self.update_body_rbf_solver_list()
         # calling theses properties will cache their values
         self.body_raw_control_bone_names
         self.body_rest_pose
@@ -942,7 +1027,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
     def initialize(self):
         self.head_initialize()
-        # self.body_initialize()
+        self.body_initialize()
 
     def destroy(self):            
         # clears these data items from the dictionary, this frees them up to be garbage collected
@@ -1384,6 +1469,48 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
             else:
                 logger.warning(f'The bone "{name}" was not found on "{self.body_rig.name}". Rig Logic will not update the bone.')
+
+    def update_body_rbf_solver_list(self):
+        if not utilities.dependencies_are_valid():
+            return
+        
+        import meta_human_dna_core
+    
+        # skip if the body rig is not set
+        if not self.body_rig or not self.body_dna_reader:
+            return
+        
+        self.rbf_solver_list.clear()
+        for solver_index in range(self.body_dna_reader.getRBFSolverCount()):
+            solver = self.rbf_solver_list.add()
+            name = str(self.body_dna_reader.getRBFSolverName(solver_index))
+            solver.name = name
+            solver.mode = self.body_dna_reader.getRBFSolverType(solver_index).name
+            solver.radius = float(self.body_dna_reader.getRBFSolverRadius(solver_index))
+            solver.weight_threshold = float(self.body_dna_reader.getRBFSolverWeightThreshold(solver_index))
+            solver.distance_method = self.body_dna_reader.getRBFSolverDistanceMethod(solver_index).name
+            solver.normalize_method = self.body_dna_reader.getRBFSolverNormalizeMethod(solver_index).name
+            solver.function_type = self.body_dna_reader.getRBFSolverFunctionType(solver_index).name
+            solver.twist_axis = self.body_dna_reader.getRBFSolverTwistAxis(solver_index).name
+            solver.automatic_radius = self.body_dna_reader.getRBFSolverAutomaticRadius(solver_index)
+            
+            solver.poses.clear()
+            for pose_index in self.body_dna_reader.getRBFSolverPoseIndices(solver_index):
+                pose = solver.poses.add()
+                pose.name = str(self.body_dna_reader.getRBFPoseName(pose_index))
+                # TODO: Extract pose data
+
+            solver.driven.clear()
+            for bone_name in meta_human_dna_core.get_rbf_solver_driven_bone_names(self.body_dna_reader, solver_index):
+                driven = solver.driven.add()
+                driven.name = bone_name
+        
+            if name.endswith(RBF_SOLVER_POSTFIX):
+                # set the driver for the solver
+                solver.drivers.clear()
+                driver = solver.drivers.add()
+                driver.name = name[:-len(RBF_SOLVER_POSTFIX)]
+
 
     def evaluate(self, component: Literal['head', 'body', 'all'] = 'all'):
         # this condition prevents constant evaluation

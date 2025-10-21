@@ -5,6 +5,9 @@ from .constants import ToolInfo, NUMBER_OF_HEAD_LODS
 from .rig_logic import (
     RigLogicInstance, 
     ShapeKeyData, 
+    RBFPoseData, 
+    RBFDriverData, 
+    RBFDrivenData, 
     RBFSolverData, 
     OutputData,
     MaterialSlotToInstance
@@ -219,6 +222,9 @@ def register():
     bpy.utils.register_class(MaterialSlotToInstance)
     bpy.utils.register_class(OutputData)
     bpy.utils.register_class(ShapeKeyData)
+    bpy.utils.register_class(RBFPoseData)
+    bpy.utils.register_class(RBFDriverData)
+    bpy.utils.register_class(RBFDrivenData)
     bpy.utils.register_class(RBFSolverData)
     bpy.utils.register_class(RigLogicInstance)
     bpy.utils.register_class(BlendFileMetaHumanCollection)
@@ -263,6 +269,9 @@ def unregister():
     # unregister the list data classes
     bpy.utils.unregister_class(RigLogicInstance)
     bpy.utils.unregister_class(ShapeKeyData)
+    bpy.utils.unregister_class(RBFPoseData)
+    bpy.utils.unregister_class(RBFDriverData)
+    bpy.utils.unregister_class(RBFDrivenData)
     bpy.utils.unregister_class(RBFSolverData)
     bpy.utils.unregister_class(OutputData)
     bpy.utils.unregister_class(MaterialSlotToInstance)
