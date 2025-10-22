@@ -180,21 +180,74 @@ class ShapeKeyData(bpy.types.PropertyGroup):
         get=callbacks.get_shape_key_value, # this makes the value read-only
     ) # type: ignore
 
+class RBFDriverData(bpy.types.PropertyGroup):
+    solver_index: bpy.props.IntProperty() # type: ignore
+    name: bpy.props.StringProperty() # type: ignore
+    rotation_mode: bpy.props.EnumProperty(
+        items=[
+            ('QUATERNION', 'Quaternion', 'Use the Quaternion rotation mode'),
+            ('XYZ', 'Euler XYZ', 'Use the Euler XYZ rotation mode'),
+        ],
+        default='QUATERNION',
+        description='The rotation mode of the pose transformation',
+    ) # type: ignore
+    euler_rotation: bpy.props.FloatVectorProperty(size=3) # type: ignore
+    quaternion_rotation: bpy.props.FloatVectorProperty(size=4) # type: ignore
 
-class RBFBaseData(bpy.types.PropertyGroup):
+class RBFDrivenData(bpy.types.PropertyGroup):
+    pose_index: bpy.props.IntProperty() # type: ignore
+    name: bpy.props.StringProperty() # type: ignore
+    data_type: bpy.props.EnumProperty(
+        items=[
+            ('BONE', 'Bone Transforms', 'Drives the Bone Transforms'),
+            ('SHAPE_KEY', 'Shape Key Value', 'Drives the Shape Key Value'),
+            ('MASK', 'Mask Value', 'Drives the Mask Value'),
+        ],
+        default='BONE',
+        description='The type of driven data',
+    ) # type: ignore
+    rotation_mode: bpy.props.EnumProperty(
+        items=[
+            ('QUATERNION', 'Quaternion', 'Use the Quaternion rotation mode'),
+            ('XYZ', 'Euler XYZ', 'Use the Euler XYZ rotation mode'),
+        ],
+        default='QUATERNION',
+        description='The rotation mode of the pose transformation',
+    ) # type: ignore
+    location_delta: bpy.props.FloatVectorProperty(size=3) # type: ignore
+    euler_rotation_delta: bpy.props.FloatVectorProperty(size=3) # type: ignore
+    quaternion_rotation_delta: bpy.props.FloatVectorProperty(size=4) # type: ignore
+    scale_delta: bpy.props.FloatVectorProperty(size=3) # type: ignore
+    scalar_value: bpy.props.FloatProperty(
+        default=0.0, 
+        min=0.0, 
+        max=1.0
+    ) # type: ignore
+
+class RBFPoseData(bpy.types.PropertyGroup):
+    solver_index: bpy.props.IntProperty() # type: ignore
+    pose_index: bpy.props.IntProperty() # type: ignore
     name: bpy.props.StringProperty(
         default='',
         description='The name of the pose',
     ) # type: ignore
+    scale_factor: bpy.props.FloatProperty(
+        default=1.0,
+        description='The scale factor of the pose',
+        min=0.0
+    ) # type: ignore
+    target_enable: bpy.props.BoolProperty(
+        default=True,
+        description='Whether the target is enabled',
+    ) # type: ignore
 
-class RBFPoseData(RBFBaseData):
-    pass
-
-class RBFDriverData(RBFBaseData):
-    pass
-
-class RBFDrivenData(RBFBaseData):
-    pass
+    driven: bpy.props.CollectionProperty(type=RBFDrivenData) # type: ignore
+    driven_active_index: bpy.props.IntProperty() # type: ignore
+    
+    drivers: bpy.props.CollectionProperty(type=RBFDriverData) # type: ignore
+    drivers_active_index: bpy.props.IntProperty() # type: ignore
+    # TODO: Implement blend shapes for RBF poses
+    # shape_key_data: bpy.props.CollectionProperty(type=ShapeKeyData) # type: ignore
 
 class RBFSolverData(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty(
@@ -265,13 +318,7 @@ class RBFSolverData(bpy.types.PropertyGroup):
     ) # type: ignore
 
     poses: bpy.props.CollectionProperty(type=RBFPoseData) # type: ignore
-    poses_active_index: bpy.props.IntProperty() # type: ignore
-
-    drivers: bpy.props.CollectionProperty(type=RBFDriverData) # type: ignore
-    drivers_active_index: bpy.props.IntProperty() # type: ignore
-
-    driven: bpy.props.CollectionProperty(type=RBFDrivenData) # type: ignore
-    driven_active_index: bpy.props.IntProperty() # type: ignore
+    poses_active_index: bpy.props.IntProperty(update=callbacks.update_body_poses_active_index) # type: ignore
 
 
 class RigLogicInstance(bpy.types.PropertyGroup):
@@ -1483,8 +1530,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         self.rbf_solver_list.clear()
         for solver_index in range(self.body_dna_reader.getRBFSolverCount()):
             solver = self.rbf_solver_list.add()
-            name = str(self.body_dna_reader.getRBFSolverName(solver_index))
-            solver.name = name
+
+            solver.name = str(self.body_dna_reader.getRBFSolverName(solver_index))
             solver.mode = self.body_dna_reader.getRBFSolverType(solver_index).name
             solver.radius = float(self.body_dna_reader.getRBFSolverRadius(solver_index))
             solver.weight_threshold = float(self.body_dna_reader.getRBFSolverWeightThreshold(solver_index))
@@ -1493,23 +1540,41 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             solver.function_type = self.body_dna_reader.getRBFSolverFunctionType(solver_index).name
             solver.twist_axis = self.body_dna_reader.getRBFSolverTwistAxis(solver_index).name
             solver.automatic_radius = self.body_dna_reader.getRBFSolverAutomaticRadius(solver_index)
-            
-            solver.poses.clear()
-            for pose_index in self.body_dna_reader.getRBFSolverPoseIndices(solver_index):
-                pose = solver.poses.add()
-                pose.name = str(self.body_dna_reader.getRBFPoseName(pose_index))
-                # TODO: Extract pose data
 
-            solver.driven.clear()
-            for bone_name in meta_human_dna_core.get_rbf_solver_driven_bone_names(self.body_dna_reader, solver_index):
-                driven = solver.driven.add()
-                driven.name = bone_name
-        
-            if name.endswith(RBF_SOLVER_POSTFIX):
-                # set the driver for the solver
-                solver.drivers.clear()
-                driver = solver.drivers.add()
-                driver.name = name[:-len(RBF_SOLVER_POSTFIX)]
+            solver.poses.clear()
+            for pose_data in meta_human_dna_core.get_rbf_pose_data(reader=self.body_dna_reader, solver_index=solver_index):
+                pose = solver.poses.add()
+                pose.solver_index = pose_data.solver_index
+                pose.pose_index = pose_data.pose_index
+                pose.name = pose_data.name
+                pose.function_type = solver.function_type
+                pose.scale_factor = pose_data.scale_factor
+                pose.distance_method = solver.distance_method
+                pose.target_enable = pose_data.target_enable
+                
+                # set the driven for the solver
+                pose.driven.clear()
+                for driven_data in pose_data.driven:
+                    driven = pose.driven.add()
+                    driven.name = driven_data.name
+                    driven.data_type = 'BONE'
+                    driven.pose_index = driven_data.pose_index
+                    driven.rotation_mode = driven_data.rotation_mode
+                    driven.location_delta = Vector(driven_data.location_delta)
+                    driven.euler_rotation_delta = Euler(driven_data.euler_rotation_delta)
+                    driven.quaternion_rotation_delta = Quaternion(driven_data.quaternion_rotation_delta)
+                    driven.scale_delta = Vector(driven_data.scale_delta)
+
+                # set the drivers for the solver
+                pose.drivers.clear()
+                for driver_data in pose_data.drivers:
+                    driver = pose.drivers.add()
+                    driver.solver_index = driver_data.solver_index
+                    driver.name = driver_data.name
+                    driver.rotation_mode = driver_data.rotation_mode
+                    driver.euler_rotation = Euler(driver_data.euler_rotation)
+                    driver.quaternion_rotation = Quaternion(driver_data.quaternion_rotation)
+                # pose.blendshape_data.update(pose_data.blendshape_data)
 
 
     def evaluate(self, component: Literal['head', 'body', 'all'] = 'all'):

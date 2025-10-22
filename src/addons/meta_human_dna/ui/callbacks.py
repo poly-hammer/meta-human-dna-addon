@@ -5,7 +5,7 @@ import math
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
-from mathutils import Vector, Matrix, Euler
+from mathutils import Vector, Matrix, Euler, Quaternion
 from gpu_extras.presets import draw_circle_2d
 from ..constants import (
     HEAD_MAPS,
@@ -498,6 +498,31 @@ def poll_shrink_wrap_target(self, scene_object: bpy.types.Object) -> bool:
             if scene_object not in [self.head_mesh, self.body_mesh]:
                 return True
     return False
+
+def update_body_poses_active_index(self, context):
+    instance = get_active_rig_logic()
+
+    if not instance or not instance.body_rig:
+        return
+
+    pose = self.poses[self.poses_active_index]
+
+    for driver in pose.drivers:
+        pose_bone = instance.body_rig.pose.bones.get(driver.name)
+        if pose_bone:
+            pose_bone.rotation_mode = driver.rotation_mode
+            pose_bone.rotation_quaternion = Quaternion(driver.quaternion_rotation)
+            pose_bone.rotation_euler = Euler(driver.euler_rotation)
+
+    # for driven in pose.driven:
+    #     if driven.data_type == 'BONE':
+    #         pose_bone = instance.body_rig.pose.bones.get(driven.name)
+    #         if pose_bone:
+    #             pose_bone.location = driven.location_delta
+    #             pose_bone.rotation_mode = driven.rotation_mode
+    #             pose_bone.rotation_quaternion = driven.quaternion_rotation_delta
+    #             pose_bone.rotation_euler = driven.euler_rotation_delta
+    #             pose_bone.scale = driven.scale_delta
 
 def update_evaluate_rbfs_value(self, context):
     self.reset_body_raw_control_values()

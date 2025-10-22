@@ -770,6 +770,9 @@ class META_HUMAN_DNA_PT_rbf_editor(bpy.types.Panel):
 
             if not active_rbf_solver:
                 return
+            
+            active_rbf_pose_index = active_rbf_solver.poses_active_index
+            active_rbf_pose = active_rbf_solver.poses[active_rbf_pose_index] if len(active_rbf_solver.poses) > 0 else None
 
             column.label(text='Poses:')
             draw_ui_list(
@@ -792,8 +795,8 @@ class META_HUMAN_DNA_PT_rbf_editor(bpy.types.Panel):
                 column,
                 context,
                 class_name="META_HUMAN_DNA_UL_rbf_drivers",
-                list_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].drivers",
-                active_index_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].drivers_active_index",
+                list_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses[{active_rbf_pose_index}].drivers",
+                active_index_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses[{active_rbf_pose_index}].drivers_active_index",
                 unique_id="active_rbf_driver_list_id",
                 insertion_operators=False,
                 move_operators=False # type: ignore
@@ -801,22 +804,26 @@ class META_HUMAN_DNA_PT_rbf_editor(bpy.types.Panel):
             driver_row = column.row(align=True)
             # TODO: Disabled for now until we can have multiple drivers properly supported
             driver_row.enabled = False
-            driver_row.operator('meta_human_dna.add_rbf_driver', icon='ADD', text='').active_index = active_rbf_solver.drivers_active_index # type: ignore
-            driver_row.operator('meta_human_dna.remove_rbf_driver', icon='REMOVE', text='').active_index = active_rbf_solver.drivers_active_index # type: ignore
+            driver_row.operator('meta_human_dna.add_rbf_driver', icon='ADD', text='')
+            driver_row.operator('meta_human_dna.remove_rbf_driver', icon='REMOVE', text='')
+
+            if not active_rbf_pose:
+                return
+
             column.label(text='Driven:')
             draw_ui_list(
                 column,
                 context,
                 class_name="META_HUMAN_DNA_UL_rbf_driven",
-                list_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].driven",
-                active_index_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].driven_active_index",
+                list_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses[{active_rbf_pose_index}].driven",
+                active_index_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses[{active_rbf_pose_index}].driven_active_index",
                 unique_id="active_rbf_driven_list_id",
                 insertion_operators=False,
                 move_operators=False # type: ignore
             )
             driven_row = column.row(align=True)
-            driven_row.operator('meta_human_dna.add_rbf_driven', icon='ADD', text='').active_index = active_rbf_solver.driven_active_index # type: ignore
-            driven_row.operator('meta_human_dna.remove_rbf_driven', icon='REMOVE', text='').active_index = active_rbf_solver.driven_active_index # type: ignore
+            driven_row.operator('meta_human_dna.add_rbf_driven', icon='ADD', text='').active_index = active_rbf_pose.driven_active_index # type: ignore
+            driven_row.operator('meta_human_dna.remove_rbf_driven', icon='REMOVE', text='').active_index = active_rbf_pose.driven_active_index # type: ignore
         else:
             draw_rig_logic_instance_error(self.layout, error)
 
