@@ -11,7 +11,7 @@ from .constants import (
     SCALE_FACTOR, 
     SHAPE_KEY_NAME_MAX_LENGTH,
     FLOATING_POINT_PRECISION,
-    RBF_SOLVER_POSTFIX
+    ToolInfo
 )
 
 if TYPE_CHECKING:
@@ -30,6 +30,9 @@ def rig_logic_listener(
         dependency_graph: bpy.types.Depsgraph, 
         is_frame_change: bool = False
     ):
+    if not hasattr(bpy.context.window_manager, ToolInfo.NAME):
+        return
+
     # this condition prevents constant evaluation
     if not bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph: # type: ignore
         return
@@ -214,10 +217,10 @@ class RBFDrivenData(bpy.types.PropertyGroup):
         default='QUATERNION',
         description='The rotation mode of the pose transformation',
     ) # type: ignore
-    location_delta: bpy.props.FloatVectorProperty(size=3) # type: ignore
-    euler_rotation_delta: bpy.props.FloatVectorProperty(size=3) # type: ignore
-    quaternion_rotation_delta: bpy.props.FloatVectorProperty(size=4) # type: ignore
-    scale_delta: bpy.props.FloatVectorProperty(size=3) # type: ignore
+    location: bpy.props.FloatVectorProperty(size=3) # type: ignore
+    euler_rotation: bpy.props.FloatVectorProperty(size=3) # type: ignore
+    quaternion_rotation: bpy.props.FloatVectorProperty(size=4) # type: ignore
+    scale: bpy.props.FloatVectorProperty(size=3) # type: ignore
     scalar_value: bpy.props.FloatProperty(
         default=0.0, 
         min=0.0, 
@@ -1360,21 +1363,21 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
                 # update the transformations using the rest pose and the delta values
                 # we need to copy the vectors so we don't modify the original rest pose
-                location = Vector((
+                location = Vector([
                     rest_location.x + location_delta.x,
                     rest_location.y + location_delta.y,
                     rest_location.z + location_delta.z
-                ))
-                rotation = Euler((
+                ])
+                rotation = Euler([
                     rest_rotation.x + rotation_delta.x,
                     rest_rotation.y + rotation_delta.y,
                     rest_rotation.z + rotation_delta.z
-                ))
-                scale = Vector((
+                ], 'XYZ')
+                scale = Vector([
                     rest_scale.x + scale_delta.x,
                     rest_scale.y + scale_delta.y,
                     rest_scale.z + scale_delta.z
-                ))
+                ])
 
                 # update the bone matrix
                 modified_matrix = Matrix.LocRotScale(location, rotation, scale)
@@ -1491,24 +1494,24 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 rest_location, rest_rotation, rest_scale, rest_to_parent_matrix = self.body_rest_pose[pose_bone.name]
                 # extract the delta values
                 location_delta = Vector([D[attr_index]/SCALE_FACTOR, D[attr_index+1]/SCALE_FACTOR, D[attr_index+2]/SCALE_FACTOR])
-                rotation_delta = Quaternion((D[attr_index+6], D[attr_index+3], D[attr_index+4], D[attr_index+5]))
-                scale_delta = Vector((D[attr_index+7], D[attr_index+8], D[attr_index+9]))
+                rotation_delta = Quaternion([D[attr_index+6], D[attr_index+3], D[attr_index+4], D[attr_index+5]])
+                scale_delta = Vector([D[attr_index+7], D[attr_index+8], D[attr_index+9]])
 
                 # update the transformations using the rest pose and the delta values
                 # we need to copy the vectors so we don't modify the original rest pose
-                location = Vector((
+                location = Vector([
                     rest_location.x + location_delta.x,
                     rest_location.y + location_delta.y,
                     rest_location.z + location_delta.z
-                ))
+                ])
 
                 rotation = rest_rotation.to_quaternion() @ rotation_delta
 
-                scale = Vector((
+                scale = Vector([
                     rest_scale.x + scale_delta.x,
                     rest_scale.y + scale_delta.y,
                     rest_scale.z + scale_delta.z
-                ))
+                ])
 
                 # update the bone matrix
                 modified_matrix = Matrix.LocRotScale(location, rotation, scale)
@@ -1528,53 +1531,30 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             return
         
         self.rbf_solver_list.clear()
-        for solver_index in range(self.body_dna_reader.getRBFSolverCount()):
+        for solver_data in meta_human_dna_core.get_rbf_solver_data(self.body_dna_reader):
             solver = self.rbf_solver_list.add()
-
-            solver.name = str(self.body_dna_reader.getRBFSolverName(solver_index))
-            solver.mode = self.body_dna_reader.getRBFSolverType(solver_index).name
-            solver.radius = float(self.body_dna_reader.getRBFSolverRadius(solver_index))
-            solver.weight_threshold = float(self.body_dna_reader.getRBFSolverWeightThreshold(solver_index))
-            solver.distance_method = self.body_dna_reader.getRBFSolverDistanceMethod(solver_index).name
-            solver.normalize_method = self.body_dna_reader.getRBFSolverNormalizeMethod(solver_index).name
-            solver.function_type = self.body_dna_reader.getRBFSolverFunctionType(solver_index).name
-            solver.twist_axis = self.body_dna_reader.getRBFSolverTwistAxis(solver_index).name
-            solver.automatic_radius = self.body_dna_reader.getRBFSolverAutomaticRadius(solver_index)
-
-            solver.poses.clear()
-            for pose_data in meta_human_dna_core.get_rbf_pose_data(reader=self.body_dna_reader, solver_index=solver_index):
-                pose = solver.poses.add()
-                pose.solver_index = pose_data.solver_index
-                pose.pose_index = pose_data.pose_index
-                pose.name = pose_data.name
-                pose.function_type = solver.function_type
-                pose.scale_factor = pose_data.scale_factor
-                pose.distance_method = solver.distance_method
-                pose.target_enable = pose_data.target_enable
-                
-                # set the driven for the solver
-                pose.driven.clear()
-                for driven_data in pose_data.driven:
-                    driven = pose.driven.add()
-                    driven.name = driven_data.name
-                    driven.data_type = 'BONE'
-                    driven.pose_index = driven_data.pose_index
-                    driven.rotation_mode = driven_data.rotation_mode
-                    driven.location_delta = Vector(driven_data.location_delta)
-                    driven.euler_rotation_delta = Euler(driven_data.euler_rotation_delta)
-                    driven.quaternion_rotation_delta = Quaternion(driven_data.quaternion_rotation_delta)
-                    driven.scale_delta = Vector(driven_data.scale_delta)
-
-                # set the drivers for the solver
-                pose.drivers.clear()
-                for driver_data in pose_data.drivers:
-                    driver = pose.drivers.add()
-                    driver.solver_index = driver_data.solver_index
-                    driver.name = driver_data.name
-                    driver.rotation_mode = driver_data.rotation_mode
-                    driver.euler_rotation = Euler(driver_data.euler_rotation)
-                    driver.quaternion_rotation = Quaternion(driver_data.quaternion_rotation)
-                # pose.blendshape_data.update(pose_data.blendshape_data)
+            for solver_field_name in solver_data.__annotations__:
+                if solver_field_name == 'poses':
+                    solver.poses.clear()
+                    for pose_data in solver_data.poses:
+                        pose = solver.poses.add()
+                        for pose_field_name in pose_data.__annotations__:
+                            if pose_field_name == 'driven':
+                                pose.driven.clear()
+                                for driven_data in pose_data.driven:
+                                    driven = pose.driven.add()
+                                    for driven_field_name in driven_data.__annotations__:
+                                        setattr(driven, driven_field_name, getattr(driven_data, driven_field_name))
+                            elif pose_field_name == 'drivers':
+                                pose.drivers.clear()
+                                for driver_data in pose_data.drivers:
+                                    driver = pose.drivers.add()
+                                    for driver_field_name in driver_data.__annotations__:
+                                        setattr(driver, driver_field_name, getattr(driver_data, driver_field_name))
+                            else:
+                                setattr(pose, pose_field_name, getattr(pose_data, pose_field_name))
+                else:
+                    setattr(solver, solver_field_name, getattr(solver_data, solver_field_name))
 
 
     def evaluate(self, component: Literal['head', 'body', 'all'] = 'all'):

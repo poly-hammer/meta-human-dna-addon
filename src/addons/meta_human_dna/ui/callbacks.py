@@ -43,6 +43,9 @@ def get_active_rig_logic() -> 'RigLogicInstance | None':
     """
     Gets the active rig logic instance.
     """
+    if not hasattr(bpy.context.scene, ToolInfo.NAME):
+        return None
+    
     properties = bpy.context.scene.meta_human_dna # type: ignore
     if len(properties.rig_logic_instance_list) > 0:
         index = properties.rig_logic_instance_list_active_index
@@ -524,6 +527,8 @@ def update_body_poses_active_index(self, context):
     #             pose_bone.rotation_euler = driven.euler_rotation_delta
     #             pose_bone.scale = driven.scale_delta
 
+    instance.evaluate()
+
 def update_evaluate_rbfs_value(self, context):
     self.reset_body_raw_control_values()
 
@@ -632,6 +637,9 @@ def set_instance_name(self, value):
         self['instance_name'] = value
 
 def update_body_output_items(self, context):
+    if not hasattr(bpy.context.scene, ToolInfo.NAME):
+        return
+
     for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list: # type: ignore
         if instance and instance.body_mesh and instance.body_rig:
             # update the output items for the scene objects
@@ -670,7 +678,10 @@ def update_body_output_items(self, context):
                     instance.output_body_item_list.remove(index)
 
 def update_head_output_items(self, context):
-    for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list: # type: ignore
+    if not hasattr(bpy.context.scene, ToolInfo.NAME):
+        return
+
+    for instance in context.scene.meta_human_dna.rig_logic_instance_list: # type: ignore
         if instance and instance.head_mesh and instance.head_rig:
             # update the output items for the scene objects
             for scene_object in get_head_mesh_output_items(instance) + [instance.head_rig]:
