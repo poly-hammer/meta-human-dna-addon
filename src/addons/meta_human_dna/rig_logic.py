@@ -246,7 +246,7 @@ class RBFPoseData(bpy.types.PropertyGroup):
     ) # type: ignore
 
     driven: bpy.props.CollectionProperty(type=RBFDrivenData) # type: ignore
-    driven_active_index: bpy.props.IntProperty() # type: ignore
+    driven_active_index: bpy.props.IntProperty(update=callbacks.update_body_rbf_driven_active_index) # type: ignore
     
     drivers: bpy.props.CollectionProperty(type=RBFDriverData) # type: ignore
     drivers_active_index: bpy.props.IntProperty() # type: ignore
@@ -322,7 +322,7 @@ class RBFSolverData(bpy.types.PropertyGroup):
     ) # type: ignore
 
     poses: bpy.props.CollectionProperty(type=RBFPoseData) # type: ignore
-    poses_active_index: bpy.props.IntProperty(update=callbacks.update_body_poses_active_index) # type: ignore
+    poses_active_index: bpy.props.IntProperty(update=callbacks.update_body_rbf_poses_active_index) # type: ignore
 
 
 class RigLogicInstance(bpy.types.PropertyGroup):

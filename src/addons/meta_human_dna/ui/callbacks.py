@@ -502,9 +502,24 @@ def poll_shrink_wrap_target(self, scene_object: bpy.types.Object) -> bool:
                 return True
     return False
 
-def update_body_poses_active_index(self, context):
-    from ..utilities import switch_to_pose_mode
+def update_body_rbf_driven_active_index(self, context):
+    instance = get_active_rig_logic()
+
+    if not instance or not instance.body_rig:
+        return
     
+    from ..utilities import switch_to_pose_mode
+
+    driven = self.driven[self.driven_active_index]
+    switch_to_pose_mode(instance.body_rig)
+    for pose_bone in instance.body_rig.pose.bones:
+        if pose_bone.name == driven.name:
+            pose_bone.bone.select = True
+            instance.body_rig.data.bones.active = pose_bone.bone
+        else:
+            pose_bone.bone.select = False
+
+def update_body_rbf_poses_active_index(self, context):    
     instance = get_active_rig_logic()
 
     if not instance or not instance.body_rig:
@@ -519,76 +534,62 @@ def update_body_poses_active_index(self, context):
     for driver in pose.drivers:
         pose_bone = instance.body_rig.pose.bones.get(driver.name)
         if pose_bone:
+            quaternion_rotation = Quaternion(driver.quaternion_rotation)
             pose_bone.rotation_mode = driver.rotation_mode
-            pose_bone.rotation_quaternion = Quaternion(driver.quaternion_rotation)
+            pose_bone.rotation_quaternion = quaternion_rotation
             pose_bone.rotation_euler = Euler(driver.euler_rotation, 'XYZ')
+
+            # get the base name without _l or _r suffix
+            base_name = driver.name
+            suffix = ''
+            if base_name.lower().endswith('_l') or base_name.endswith('_r'):
+                base_name = driver.name[:-2]
+                suffix = driver.name[-1:]
+
+            # TODO: This is not ideal, but we need to rotate the corrective root bones to match what RigLogic does
+            # Maybe we can find a better way to do this in the future
+            for child in pose_bone.children:
+                if child.name == f'{base_name}_correctiveRoot_{suffix}':
+                    euler_rotation = quaternion_rotation.to_euler('XYZ')
+                    # rotate the corrective root opposite half the amount of the driver bone
+                    child.rotation_euler = Euler([i*-0.5 for i in euler_rotation], 'XYZ')
+
 
     # ensure the body is initialized
     if not instance.body_initialized:
         instance.body_initialize()
 
-    instance.body_rig.hide_set(False)
-    switch_to_pose_mode(instance.body_rig)
-
-    print(self.poses_active_index)
-    print(f'===================== {pose.name} =====================')
-
-    # TODO: figure out why this evaluates several times
     for driven in pose.driven:
         if driven.data_type == 'BONE':
             pose_bone = instance.body_rig.pose.bones.get(driven.name)
             if pose_bone:
+                rest_location, rest_rotation, rest_scale, rest_to_parent_matrix = instance.body_rest_pose[pose_bone.name]
+
+                location = Vector([
+                    rest_location.x + driven.location[0],
+                    rest_location.y + driven.location[1],
+                    rest_location.z + driven.location[2]
+                ])
+                rotation = Euler([
+                    rest_rotation.x + driven.euler_rotation[0],
+                    rest_rotation.y + driven.euler_rotation[1],
+                    rest_rotation.z + driven.euler_rotation[2]
+                ], 'XYZ')
+                scale = Vector([
+                    rest_scale.x + (driven.scale[0] if driven.scale[0] != 1.0 else 0.0),
+                    rest_scale.y + (driven.scale[1] if driven.scale[1] != 1.0 else 0.0),
+                    rest_scale.z + (driven.scale[2] if driven.scale[2] != 1.0 else 0.0)
+                ])
+                
+                # update the bone matrix
+                modified_matrix = Matrix.LocRotScale(location, rotation, scale)
+                pose_bone.matrix_basis = rest_to_parent_matrix.inverted() @ modified_matrix
+
+                # rotation is applied separately in pose space
                 pose_bone.rotation_euler = Euler(driven.euler_rotation, 'XYZ')
-
-                # pose_bone.rotation_mode = driven.rotation_mode
-                # pose_bone.location = Vector(driven.location)
-                # pose_bone.rotation_euler = Euler(driven.euler_rotation, 'XYZ')
-                # pose_bone.scale = Vector(driven.scale)
-
-                # get the rest pose values that we saved during initialization
-                # rest_location, rest_rotation, rest_scale, rest_to_parent_matrix = instance.body_rest_pose[pose_bone.name]
-
-                # # update the transformations using the rest pose and the delta values
-                # # we need to copy the vectors so we don't modify the original rest pose
-                # location = Vector([
-                #     rest_location.x + driven.location[0],
-                #     rest_location.y + driven.location[1],
-                #     rest_location.z + driven.location[2]
-                # ])
-
-                # # rotation = rest_rotation.to_quaternion() @ Quaternion([
-                # #     driven.scale[0],
-                # #     driven.euler_rotation[0],
-                # #     driven.euler_rotation[1],
-                # #     driven.euler_rotation[2],
-                # # ])
-                # rotation = rest_rotation.to_quaternion() @ Euler([
-                #     driven.euler_rotation[0],
-                #     driven.euler_rotation[1],
-                #     driven.euler_rotation[2],
-                # ]).to_quaternion()
-
-                # rotation = Euler([
-                #     rest_rotation.x + driven.euler_rotation[0],
-                #     rest_rotation.y + driven.euler_rotation[1],
-                #     rest_rotation.z + driven.euler_rotation[2],
-                # ], 'XYZ')
-
-                # # scale = Vector([
-                # #     rest_scale.x + driven.scale[0],
-                # #     rest_scale.y + driven.scale[1],
-                # #     rest_scale.z + driven.scale[2]
-                # # ])
-
-                # scale = Vector([
-                #     1.0,
-                #     1.0,
-                #     1.0
-                # ])
-
-                # # update the bone matrix
-                # modified_matrix = Matrix.LocRotScale(location, rotation, scale)
-                # pose_bone.matrix_basis = rest_to_parent_matrix.inverted() @ modified_matrix
+    
+    if instance.auto_evaluate_body:
+        instance.evaluate(component='body')
 
 def update_evaluate_rbfs_value(self, context):
     self.reset_body_raw_control_values()
