@@ -199,6 +199,7 @@ class RBFDriverData(bpy.types.PropertyGroup):
 
 class RBFDrivenData(bpy.types.PropertyGroup):
     pose_index: bpy.props.IntProperty() # type: ignore
+    joint_index: bpy.props.IntProperty() # type: ignore
     name: bpy.props.StringProperty() # type: ignore
     data_type: bpy.props.EnumProperty(
         items=[
