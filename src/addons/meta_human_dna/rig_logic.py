@@ -278,11 +278,11 @@ class RBFSolverData(bpy.types.PropertyGroup):
     ) # type: ignore
     distance_method: bpy.props.EnumProperty(
         items=[
-            ('Euclidean', 'Euclidean', 'Use the Euclidean distance method for the RBF solver'),
+            # TODO: Should we support Euclidean?
+            # ('Euclidean', 'Euclidean', 'Use the Euclidean distance method for the RBF solver'),
             ('Quaternion', 'Quaternion', 'Use the Quaternion distance method for the RBF solver'),
             ('SwingAngle', 'Swing Angle', 'Use the Swing Angle distance method for the RBF solver'),
-            ('TwistAngle', 'Twist Angle', 'Use the Twist Angle distance method for the RBF solver'),
-
+            ('TwistAngle', 'Twist Angle', 'Use the Twist Angle distance method for the RBF solver')
         ],
         default='TwistAngle',
         description='The distance method of the RBF solver',
@@ -689,6 +689,9 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     calibrate_bones: bpy.props.BoolProperty(default=True) # type: ignore
     calibrate_meshes: bpy.props.BoolProperty(default=True) # type: ignore
     calibrate_shape_keys: bpy.props.BoolProperty(default=True) # type: ignore
+
+    # rbf editor
+    editing_rbf_solver: bpy.props.BoolProperty(default=False) # type: ignore
 
     # this holds the rig logic references
     data = {}

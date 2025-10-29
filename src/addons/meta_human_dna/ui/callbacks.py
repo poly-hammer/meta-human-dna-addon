@@ -511,6 +511,7 @@ def update_body_rbf_driven_active_index(self, context):
     from ..utilities import switch_to_pose_mode
 
     driven = self.driven[self.driven_active_index]
+    instance.body_rig.hide_set(False)
     switch_to_pose_mode(instance.body_rig)
     for pose_bone in instance.body_rig.pose.bones:
         if pose_bone.name == driven.name:
@@ -576,9 +577,9 @@ def update_body_rbf_poses_active_index(self, context):
                     rest_rotation.z + driven.euler_rotation[2]
                 ], 'XYZ')
                 scale = Vector([
-                    rest_scale.x + (driven.scale[0] if driven.scale[0] != 1.0 else 0.0),
-                    rest_scale.y + (driven.scale[1] if driven.scale[1] != 1.0 else 0.0),
-                    rest_scale.z + (driven.scale[2] if driven.scale[2] != 1.0 else 0.0)
+                    rest_scale.x + (driven.scale[0] if round(driven.scale[0], 5) != round(pose.scale_factor, 5) else 0.0),
+                    rest_scale.y + (driven.scale[1] if round(driven.scale[1], 5) != round(pose.scale_factor, 5) else 0.0),
+                    rest_scale.z + (driven.scale[2] if round(driven.scale[2], 5) != round(pose.scale_factor, 5) else 0.0)
                 ])
                 
                 # update the bone matrix

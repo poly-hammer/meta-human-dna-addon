@@ -558,7 +558,7 @@ class META_HUMAN_DNA_PT_rig_logic_head_sub_panel(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = 'Meta-Human DNA'
-    # bl_options = {'DEFAULT_CLOSED'}
+    bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
     def poll(cls, context):
@@ -603,7 +603,7 @@ class META_HUMAN_DNA_PT_rig_logic_body_sub_panel(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = 'Meta-Human DNA'
-    # bl_options = {'DEFAULT_CLOSED'}
+    bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
     def poll(cls, context):
@@ -733,99 +733,271 @@ class META_HUMAN_DNA_PT_rbf_editor(bpy.types.Panel):
     bl_region_type = "UI"
     bl_options = {"DEFAULT_CLOSED"}
 
+    @classmethod
+    def poll(cls, context):
+        properties = context.scene.meta_human_dna # type: ignore
+        if not len(properties.rig_logic_instance_list) > 0:
+            return False
+        
+        active_index = properties.rig_logic_instance_list_active_index
+        instance = properties.rig_logic_instance_list[active_index]
+        if not instance.body_rig or \
+            not instance.body_dna_file_path or \
+            not Path(instance.body_dna_file_path).exists():
+            return False
+        
+        return True
+
+    def draw(self, context):
+        if not self.layout:
+            return
+
+        properties = context.scene.meta_human_dna # type: ignore
+        
+        active_index = properties.rig_logic_instance_list_active_index
+        instance = properties.rig_logic_instance_list[active_index]
+
+        active_rbf_solver_index = instance.rbf_solver_list_active_index
+
+        row = self.layout.row()
+        row.label(text='Solvers:')
+        row = self.layout.row()
+        draw_ui_list(
+            row,
+            context,
+            class_name="META_HUMAN_DNA_UL_rbf_solvers",
+            list_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].rbf_solver_list",
+            active_index_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].rbf_solver_list_active_index",
+            unique_id="active_rbf_solver_list_id",
+            insertion_operators=False,
+            move_operators=False # type: ignore
+        )            
+        solver_row = self.layout.row(align=True)
+        solver_row.operator('meta_human_dna.add_rbf_solver', icon='ADD', text='').active_index = active_rbf_solver_index # type: ignore
+        solver_row.operator('meta_human_dna.remove_rbf_solver', icon='REMOVE', text='').active_index = active_rbf_solver_index # type: ignore
+        solver_row.operator('meta_human_dna.refresh_rbf_solvers', icon='FILE_REFRESH', text='').active_index = active_rbf_solver_index # type: ignore
+
+
+class META_HUMAN_DNA_PT_rbf_editor_footer_sub_panel(SubPanelBase):
+    bl_parent_id = "META_HUMAN_DNA_PT_rbf_editor"
+    bl_label = "(Not Shown)"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'Meta-Human DNA'
+    bl_options = {'HIDE_HEADER'}
+
     def draw(self, context):
         if not self.layout:
             return
         
+        properties = context.scene.meta_human_dna # type: ignore
+        
+        active_index = properties.rig_logic_instance_list_active_index
+        instance = properties.rig_logic_instance_list[active_index]
+
+        active_rbf_solver_index = instance.rbf_solver_list_active_index
+        
+        solver_row = self.layout.row(align=True)
+        solver_row.scale_y = 1.5
+        solver_row.operator('meta_human_dna.edit_rbf_solver', icon='OUTLINER_DATA_ARMATURE', text='Edit').active_index = active_rbf_solver_index # type: ignore
+        solver_row.operator('meta_human_dna.commit_rbf_solver_changes', icon='RNA', text='Commit').active_index = active_rbf_solver_index # type: ignore
+
+
+class RbfEditorSubPanelBase(bpy.types.Panel):
+    @classmethod
+    def poll(cls, context):
         error = valid_rig_logic_instance_exists(context, ignore_face_board=True)
         if not error:
             properties = context.scene.meta_human_dna # type: ignore
-
             if not len(properties.rig_logic_instance_list) > 0:
-                return
-            
+                return False
+
+            properties = context.scene.meta_human_dna # type: ignore
             active_index = properties.rig_logic_instance_list_active_index
             instance = properties.rig_logic_instance_list[active_index]
 
             active_rbf_solver_index = instance.rbf_solver_list_active_index
             active_rbf_solver = instance.rbf_solver_list[active_rbf_solver_index] if len(instance.rbf_solver_list) > 0 else None
 
-            row = self.layout.row()
-            column = row.column()
-            column.label(text='Solvers:')
-            draw_ui_list(
-                column,
-                context,
-                class_name="META_HUMAN_DNA_UL_rbf_solvers",
-                list_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].rbf_solver_list",
-                active_index_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].rbf_solver_list_active_index",
-                unique_id="active_rbf_solver_list_id",
-                insertion_operators=False,
-                move_operators=False # type: ignore
-            )            
-            solver_row = column.row(align=True)
-            solver_row.operator('meta_human_dna.add_rbf_solver', icon='ADD', text='').active_index = active_rbf_solver_index # type: ignore
-            solver_row.operator('meta_human_dna.remove_rbf_solver', icon='REMOVE', text='').active_index = active_rbf_solver_index # type: ignore
-            solver_row.operator('meta_human_dna.refresh_rbf_solvers', icon='FILE_REFRESH', text='').active_index = active_rbf_solver_index # type: ignore
-
             if not active_rbf_solver:
-                return
+                return False
             
-            active_rbf_pose_index = active_rbf_solver.poses_active_index
-            active_rbf_pose = active_rbf_solver.poses[active_rbf_pose_index] if len(active_rbf_solver.poses) > 0 else None
+            if not instance.editing_rbf_solver:
+                return False
 
-            column.label(text='Poses:')
-            draw_ui_list(
-                column,
-                context,
-                class_name="META_HUMAN_DNA_UL_rbf_poses",
-                list_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses",
-                active_index_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses_active_index",
-                unique_id="active_rbf_poses_list_id",
-                insertion_operators=False,
-                move_operators=False # type: ignore
-            )
-            poses_row = column.row(align=True)
-            poses_row.operator('meta_human_dna.add_rbf_pose', icon='ADD', text='').active_index = active_rbf_solver.poses_active_index # type: ignore
-            poses_row.operator('meta_human_dna.remove_rbf_pose', icon='REMOVE', text='').active_index = active_rbf_solver.poses_active_index # type: ignore
-            poses_row.operator('meta_human_dna.update_rbf_pose', icon='CHECKMARK', text='').active_index = active_rbf_solver.poses_active_index # type: ignore
-            column = row.column()
-            column.label(text='Drivers:')
-            draw_ui_list(
-                column,
-                context,
-                class_name="META_HUMAN_DNA_UL_rbf_drivers",
-                list_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses[{active_rbf_pose_index}].drivers",
-                active_index_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses[{active_rbf_pose_index}].drivers_active_index",
-                unique_id="active_rbf_driver_list_id",
-                insertion_operators=False,
-                move_operators=False # type: ignore
-            )
-            driver_row = column.row(align=True)
-            # TODO: Disabled for now until we can have multiple drivers properly supported
-            driver_row.enabled = False
-            driver_row.operator('meta_human_dna.add_rbf_driver', icon='ADD', text='')
-            driver_row.operator('meta_human_dna.remove_rbf_driver', icon='REMOVE', text='')
+            return True
+        return False
+    
 
-            if not active_rbf_pose:
-                return
+class META_HUMAN_DNA_PT_rbf_editor_solver_settings_sub_panel(RbfEditorSubPanelBase):
+    bl_parent_id = "META_HUMAN_DNA_PT_rbf_editor"
+    bl_label = "Settings"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'Meta-Human DNA'
+    bl_options = {'DEFAULT_CLOSED'}
 
-            column.label(text='Driven:')
-            draw_ui_list(
-                column,
-                context,
-                class_name="META_HUMAN_DNA_UL_rbf_driven",
-                list_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses[{active_rbf_pose_index}].driven",
-                active_index_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses[{active_rbf_pose_index}].driven_active_index",
-                unique_id="active_rbf_driven_list_id",
-                insertion_operators=False,
-                move_operators=False # type: ignore
-            )
-            driven_row = column.row(align=True)
-            driven_row.operator('meta_human_dna.add_rbf_driven', icon='ADD', text='').active_index = active_rbf_pose.driven_active_index # type: ignore
-            driven_row.operator('meta_human_dna.remove_rbf_driven', icon='REMOVE', text='').active_index = active_rbf_pose.driven_active_index # type: ignore
-        else:
-            draw_rig_logic_instance_error(self.layout, error)
+    def draw(self, context):
+        if not self.layout:
+            return
+        
+        properties = context.scene.meta_human_dna # type: ignore
+        
+        active_index = properties.rig_logic_instance_list_active_index
+        instance = properties.rig_logic_instance_list[active_index]
+
+        active_rbf_solver_index = instance.rbf_solver_list_active_index
+        active_rbf_solver = instance.rbf_solver_list[active_rbf_solver_index] if len(instance.rbf_solver_list) > 0 else None
+
+        if not active_rbf_solver:
+            return
+
+        split = self.layout.split(factor=0.45)
+        split.label(text='Mode:')
+        split.prop(active_rbf_solver, 'mode', text='')
+        split = self.layout.split(factor=0.45)
+        split.label(text='Distance Method:')
+        split.prop(active_rbf_solver, 'distance_method', text='')
+        split = self.layout.split(factor=0.45)
+        split.label(text='Normalize Method:')
+        split.prop(active_rbf_solver, 'normalize_method', text='')
+        split = self.layout.split(factor=0.45)
+        split.label(text='Function Type:')
+        split.prop(active_rbf_solver, 'function_type', text='')
+        split = self.layout.split(factor=0.45)
+        split.label(text='Twist Axis:')
+        split.prop(active_rbf_solver, 'twist_axis', text='')
+        row = self.layout.row()
+        row.prop(active_rbf_solver, 'radius', text='Radius')
+        row = self.layout.row()
+        row.prop(active_rbf_solver, 'weight_threshold', text='Weight Threshold')
+        row = self.layout.row()
+        row.prop(active_rbf_solver, 'automatic_radius', text='Automatic Radius')
+
+
+class META_HUMAN_DNA_PT_rbf_editor_poses_sub_panel(RbfEditorSubPanelBase):
+    bl_parent_id = "META_HUMAN_DNA_PT_rbf_editor"
+    bl_label = "Poses"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'Meta-Human DNA'
+
+    def draw(self, context):
+        if not self.layout:
+            return
+        
+        properties = context.scene.meta_human_dna # type: ignore
+        
+        active_index = properties.rig_logic_instance_list_active_index
+        instance = properties.rig_logic_instance_list[active_index]
+
+        active_rbf_solver_index = instance.rbf_solver_list_active_index
+        active_rbf_solver = instance.rbf_solver_list[active_rbf_solver_index] if len(instance.rbf_solver_list) > 0 else None
+
+        if not active_rbf_solver:
+            return
+
+        row = self.layout.row()
+        draw_ui_list(
+            row,
+            context,
+            class_name="META_HUMAN_DNA_UL_rbf_poses",
+            list_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses",
+            active_index_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses_active_index",
+            unique_id="active_rbf_poses_list_id",
+            insertion_operators=False,
+            move_operators=False # type: ignore
+        )
+        poses_row = self.layout.row(align=True)
+        poses_row.operator('meta_human_dna.add_rbf_pose', icon='ADD', text='').active_index = active_rbf_solver.poses_active_index # type: ignore
+        poses_row.operator('meta_human_dna.remove_rbf_pose', icon='REMOVE', text='').active_index = active_rbf_solver.poses_active_index # type: ignore
+
+        active_rbf_pose_index = active_rbf_solver.poses_active_index
+        active_rbf_pose = active_rbf_solver.poses[active_rbf_pose_index] if len(active_rbf_solver.poses) > 0 else None
+        if not active_rbf_pose:
+            return
+        
+        # TODO: Maybe Re-enable when functionality is needed?
+        # split = self.layout.split()
+        # split.prop(active_rbf_pose, 'scale_factor', text='Scale Factor')
+        # split.prop(active_rbf_pose, 'target_enable', text='Target Enabled')
+
+
+
+class META_HUMAN_DNA_PT_rbf_editor_drivers_sub_panel(RbfEditorSubPanelBase):
+    bl_parent_id = "META_HUMAN_DNA_PT_rbf_editor"
+    bl_label = "Drivers"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'Meta-Human DNA'
+
+    def draw(self, context):
+        if not self.layout:
+            return
+        
+        properties = context.scene.meta_human_dna # type: ignore
+        active_index = properties.rig_logic_instance_list_active_index
+        instance = properties.rig_logic_instance_list[active_index]
+
+        active_rbf_solver_index = instance.rbf_solver_list_active_index
+        active_rbf_solver = instance.rbf_solver_list[active_rbf_solver_index] if len(instance.rbf_solver_list) > 0 else None
+
+        if not active_rbf_solver:
+            return
+        
+        active_rbf_pose_index = active_rbf_solver.poses_active_index
+
+        row = self.layout.row()
+        draw_ui_list(
+            row,
+            context,
+            class_name="META_HUMAN_DNA_UL_rbf_drivers",
+            list_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses[{active_rbf_pose_index}].drivers",
+            active_index_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses[{active_rbf_pose_index}].drivers_active_index",
+            unique_id="active_rbf_driver_list_id",
+            insertion_operators=False,
+            move_operators=False # type: ignore
+        )
+
+
+class META_HUMAN_DNA_PT_rbf_editor_driven_sub_panel(RbfEditorSubPanelBase):
+    bl_parent_id = "META_HUMAN_DNA_PT_rbf_editor"
+    bl_label = "Driven"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'Meta-Human DNA'
+
+    def draw(self, context):
+        if not self.layout:
+            return
+        
+        properties = context.scene.meta_human_dna # type: ignore
+        active_index = properties.rig_logic_instance_list_active_index
+        instance = properties.rig_logic_instance_list[active_index]
+
+        active_rbf_solver_index = instance.rbf_solver_list_active_index
+        active_rbf_solver = instance.rbf_solver_list[active_rbf_solver_index] if len(instance.rbf_solver_list) > 0 else None
+
+        if not active_rbf_solver:
+            return
+        
+        active_rbf_pose_index = active_rbf_solver.poses_active_index
+        active_rbf_pose = active_rbf_solver.poses[active_rbf_pose_index] if len(active_rbf_solver.poses) > 0 else None
+        
+        row = self.layout.row()
+        draw_ui_list(
+            row,
+            context,
+            class_name="META_HUMAN_DNA_UL_rbf_driven",
+            list_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses[{active_rbf_pose_index}].driven",
+            active_index_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses[{active_rbf_pose_index}].driven_active_index",
+            unique_id="active_rbf_driven_list_id",
+            insertion_operators=False,
+            move_operators=False # type: ignore
+        )
+        driven_row = self.layout.row(align=True)
+        driven_row.operator('meta_human_dna.add_rbf_driven', icon='ADD', text='').active_index = active_rbf_pose.driven_active_index # type: ignore
+        driven_row.operator('meta_human_dna.remove_rbf_driven', icon='REMOVE', text='').active_index = active_rbf_pose.driven_active_index # type: ignore
 
 
 class META_HUMAN_DNA_PT_output_panel(bpy.types.Panel):

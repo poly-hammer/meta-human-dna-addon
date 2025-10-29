@@ -1614,7 +1614,9 @@ class RefreshRBFSolvers(RBFEditorOperatorBase):
     bl_label = "Refresh RBF Solvers"
 
     def run(self, instance):
-        pass
+        instance.update_body_rbf_solver_list()
+        instance.editing_rbf_solver = False
+        instance.auto_evaluate_body = True
     
 
 class AddRBFPose(RBFEditorOperatorBase):
@@ -1624,16 +1626,47 @@ class AddRBFPose(RBFEditorOperatorBase):
 
     def run(self, instance):
         pass
-    
 
-class UpdateRBFPose(RBFEditorOperatorBase):
-    """Update the current RBF Pose with the current transforms"""
-    bl_idname = "meta_human_dna.update_rbf_pose"
-    bl_label = "Update RBF Pose"
+class EditRBFSolver(RBFEditorOperatorBase):
+    """Switch to Editing mode for the selected RBF solver. Changes will not take effect until committed to the .dna file."""
+    bl_idname = "meta_human_dna.edit_rbf_solver"
+    bl_label = "Edit RBF Solver"
+
+    @classmethod
+    def poll(cls, context):
+        instance = callbacks.get_active_rig_logic()
+        if instance is None:
+            return False
+        
+        if not instance.editing_rbf_solver:
+            return True
+        
+        return False
 
     def run(self, instance):
-        pass
+        instance.editing_rbf_solver = True
+        instance.auto_evaluate_body = False
 
+class CommitRBFSolverChanges(RBFEditorOperatorBase):
+    """Commit the current changes for the selected RBF solver to the .dna file"""
+    bl_idname = "meta_human_dna.commit_rbf_solver_changes"
+    bl_label = "Commit RBF Solver Changes"
+
+    @classmethod
+    def poll(cls, context):
+        instance = callbacks.get_active_rig_logic()
+        if instance is None:
+            return False
+        
+        if instance.editing_rbf_solver:
+            return True
+        
+        return False
+
+    def run(self, instance):
+        instance.editing_rbf_solver = False
+        instance.auto_evaluate_body = True
+        
 
 class RemoveRBFPose(RBFEditorOperatorBase):
     """Remove the selected RBF Pose"""
