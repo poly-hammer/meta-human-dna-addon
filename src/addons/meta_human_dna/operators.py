@@ -12,7 +12,8 @@ from . import utilities
 from .dna_io import (
     DNACalibrator, 
     DNAExporter,
-    get_dna_reader
+    get_dna_reader,
+    get_dna_writer
 )
 from .properties import MetahumanDnaImportProperties, BlendFileMetaHumanCollection
 from .components import (
@@ -29,7 +30,8 @@ from .constants import (
     HEAD_TEXTURE_LOGIC_NODE_NAME,
     HEAD_TEXTURE_LOGIC_NODE_LABEL,
     SHAPE_KEY_BASIS_NAME,
-    FACE_BOARD_NAME
+    FACE_BOARD_NAME,
+    BONE_DELTA_THRESHOLD
 )
 
 logger = logging.getLogger(__name__)
@@ -1355,7 +1357,10 @@ class ShapeKeyOperatorBase(bpy.types.Operator):
     
 
 class RBFEditorOperatorBase(bpy.types.Operator):
-    active_index: bpy.props.IntProperty() # type: ignore
+    solver_index: bpy.props.IntProperty(default=0) # type: ignore
+    pose_index: bpy.props.IntProperty(default=0) # type: ignore
+    driver_index: bpy.props.IntProperty(default=0) # type: ignore
+    driven_index: bpy.props.IntProperty(default=0) # type: ignore
 
     def validate(self, context, instance) -> tuple[bool, str]:
         return True, ""
@@ -1615,8 +1620,6 @@ class RefreshRBFSolvers(RBFEditorOperatorBase):
 
     def run(self, instance):
         instance.update_body_rbf_solver_list()
-        instance.editing_rbf_solver = False
-        instance.auto_evaluate_body = True
     
 
 class AddRBFPose(RBFEditorOperatorBase):
@@ -1626,6 +1629,15 @@ class AddRBFPose(RBFEditorOperatorBase):
 
     def run(self, instance):
         pass
+
+class RevertRBFSolver(RBFEditorOperatorBase):
+    """Revert RBF solver back to the original DNA."""
+    bl_idname = "meta_human_dna.revert_rbf_solver"
+    bl_label = "Revert RBF Solver"
+
+    def run(self, instance):
+        instance.editing_rbf_solver = False
+        instance.auto_evaluate_body = True
 
 class EditRBFSolver(RBFEditorOperatorBase):
     """Switch to Editing mode for the selected RBF solver. Changes will not take effect until committed to the .dna file."""
@@ -1662,10 +1674,52 @@ class CommitRBFSolverChanges(RBFEditorOperatorBase):
             return True
         
         return False
+    
+    def validate(self, context, instance) -> tuple[bool, str]:
+        if not utilities.dependencies_are_valid():
+            return False, "Dependencies are not valid. Ensure the core dependencies are installed."
 
-    def run(self, instance):
+        if not instance.body_rig:
+            return False, "No body rig found. Please assign a body rig."
+        if not instance.body_dna_file_path:
+            return False, "No body .dna file. Please assign a body .dna file."
+        if not Path(bpy.path.abspath(instance.body_dna_file_path)).exists():
+            return False, "Body .dna file does not exist. Please check the file path."
+
+        return True, ""
+
+    def run(self, instance):        
+        import riglogic
+        import meta_human_dna_core
+
+        file_path = Path(instance.body_dna_file_path).parent / "temp_body.dna"
+        reader = get_dna_reader(file_path=instance.body_dna_file_path)
+        writer = get_dna_writer(file_path=file_path)
+
+        # Populate the writer with the data from the reader
+        writer.setFrom(
+            reader,
+            riglogic.DataLayer.All,
+            riglogic.UnknownLayerPolicy.Preserve,
+            None
+        )
+
+        utilities.commit_rbf_data_to_dna(
+            reader=reader,
+            writer=writer,
+            data=utilities.collection_to_list(instance.rbf_solver_list)
+        )
+
+        writer.write()
+        if not riglogic.Status.isOk():
+            status = riglogic.Status.get()
+            raise RuntimeError(f"Error saving DNA: {status.message}")
+        logger.info(f'DNA exported successfully to: "{file_path}"')
+
         instance.editing_rbf_solver = False
         instance.auto_evaluate_body = True
+        instance.destroy()
+        instance.evaluate(component='body')
         
 
 class RemoveRBFPose(RBFEditorOperatorBase):
@@ -1701,6 +1755,48 @@ class AddRBFDriven(RBFEditorOperatorBase):
 
     def run(self, instance):
         pass
+
+class UpdateRBFDriven(RBFEditorOperatorBase):
+    """Update the selected RBF driven bone transforms for the current pose"""
+    bl_idname = "meta_human_dna.update_rbf_driven"
+    bl_label = "Update RBF Driven Bone"
+
+    def run(self, instance):      
+        # ensure the body is initialized
+        if not instance.body_initialized:
+            instance.body_initialize(update_rbf_solver_list=False)
+
+        solver = instance.rbf_solver_list[self.solver_index]
+        pose = solver.poses[self.pose_index]
+        driven = pose.driven[self.driven_index]
+
+        existing_rotation = Vector(driven.euler_rotation[:])
+        existing_location = Vector(driven.location[:])
+        existing_scale = Vector(driven.scale[:])
+        pose_bone = instance.body_rig.pose.bones.get(driven.name)
+        if pose_bone:
+            _, _, _, rest_to_parent_matrix = instance.body_rest_pose[pose_bone.name]
+            location, _, scale = (rest_to_parent_matrix.inverted() @ pose_bone.matrix_basis).decompose()
+
+            # scale should not be greater than the pose scale factor
+            for i in range(3):
+                if round(scale[i], 5) > round(pose.scale_factor, 5):
+                    scale[i] -= pose.scale_factor
+
+            rotation_delta = Vector(list(pose_bone.rotation_euler)) - existing_rotation
+            location_delta = location.copy() - existing_location
+            scale_delta = scale.copy() - existing_scale
+
+            # only update if the delta is significant enough to avoid floating point value drift
+            if rotation_delta.length > BONE_DELTA_THRESHOLD:
+                driven.euler_rotation = list(pose_bone.rotation_euler)
+                logger.debug(f'Updated RBF driven bone "{driven.name}" rotation to {driven.euler_rotation[:]}')
+            if location_delta.length > BONE_DELTA_THRESHOLD:
+                driven.location = list(location)
+                logger.debug(f'Updated RBF driven bone "{driven.name}" location to {driven.location[:]}')
+            if scale_delta.length > BONE_DELTA_THRESHOLD:
+                driven.scale = list(scale)
+                logger.debug(f'Updated RBF driven bone "{driven.name}" scale to {driven.scale[:]}')
 
 
 class RemoveRBFDriven(RBFEditorOperatorBase):

@@ -555,10 +555,9 @@ def update_body_rbf_poses_active_index(self, context):
                     # rotate the corrective root opposite half the amount of the driver bone
                     child.rotation_euler = Euler([i*-0.5 for i in euler_rotation], 'XYZ')
 
-
     # ensure the body is initialized
     if not instance.body_initialized:
-        instance.body_initialize()
+        instance.body_initialize(update_rbf_solver_list=False)
 
     for driven in pose.driven:
         if driven.data_type == 'BONE':
@@ -588,9 +587,6 @@ def update_body_rbf_poses_active_index(self, context):
 
                 # rotation is applied separately in pose space
                 pose_bone.rotation_euler = Euler(driven.euler_rotation, 'XYZ')
-    
-    if instance.auto_evaluate_body:
-        instance.evaluate(component='body')
 
 def update_evaluate_rbfs_value(self, context):
     self.reset_body_raw_control_values()

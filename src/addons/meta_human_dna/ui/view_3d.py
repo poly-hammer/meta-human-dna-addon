@@ -773,9 +773,9 @@ class META_HUMAN_DNA_PT_rbf_editor(bpy.types.Panel):
             move_operators=False # type: ignore
         )            
         solver_row = self.layout.row(align=True)
-        solver_row.operator('meta_human_dna.add_rbf_solver', icon='ADD', text='').active_index = active_rbf_solver_index # type: ignore
-        solver_row.operator('meta_human_dna.remove_rbf_solver', icon='REMOVE', text='').active_index = active_rbf_solver_index # type: ignore
-        solver_row.operator('meta_human_dna.refresh_rbf_solvers', icon='FILE_REFRESH', text='').active_index = active_rbf_solver_index # type: ignore
+        solver_row.operator('meta_human_dna.add_rbf_solver', icon='ADD', text='').solver_index = active_rbf_solver_index # type: ignore
+        solver_row.operator('meta_human_dna.remove_rbf_solver', icon='REMOVE', text='').solver_index = active_rbf_solver_index # type: ignore
+        solver_row.operator('meta_human_dna.refresh_rbf_solvers', icon='FILE_REFRESH', text='')
 
 
 class META_HUMAN_DNA_PT_rbf_editor_footer_sub_panel(SubPanelBase):
@@ -794,13 +794,16 @@ class META_HUMAN_DNA_PT_rbf_editor_footer_sub_panel(SubPanelBase):
         
         active_index = properties.rig_logic_instance_list_active_index
         instance = properties.rig_logic_instance_list[active_index]
-
-        active_rbf_solver_index = instance.rbf_solver_list_active_index
         
         solver_row = self.layout.row(align=True)
         solver_row.scale_y = 1.5
-        solver_row.operator('meta_human_dna.edit_rbf_solver', icon='OUTLINER_DATA_ARMATURE', text='Edit').active_index = active_rbf_solver_index # type: ignore
-        solver_row.operator('meta_human_dna.commit_rbf_solver_changes', icon='RNA', text='Commit').active_index = active_rbf_solver_index # type: ignore
+        
+        if instance.editing_rbf_solver:
+            solver_row.operator('meta_human_dna.revert_rbf_solver', icon='LOOP_BACK', text='Revert')
+        else:
+            solver_row.operator('meta_human_dna.edit_rbf_solver', icon='OUTLINER_DATA_ARMATURE', text='Edit')
+        
+        solver_row.operator('meta_human_dna.commit_rbf_solver_changes', icon='RNA', text='Commit')
 
 
 class RbfEditorSubPanelBase(bpy.types.Panel):
@@ -909,8 +912,13 @@ class META_HUMAN_DNA_PT_rbf_editor_poses_sub_panel(RbfEditorSubPanelBase):
             move_operators=False # type: ignore
         )
         poses_row = self.layout.row(align=True)
-        poses_row.operator('meta_human_dna.add_rbf_pose', icon='ADD', text='').active_index = active_rbf_solver.poses_active_index # type: ignore
-        poses_row.operator('meta_human_dna.remove_rbf_pose', icon='REMOVE', text='').active_index = active_rbf_solver.poses_active_index # type: ignore
+        op = poses_row.operator('meta_human_dna.add_rbf_pose', icon='ADD', text='')
+        op.solver_index = active_rbf_solver_index # type: ignore
+        op.pose_index = active_rbf_solver.poses_active_index # type: ignore
+
+        op = poses_row.operator('meta_human_dna.remove_rbf_pose', icon='REMOVE', text='')
+        op.solver_index = active_rbf_solver_index # type: ignore
+        op.pose_index = active_rbf_solver.poses_active_index # type: ignore
 
         active_rbf_pose_index = active_rbf_solver.poses_active_index
         active_rbf_pose = active_rbf_solver.poses[active_rbf_pose_index] if len(active_rbf_solver.poses) > 0 else None
@@ -983,7 +991,9 @@ class META_HUMAN_DNA_PT_rbf_editor_driven_sub_panel(RbfEditorSubPanelBase):
         
         active_rbf_pose_index = active_rbf_solver.poses_active_index
         active_rbf_pose = active_rbf_solver.poses[active_rbf_pose_index] if len(active_rbf_solver.poses) > 0 else None
-        
+        if not active_rbf_pose:
+            return
+
         row = self.layout.row()
         draw_ui_list(
             row,
@@ -996,8 +1006,22 @@ class META_HUMAN_DNA_PT_rbf_editor_driven_sub_panel(RbfEditorSubPanelBase):
             move_operators=False # type: ignore
         )
         driven_row = self.layout.row(align=True)
-        driven_row.operator('meta_human_dna.add_rbf_driven', icon='ADD', text='').active_index = active_rbf_pose.driven_active_index # type: ignore
-        driven_row.operator('meta_human_dna.remove_rbf_driven', icon='REMOVE', text='').active_index = active_rbf_pose.driven_active_index # type: ignore
+        
+        op = driven_row.operator('meta_human_dna.add_rbf_driven', icon='ADD', text='')
+        op.solver_index = active_rbf_solver_index # type: ignore
+        op.pose_index = active_rbf_pose_index # type: ignore
+        op.driven_index = active_rbf_pose.driven_active_index # type: ignore
+
+        op = driven_row.operator('meta_human_dna.remove_rbf_driven', icon='REMOVE', text='')
+        op.solver_index = active_rbf_solver_index # type: ignore
+        op.pose_index = active_rbf_pose_index # type: ignore
+        op.driven_index = active_rbf_pose.driven_active_index # type: ignore
+
+        if active_rbf_pose.driven_active_index >= 0 and len(active_rbf_pose.driven) > 0:
+            op = driven_row.operator('meta_human_dna.update_rbf_driven', icon='CHECKMARK', text='')
+            op.solver_index = active_rbf_solver_index # type: ignore
+            op.pose_index = active_rbf_pose_index # type: ignore
+            op.driven_index = active_rbf_pose.driven_active_index # type: ignore
 
 
 class META_HUMAN_DNA_PT_output_panel(bpy.types.Panel):

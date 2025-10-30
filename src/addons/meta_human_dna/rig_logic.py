@@ -185,6 +185,8 @@ class ShapeKeyData(bpy.types.PropertyGroup):
 
 class RBFDriverData(bpy.types.PropertyGroup):
     solver_index: bpy.props.IntProperty() # type: ignore
+    pose_index: bpy.props.IntProperty() # type: ignore
+    joint_index: bpy.props.IntProperty() # type: ignore
     name: bpy.props.StringProperty() # type: ignore
     rotation_mode: bpy.props.EnumProperty(
         items=[
@@ -254,6 +256,7 @@ class RBFPoseData(bpy.types.PropertyGroup):
     # shape_key_data: bpy.props.CollectionProperty(type=ShapeKeyData) # type: ignore
 
 class RBFSolverData(bpy.types.PropertyGroup):
+    solver_index: bpy.props.IntProperty() # type: ignore
     name: bpy.props.StringProperty(
         default='',
         description='The name of the RBF solver',
@@ -1026,7 +1029,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
         self.data[f'{self.name}_head_initialized'] = True
 
-    def body_initialize(self):
+    def body_initialize(self, update_rbf_solver_list: bool = True):
         from .bindings import riglogic
         from .dna_io import get_dna_reader
 
@@ -1072,7 +1075,9 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         )
 
         # populate the body rbf solver list
-        self.update_body_rbf_solver_list()
+        if update_rbf_solver_list:
+            self.update_body_rbf_solver_list()
+
         # calling theses properties will cache their values
         self.body_raw_control_bone_names
         self.body_rest_pose
