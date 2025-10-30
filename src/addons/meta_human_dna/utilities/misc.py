@@ -16,7 +16,8 @@ from ..constants import (
     MATERIALS_FILE_PATH, 
     HEAD_TEXTURE_LOGIC_NODE_LABEL,
     SCRIPTS_FOLDER,
-    FACE_BOARD_NAME
+    FACE_BOARD_NAME,
+    SCALE_FACTOR
 )
 from ..rig_logic import start_listening
 from ..constants import (
@@ -942,3 +943,502 @@ def position_face_board(
 
         # position the eye aim controls
         position_eye_aim(head_rig_object, face_board_object)
+
+
+def collection_to_list(collection: bpy.types.Collection) -> list:
+    item_list = []
+    for item in collection:
+        data = {'__property_group__': item.__class__.__name__}
+        for key, data_type in item.__annotations__.items():
+            if data_type.function.__name__ == 'CollectionProperty':
+                data[key] = collection_to_list(getattr(item, key))
+            elif data_type.function.__name__ == 'FloatVectorProperty':
+                data[key] = getattr(item, key)[:]
+            else:
+                data[key] = getattr(item, key)
+
+        item_list.append(data)
+    return item_list
+
+def _scale_driven_data(
+    driven_data: list[dict],
+    weight: float
+) -> list[dict]:
+    """
+    Scale transformation deltas by a weight multiplier.
+    """
+    scaled_list = []
+    for driven in driven_data:
+        scaled = dict(
+            pose_index=driven['pose_index'],
+            joint_index=driven['joint_index'],
+            name=driven['name'],
+            rotation_mode=driven['rotation_mode'],
+            location=[v * weight for v in driven['location']],
+            euler_rotation=[v * weight for v in driven['euler_rotation']],
+            quaternion_rotation=driven['quaternion_rotation'],
+            scale=[1.0 + (v - 1.0) * weight for v in driven['scale']]
+        )
+        scaled_list.append(scaled)
+    return scaled_list
+
+def _get_joint_group_index(
+    reader,
+    control_index: int
+) -> int:
+    """
+    Find existing joint group containing the control, or create new one.
+    """
+    # Search for existing group with this control
+    group_count = reader.getJointGroupCount()
+    
+    for gi in range(group_count):
+        input_indices = list(reader.getJointGroupInputIndices(gi))
+        if control_index in input_indices:
+            return gi
+    
+    # Create new group
+    return group_count
+
+
+def _update_joint_group_with_deltas(
+    reader,
+    writer,
+    joint_group_index: int,
+    control_index: int,
+    driven_data: list[dict],
+    lod_count: int | None = None # type: ignore
+) -> None:
+    """
+    Update joint group matrix with transformation deltas.
+    """
+    
+    # Get existing data (or empty if new group)
+    try:
+        input_indices = list(reader.getJointGroupInputIndices(joint_group_index))
+        output_indices = list(reader.getJointGroupOutputIndices(joint_group_index))
+        existing_values = list(reader.getJointGroupValues(joint_group_index))
+    except:
+        input_indices = []
+        output_indices = []
+        existing_values = []
+    
+    # Ensure control is in input indices
+    if control_index not in input_indices:
+        input_indices.append(control_index)
+    
+    control_column = input_indices.index(control_index)
+    
+    # Build output indices and values map
+    delta_map = {}  # output_index -> value
+    
+    for driven in driven_data:
+        matrix_index = driven['joint_index'] * 9
+        
+        # Translation (apply scale)
+        for i in range(3):
+            output_idx = matrix_index + i
+            value = driven['location'][i] * SCALE_FACTOR
+            if abs(value) > 1e-6:  # Only store non-zero
+                delta_map[output_idx] = value
+        
+        # Rotation (convert to degrees)
+        for i in range(3):
+            output_idx = matrix_index + 3 + i
+            value = math.degrees(driven['euler_rotation'][i])
+            if abs(value) > 1e-6:
+                delta_map[output_idx] = value
+        
+        # Scale
+        for i in range(3):
+            output_idx = matrix_index + 6 + i
+            value = driven['scale'][i]
+            if abs(value - 1.0) > 1e-6:  # Only store if not 1.0
+                delta_map[output_idx] = value
+    
+    # Merge new output indices
+    for out_idx in delta_map.keys():
+        if out_idx not in output_indices:
+            output_indices.append(out_idx)
+    
+    output_indices.sort()
+    
+    # Rebuild values matrix (row-major)
+    row_count = len(output_indices)
+    col_count = len(input_indices)
+    values = [0.0] * (row_count * col_count)
+    
+    # Copy existing values for other columns
+    if existing_values and len(existing_values) > 0:
+        old_col_count = len(existing_values) // len(output_indices) if output_indices else 0
+        for row in range(min(row_count, len(output_indices))):
+            for col in range(min(col_count, old_col_count)):
+                if col < len(input_indices):
+                    old_idx = row * old_col_count + col
+                    new_idx = row * col_count + col
+                    if old_idx < len(existing_values):
+                        values[new_idx] = existing_values[old_idx]
+    
+    # Set new values for this control's column
+    for row, out_idx in enumerate(output_indices):
+        if out_idx in delta_map:
+            matrix_idx = row * col_count + control_column
+            values[matrix_idx] = delta_map[out_idx]
+    
+    # Extract unique joint indices
+    joint_indices = sorted(set(idx // 9 for idx in output_indices))
+    
+    # Set LODs (all LODs get all rows by default)
+    if lod_count is None:
+        lod_count: int = reader.getLODCount()
+    lods = [row_count] * lod_count
+    
+    # Update the joint group
+    writer.setJointGroupInputIndices(joint_group_index, input_indices)
+    writer.setJointGroupOutputIndices(joint_group_index, output_indices)
+    writer.setJointGroupValues(joint_group_index, values)
+    writer.setJointGroupJointIndices(joint_group_index, joint_indices)
+    writer.setJointGroupLODs(joint_group_index, lods)
+
+
+def set_rbf_driven_data(
+    reader,
+    writer,
+    pose_index: int,
+    driven_data: list[dict],
+    lod_count: int | None = None
+) -> None:
+    """
+    Set joint transformations driven by an RBF pose.
+    
+    Args:
+        writer: DNA BinaryStreamWriter instance
+        pose_index: Index of the RBF pose
+        driven_data_list: List of RBFDrivenData with transformation deltas
+        output_control_index: The control index this pose drives
+        lod_count: Number of LODs (if None, uses writer.getLODCount())
+    """
+    
+    if not driven_data:
+        return
+    
+    # Get the output controls this pose drives
+    if reader is not None:
+        # Read from existing DNA
+        output_control_indices = list(reader.getRBFPoseOutputControlIndices(pose_index))
+        output_control_weights = list(reader.getRBFPoseOutputControlWeights(pose_index))
+    else:
+        # Need to get from writer or specify manually
+        # For new poses, you'll need to call setRBFPoseOutputControlIndices first
+        raise ValueError(
+            "Either provide a reader to get existing control mappings, "
+            "or call setRBFPoseOutputControlIndices before setting driven data"
+        )
+    
+    # Update joint group for each output control
+    for control_idx, weight in zip(output_control_indices, output_control_weights):
+        # Scale the deltas by the control weight
+        scaled_driven_data = _scale_driven_data(driven_data, weight)
+        
+        # Update the joint group for this control
+        joint_group_idx = _get_joint_group_index(reader, control_idx)
+        
+        _update_joint_group_with_deltas(
+            reader,
+            writer,
+            joint_group_idx,
+            control_idx,
+            scaled_driven_data,
+            lod_count
+        )
+
+
+
+# def set_rbf_driver_data(reader, writer, solver_index: int, driver_data: list[dict]):
+#     rbf_raw_control_indices = []
+#     rbf_raw_control_values = []
+
+#     for driver in driver_data:
+#         for raw_control_index in driver['raw_control_indices']:
+#             bone_name, axis = reader.getRawControlName(raw_control_index).split('.')
+
+#             rbf_raw_control_indices.append(raw_control_index)
+#             quaternion_rotation = driver['quaternion_rotation']
+
+#             if axis.lower() == 'qx':
+#                 rbf_raw_control_values.append(quaternion_rotation[1])
+#             elif axis.lower() == 'qy':
+#                 rbf_raw_control_values.append(quaternion_rotation[2])
+#             elif axis.lower() == 'qz':
+#                 rbf_raw_control_values.append(quaternion_rotation[3])
+#             elif axis.lower() == 'qw':
+#                 rbf_raw_control_values.append(quaternion_rotation[0])
+
+
+#     writer.setRBFSolverRawControlIndices(
+#         solverIndex=solver_index, 
+#         rawControlIndices=rbf_raw_control_indices
+#     )
+#     writer.setRBFSolverRawControlValues(
+#         solverIndex=solver_index, 
+#         values=rbf_raw_control_values
+#     )
+
+
+def _build_raw_control_indices_from_driver_data(
+    reader,
+    driver: dict,
+    distance_method
+) -> list[int]:
+    """
+    Build the list of raw control indices from driver data.
+    
+    For quaternion-based methods, we need 4 controls per driving joint (x, y, z, w).
+    For Euclidean, we need 1 control per input.
+    """
+    raw_control_indices = []
+    
+    # Find the raw controls for this joint
+    # Assuming the joint has associated raw controls
+    joint_name = reader.getJointName(driver['joint_index'])
+    
+    # Search for raw controls matching this joint
+    raw_control_count = reader.getRawControlCount()
+    
+    if distance_method in ['Quaternion', 'SwingAngle', 'TwistAngle']:
+        # Need 4 controls: x, y, z, w
+        suffixes = ['.qx', '.qy', '.qz', '.qw']
+        for suffix in suffixes:
+            for rc_idx in range(raw_control_count):
+                rc_name = reader.getRawControlName(rc_idx)
+                if rc_name == f"{joint_name}{suffix}":
+                    raw_control_indices.append(rc_idx)
+                    break
+    else:
+        # Euclidean - single scalar value per input
+        for rc_idx in range(raw_control_count):
+            rc_name = reader.getRawControlName(rc_idx)
+            if rc_name.startswith(joint_name):
+                raw_control_indices.append(rc_idx)
+                # For Euclidean, might want just one or specific controls
+    
+    return raw_control_indices
+
+
+def _extract_values_for_pose(
+    reader,
+    raw_control_indices: list[int],
+    driver: dict,
+    distance_method
+) -> list[float]:
+    """
+    Extract the values for raw controls based on the driver data.
+    
+    Returns values in the same order as raw_control_indices.
+    """
+    values = []
+    
+    # Build a map of control name suffix to value
+    quat = driver['quaternion_rotation']  # [w, x, y, z]
+    
+    # Determine quaternion format (check if w is first or last)
+    # Standard mathematical notation: [w, x, y, z]
+    # Some systems use: [x, y, z, w]
+    # Assume [w, x, y, z] format based on your code
+    value_map = {
+        'qw': quat[0],
+        'qx': quat[1],
+        'qy': quat[2],
+        'qz': quat[3]
+    }
+    
+    # Map each raw control index to its value
+    for rc_idx in raw_control_indices:
+        rc_name = reader.getRawControlName(rc_idx)
+        
+        # Extract the suffix (e.g., "head.qx" -> "qx")
+        if '.' in rc_name:
+            suffix = rc_name.split('.')[-1].lower()
+            value = value_map.get(suffix, 0.0)
+            values.append(value)
+        else:
+            # Euclidean or other - might need different logic
+            values.append(0.0)
+    
+    return values
+
+
+def set_rbf_driver_simple(
+    reader,
+    writer,
+    solver_index: int,
+    pose_index: int,
+    joint_name: str,
+    quaternion: list[float]  # [w, x, y, z]
+) -> None:
+    """
+    Simplified version for setting a single pose's driver values.
+    
+    This assumes quaternion-based distance method and that the solver
+    and poses are already configured.
+    """
+    
+    # Get existing data
+    raw_control_indices = list(reader.getRBFSolverRawControlIndices(solver_index))
+    pose_indices = list(reader.getRBFSolverPoseIndices(solver_index))
+    existing_values = list(reader.getRBFSolverRawControlValues(solver_index))
+    
+    if pose_index not in pose_indices:
+        raise ValueError(f"Pose {pose_index} is not part of solver {solver_index}")
+    
+    num_raw_controls = len(raw_control_indices)
+    pose_position = pose_indices.index(pose_index)
+    
+    # Calculate where this pose's values start in the array
+    start_idx = pose_position * num_raw_controls
+    
+    # Build the quaternion value map
+    quat_map = {
+        'qw': quaternion[0],
+        'qx': quaternion[1],
+        'qy': quaternion[2],
+        'qz': quaternion[3]
+    }
+    
+    # Update only this pose's values
+    new_values = existing_values.copy() if existing_values else [0.0] * (num_raw_controls * len(pose_indices))
+    
+    for i, rc_idx in enumerate(raw_control_indices):
+        rc_name = reader.getRawControlName(rc_idx)
+        
+        # Check if this control belongs to our joint
+        if rc_name.startswith(joint_name):
+            suffix = rc_name.split('.')[-1].lower()
+            value = quat_map.get(suffix, 0.0)
+            new_values[start_idx + i] = value
+    
+    # Write back all values
+    writer.setRBFSolverRawControlValues(solver_index, new_values)
+
+
+def set_rbf_driver_data(
+    reader,
+    writer, 
+    solver_index: int,
+    driver_data: list[dict],
+    distance_method: str
+) -> None:
+    """
+    Set the driver (input) values for all poses in an RBF solver.
+    
+    Args:
+        reader: DNA reader for getting existing metadata
+        writer: DNA writer for modifying the data
+        solver_index: Index of the RBF solver to modify
+        driver_data_list: List of driver data, one per pose
+        distance_method: Optional override for distance method
+                        (Quaternion, SwingAngle, TwistAngle, Euclidean)
+    """
+    
+    if not driver_data:
+        return
+    
+    # Get the raw control indices (should be same for all poses in solver)
+    existing_raw_controls = list(reader.getRBFSolverRawControlIndices(solver_index))
+    
+    if not existing_raw_controls:
+        # Need to determine raw controls from the driver data
+        raw_control_indices = _build_raw_control_indices_from_driver_data(
+            reader,
+            driver_data[0],  # Use first pose to determine structure
+            distance_method
+        )
+        writer.setRBFSolverRawControlIndices(solver_index, raw_control_indices)
+    else:
+        raw_control_indices = existing_raw_controls
+    
+    # Get pose indices for this solver
+    pose_indices = list(reader.getRBFSolverPoseIndices(solver_index))
+    
+    # Build the values array: [pose0_values..., pose1_values..., ...]
+    num_raw_controls = len(raw_control_indices)
+    num_poses = len(pose_indices)
+    
+    # Create a map from pose_index to driver_data
+    driver_map = {d['pose_index']: d for d in driver_data}
+    
+    # Build values array in the correct order
+    values = []
+    for pose_idx in pose_indices:
+        if pose_idx in driver_map:
+            driver = driver_map[pose_idx]
+            pose_values = _extract_values_for_pose(
+                reader,
+                raw_control_indices,
+                driver,
+                distance_method
+            )
+            values.extend(pose_values)
+        else:
+            # Pose not in our driver data, keep existing or use zeros
+            existing_values = list(reader.getRBFSolverRawControlValues(solver_index))
+            if existing_values:
+                # Extract existing values for this pose
+                start_idx = pose_indices.index(pose_idx) * num_raw_controls
+                end_idx = start_idx + num_raw_controls
+                values.extend(existing_values[start_idx:end_idx])
+            else:
+                # Default to identity quaternions or zeros
+                values.extend([0.0] * num_raw_controls)
+    
+    # Set all values at once
+    writer.setRBFSolverRawControlValues(solver_index, values)
+
+
+def set_rbf_pose_data(
+        reader, 
+        writer, 
+        solver_index: int, 
+        poses: list[dict],
+        distance_method: str
+    ):
+    for pose in poses:
+        pose_index = pose['pose_index']
+        writer.setRBFPoseName(pose_index, pose['name'])
+        writer.setRBFPoseScale(pose_index, pose['scale_factor'])
+        set_rbf_driven_data(
+            reader, 
+            writer, 
+            pose_index=pose_index, 
+            driven_data=pose['driven']
+        )
+        # set_rbf_driver_data(
+        #     reader, 
+        #     writer, 
+        #     solver_index=solver_index, 
+        #     driver_data=pose['drivers'],
+        #     distance_method=distance_method
+        # )
+
+
+def commit_rbf_data_to_dna(reader, writer, data: list[dict]):
+    import riglogic
+    for item in data:
+        property_group = item.get('__property_group__', '')
+        if property_group == 'RBFSolverData':
+            writer.setRBFSolverName(item['solver_index'], item['name'])
+            writer.setRBFSolverType(item['solver_index'], getattr(riglogic.RBFSolverType, item['mode']))
+            writer.setRBFSolverRadius(item['solver_index'], item['radius'])
+            writer.setRBFSolverWeightThreshold(item['solver_index'], item['weight_threshold'])
+            writer.setRBFSolverDistanceMethod(item['solver_index'], getattr(riglogic.RBFDistanceMethod, item['distance_method']))
+            writer.setRBFSolverNormalizeMethod(item['solver_index'], getattr(riglogic.RBFNormalizeMethod, item['normalize_method']))
+            writer.setRBFSolverFunctionType(item['solver_index'], getattr(riglogic.RBFFunctionType, item['function_type']))
+            writer.setRBFSolverTwistAxis(item['solver_index'], getattr(riglogic.TwistAxis, item['twist_axis']))
+            writer.setRBFSolverAutomaticRadius(item['solver_index'], riglogic.AutomaticRadius.On if item['automatic_radius'] else riglogic.AutomaticRadius.Off)
+            set_rbf_pose_data(
+                reader,
+                writer,
+                solver_index=item['solver_index'],
+                poses=item['poses'],
+                distance_method=item['distance_method']
+            )
