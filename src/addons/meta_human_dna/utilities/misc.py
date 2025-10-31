@@ -8,7 +8,7 @@ import uuid
 import logging
 import subprocess
 import addon_utils
-from typing import Generator
+from typing import Any, Generator
 from pathlib import Path
 from mathutils import Vector
 from typing import TYPE_CHECKING, Callable
@@ -1008,6 +1008,7 @@ def _update_joint_group_with_deltas(
     control_index: int,
     driven_data: list[dict],
     pose_scale_factor: float,
+    joint_group_cache: dict[int, dict[str, Any]],
     lod_count: int | None = None # type: ignore
 ) -> None:
     """
@@ -1017,22 +1018,28 @@ def _update_joint_group_with_deltas(
     We must preserve the exact structure and only update the specific values that changed.
     """
     
-    # Get existing data
-    old_input_indices = list(reader.getJointGroupInputIndices(joint_group_index))
-    old_output_indices = list(reader.getJointGroupOutputIndices(joint_group_index))
-    existing_values = list(reader.getJointGroupValues(joint_group_index))
+    # Get existing data, caching mutations so later pose updates do not discard them
+    cache_entry = joint_group_cache.get(joint_group_index)
+
+    if cache_entry is None:
+        cache_entry = {
+            "input_indices": list(reader.getJointGroupInputIndices(joint_group_index)),
+            "output_indices": list(reader.getJointGroupOutputIndices(joint_group_index)),
+            "values": list(reader.getJointGroupValues(joint_group_index)),
+            "joint_indices": list(reader.getJointGroupJointIndices(joint_group_index)),
+            "lods": list(reader.getJointGroupLODs(joint_group_index)),
+        }
+        joint_group_cache[joint_group_index] = cache_entry
+
+    old_input_indices = cache_entry["input_indices"]
+    old_output_indices = cache_entry["output_indices"]
+    existing_values = cache_entry["values"]
     
     if control_index not in old_input_indices:
         raise ValueError(f"Control {control_index} not found in joint group {joint_group_index}")
     
     control_column = old_input_indices.index(control_index)
     old_col_count = len(old_input_indices)
-    old_row_count = len(old_output_indices)
-    
-    print(f"\n_update_joint_group_with_deltas:")
-    print(f"  Joint Group: {joint_group_index}, Control: {control_index} (column {control_column}/{old_col_count})")
-    print(f"  Rows (output indices): {old_row_count}")
-    print(f"  Driven data: {len(driven_data)} bones")
     
     # Build a map of output_index -> new_value for THIS control only
     new_values_for_control = {}  # output_index -> value
@@ -1061,11 +1068,6 @@ def _update_joint_group_with_deltas(
                 value = 0.0
             new_values_for_control[output_idx] = value
     
-    print(f"  New values to set: {len(new_values_for_control)} output indices")
-    
-    # Create a mutable copy of the values matrix
-    new_values = existing_values.copy()
-    
     updates = 0
     # Update ONLY the values for this control's column
     for row_idx, output_idx in enumerate(old_output_indices):
@@ -1073,27 +1075,22 @@ def _update_joint_group_with_deltas(
         
         if output_idx in new_values_for_control:
             # Update with new value
-            old_val = new_values[matrix_pos]
+            old_val = existing_values[matrix_pos]
             new_val = new_values_for_control[output_idx]
             if abs(old_val - new_val) > 1e-5:
                 updates += 1
-                new_values[matrix_pos] = new_val
-            else:
-                new_values[matrix_pos] = old_val
+                existing_values[matrix_pos] = new_val
 
     print(f"  Updated {updates} values in the matrix")
     
     # Write back - keeping the SAME structure
     writer.setJointGroupInputIndices(joint_group_index, old_input_indices)
     writer.setJointGroupOutputIndices(joint_group_index, old_output_indices)
-    writer.setJointGroupValues(joint_group_index, new_values)
+    writer.setJointGroupValues(joint_group_index, existing_values)
     
     # Preserve existing joint indices and LODs
-    joint_indices = list(reader.getJointGroupJointIndices(joint_group_index))
-    lods = list(reader.getJointGroupLODs(joint_group_index))
-    
-    writer.setJointGroupJointIndices(joint_group_index, joint_indices)
-    writer.setJointGroupLODs(joint_group_index, lods)
+    writer.setJointGroupJointIndices(joint_group_index, cache_entry["joint_indices"])
+    writer.setJointGroupLODs(joint_group_index, cache_entry["lods"])
 
 
 def set_rbf_driven_data(
@@ -1101,6 +1098,7 @@ def set_rbf_driven_data(
     writer,
     pose_index: int,
     driven_data: list[dict],
+    joint_group_cache: dict[int, dict[str, Any]],
     pose_scale_factor: float,
     lod_count: int | None = None
 ) -> None:
@@ -1110,7 +1108,8 @@ def set_rbf_driven_data(
     Args:
         writer: DNA BinaryStreamWriter instance
         pose_index: Index of the RBF pose
-        driven_data_list: List of RBFDrivenData with transformation deltas
+    driven_data: List of RBFDrivenData with transformation deltas
+        joint_group_cache: Cache of joint group matrices to allow incremental updates
         output_control_index: The control index this pose drives
         lod_count: Number of LODs (if None, uses writer.getLODCount())
     """
@@ -1144,8 +1143,9 @@ def set_rbf_driven_data(
             writer=writer,
             joint_group_index=joint_group_idx,
             control_index=control_idx,
-            driven_data=driven_data, # scaled_driven_data,
+            driven_data=driven_data,  # scaled_driven_data,
             pose_scale_factor=pose_scale_factor,
+            joint_group_cache=joint_group_cache,
             lod_count=lod_count
         )
 
@@ -1399,6 +1399,8 @@ def set_rbf_pose_data(
         poses: list[dict],
         distance_method: str
     ):
+    joint_group_cache: dict[int, dict[str, Any]] = {}
+
     for pose in poses:
         pose_index = pose['pose_index']
         writer.setRBFPoseName(pose_index, pose['name'])
@@ -1408,6 +1410,7 @@ def set_rbf_pose_data(
             writer, 
             pose_index=pose_index, 
             driven_data=pose['driven'],
+            joint_group_cache=joint_group_cache,
             pose_scale_factor=pose['scale_factor']
         )
         # set_rbf_driver_data(
@@ -1424,19 +1427,20 @@ def commit_rbf_data_to_dna(reader, writer, data: list[dict]):
     for item in data:
         property_group = item.get('__property_group__', '')
         if property_group == 'RBFSolverData':
-            writer.setRBFSolverName(item['solver_index'], item['name'])
-            writer.setRBFSolverType(item['solver_index'], getattr(riglogic.RBFSolverType, item['mode']))
-            writer.setRBFSolverRadius(item['solver_index'], item['radius'])
-            writer.setRBFSolverWeightThreshold(item['solver_index'], item['weight_threshold'])
-            writer.setRBFSolverDistanceMethod(item['solver_index'], getattr(riglogic.RBFDistanceMethod, item['distance_method']))
-            writer.setRBFSolverNormalizeMethod(item['solver_index'], getattr(riglogic.RBFNormalizeMethod, item['normalize_method']))
-            writer.setRBFSolverFunctionType(item['solver_index'], getattr(riglogic.RBFFunctionType, item['function_type']))
-            writer.setRBFSolverTwistAxis(item['solver_index'], getattr(riglogic.TwistAxis, item['twist_axis']))
-            writer.setRBFSolverAutomaticRadius(item['solver_index'], riglogic.AutomaticRadius.On if item['automatic_radius'] else riglogic.AutomaticRadius.Off)
+            solver_index = item['solver_index']
+            writer.setRBFSolverName(solver_index, item['name'])
+            writer.setRBFSolverType(solver_index, getattr(riglogic.RBFSolverType, item['mode']))
+            writer.setRBFSolverRadius(solver_index, item['radius'])
+            writer.setRBFSolverWeightThreshold(solver_index, item['weight_threshold'])
+            writer.setRBFSolverDistanceMethod(solver_index, getattr(riglogic.RBFDistanceMethod, item['distance_method']))
+            writer.setRBFSolverNormalizeMethod(solver_index, getattr(riglogic.RBFNormalizeMethod, item['normalize_method']))
+            writer.setRBFSolverFunctionType(solver_index, getattr(riglogic.RBFFunctionType, item['function_type']))
+            writer.setRBFSolverTwistAxis(solver_index, getattr(riglogic.TwistAxis, item['twist_axis']))
+            writer.setRBFSolverAutomaticRadius(solver_index, riglogic.AutomaticRadius.On if item['automatic_radius'] else riglogic.AutomaticRadius.Off)
             set_rbf_pose_data(
                 reader,
                 writer,
-                solver_index=item['solver_index'],
+                solver_index=solver_index,
                 poses=item['poses'],
                 distance_method=item['distance_method']
             )

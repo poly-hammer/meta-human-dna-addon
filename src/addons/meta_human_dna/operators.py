@@ -1636,8 +1636,14 @@ class RevertRBFSolver(RBFEditorOperatorBase):
     bl_label = "Revert RBF Solver"
 
     def run(self, instance):
+        # reset all bone transforms
+        for pose_bone in instance.body_rig.pose.bones:
+            pose_bone.matrix_basis = Matrix.Identity(4)
+
         instance.editing_rbf_solver = False
         instance.auto_evaluate_body = True
+
+        bpy.ops.meta_human_dna.force_evaluate() # type: ignore
 
 class EditRBFSolver(RBFEditorOperatorBase):
     """Switch to Editing mode for the selected RBF solver. Changes will not take effect until committed to the .dna file."""
