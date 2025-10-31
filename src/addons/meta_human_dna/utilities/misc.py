@@ -1007,96 +1007,91 @@ def _update_joint_group_with_deltas(
     joint_group_index: int,
     control_index: int,
     driven_data: list[dict],
+    pose_scale_factor: float,
     lod_count: int | None = None # type: ignore
 ) -> None:
     """
     Update joint group matrix with transformation deltas.
+    
+    Key insight from C++ code: RBF data is SPARSE - only non-zero values are stored.
+    We must preserve the exact structure and only update the specific values that changed.
     """
     
-    # Get existing data (or empty if new group)
-    try:
-        input_indices = list(reader.getJointGroupInputIndices(joint_group_index))
-        output_indices = list(reader.getJointGroupOutputIndices(joint_group_index))
-        existing_values = list(reader.getJointGroupValues(joint_group_index))
-    except:
-        input_indices = []
-        output_indices = []
-        existing_values = []
+    # Get existing data
+    old_input_indices = list(reader.getJointGroupInputIndices(joint_group_index))
+    old_output_indices = list(reader.getJointGroupOutputIndices(joint_group_index))
+    existing_values = list(reader.getJointGroupValues(joint_group_index))
     
-    # Ensure control is in input indices
-    if control_index not in input_indices:
-        input_indices.append(control_index)
+    if control_index not in old_input_indices:
+        raise ValueError(f"Control {control_index} not found in joint group {joint_group_index}")
     
-    control_column = input_indices.index(control_index)
+    control_column = old_input_indices.index(control_index)
+    old_col_count = len(old_input_indices)
+    old_row_count = len(old_output_indices)
     
-    # Build output indices and values map
-    delta_map = {}  # output_index -> value
+    print(f"\n_update_joint_group_with_deltas:")
+    print(f"  Joint Group: {joint_group_index}, Control: {control_index} (column {control_column}/{old_col_count})")
+    print(f"  Rows (output indices): {old_row_count}")
+    print(f"  Driven data: {len(driven_data)} bones")
+    
+    # Build a map of output_index -> new_value for THIS control only
+    new_values_for_control = {}  # output_index -> value
     
     for driven in driven_data:
-        matrix_index = driven['joint_index'] * 9
+        base_idx = driven['joint_index'] * 9
         
         # Translation (apply scale)
         for i in range(3):
-            output_idx = matrix_index + i
+            output_idx = base_idx + i
             value = driven['location'][i] * SCALE_FACTOR
-            if abs(value) > 1e-6:  # Only store non-zero
-                delta_map[output_idx] = value
+            new_values_for_control[output_idx] = value
         
         # Rotation (convert to degrees)
         for i in range(3):
-            output_idx = matrix_index + 3 + i
+            output_idx = base_idx + 3 + i
             value = math.degrees(driven['euler_rotation'][i])
-            if abs(value) > 1e-6:
-                delta_map[output_idx] = value
+            new_values_for_control[output_idx] = value
         
         # Scale
         for i in range(3):
-            output_idx = matrix_index + 6 + i
+            output_idx = base_idx + 6 + i
             value = driven['scale'][i]
-            if abs(value - 1.0) > 1e-6:  # Only store if not 1.0
-                delta_map[output_idx] = value
+            # any scale equal to pose_scale_factor is treated as "no scale"
+            if round(value, 5) == pose_scale_factor:
+                value = 0.0
+            new_values_for_control[output_idx] = value
     
-    # Merge new output indices
-    for out_idx in delta_map.keys():
-        if out_idx not in output_indices:
-            output_indices.append(out_idx)
+    print(f"  New values to set: {len(new_values_for_control)} output indices")
     
-    output_indices.sort()
+    # Create a mutable copy of the values matrix
+    new_values = existing_values.copy()
     
-    # Rebuild values matrix (row-major)
-    row_count = len(output_indices)
-    col_count = len(input_indices)
-    values = [0.0] * (row_count * col_count)
+    updates = 0
+    # Update ONLY the values for this control's column
+    for row_idx, output_idx in enumerate(old_output_indices):
+        matrix_pos = row_idx * old_col_count + control_column
+        
+        if output_idx in new_values_for_control:
+            # Update with new value
+            old_val = new_values[matrix_pos]
+            new_val = new_values_for_control[output_idx]
+            if abs(old_val - new_val) > 1e-5:
+                updates += 1
+                new_values[matrix_pos] = new_val
+            else:
+                new_values[matrix_pos] = old_val
+
+    print(f"  Updated {updates} values in the matrix")
     
-    # Copy existing values for other columns
-    if existing_values and len(existing_values) > 0:
-        old_col_count = len(existing_values) // len(output_indices) if output_indices else 0
-        for row in range(min(row_count, len(output_indices))):
-            for col in range(min(col_count, old_col_count)):
-                if col < len(input_indices):
-                    old_idx = row * old_col_count + col
-                    new_idx = row * col_count + col
-                    if old_idx < len(existing_values):
-                        values[new_idx] = existing_values[old_idx]
+    # Write back - keeping the SAME structure
+    writer.setJointGroupInputIndices(joint_group_index, old_input_indices)
+    writer.setJointGroupOutputIndices(joint_group_index, old_output_indices)
+    writer.setJointGroupValues(joint_group_index, new_values)
     
-    # Set new values for this control's column
-    for row, out_idx in enumerate(output_indices):
-        if out_idx in delta_map:
-            matrix_idx = row * col_count + control_column
-            values[matrix_idx] = delta_map[out_idx]
+    # Preserve existing joint indices and LODs
+    joint_indices = list(reader.getJointGroupJointIndices(joint_group_index))
+    lods = list(reader.getJointGroupLODs(joint_group_index))
     
-    # Extract unique joint indices
-    joint_indices = sorted(set(idx // 9 for idx in output_indices))
-    
-    # Set LODs (all LODs get all rows by default)
-    if lod_count is None:
-        lod_count: int = reader.getLODCount()
-    lods = [row_count] * lod_count
-    
-    # Update the joint group
-    writer.setJointGroupInputIndices(joint_group_index, input_indices)
-    writer.setJointGroupOutputIndices(joint_group_index, output_indices)
-    writer.setJointGroupValues(joint_group_index, values)
     writer.setJointGroupJointIndices(joint_group_index, joint_indices)
     writer.setJointGroupLODs(joint_group_index, lods)
 
@@ -1106,6 +1101,7 @@ def set_rbf_driven_data(
     writer,
     pose_index: int,
     driven_data: list[dict],
+    pose_scale_factor: float,
     lod_count: int | None = None
 ) -> None:
     """
@@ -1138,18 +1134,19 @@ def set_rbf_driven_data(
     # Update joint group for each output control
     for control_idx, weight in zip(output_control_indices, output_control_weights):
         # Scale the deltas by the control weight
-        scaled_driven_data = _scale_driven_data(driven_data, weight)
+        # scaled_driven_data = _scale_driven_data(driven_data, weight)
         
         # Update the joint group for this control
         joint_group_idx = _get_joint_group_index(reader, control_idx)
         
         _update_joint_group_with_deltas(
-            reader,
-            writer,
-            joint_group_idx,
-            control_idx,
-            scaled_driven_data,
-            lod_count
+            reader=reader,
+            writer=writer,
+            joint_group_index=joint_group_idx,
+            control_index=control_idx,
+            driven_data=driven_data, # scaled_driven_data,
+            pose_scale_factor=pose_scale_factor,
+            lod_count=lod_count
         )
 
 
@@ -1410,7 +1407,8 @@ def set_rbf_pose_data(
             reader, 
             writer, 
             pose_index=pose_index, 
-            driven_data=pose['driven']
+            driven_data=pose['driven'],
+            pose_scale_factor=pose['scale_factor']
         )
         # set_rbf_driver_data(
         #     reader, 
