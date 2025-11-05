@@ -1080,8 +1080,6 @@ def _update_joint_group_with_deltas(
             if abs(old_val - new_val) > 1e-5:
                 updates += 1
                 existing_values[matrix_pos] = new_val
-
-    print(f"  Updated {updates} values in the matrix")
     
     # Write back - keeping the SAME structure
     writer.setJointGroupInputIndices(joint_group_index, old_input_indices)
@@ -1148,38 +1146,6 @@ def set_rbf_driven_data(
             joint_group_cache=joint_group_cache,
             lod_count=lod_count
         )
-
-
-
-# def set_rbf_driver_data(reader, writer, solver_index: int, driver_data: list[dict]):
-#     rbf_raw_control_indices = []
-#     rbf_raw_control_values = []
-
-#     for driver in driver_data:
-#         for raw_control_index in driver['raw_control_indices']:
-#             bone_name, axis = reader.getRawControlName(raw_control_index).split('.')
-
-#             rbf_raw_control_indices.append(raw_control_index)
-#             quaternion_rotation = driver['quaternion_rotation']
-
-#             if axis.lower() == 'qx':
-#                 rbf_raw_control_values.append(quaternion_rotation[1])
-#             elif axis.lower() == 'qy':
-#                 rbf_raw_control_values.append(quaternion_rotation[2])
-#             elif axis.lower() == 'qz':
-#                 rbf_raw_control_values.append(quaternion_rotation[3])
-#             elif axis.lower() == 'qw':
-#                 rbf_raw_control_values.append(quaternion_rotation[0])
-
-
-#     writer.setRBFSolverRawControlIndices(
-#         solverIndex=solver_index, 
-#         rawControlIndices=rbf_raw_control_indices
-#     )
-#     writer.setRBFSolverRawControlValues(
-#         solverIndex=solver_index, 
-#         values=rbf_raw_control_values
-#     )
 
 
 def _build_raw_control_indices_from_driver_data(
@@ -1346,9 +1312,9 @@ def set_rbf_driver_data(
     if not existing_raw_controls:
         # Need to determine raw controls from the driver data
         raw_control_indices = _build_raw_control_indices_from_driver_data(
-            reader,
-            driver_data[0],  # Use first pose to determine structure
-            distance_method
+            reader=reader,
+            driver=driver_data[0],  # Use first pose to determine structure
+            distance_method=distance_method
         )
         writer.setRBFSolverRawControlIndices(solver_index, raw_control_indices)
     else:
@@ -1359,7 +1325,6 @@ def set_rbf_driver_data(
     
     # Build the values array: [pose0_values..., pose1_values..., ...]
     num_raw_controls = len(raw_control_indices)
-    num_poses = len(pose_indices)
     
     # Create a map from pose_index to driver_data
     driver_map = {d['pose_index']: d for d in driver_data}
@@ -1413,17 +1378,26 @@ def set_rbf_pose_data(
             joint_group_cache=joint_group_cache,
             pose_scale_factor=pose['scale_factor']
         )
-        # set_rbf_driver_data(
-        #     reader, 
-        #     writer, 
-        #     solver_index=solver_index, 
-        #     driver_data=pose['drivers'],
-        #     distance_method=distance_method
-        # )
+        set_rbf_driver_data(
+            reader, 
+            writer, 
+            solver_index=solver_index, 
+            driver_data=pose['drivers'],
+            distance_method=distance_method
+        )
 
 
 def commit_rbf_data_to_dna(reader, writer, data: list[dict]):
     import riglogic
+
+    # Populate the writer with the data from the reader
+    writer.setFrom(
+        reader,
+        riglogic.DataLayer.All,
+        riglogic.UnknownLayerPolicy.Preserve,
+        None
+    )
+
     for item in data:
         property_group = item.get('__property_group__', '')
         if property_group == 'RBFSolverData':
@@ -1444,3 +1418,9 @@ def commit_rbf_data_to_dna(reader, writer, data: list[dict]):
                 poses=item['poses'],
                 distance_method=item['distance_method']
             )
+
+    # Write the modified data back to the DNA file
+    writer.write()
+    if not riglogic.Status.isOk():
+        status = riglogic.Status.get()
+        raise RuntimeError(f"Error saving DNA: {status.message}")

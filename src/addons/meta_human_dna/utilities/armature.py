@@ -516,3 +516,47 @@ def reset_pose(rig_object: bpy.types.Object):
         pose_bone.rotation_euler = Euler((0, 0, 0)) # type: ignore
         pose_bone.location = Vector((0, 0, 0)) # type: ignore
         pose_bone.scale = Vector((1, 1, 1)) # type: ignore
+
+
+def get_bone_local_axes(pose_bone: bpy.types.PoseBone) -> tuple[Vector, Vector, Vector]:
+    """
+    Get the local X, Y, Z axes of a pose bone in world space.
+    
+    Args:
+        pose_bone: The pose bone to analyze
+        
+    Returns:
+        Tuple of (x_axis, y_axis, z_axis) as world-space vectors
+    """
+    # Get the bone's world matrix
+    world_matrix = pose_bone.id_data.matrix_world @ pose_bone.matrix
+    
+    # Extract the rotation component (3x3 part of 4x4 matrix)
+    # Each column represents a local axis in world space
+    x_axis = world_matrix.col[0].to_3d().normalized()
+    y_axis = world_matrix.col[1].to_3d().normalized()
+    z_axis = world_matrix.col[2].to_3d().normalized()
+    
+    return x_axis, y_axis, z_axis
+
+
+def compare_bone_orientations(bone1: bpy.types.PoseBone, bone2: bpy.types.PoseBone) -> bool:
+    """
+    Compare if two bones have the same local orientations.
+    
+    Args:
+        bone1: First pose bone
+        bone2: Second pose bone
+        
+    Returns:
+        True if orientations are similar
+    """
+    x1, y1, z1 = get_bone_local_axes(bone1)
+    x2, y2, z2 = get_bone_local_axes(bone2)
+    
+    # Compare axes using dot product (1.0 = same direction, -1.0 = opposite)
+    x_match = abs(x1.dot(x2)) > 0.999
+    y_match = abs(y1.dot(y2)) > 0.999
+    z_match = abs(z1.dot(z2)) > 0.999
+    
+    return (x_match and y_match and z_match)

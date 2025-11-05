@@ -955,6 +955,14 @@ class SendToMetaHumanCreator(bpy.types.Operator):
     def execute(self, context):
         instance = callbacks.get_active_rig_logic()
         if instance:
+            # store the current auto evaluate settings
+            auto_evaluate_head = instance.auto_evaluate_head
+            auto_evaluate_body = instance.auto_evaluate_body
+
+            # disable auto evaluate while we are exporting
+            instance.auto_evaluate_head = False
+            instance.auto_evaluate_body = False
+
             current_context = utilities.get_current_context()
 
             for attribute_name in ['head_mesh', 'head_rig', 'body_mesh', 'body_rig']:
@@ -1011,7 +1019,11 @@ class SendToMetaHumanCreator(bpy.types.Operator):
                 bpy.ops.meta_human_dna.force_evaluate() # type: ignore
 
             utilities.set_context(current_context)
-            
+
+            # restore the auto evaluate settings
+            instance.auto_evaluate_head = auto_evaluate_head
+            instance.auto_evaluate_body = auto_evaluate_body
+
         return {'FINISHED'}
 
 class SendToUnreal(bpy.types.Operator):
@@ -1636,9 +1648,7 @@ class RevertRBFSolver(RBFEditorOperatorBase):
     bl_label = "Revert RBF Solver"
 
     def run(self, instance):
-        # reset all bone transforms
-        for pose_bone in instance.body_rig.pose.bones:
-            pose_bone.matrix_basis = Matrix.Identity(4)
+        utilities.reset_pose(instance.body_rig)
 
         instance.editing_rbf_solver = False
         instance.auto_evaluate_body = True
@@ -1694,33 +1704,18 @@ class CommitRBFSolverChanges(RBFEditorOperatorBase):
 
         return True, ""
 
-    def run(self, instance):        
-        import riglogic
+    def run(self, instance):
         import meta_human_dna_core
 
-        file_path = Path(instance.body_dna_file_path).parent / "temp_body.dna"
         reader = get_dna_reader(file_path=instance.body_dna_file_path)
-        writer = get_dna_writer(file_path=file_path)
-
-        # Populate the writer with the data from the reader
-        writer.setFrom(
-            reader,
-            riglogic.DataLayer.All,
-            riglogic.UnknownLayerPolicy.Preserve,
-            None
-        )
+        writer = get_dna_writer(file_path=instance.body_dna_file_path)
 
         utilities.commit_rbf_data_to_dna(
             reader=reader,
             writer=writer,
             data=utilities.collection_to_list(instance.rbf_solver_list)
         )
-
-        writer.write()
-        if not riglogic.Status.isOk():
-            status = riglogic.Status.get()
-            raise RuntimeError(f"Error saving DNA: {status.message}")
-        logger.info(f'DNA exported successfully to: "{file_path}"')
+        logger.info(f'DNA exported successfully to: "{instance.body_dna_file_path}"')
 
         instance.editing_rbf_solver = False
         instance.auto_evaluate_body = True
@@ -1781,27 +1776,30 @@ class UpdateRBFDriven(RBFEditorOperatorBase):
         existing_scale = Vector(driven.scale[:])
         pose_bone = instance.body_rig.pose.bones.get(driven.name)
         if pose_bone:
-            _, _, _, rest_to_parent_matrix = instance.body_rest_pose[pose_bone.name]
-            location, _, scale = (rest_to_parent_matrix.inverted() @ pose_bone.matrix_basis).decompose()
+            location = pose_bone.location
 
-            # scale should not be greater than the pose scale factor
-            for i in range(3):
-                if round(scale[i], 5) > round(pose.scale_factor, 5):
-                    scale[i] -= pose.scale_factor
+            if pose_bone.parent:
+                orientation_matches = utilities.compare_bone_orientations(pose_bone, pose_bone.parent)
+                # convert from Blender Z-up to DNA Y-up if the orientation does not match the parent
+                if not orientation_matches:
+                    location = Vector((pose_bone.location.x, -pose_bone.location.z, pose_bone.location.y))
+            
+            # the scale should be the delta from the scale factor
+            scale = pose_bone.scale - Vector((pose.scale_factor, pose.scale_factor, pose.scale_factor))
 
-            rotation_delta = Vector(list(pose_bone.rotation_euler)) - existing_rotation
+            rotation_delta = Vector(pose_bone.rotation_euler[:]).copy() - existing_rotation
             location_delta = location.copy() - existing_location
             scale_delta = scale.copy() - existing_scale
 
             # only update if the delta is significant enough to avoid floating point value drift
             if rotation_delta.length > BONE_DELTA_THRESHOLD:
-                driven.euler_rotation = list(pose_bone.rotation_euler)
+                driven.euler_rotation = pose_bone.rotation_euler[:]
                 logger.debug(f'Updated RBF driven bone "{driven.name}" rotation to {driven.euler_rotation[:]}')
             if location_delta.length > BONE_DELTA_THRESHOLD:
-                driven.location = list(location)
+                driven.location = location[:]
                 logger.debug(f'Updated RBF driven bone "{driven.name}" location to {driven.location[:]}')
-            if scale_delta.length > BONE_DELTA_THRESHOLD:
-                driven.scale = list(scale)
+            if scale_delta.length > BONE_DELTA_THRESHOLD and round(scale.length, 5) > 0:
+                driven.scale = scale[:]
                 logger.debug(f'Updated RBF driven bone "{driven.name}" scale to {driven.scale[:]}')
 
 

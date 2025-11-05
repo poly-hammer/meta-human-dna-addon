@@ -44,10 +44,11 @@ def rig_logic_listener(
     # if the screen is the temp screen, then is is rendering and we need to evaluate
     if bpy.context.screen and 'temp' in bpy.context.screen.name.lower(): # type: ignore
         for instance in scene.meta_human_dna.rig_logic_instance_list: # type: ignore
-            if instance.auto_evaluate_head:
-                instance_updates.add((instance, 'head'))
-            if instance.auto_evaluate_body:
-                instance_updates.add((instance, 'body'))
+            if instance.auto_evaluate:
+                if instance.auto_evaluate_head:
+                    instance_updates.add((instance, 'head'))
+                if instance.auto_evaluate_body:
+                    instance_updates.add((instance, 'body'))
 
     # only evaluate if in pose mode or if animation is
     if is_frame_change or bpy.context.mode == 'POSE': # type: ignore
@@ -60,6 +61,7 @@ def rig_logic_listener(
                 for instance in scene.meta_human_dna.rig_logic_instance_list: # type: ignore
                     # Check if the action is being used by any face board
                     if (
+                        instance.auto_evaluate and
                         instance.auto_evaluate_head and
                         instance.face_board and 
                         instance.face_board.animation_data and 
@@ -69,6 +71,7 @@ def rig_logic_listener(
                         instance_updates.add((instance, 'head'))
                     # Check if the action is being used by any body rig
                     elif (
+                        instance.auto_evaluate and
                         instance.auto_evaluate_body and
                         instance.body_rig and 
                         instance.body_rig.animation_data and 
@@ -89,6 +92,7 @@ def rig_logic_listener(
                         
                         # Check if the armature is the face board
                         if (
+                            instance.auto_evaluate and
                             instance.auto_evaluate_head and 
                             instance.face_board and 
                             instance.face_board.data and 
@@ -96,9 +100,10 @@ def rig_logic_listener(
                         ):
                             instance_updates.add((instance, 'head'))
                         elif (
-                            instance.auto_evaluate_body and 
-                            instance.body_rig and 
-                            instance.body_rig.data and 
+                            instance.auto_evaluate and
+                            instance.auto_evaluate_body and
+                            instance.body_rig and
+                            instance.body_rig.data and
                             instance.body_rig.data.name == armature_name
                         ):
                             instance_updates.add((instance, 'body'))
@@ -335,15 +340,20 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         set=callbacks.set_instance_name,
         get=callbacks.get_instance_name
     ) # type: ignore
+    auto_evaluate: bpy.props.BoolProperty(
+        default=True,
+        name='Auto Evaluate',
+        description='Whether to automatically evaluate this rig instance when the scene is updated',
+    ) # type: ignore
     auto_evaluate_head: bpy.props.BoolProperty(
         default=True,
         name='Auto Evaluate Head',
-        description='Whether to automatically evaluate the head on this rig instance when the scene is updated',
+        description='Whether to automatically evaluate the head components on this rig instance when the scene is updated',
     ) # type: ignore
     auto_evaluate_body: bpy.props.BoolProperty(
         default=True,
         name='Auto Evaluate Body',
-        description='Whether to automatically evaluate the body on this rig instance when the scene is updated',
+        description='Whether to automatically evaluate the body components on this rig instance when the scene is updated',
     ) # type: ignore
     evaluate_bones: bpy.props.BoolProperty(
         default=True,
@@ -448,6 +458,13 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         default='combined',
         set=callbacks.set_active_material_preview,
         get=callbacks.get_active_material_preview
+    ) # type: ignore
+    show_face_board: bpy.props.BoolProperty(
+        name="Show Face Board",
+        default=False,
+        description="Whether to show or hide the face board that belongs to this MetaHuman instance in the 3D view",
+        set=callbacks.set_show_face_board,
+        get=callbacks.get_show_face_board
     ) # type: ignore
     show_head_bones: bpy.props.BoolProperty(
         name="Show Head Bones",

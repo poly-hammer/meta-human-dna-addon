@@ -10,14 +10,23 @@ def valid_rig_logic_instance_exists(context, ignore_face_board: bool = False) ->
         instance = properties.rig_logic_instance_list[active_index]
         if not instance.face_board and not ignore_face_board:
             return f'"{instance.name}" Has No Face Board set.'
-        elif not instance.head_dna_file_path:
-            return f'"{instance.name}" Has No DNA File set.'
-        elif not Path(bpy.path.abspath(instance.head_dna_file_path)).exists():
-            return f'"{instance.name}" DNA File is not found on disk.'
-        elif not Path(bpy.path.abspath(instance.head_dna_file_path)).stem != '.dna':
-            return f'"{instance.name}" DNA File must be a binary .dna file.'
-        elif instance.head_dna_file_path and instance.face_board:
-            return ''
+        
+        if instance.head_mesh or instance.head_rig:
+            if not instance.head_dna_file_path:
+                return f'"{instance.name}" Has no head DNA file set.'
+            elif not Path(bpy.path.abspath(instance.head_dna_file_path)).exists():
+                return f'"{instance.name}" head DNA file is not found on disk.'
+            elif Path(bpy.path.abspath(instance.head_dna_file_path)).suffix.lower() != '.dna':
+                return f'"{instance.name}" head DNA file must be a binary .dna file.'
+        elif instance.body_mesh or instance.body_rig:
+            if not instance.body_dna_file_path:
+                return f'"{instance.name}" Has no body DNA file set.'
+            elif not Path(bpy.path.abspath(instance.body_dna_file_path)).exists():
+                return f'"{instance.name}" body DNA file is not found on disk.'
+            elif Path(bpy.path.abspath(instance.body_dna_file_path)).suffix.lower() != '.dna':
+                return f'"{instance.name}" body DNA file must be a binary .dna file.'
+            
+        return ''
     else:
         return 'Missing data. Create/Import DNA data.'
     return ''
@@ -82,13 +91,7 @@ class META_HUMAN_DNA_UL_material_slot_to_instance_mapping(bpy.types.UIList):
 
 class META_HUMAN_DNA_UL_rig_logic_instances(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_prop_name):
-        split = layout.split(factor=0.5, align=True)
-        split.scale_x = 0.25
-        split.alert = not item.auto_evaluate_head
-        split.prop(item, "auto_evaluate_head", text="H", emboss=False, toggle=True)
-        split.scale_x = 0.25
-        split.alert = not item.auto_evaluate_body
-        split.prop(item, "auto_evaluate_body", text="B", emboss=False, toggle=True)
+        layout.prop(item, "auto_evaluate", text="")
         
         row = layout.row()
         row.enabled = True
@@ -97,22 +100,22 @@ class META_HUMAN_DNA_UL_rig_logic_instances(bpy.types.UIList):
         row.alignment = 'RIGHT'
         
         col = row.column(align=True)
-        col.enabled = item.auto_evaluate_head
+        col.enabled = item.auto_evaluate and item.auto_evaluate_head
         col.alert = not item.evaluate_bones
         col.prop(item, "evaluate_bones", text="", icon='BONE_DATA', emboss=False)
 
         col = row.column(align=True)
-        col.enabled = item.auto_evaluate_head
+        col.enabled = item.auto_evaluate and item.auto_evaluate_head
         col.alert = not item.evaluate_shape_keys
         col.prop(item, "evaluate_shape_keys", text="", icon='SHAPEKEY_DATA', emboss=False)
 
         col = row.column(align=True)
-        col.enabled = item.auto_evaluate_head
+        col.enabled = item.auto_evaluate and item.auto_evaluate_head
         col.alert = not item.evaluate_texture_masks
         col.prop(item, "evaluate_texture_masks", text="", icon='NODE_TEXTURE', emboss=False)
 
         col = row.column(align=True)
-        col.enabled = item.auto_evaluate_body
+        col.enabled = item.auto_evaluate and item.auto_evaluate_body
         col.alert = not item.evaluate_rbfs
         col.prop(item, "evaluate_rbfs", text="", icon='DRIVER_ROTATIONAL_DIFFERENCE', emboss=False)
 
@@ -465,7 +468,7 @@ class META_HUMAN_DNA_PT_view_options(bpy.types.Panel):
             return
         
         properties = context.scene.meta_human_dna # type: ignore
-        error = valid_rig_logic_instance_exists(context)
+        error = valid_rig_logic_instance_exists(context, ignore_face_board=True)
         if not error:
             active_index = properties.rig_logic_instance_list_active_index
             instance = properties.rig_logic_instance_list[active_index]
@@ -487,10 +490,21 @@ class META_HUMAN_DNA_PT_view_options(bpy.types.Panel):
             col.label(text='Active LOD:')
             row = col.row()
             row.prop(instance, 'active_lod', text='')
+            
             row = self.layout.row()
-            row.prop(instance, 'show_head_bones')
+            row.label(text='Bone Visibility:')
+            row = self.layout.row(align=True)
+            if instance.head_rig:
+                row.prop(instance, 'show_head_bones', text='Head Bones', icon='HIDE_OFF' if instance.show_head_bones else 'HIDE_ON')
+            if instance.body_rig:
+                row.prop(instance, 'show_body_bones', text='Body Bones', icon='HIDE_OFF' if instance.show_body_bones else 'HIDE_ON')
+            
             row = self.layout.row()
-            row.prop(instance, 'show_body_bones')
+            row.label(text='Control Visibility:')
+            row = self.layout.row(align=True)
+            if instance.face_board:
+                row.prop(instance, 'show_face_board', text='Face Board', icon='HIDE_OFF' if instance.show_face_board else 'HIDE_ON')
+            
             row = self.layout.row()
             row.prop(properties, 'highlight_matching_active_bone')
         else:
@@ -554,7 +568,7 @@ class META_HUMAN_DNA_PT_rig_logic(bpy.types.Panel):
 
 class META_HUMAN_DNA_PT_rig_logic_head_sub_panel(bpy.types.Panel):
     bl_parent_id = "META_HUMAN_DNA_PT_rig_logic"
-    bl_label = "Head"
+    bl_label = ""
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = 'Meta-Human DNA'
@@ -563,6 +577,18 @@ class META_HUMAN_DNA_PT_rig_logic_head_sub_panel(bpy.types.Panel):
     @classmethod
     def poll(cls, context):
         return len(context.scene.meta_human_dna.rig_logic_instance_list) > 0 # type: ignore
+    
+    def draw_header(self, context):
+        if not self.layout:
+            return
+        
+        properties = context.scene.meta_human_dna # type: ignore
+        active_index = properties.rig_logic_instance_list_active_index
+        if len(properties.rig_logic_instance_list) > 0:
+            instance = properties.rig_logic_instance_list[active_index]
+            row = self.layout.row()
+            row.enabled = instance.auto_evaluate
+            row.prop(instance, "auto_evaluate_head", text="Head")
 
     def draw(self, context):
         if not self.layout:
@@ -599,7 +625,7 @@ class META_HUMAN_DNA_PT_rig_logic_head_sub_panel(bpy.types.Panel):
 
 class META_HUMAN_DNA_PT_rig_logic_body_sub_panel(bpy.types.Panel):
     bl_parent_id = "META_HUMAN_DNA_PT_rig_logic"
-    bl_label = "Body"
+    bl_label = ""
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = 'Meta-Human DNA'
@@ -608,6 +634,18 @@ class META_HUMAN_DNA_PT_rig_logic_body_sub_panel(bpy.types.Panel):
     @classmethod
     def poll(cls, context):
         return len(context.scene.meta_human_dna.rig_logic_instance_list) > 0 # type: ignore
+    
+    def draw_header(self, context):
+        if not self.layout:
+            return
+        
+        properties = context.scene.meta_human_dna # type: ignore
+        active_index = properties.rig_logic_instance_list_active_index
+        if len(properties.rig_logic_instance_list) > 0:
+            instance = properties.rig_logic_instance_list[active_index]
+            row = self.layout.row()
+            row.enabled = instance.auto_evaluate
+            row.prop(instance, "auto_evaluate_body", text="Body")
 
     def draw(self, context):
         if not self.layout:

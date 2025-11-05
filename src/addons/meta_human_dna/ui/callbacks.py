@@ -258,6 +258,11 @@ def get_show_head_bones(self) -> bool:
         return not self.head_rig.hide_get() # type: ignore
     return False
 
+def get_show_face_board(self) -> bool:
+    if self.face_board:
+        return not self.face_board.hide_get() # type: ignore
+    return False
+
 def get_show_body_bones(self) -> bool:
     if self.body_rig:
         return not self.body_rig.hide_get() # type: ignore
@@ -375,6 +380,10 @@ def set_active_lod(self, value):
 def set_show_head_bones(self, value):
     if self.head_rig:
         self.head_rig.hide_set(not value)
+
+def set_show_face_board(self, value):
+    if self.face_board:
+        self.face_board.hide_set(not value)
 
 def set_show_body_bones(self, value):
     if self.body_rig:
