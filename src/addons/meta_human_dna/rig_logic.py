@@ -745,7 +745,14 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
     @property
     def head_valid(self) -> bool: 
+        if not self.head_dna_file_path:
+            logger.warning(f'The Head DNA file path is not set. The Rig Logic Instance {self.name} will not be initialized.')
+            return False
         dna_file_path = Path(bpy.path.abspath(self.head_dna_file_path))
+        if not dna_file_path.is_file():
+            logger.warning(f'The Head DNA file path "{dna_file_path}" is not a file. The Rig Logic Instance {self.name} will not be initialized.')
+            return False
+
         if not dna_file_path.exists():
             logger.warning(f'The Head DNA file path "{dna_file_path}" does not exist. The Rig Logic Instance {self.name} will not be initialized.')
             return False
@@ -756,7 +763,15 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     
     @property
     def body_valid(self) -> bool: 
+        if not self.body_dna_file_path:
+            logger.warning(f'The Body DNA file path is not set. The Rig Logic Instance {self.name} will not be initialized.')
+            return False
+        
         dna_file_path = Path(bpy.path.abspath(self.body_dna_file_path))
+        if not dna_file_path.is_file():
+            logger.warning(f'The Body DNA file path "{dna_file_path}" is not a file. The Rig Logic Instance {self.name} will not be initialized.')
+            return False
+
         if not dna_file_path.exists():
             logger.warning(f'The Body DNA file path "{dna_file_path}" does not exist. The Rig Logic Instance {self.name} will not be initialized.')
             return False
