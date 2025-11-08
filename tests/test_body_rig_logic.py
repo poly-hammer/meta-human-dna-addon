@@ -27,6 +27,9 @@ FINGER_NAMES = [
     'thumb'
 ]
 
+EXCLUDE_FINGER_POSES = int(os.environ.get('META_HUMAN_DNA_ADDON_TESTS_BODY_EXCLUDE_FINGER_POSES', '0')) == 1
+
+
 def get_all_pose_names(exclude_fingers: bool = False) -> list[str]:
     pose_names = []
     json_poses_folder = TEST_JSON_POSES_FOLDER / 'ada_body_rig'
@@ -120,19 +123,11 @@ def import_fbx_pose(file_path: Path, source_rig_name: str) -> bpy.types.Object:
 
     return armature_object # type: ignore
 
-@pytest.mark.parametrize(
-    ('pose_name', 'source_rig_name'), 
-    [
-        (pose_name, 'ada_body_rig') for pose_name in get_all_pose_names(
-            exclude_fingers=int(os.environ.get('META_HUMAN_DNA_ADDON_TESTS_BODY_EXCLUDE_FINGER_POSES', '0')) == 1
-        )
-    ]
-)
-def test_body_pose(
-    load_dna, 
+def run_body_pose_test(
     pose_name: str, 
     source_rig_name: str, 
     changed_head_bone_name: str,
+    evaluate: bool,
     show: bool = False,
     skip_fbx_import: bool = False
 ):
@@ -162,8 +157,9 @@ def test_body_pose(
             solver_name=fbx_file_path.parent.name,
             pose_name=pose_name.split(os.sep)[-1]
         )
-        # TODO: force evaluation until we have proper updates from setting poses in fingers
-        # bpy.ops.meta_human_dna.force_evaluate() # type: ignore
+        # either evaluate through riglogic or stay in edit mode when comparing the poses
+        if evaluate:
+            instance.evaluate(component='body')
 
         # check that the poses match
         differences, target_locations = get_bone_differences(
@@ -191,6 +187,9 @@ def test_body_pose(
             solver_name=json_pose_file_path.parent.name,
             pose_name=pose_name.split(os.sep)[-1]
         )
+        # either evaluate through riglogic or stay in edit mode when comparing the poses
+        if evaluate:
+            instance.evaluate(component='body')
 
         # check that the poses match
         differences, target_locations = get_bone_differences(
@@ -211,3 +210,55 @@ def test_body_pose(
     
     instance.editing_rbf_solver = False
     instance.auto_evaluate_body = True
+
+
+@pytest.mark.parametrize(
+    ('pose_name', 'source_rig_name'), 
+    [
+        (pose_name, 'ada_body_rig') for pose_name in get_all_pose_names(
+            exclude_fingers=EXCLUDE_FINGER_POSES
+        )
+    ]
+)
+def test_body_pose(
+    load_dna, 
+    pose_name: str, 
+    source_rig_name: str, 
+    changed_head_bone_name: str,
+    show: bool = False,
+    skip_fbx_import: bool = False
+):
+    run_body_pose_test(
+        pose_name=pose_name,
+        source_rig_name=source_rig_name,
+        changed_head_bone_name=changed_head_bone_name,
+        evaluate=True,
+        show=show,
+        skip_fbx_import=skip_fbx_import,
+    )
+
+
+@pytest.mark.parametrize(
+    ('pose_name', 'source_rig_name'), 
+    [
+        (pose_name, 'ada_body_rig') for pose_name in get_all_pose_names(
+            exclude_fingers=EXCLUDE_FINGER_POSES
+        )
+    ]
+)
+def test_body_pose_edit_mode(
+    load_dna, 
+    pose_name: str, 
+    source_rig_name: str, 
+    changed_head_bone_name: str,
+    show: bool = False,
+    skip_fbx_import: bool = False
+):
+    run_body_pose_test(
+        pose_name=pose_name,
+        source_rig_name=source_rig_name,
+        changed_head_bone_name=changed_head_bone_name,
+        evaluate=False,
+        show=show,
+        skip_fbx_import=skip_fbx_import,
+    )
