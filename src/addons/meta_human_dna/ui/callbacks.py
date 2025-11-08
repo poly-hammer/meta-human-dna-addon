@@ -530,6 +530,8 @@ def update_body_rbf_driven_active_index(self, context):
             pose_bone.bone.select = False
 
 def update_body_rbf_poses_active_index(self, context):    
+    from ..utilities import compare_bone_orientations
+    
     instance = get_active_rig_logic()
 
     if not instance or not instance.body_rig:
@@ -559,10 +561,14 @@ def update_body_rbf_poses_active_index(self, context):
             # TODO: This is not ideal, but we need to rotate the corrective root bones to match what RigLogic does
             # Maybe we can find a better way to do this in the future
             for child in pose_bone.children:
-                if child.name == f'{base_name}_correctiveRoot_{suffix}':
+                if child.name in [f'{base_name}_twist_{suffix}']:
+                    pass
+
+                if child.name in [f'{base_name}_correctiveRoot_{suffix}', f'{base_name}_half_{suffix}']:
                     euler_rotation = quaternion_rotation.to_euler('XYZ')
                     # rotate the corrective root opposite half the amount of the driver bone
-                    child.rotation_euler = Euler([i*-0.5 for i in euler_rotation], 'XYZ')
+                    # child.rotation_euler = Euler([i*-0.5 for i in euler_rotation], 'XYZ')
+                    child.rotation_euler = Euler((euler_rotation.y, euler_rotation.x, euler_rotation.z*-0.5), 'XYZ')
 
     # ensure the body is initialized
     if not instance.body_initialized:

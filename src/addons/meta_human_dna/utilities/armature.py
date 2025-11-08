@@ -508,6 +508,8 @@ def auto_fit_bones(
 
 @preserve_context
 def reset_pose(rig_object: bpy.types.Object):
+    # show the rig and switch to pose mode
+    rig_object.hide_set(False) # type: ignore
     switch_to_pose_mode(rig_object)
 
     # reset to rest pose
