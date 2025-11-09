@@ -37,6 +37,8 @@ class DNAImporter:
         dna_file_path: Path | None = None
     ):
         self.rig_object = None
+        self.swing_bone_names = []
+        self.twist_bone_names = []
 
         self._instance = instance
         self._import_properties = import_properties
@@ -596,6 +598,56 @@ class DNAImporter:
         self.rig_object.rotation_euler.x = math.radians(90)
         utilities.apply_transforms(self.rig_object, rotation=True) # type: ignore
 
+    def setup_swing_bones(self):
+        if not self.rig_object:
+            return
+
+        for swing_index in range(self._dna_reader.getSwingCount()):
+            input_indices = self._dna_reader.getSwingInputControlIndices(swing_index)
+            output_indices = self._dna_reader.getSwingOutputJointIndices(swing_index)
+            weights = self._dna_reader.getSwingBlendWeights(swing_index)
+            axis = self._dna_reader.getSwingSetupTwistAxis(swing_index)
+
+            # there should always be 4 input controls for a bone's quaternion rotation
+            if not len(input_indices) == 4:
+                logger.error(f"Swing bone at index {swing_index} does not have 4 quaternion input controls. Skipping.")
+                continue
+
+            for input_index in input_indices:
+                bone_name, _ = self._dna_reader.getRawControlName(input_index).split('.')
+                pose_bone = self.rig_object.pose.bones.get(bone_name)
+                if pose_bone:
+                    _swing_bone_names = [self._dna_reader.getJointName(output_index) for output_index in output_indices]
+                    pose_bone['swing_bone_names'] = _swing_bone_names
+                    pose_bone['swing_blend_weights'] = weights
+                    pose_bone['swing_axis'] = axis.name.lower()
+                    self.swing_bone_names.extend(_swing_bone_names)
+
+    def setup_twist_bones(self):
+        if not self.rig_object:
+            return
+
+        for twist_index in range(self._dna_reader.getTwistCount()):
+            input_indices = self._dna_reader.getTwistInputControlIndices(twist_index)
+            output_indices = self._dna_reader.getTwistOutputJointIndices(twist_index)
+            weights = self._dna_reader.getTwistBlendWeights(twist_index)
+            axis = self._dna_reader.getTwistSetupTwistAxis(twist_index)
+             
+            # there should always be 4 input controls for a bone's quaternion rotation
+            if not len(input_indices) == 4:
+                logger.error(f"Twist bone at index {twist_index} does not have 4 quaternion input controls. Skipping.")
+                continue
+            
+            for input_index in input_indices:
+                bone_name, _ = self._dna_reader.getRawControlName(input_index).split('.')
+                pose_bone = self.rig_object.pose.bones.get(bone_name)
+                if pose_bone:
+                    _twist_bone_names = [self._dna_reader.getJointName(output_index) for output_index in output_indices]
+                    pose_bone['twist_bone_names'] = _twist_bone_names
+                    pose_bone['twist_blend_weights'] = weights
+                    pose_bone['twist_axis'] = axis.name.lower()
+                    self.twist_bone_names.extend(_twist_bone_names)
+
     def set_armature_modifier(self, mesh_object: bpy.types.Object):
         armature_modifier = mesh_object.modifiers.get("Armature")
         if not armature_modifier:
@@ -610,6 +662,8 @@ class DNAImporter:
         if self._import_properties.import_bones:
             self.create_rig_object()
             self.import_bones()
+            self.setup_swing_bones()
+            self.setup_twist_bones()
 
         for lod_index, meshes in self._import_lods.items():
             lod_meshes = []

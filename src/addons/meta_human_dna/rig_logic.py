@@ -745,35 +745,52 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
     @property
     def head_valid(self) -> bool: 
+        logged_warning = self.data.get(f'{self.name}_logged_head_validation_warning', False)
+
         if not self.head_dna_file_path:
-            logger.warning(f'The Head DNA file path is not set. The Rig Logic Instance {self.name} will not be initialized.')
+            if not logged_warning:
+                logger.warning(f'The Head DNA file path is not set. The Rig Logic Instance {self.name} will not be initialized.')
+                self.data[f'{self.name}_logged_head_validation_warning'] = True
             return False
         dna_file_path = Path(bpy.path.abspath(self.head_dna_file_path))
         if not dna_file_path.is_file():
-            logger.warning(f'The Head DNA file path "{dna_file_path}" is not a file. The Rig Logic Instance {self.name} will not be initialized.')
+            if not logged_warning:
+                logger.warning(f'The Head DNA file path "{dna_file_path}" is not a file. The Rig Logic Instance {self.name} will not be initialized.')
+                self.data[f'{self.name}_logged_head_validation_warning'] = True
             return False
 
         if not dna_file_path.exists():
-            logger.warning(f'The Head DNA file path "{dna_file_path}" does not exist. The Rig Logic Instance {self.name} will not be initialized.')
+            if not logged_warning:
+                logger.warning(f'The Head DNA file path "{dna_file_path}" does not exist. The Rig Logic Instance {self.name} will not be initialized.')
+                self.data[f'{self.name}_logged_head_validation_warning'] = True
             return False
         if not self.face_board:
-            logger.warning(f'The Face board is not set. The Rig Logic Instance {self.name} will not be initialized.')
+            if not logged_warning:
+                logger.warning(f'The Face board is not set. The Rig Logic Instance {self.name} will not be initialized.')
+                self.data[f'{self.name}_logged_head_validation_warning'] = True
             return False
         return True
     
     @property
     def body_valid(self) -> bool: 
+        logged_warning = self.data.get(f'{self.name}_logged_body_validation_warning', False)
         if not self.body_dna_file_path:
-            logger.warning(f'The Body DNA file path is not set. The Rig Logic Instance {self.name} will not be initialized.')
+            if not logged_warning:
+                logger.warning(f'The Body DNA file path is not set. The Rig Logic Instance {self.name} will not be initialized.')
+                self.data[f'{self.name}_logged_body_validation_warning'] = True
             return False
         
         dna_file_path = Path(bpy.path.abspath(self.body_dna_file_path))
         if not dna_file_path.is_file():
-            logger.warning(f'The Body DNA file path "{dna_file_path}" is not a file. The Rig Logic Instance {self.name} will not be initialized.')
+            if not logged_warning:
+                logger.warning(f'The Body DNA file path "{dna_file_path}" is not a file. The Rig Logic Instance {self.name} will not be initialized.')
+                self.data[f'{self.name}_logged_body_validation_warning'] = True
             return False
 
         if not dna_file_path.exists():
-            logger.warning(f'The Body DNA file path "{dna_file_path}" does not exist. The Rig Logic Instance {self.name} will not be initialized.')
+            if not logged_warning:
+                logger.warning(f'The Body DNA file path "{dna_file_path}" does not exist. The Rig Logic Instance {self.name} will not be initialized.')
+                self.data[f'{self.name}_logged_body_validation_warning'] = True
             return False
         return True
         
@@ -1014,8 +1031,33 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
         # save the raw control bone names so we don't have to query them again
         self.data[f'{self.name}_body_raw_control_bone_names'] = list(raw_control_bone_names)
-        # return a copy so the original raw control bone names are not modified
         return self.data[f'{self.name}_body_raw_control_bone_names']
+    
+    @property
+    def body_updated_bone_names(self) -> list[str]:
+        updated_bone_names = self.data.get(f'{self.name}_body_updated_bone_names', [])
+        if updated_bone_names:
+            return updated_bone_names
+        
+        updated_bone_names = set()
+        # get the updated twist bone names
+        for twist_index in range(self.body_dna_reader.getTwistCount()):
+            for output_index in self.body_dna_reader.getTwistOutputJointIndices(twist_index):
+                updated_bone_names.add(self.body_dna_reader.getJointName(output_index))
+        # get the updated swing bone names
+        for swing_index in range(self.body_dna_reader.getSwingCount()):
+            for output_index in self.body_dna_reader.getSwingOutputJointIndices(swing_index):
+                updated_bone_names.add(self.body_dna_reader.getJointName(output_index))
+        # get the updated rbf driven bone names
+        for solver_index in range(self.body_dna_reader.getRBFSolverCount()):
+            for pose_index in self.body_dna_reader.getRBFSolverPoseIndices(solver_index):
+                for attr_index in self.body_dna_reader.getRBFPoseJointOutputIndices(pose_index):
+                    joint_index = attr_index // ATTR_COUNT_PER_EULER_JOINT
+                    updated_bone_names.add(self.body_dna_reader.getJointName(joint_index))
+
+        # save the updated bone names so we don't have to query them again
+        self.data[f'{self.name}_body_updated_bone_names'] = list(updated_bone_names)
+        return self.data[f'{self.name}_body_updated_bone_names']
 
     def head_initialize(self):        
         from .bindings import riglogic
@@ -1520,11 +1562,15 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         
         # update joint transforms
         for joint_index in range(self.body_dna_reader.getJointCount()):
+            # skip the root joint
+            if joint_index == 0:
+                continue
+
             # get the bone 
             name = self.body_dna_reader.getJointName(joint_index)
 
-            # Only update driven bones
-            if name in self.body_raw_control_bone_names:
+            # Only update bones that are update via RBFs, twists, or swings
+            if name not in self.body_updated_bone_names:
                 continue
 
             pose_bone = self.body_rig.pose.bones.get(name)

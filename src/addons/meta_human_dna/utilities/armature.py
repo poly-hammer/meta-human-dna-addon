@@ -94,12 +94,15 @@ def set_bone_collection(
         rig_object: bpy.types.Object, 
         bone_names: list[str],
         collection_name: str,
-        theme: str | None = None
+        theme: str | None = None,
+        visible: bool = True
     ):
     # get or create a new bone collection
     collection = rig_object.data.collections.get(collection_name) # type: ignore
     if not collection:
         collection = rig_object.data.collections.new(name=collection_name) # type: ignore
+
+    collection.is_visible = visible # type: ignore
 
     for bone_name in bone_names:
         bone = rig_object.data.bones.get(bone_name) # type: ignore
@@ -180,11 +183,55 @@ def set_head_bone_collections(
 
 
 def set_body_bone_collections(
+        reader,
         mesh_object: bpy.types.Object,
-        rig_object: bpy.types.Object
+        rig_object: bpy.types.Object,
+        swing_bone_names: list[str],
+        twist_bone_names: list[str],
+        driver_bone_names: list[str]
     ):
-    from ..bindings import meta_human_dna_core
-    if mesh_object:
+    from .misc import dependencies_are_valid
+    if mesh_object and dependencies_are_valid():
+        from ..bindings import meta_human_dna_core
+        rbf_driven_bones = meta_human_dna_core.get_all_rbf_driven_bone_names(reader)
+        other_name_bones = []
+        for pose_bone in rig_object.pose.bones:
+            if pose_bone.name not in swing_bone_names + twist_bone_names + driver_bone_names + rbf_driven_bones:
+                other_name_bones.append(pose_bone.name)
+
+        set_bone_collection(
+            rig_object=rig_object, 
+            bone_names=driver_bone_names,
+            collection_name='Drivers',
+            theme='THEME09'
+        )
+        set_bone_collection(
+            rig_object=rig_object, 
+            bone_names=rbf_driven_bones,
+            collection_name='RBF Driven',
+            theme='THEME01'
+        )    
+        set_bone_collection(
+            rig_object=rig_object, 
+            bone_names=twist_bone_names,
+            collection_name='Twists',
+            theme='THEME03'
+        )
+        set_bone_collection(
+            rig_object=rig_object, 
+            bone_names=swing_bone_names,
+            collection_name='Swings',
+            theme='THEME04'
+        )
+        set_bone_collection(
+            rig_object=rig_object, 
+            bone_names=other_name_bones,
+            collection_name='Other',
+        )
+
+        # --------------------------------------------------------------------------
+        # TODO: Deprecate these collections for auto fitting algorithm
+        # --------------------------------------------------------------------------
         driver_bones = []
         driver_leaf_bones = []
         twist_bones = []
@@ -207,34 +254,32 @@ def set_body_bone_collections(
             rig_object=rig_object, 
             bone_names=driver_bones,
             collection_name=meta_human_dna_core.BodyBoneCollection.DRIVER_BONES.value,
-            theme='THEME09'
+            visible=False
         )
         set_bone_collection(
             rig_object=rig_object, 
             bone_names=driver_leaf_bones,
             collection_name=meta_human_dna_core.BodyBoneCollection.DRIVER_LEAF_BONES.value,
-            theme='THEME01'
+            visible=False
         )    
         set_bone_collection(
             rig_object=rig_object, 
             bone_names=twist_bones,
             collection_name=meta_human_dna_core.BodyBoneCollection.TWIST_BONES.value,
-            theme='THEME03'
+            visible=False
         )    
         set_bone_collection(
             rig_object=rig_object, 
             bone_names=twist_corrective_bones,
             collection_name=meta_human_dna_core.BodyBoneCollection.TWIST_CORRECTIVE_BONES.value,
-            theme='THEME03'
+            visible=False
         )
         set_bone_collection(
             rig_object=rig_object, 
             bone_names=corrective_root_bones,
             collection_name=meta_human_dna_core.BodyBoneCollection.CORRECTIVE_ROOT_BONES.value,
-            theme='THEME04'
+            visible=False
         )
-        
-        
 
 
 def get_meshes_using_armature(armature_object: bpy.types.Object) -> list[bpy.types.Object]:
