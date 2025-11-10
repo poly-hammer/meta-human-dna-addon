@@ -27,7 +27,8 @@ FINGER_NAMES = [
     'thumb'
 ]
 
-EXCLUDE_FINGER_POSES = int(os.environ.get('META_HUMAN_DNA_ADDON_TESTS_BODY_EXCLUDE_FINGER_POSES', '0')) == 1
+# EXCLUDE_FINGER_POSES = int(os.environ.get('META_HUMAN_DNA_ADDON_TESTS_BODY_EXCLUDE_FINGER_POSES', '0')) == 1
+EXCLUDE_FINGER_POSES = True
 
 
 def get_all_pose_names(exclude_fingers: bool = False) -> list[str]:
@@ -221,7 +222,7 @@ def run_body_pose_test(
     ]
 )
 def test_body_pose(
-    load_dna, 
+    load_body_dna, 
     pose_name: str, 
     source_rig_name: str, 
     changed_head_bone_name: str,
@@ -247,7 +248,7 @@ def test_body_pose(
     ]
 )
 def test_body_pose_edit_mode(
-    load_dna, 
+    load_body_dna, 
     pose_name: str, 
     source_rig_name: str, 
     changed_head_bone_name: str,

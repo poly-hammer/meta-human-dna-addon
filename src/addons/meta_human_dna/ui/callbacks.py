@@ -529,8 +529,12 @@ def update_body_rbf_driven_active_index(self, context):
         else:
             pose_bone.bone.select = False
 
-def update_body_rbf_poses_active_index(self, context):    
-    from ..utilities import compare_bone_orientations
+def update_body_rbf_poses_active_index(self, context):
+    from ..utilities import dependencies_are_valid
+    if not dependencies_are_valid():
+        return
+    
+    import meta_human_dna_core
     
     instance = get_active_rig_logic()
 
@@ -554,33 +558,30 @@ def update_body_rbf_poses_active_index(self, context):
             swing_axis = pose_bone.get('swing_axis')
             swing_bone_names = pose_bone.get('swing_bone_names', [])
             swing_blend_weights = pose_bone.get('swing_blend_weights', [])
-            # convert to blender local rotation axis 
-            if swing_axis.lower() == 'x':
-                blender_read_swing_axis = 'z'
-                blender_write_swing_axis_1 = 'x'
-                blender_write_swing_axis_2 = 'z'
 
             twist_axis = pose_bone.get('twist_axis')
             twist_bone_names = pose_bone.get('twist_bone_names', [])
             twist_blend_weights = pose_bone.get('twist_blend_weights', [])
-            # convert to blender local rotation axis 
-            if twist_axis.lower() == 'x':
-                blender_read_twist_axis = 'z'
-                blender_write_twist_axis_1 = 'x'
 
-            euler_rotation = quaternion_rotation.to_euler('XYZ')
-            # update the swing bones based on the driver rotation
-            for swing_bone_name, swing_blend_weight in zip(swing_bone_names, reversed(swing_blend_weights)):
-                swing_pose_bone = instance.body_rig.pose.bones.get(swing_bone_name)
-                value = getattr(euler_rotation, blender_read_swing_axis)
-                setattr(swing_pose_bone.rotation_euler, blender_write_swing_axis_1, value * swing_blend_weight)
-                setattr(swing_pose_bone.rotation_euler, blender_write_swing_axis_2, -value * swing_blend_weight)
-
-            # update the twist bones based on the driver rotation
-            for twist_bone_name, twist_blend_weight in zip(twist_bone_names, reversed(twist_blend_weights)):
-                twist_pose_bone = instance.body_rig.pose.bones.get(twist_bone_name)
-                value = getattr(euler_rotation, blender_read_twist_axis)
-                setattr(twist_pose_bone.rotation_euler, blender_write_twist_axis_1, value * twist_blend_weight)
+            # calculate swing and twist outputs
+            swing_outputs, twist_outputs = meta_human_dna_core.calculate_swing_twist(
+                driver_quaternion_rotation=driver.quaternion_rotation[:],
+                swing_bone_names=swing_bone_names,
+                swing_blend_weights=swing_blend_weights,
+                twist_bone_names=twist_bone_names,
+                twist_blend_weights=twist_blend_weights,
+                swing_axis=swing_axis,
+                twist_axis=twist_axis
+            )
+            # Apply swing and twist outputs
+            for bone_name, swing_output in swing_outputs.items():
+                swing_bone = instance.body_rig.pose.bones.get(bone_name)
+                if swing_bone:
+                    swing_bone.rotation_euler = Euler(swing_output, 'XYZ')
+            for bone_name, twist_output in twist_outputs.items():
+                twist_bone = instance.body_rig.pose.bones.get(bone_name)
+                if twist_bone:
+                    twist_bone.rotation_euler = Euler(twist_output, 'XYZ')
 
     # ensure the body is initialized
     if not instance.body_initialized:

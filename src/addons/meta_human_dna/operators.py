@@ -1708,7 +1708,7 @@ class CommitRBFSolverChanges(RBFEditorOperatorBase):
         reader = get_dna_reader(file_path=instance.body_dna_file_path)
         writer = get_dna_writer(file_path=instance.body_dna_file_path)
 
-        utilities.commit_rbf_data_to_dna(
+        meta_human_dna_core.commit_rbf_data_to_dna(
             reader=reader,
             writer=writer,
             data=utilities.collection_to_list(instance.rbf_solver_list)

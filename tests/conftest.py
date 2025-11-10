@@ -84,6 +84,7 @@ from fixtures.dna_data import ( # noqa: E402, F401
 )
 from fixtures.scene import (  # noqa: E402, F401
     load_dna,
+    load_body_dna,
     head_bmesh,
     head_armature,
     modify_scene

@@ -40,6 +40,43 @@ def load_dna(
         **lods_to_import
     )
 
+
+@pytest.fixture(scope='session')
+def load_body_dna(
+    addon, 
+    dna_folder_name: str, 
+    import_shape_keys: bool,
+    import_lods: list,
+):
+    # open default scene
+    bpy.ops.wm.read_homefile(app_template="")
+
+    # remove all default objects
+    for obj in bpy.data.objects:
+        bpy.data.objects.remove(obj, do_unlink=True)
+
+    file_path = TEST_DNA_FOLDER / dna_folder_name / 'body.dna'
+
+    lods_to_import = {}
+    # Set all LODs to False by default
+    for index in range(8):
+        lods_to_import[f'import_lod{index}'] = False
+    # Set the LODs to True that are in the import_lods list
+    for lod_name in import_lods:
+        lods_to_import[f'import_{lod_name}'] = True
+
+    bpy.ops.meta_human_dna.import_dna( # type: ignore
+        filepath=str(file_path),
+        import_mesh=True,
+        import_bones=True,
+        import_shape_keys=False,
+        import_vertex_groups=True,
+        import_materials=True,
+        import_face_board=False,
+        include_body=False,
+        **lods_to_import
+    )
+
 @pytest.fixture(scope='session')
 def head_bmesh(load_dna) -> bmesh.types.BMesh | None:
     from meta_human_dna.utilities import get_active_head
