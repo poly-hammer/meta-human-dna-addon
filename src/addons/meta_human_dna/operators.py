@@ -198,50 +198,48 @@ class AppendOrLinkMetaHuman(bpy.types.Operator, importer.LinkAppendMetaHumanImpo
             # Extract the rig instance data from the .blend file and set them on the new rig instance
             instance = utilities.add_rig_instance(name=collection_name)
             instance.head_dna_file_path = data[collection_name]['head_dna_file_path']
-            instance.head_mesh = bpy.data.objects.get(data[collection_name]['head_mesh'])
-            instance.head_rig = bpy.data.objects.get(data[collection_name]['head_rig'])
-            instance.head_material = bpy.data.materials.get(data[collection_name]['head_material'])
-            instance.body_mesh = bpy.data.objects.get(data[collection_name]['body_mesh'])
-            instance.body_rig = bpy.data.objects.get(data[collection_name]['body_rig'])
-            instance.body_material = bpy.data.materials.get(data[collection_name]['body_material'])
+            instance.head_mesh = bpy.data.objects.get(data[collection_name]['head_mesh'] or '')
+            instance.head_rig = bpy.data.objects.get(data[collection_name]['head_rig'] or '')
+            instance.head_material = bpy.data.materials.get(data[collection_name]['head_material'] or '')
+            instance.body_mesh = bpy.data.objects.get(data[collection_name]['body_mesh'] or '')
+            instance.body_rig = bpy.data.objects.get(data[collection_name]['body_rig'] or '')
+            instance.body_material = bpy.data.materials.get(data[collection_name]['body_material'] or '')
             instance.body_dna_file_path = data[collection_name]['body_dna_file_path']
             instance.output_folder_path = data[collection_name]['output_folder_path']
 
-            face_board = bpy.data.objects.get(data[collection_name]['face_board'])
-            if data[collection_name]['face_board']:
-                # duplicate the face board if there is one already in the scene
-                if any(i.face_board for i in context.scene.meta_human_dna.rig_logic_instance_list): # type: ignore
-                    instance.face_board = utilities.duplicate_face_board(name=collection_name)
-                # otherwise import it
-                else:
-                    instance.face_board = utilities.import_face_board(name=collection_name)
-                
-                # position the face board next to the head mesh
-                if instance.face_board:
-                    utilities.position_face_board(
-                        head_mesh_object=instance.head_mesh, 
-                        head_rig_object=instance.head_rig, 
-                        face_board_object=instance.face_board
+            # duplicate the face board if there is one already in the scene
+            if any(i.face_board for i in context.scene.meta_human_dna.rig_logic_instance_list): # type: ignore
+                instance.face_board = utilities.duplicate_face_board(name=collection_name)
+            # otherwise import it
+            else:
+                instance.face_board = utilities.import_face_board(name=collection_name)
+            
+            # position the face board next to the head mesh
+            if instance.face_board:
+                utilities.position_face_board(
+                    head_mesh_object=instance.head_mesh, 
+                    head_rig_object=instance.head_rig, 
+                    face_board_object=instance.face_board
+                )
+                if self.operation_type != 'LINK':
+                    utilities.move_to_collection(
+                        scene_objects=[instance.face_board],
+                        collection_name=collection_name,
+                        exclusively=True
                     )
-                    if self.operation_type != 'LINK':
-                        utilities.move_to_collection(
-                            scene_objects=[instance.face_board],
-                            collection_name=collection_name,
-                            exclusively=True
-                        )
 
-                    utilities.constrain_face_board_to_head(
-                        face_board_object=instance.face_board,
-                        head_rig_object=instance.head_rig,
-                        body_rig_object=instance.body_rig,
-                        bone_name='CTRL_faceGUI'
-                    )
-                    utilities.constrain_face_board_to_head(
-                        face_board_object=instance.face_board,
-                        head_rig_object=instance.head_rig,
-                        body_rig_object=instance.body_rig,
-                        bone_name='CTRL_C_eyesAim'
-                    )
+                utilities.constrain_face_board_to_head(
+                    face_board_object=instance.face_board,
+                    head_rig_object=instance.head_rig,
+                    body_rig_object=instance.body_rig,
+                    bone_name='CTRL_faceGUI'
+                )
+                utilities.constrain_face_board_to_head(
+                    face_board_object=instance.face_board,
+                    head_rig_object=instance.head_rig,
+                    body_rig_object=instance.body_rig,
+                    bone_name='CTRL_C_eyesAim'
+                )
 
         return {'FINISHED'}
 
