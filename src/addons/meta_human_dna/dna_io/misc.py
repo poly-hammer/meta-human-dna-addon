@@ -27,7 +27,10 @@ DataLayer = Literal[
     'Behavior',
     'Geometry',
     'GeometryWithoutBlendShapes',
-    'AllWithoutBlendShapes',
+    'MachineLearnedBehavior',
+    'RBFBehavior',
+    'JointBehaviorMetadata',
+    'TwistSwingBehavior',
     'All',
 ]
 

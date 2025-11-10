@@ -94,12 +94,15 @@ def set_bone_collection(
         rig_object: bpy.types.Object, 
         bone_names: list[str],
         collection_name: str,
-        theme: str | None = None
+        theme: str | None = None,
+        visible: bool = True
     ):
     # get or create a new bone collection
     collection = rig_object.data.collections.get(collection_name) # type: ignore
     if not collection:
         collection = rig_object.data.collections.new(name=collection_name) # type: ignore
+
+    collection.is_visible = visible # type: ignore
 
     for bone_name in bone_names:
         bone = rig_object.data.bones.get(bone_name) # type: ignore
@@ -180,11 +183,55 @@ def set_head_bone_collections(
 
 
 def set_body_bone_collections(
+        reader,
         mesh_object: bpy.types.Object,
-        rig_object: bpy.types.Object
+        rig_object: bpy.types.Object,
+        swing_bone_names: list[str],
+        twist_bone_names: list[str],
+        driver_bone_names: list[str]
     ):
-    from ..bindings import meta_human_dna_core
-    if mesh_object:
+    from .misc import dependencies_are_valid
+    if mesh_object and dependencies_are_valid():
+        from ..bindings import meta_human_dna_core
+        rbf_driven_bones = meta_human_dna_core.get_all_rbf_driven_bone_names(reader)
+        other_name_bones = []
+        for pose_bone in rig_object.pose.bones:
+            if pose_bone.name not in swing_bone_names + twist_bone_names + driver_bone_names + rbf_driven_bones:
+                other_name_bones.append(pose_bone.name)
+
+        set_bone_collection(
+            rig_object=rig_object, 
+            bone_names=driver_bone_names,
+            collection_name='Drivers',
+            theme='THEME09'
+        )
+        set_bone_collection(
+            rig_object=rig_object, 
+            bone_names=rbf_driven_bones,
+            collection_name='RBF Driven',
+            theme='THEME01'
+        )    
+        set_bone_collection(
+            rig_object=rig_object, 
+            bone_names=twist_bone_names,
+            collection_name='Twists',
+            theme='THEME03'
+        )
+        set_bone_collection(
+            rig_object=rig_object, 
+            bone_names=swing_bone_names,
+            collection_name='Swings',
+            theme='THEME04'
+        )
+        set_bone_collection(
+            rig_object=rig_object, 
+            bone_names=other_name_bones,
+            collection_name='Other',
+        )
+
+        # --------------------------------------------------------------------------
+        # TODO: Deprecate these collections for auto fitting algorithm
+        # --------------------------------------------------------------------------
         driver_bones = []
         driver_leaf_bones = []
         twist_bones = []
@@ -207,34 +254,32 @@ def set_body_bone_collections(
             rig_object=rig_object, 
             bone_names=driver_bones,
             collection_name=meta_human_dna_core.BodyBoneCollection.DRIVER_BONES.value,
-            theme='THEME09'
+            visible=False
         )
         set_bone_collection(
             rig_object=rig_object, 
             bone_names=driver_leaf_bones,
             collection_name=meta_human_dna_core.BodyBoneCollection.DRIVER_LEAF_BONES.value,
-            theme='THEME01'
+            visible=False
         )    
         set_bone_collection(
             rig_object=rig_object, 
             bone_names=twist_bones,
             collection_name=meta_human_dna_core.BodyBoneCollection.TWIST_BONES.value,
-            theme='THEME03'
+            visible=False
         )    
         set_bone_collection(
             rig_object=rig_object, 
             bone_names=twist_corrective_bones,
             collection_name=meta_human_dna_core.BodyBoneCollection.TWIST_CORRECTIVE_BONES.value,
-            theme='THEME03'
+            visible=False
         )
         set_bone_collection(
             rig_object=rig_object, 
             bone_names=corrective_root_bones,
             collection_name=meta_human_dna_core.BodyBoneCollection.CORRECTIVE_ROOT_BONES.value,
-            theme='THEME04'
+            visible=False
         )
-        
-        
 
 
 def get_meshes_using_armature(armature_object: bpy.types.Object) -> list[bpy.types.Object]:
@@ -508,6 +553,8 @@ def auto_fit_bones(
 
 @preserve_context
 def reset_pose(rig_object: bpy.types.Object):
+    # show the rig and switch to pose mode
+    rig_object.hide_set(False) # type: ignore
     switch_to_pose_mode(rig_object)
 
     # reset to rest pose
@@ -516,3 +563,47 @@ def reset_pose(rig_object: bpy.types.Object):
         pose_bone.rotation_euler = Euler((0, 0, 0)) # type: ignore
         pose_bone.location = Vector((0, 0, 0)) # type: ignore
         pose_bone.scale = Vector((1, 1, 1)) # type: ignore
+
+
+def get_bone_local_axes(pose_bone: bpy.types.PoseBone) -> tuple[Vector, Vector, Vector]:
+    """
+    Get the local X, Y, Z axes of a pose bone in world space.
+    
+    Args:
+        pose_bone: The pose bone to analyze
+        
+    Returns:
+        Tuple of (x_axis, y_axis, z_axis) as world-space vectors
+    """
+    # Get the bone's world matrix
+    world_matrix = pose_bone.id_data.matrix_world @ pose_bone.matrix
+    
+    # Extract the rotation component (3x3 part of 4x4 matrix)
+    # Each column represents a local axis in world space
+    x_axis = world_matrix.col[0].to_3d().normalized()
+    y_axis = world_matrix.col[1].to_3d().normalized()
+    z_axis = world_matrix.col[2].to_3d().normalized()
+    
+    return x_axis, y_axis, z_axis
+
+
+def compare_bone_orientations(bone1: bpy.types.PoseBone, bone2: bpy.types.PoseBone) -> bool:
+    """
+    Compare if two bones have the same local orientations.
+    
+    Args:
+        bone1: First pose bone
+        bone2: Second pose bone
+        
+    Returns:
+        True if orientations are similar
+    """
+    x1, y1, z1 = get_bone_local_axes(bone1)
+    x2, y2, z2 = get_bone_local_axes(bone2)
+    
+    # Compare axes using dot product (1.0 = same direction, -1.0 = opposite)
+    x_match = abs(x1.dot(x2)) > 0.999
+    y_match = abs(y1.dot(y2)) > 0.999
+    z_match = abs(z1.dot(z2)) > 0.999
+    
+    return (x_match and y_match and z_match)

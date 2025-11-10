@@ -12,7 +12,8 @@ from . import utilities
 from .dna_io import (
     DNACalibrator, 
     DNAExporter,
-    get_dna_reader
+    get_dna_reader,
+    get_dna_writer
 )
 from .properties import MetahumanDnaImportProperties, BlendFileMetaHumanCollection
 from .components import (
@@ -29,7 +30,8 @@ from .constants import (
     HEAD_TEXTURE_LOGIC_NODE_NAME,
     HEAD_TEXTURE_LOGIC_NODE_LABEL,
     SHAPE_KEY_BASIS_NAME,
-    FACE_BOARD_NAME
+    FACE_BOARD_NAME,
+    BONE_DELTA_THRESHOLD
 )
 
 logger = logging.getLogger(__name__)
@@ -196,50 +198,48 @@ class AppendOrLinkMetaHuman(bpy.types.Operator, importer.LinkAppendMetaHumanImpo
             # Extract the rig instance data from the .blend file and set them on the new rig instance
             instance = utilities.add_rig_instance(name=collection_name)
             instance.head_dna_file_path = data[collection_name]['head_dna_file_path']
-            instance.head_mesh = bpy.data.objects.get(data[collection_name]['head_mesh'])
-            instance.head_rig = bpy.data.objects.get(data[collection_name]['head_rig'])
-            instance.head_material = bpy.data.materials.get(data[collection_name]['head_material'])
-            instance.body_mesh = bpy.data.objects.get(data[collection_name]['body_mesh'])
-            instance.body_rig = bpy.data.objects.get(data[collection_name]['body_rig'])
-            instance.body_material = bpy.data.materials.get(data[collection_name]['body_material'])
+            instance.head_mesh = bpy.data.objects.get(data[collection_name]['head_mesh'] or '')
+            instance.head_rig = bpy.data.objects.get(data[collection_name]['head_rig'] or '')
+            instance.head_material = bpy.data.materials.get(data[collection_name]['head_material'] or '')
+            instance.body_mesh = bpy.data.objects.get(data[collection_name]['body_mesh'] or '')
+            instance.body_rig = bpy.data.objects.get(data[collection_name]['body_rig'] or '')
+            instance.body_material = bpy.data.materials.get(data[collection_name]['body_material'] or '')
             instance.body_dna_file_path = data[collection_name]['body_dna_file_path']
             instance.output_folder_path = data[collection_name]['output_folder_path']
 
-            face_board = bpy.data.objects.get(data[collection_name]['face_board'])
-            if data[collection_name]['face_board']:
-                # duplicate the face board if there is one already in the scene
-                if any(i.face_board for i in context.scene.meta_human_dna.rig_logic_instance_list): # type: ignore
-                    instance.face_board = utilities.duplicate_face_board(name=collection_name)
-                # otherwise import it
-                else:
-                    instance.face_board = utilities.import_face_board(name=collection_name)
-                
-                # position the face board next to the head mesh
-                if instance.face_board:
-                    utilities.position_face_board(
-                        head_mesh_object=instance.head_mesh, 
-                        head_rig_object=instance.head_rig, 
-                        face_board_object=instance.face_board
+            # duplicate the face board if there is one already in the scene
+            if any(i.face_board for i in context.scene.meta_human_dna.rig_logic_instance_list): # type: ignore
+                instance.face_board = utilities.duplicate_face_board(name=collection_name)
+            # otherwise import it
+            else:
+                instance.face_board = utilities.import_face_board(name=collection_name)
+            
+            # position the face board next to the head mesh
+            if instance.face_board:
+                utilities.position_face_board(
+                    head_mesh_object=instance.head_mesh, 
+                    head_rig_object=instance.head_rig, 
+                    face_board_object=instance.face_board
+                )
+                if self.operation_type != 'LINK':
+                    utilities.move_to_collection(
+                        scene_objects=[instance.face_board],
+                        collection_name=collection_name,
+                        exclusively=True
                     )
-                    if self.operation_type != 'LINK':
-                        utilities.move_to_collection(
-                            scene_objects=[instance.face_board],
-                            collection_name=collection_name,
-                            exclusively=True
-                        )
 
-                    utilities.constrain_face_board_to_head(
-                        face_board_object=instance.face_board,
-                        head_rig_object=instance.head_rig,
-                        body_rig_object=instance.body_rig,
-                        bone_name='CTRL_faceGUI'
-                    )
-                    utilities.constrain_face_board_to_head(
-                        face_board_object=instance.face_board,
-                        head_rig_object=instance.head_rig,
-                        body_rig_object=instance.body_rig,
-                        bone_name='CTRL_C_eyesAim'
-                    )
+                utilities.constrain_face_board_to_head(
+                    face_board_object=instance.face_board,
+                    head_rig_object=instance.head_rig,
+                    body_rig_object=instance.body_rig,
+                    bone_name='CTRL_faceGUI'
+                )
+                utilities.constrain_face_board_to_head(
+                    face_board_object=instance.face_board,
+                    head_rig_object=instance.head_rig,
+                    body_rig_object=instance.body_rig,
+                    bone_name='CTRL_C_eyesAim'
+                )
 
         return {'FINISHED'}
 
@@ -953,6 +953,14 @@ class SendToMetaHumanCreator(bpy.types.Operator):
     def execute(self, context):
         instance = callbacks.get_active_rig_logic()
         if instance:
+            # store the current auto evaluate settings
+            auto_evaluate_head = instance.auto_evaluate_head
+            auto_evaluate_body = instance.auto_evaluate_body
+
+            # disable auto evaluate while we are exporting
+            instance.auto_evaluate_head = False
+            instance.auto_evaluate_body = False
+
             current_context = utilities.get_current_context()
 
             for attribute_name in ['head_mesh', 'head_rig', 'body_mesh', 'body_rig']:
@@ -1009,7 +1017,11 @@ class SendToMetaHumanCreator(bpy.types.Operator):
                 bpy.ops.meta_human_dna.force_evaluate() # type: ignore
 
             utilities.set_context(current_context)
-            
+
+            # restore the auto evaluate settings
+            instance.auto_evaluate_head = auto_evaluate_head
+            instance.auto_evaluate_body = auto_evaluate_body
+
         return {'FINISHED'}
 
 class SendToUnreal(bpy.types.Operator):
@@ -1354,6 +1366,31 @@ class ShapeKeyOperatorBase(bpy.types.Operator):
         return shape_key_index, key_block, channel_index, mesh_object
     
 
+class RBFEditorOperatorBase(bpy.types.Operator):
+    solver_index: bpy.props.IntProperty(default=0) # type: ignore
+    pose_index: bpy.props.IntProperty(default=0) # type: ignore
+    driver_index: bpy.props.IntProperty(default=0) # type: ignore
+    driven_index: bpy.props.IntProperty(default=0) # type: ignore
+
+    def validate(self, context, instance) -> tuple[bool, str]:
+        return True, ""
+    
+    def execute(self, context):
+        instance = callbacks.get_active_rig_logic()
+        if instance and instance.body_rig:
+            result, message = self.validate(context, instance)
+            if not result:
+                self.report({'ERROR'}, message)
+                return {'CANCELLED'}
+            
+            self.run(instance)
+
+        return {'FINISHED'}
+    
+    def run(self, instance):
+        pass
+
+
 class MetaHumanDnaReportError(ShapeKeyOperatorBase):
     """Reports and error message to the user with a optional fix"""
     bl_idname = "meta_human_dna.report_error"
@@ -1566,6 +1603,211 @@ class ReImportThisShapeKey(ShapeKeyOperatorBase):
 
             utilities.set_context(current_context)
         return {'FINISHED'}
+    
+
+class AddRBFSolver(RBFEditorOperatorBase):
+    """Add a new RBF Solver"""
+    bl_idname = "meta_human_dna.add_rbf_solver"
+    bl_label = "Add RBF Solver"
+
+    def run(self, instance):
+        pass
+    
+
+class RemoveRBFSolver(RBFEditorOperatorBase):
+    """Remove the selected RBF Solver"""
+    bl_idname = "meta_human_dna.remove_rbf_solver"
+    bl_label = "Remove RBF Solver"
+
+    def run(self, instance):
+        pass
+    
+
+class RefreshRBFSolvers(RBFEditorOperatorBase):
+    """Refresh the RBF Solvers"""
+    bl_idname = "meta_human_dna.refresh_rbf_solvers"
+    bl_label = "Refresh RBF Solvers"
+
+    def run(self, instance):
+        instance.update_body_rbf_solver_list()
+    
+
+class AddRBFPose(RBFEditorOperatorBase):
+    """Add a new RBF Pose"""
+    bl_idname = "meta_human_dna.add_rbf_pose"
+    bl_label = "Add RBF Pose"
+
+    def run(self, instance):
+        pass
+
+class RevertRBFSolver(RBFEditorOperatorBase):
+    """Revert RBF solver back to the original DNA."""
+    bl_idname = "meta_human_dna.revert_rbf_solver"
+    bl_label = "Revert RBF Solver"
+
+    def run(self, instance):
+        utilities.reset_pose(instance.body_rig)
+
+        instance.editing_rbf_solver = False
+        instance.auto_evaluate_body = True
+
+        bpy.ops.meta_human_dna.force_evaluate() # type: ignore
+
+class EditRBFSolver(RBFEditorOperatorBase):
+    """Switch to Editing mode for the selected RBF solver. Changes will not take effect until committed to the .dna file."""
+    bl_idname = "meta_human_dna.edit_rbf_solver"
+    bl_label = "Edit RBF Solver"
+
+    @classmethod
+    def poll(cls, context):
+        instance = callbacks.get_active_rig_logic()
+        if instance is None:
+            return False
+        
+        if not instance.editing_rbf_solver:
+            return True
+        
+        return False
+
+    def run(self, instance):
+        instance.editing_rbf_solver = True
+        instance.auto_evaluate_body = False
+
+class CommitRBFSolverChanges(RBFEditorOperatorBase):
+    """Commit the current changes for the selected RBF solver to the .dna file"""
+    bl_idname = "meta_human_dna.commit_rbf_solver_changes"
+    bl_label = "Commit RBF Solver Changes"
+
+    @classmethod
+    def poll(cls, context):
+        instance = callbacks.get_active_rig_logic()
+        if instance is None:
+            return False
+        
+        if instance.editing_rbf_solver:
+            return True
+        
+        return False
+    
+    def validate(self, context, instance) -> tuple[bool, str]:
+        if not utilities.dependencies_are_valid():
+            return False, "Dependencies are not valid. Ensure the core dependencies are installed."
+
+        if not instance.body_rig:
+            return False, "No body rig found. Please assign a body rig."
+        if not instance.body_dna_file_path:
+            return False, "No body .dna file. Please assign a body .dna file."
+        if not Path(bpy.path.abspath(instance.body_dna_file_path)).exists():
+            return False, "Body .dna file does not exist. Please check the file path."
+
+        return True, ""
+
+    def run(self, instance):
+        import meta_human_dna_core
+
+        reader = get_dna_reader(file_path=instance.body_dna_file_path)
+        writer = get_dna_writer(file_path=instance.body_dna_file_path)
+
+        meta_human_dna_core.commit_rbf_data_to_dna(
+            reader=reader,
+            writer=writer,
+            data=utilities.collection_to_list(instance.rbf_solver_list)
+        )
+        logger.info(f'DNA exported successfully to: "{instance.body_dna_file_path}"')
+
+        instance.editing_rbf_solver = False
+        instance.auto_evaluate_body = True
+        instance.destroy()
+        instance.evaluate(component='body')
+        
+
+class RemoveRBFPose(RBFEditorOperatorBase):
+    """Remove the selected RBF Pose"""
+    bl_idname = "meta_human_dna.remove_rbf_pose"
+    bl_label = "Remove RBF Pose"
+
+    def run(self, instance):
+        pass
+
+
+class AddRBFDriver(RBFEditorOperatorBase):
+    """Add a new RBF Driver bone"""
+    bl_idname = "meta_human_dna.add_rbf_driver"
+    bl_label = "Add RBF Driver"
+
+    def run(self, instance):
+        pass
+
+
+class RemoveRBFDriver(RBFEditorOperatorBase):
+    """Remove the selected RBF Driver bone"""
+    bl_idname = "meta_human_dna.remove_rbf_driver"
+    bl_label = "Remove RBF Driver"
+
+    def run(self, instance):
+        pass
+
+class AddRBFDriven(RBFEditorOperatorBase):
+    """Add a new RBF Driven bone"""
+    bl_idname = "meta_human_dna.add_rbf_driven"
+    bl_label = "Add RBF Driven Bone"
+
+    def run(self, instance):
+        pass
+
+class UpdateRBFDriven(RBFEditorOperatorBase):
+    """Update the selected RBF driven bone transforms for the current pose"""
+    bl_idname = "meta_human_dna.update_rbf_driven"
+    bl_label = "Update RBF Driven Bone"
+
+    def run(self, instance):      
+        # ensure the body is initialized
+        if not instance.body_initialized:
+            instance.body_initialize(update_rbf_solver_list=False)
+
+        solver = instance.rbf_solver_list[self.solver_index]
+        pose = solver.poses[self.pose_index]
+        driven = pose.driven[self.driven_index]
+
+        existing_rotation = Vector(driven.euler_rotation[:])
+        existing_location = Vector(driven.location[:])
+        existing_scale = Vector(driven.scale[:])
+        pose_bone = instance.body_rig.pose.bones.get(driven.name)
+        if pose_bone:
+            location = pose_bone.location
+
+            if pose_bone.parent:
+                orientation_matches = utilities.compare_bone_orientations(pose_bone, pose_bone.parent)
+                # convert from Blender Z-up to DNA Y-up if the orientation does not match the parent
+                if not orientation_matches:
+                    location = Vector((pose_bone.location.x, -pose_bone.location.z, pose_bone.location.y))
+            
+            # the scale should be the delta from the scale factor
+            scale = pose_bone.scale - Vector((pose.scale_factor, pose.scale_factor, pose.scale_factor))
+
+            rotation_delta = Vector(pose_bone.rotation_euler[:]).copy() - existing_rotation
+            location_delta = location.copy() - existing_location
+            scale_delta = scale.copy() - existing_scale
+
+            # only update if the delta is significant enough to avoid floating point value drift
+            if rotation_delta.length > BONE_DELTA_THRESHOLD:
+                driven.euler_rotation = pose_bone.rotation_euler[:]
+                logger.debug(f'Updated RBF driven bone "{driven.name}" rotation to {driven.euler_rotation[:]}')
+            if location_delta.length > BONE_DELTA_THRESHOLD:
+                driven.location = location[:]
+                logger.debug(f'Updated RBF driven bone "{driven.name}" location to {driven.location[:]}')
+            if scale_delta.length > BONE_DELTA_THRESHOLD and round(scale.length, 5) > 0:
+                driven.scale = scale[:]
+                logger.debug(f'Updated RBF driven bone "{driven.name}" scale to {driven.scale[:]}')
+
+
+class RemoveRBFDriven(RBFEditorOperatorBase):
+    """Remove the selected RBF Driven bone"""
+    bl_idname = "meta_human_dna.remove_rbf_driven"
+    bl_label = "Remove RBF Driven Bone"
+
+    def run(self, instance):
+        pass
     
 class RefreshMaterialSlotNames(bpy.types.Operator):
     """Refresh the material slot names by re-reading them from the meshes in the output list"""

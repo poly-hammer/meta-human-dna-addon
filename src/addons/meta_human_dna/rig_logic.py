@@ -10,7 +10,8 @@ from typing import TYPE_CHECKING, Literal
 from .constants import (
     SCALE_FACTOR, 
     SHAPE_KEY_NAME_MAX_LENGTH,
-    FLOATING_POINT_PRECISION
+    FLOATING_POINT_PRECISION,
+    ToolInfo
 )
 
 if TYPE_CHECKING:
@@ -29,6 +30,9 @@ def rig_logic_listener(
         dependency_graph: bpy.types.Depsgraph, 
         is_frame_change: bool = False
     ):
+    if not hasattr(bpy.context.window_manager, ToolInfo.NAME):
+        return
+
     # this condition prevents constant evaluation
     if not bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph: # type: ignore
         return
@@ -40,10 +44,11 @@ def rig_logic_listener(
     # if the screen is the temp screen, then is is rendering and we need to evaluate
     if bpy.context.screen and 'temp' in bpy.context.screen.name.lower(): # type: ignore
         for instance in scene.meta_human_dna.rig_logic_instance_list: # type: ignore
-            if instance.auto_evaluate_head:
-                instance_updates.add((instance, 'head'))
-            if instance.auto_evaluate_body:
-                instance_updates.add((instance, 'body'))
+            if instance.auto_evaluate:
+                if instance.auto_evaluate_head:
+                    instance_updates.add((instance, 'head'))
+                if instance.auto_evaluate_body:
+                    instance_updates.add((instance, 'body'))
 
     # only evaluate if in pose mode or if animation is
     if is_frame_change or bpy.context.mode == 'POSE': # type: ignore
@@ -56,6 +61,7 @@ def rig_logic_listener(
                 for instance in scene.meta_human_dna.rig_logic_instance_list: # type: ignore
                     # Check if the action is being used by any face board
                     if (
+                        instance.auto_evaluate and
                         instance.auto_evaluate_head and
                         instance.face_board and 
                         instance.face_board.animation_data and 
@@ -65,6 +71,7 @@ def rig_logic_listener(
                         instance_updates.add((instance, 'head'))
                     # Check if the action is being used by any body rig
                     elif (
+                        instance.auto_evaluate and
                         instance.auto_evaluate_body and
                         instance.body_rig and 
                         instance.body_rig.animation_data and 
@@ -84,9 +91,21 @@ def rig_logic_listener(
                         armature_name = update.id.name.split('.')[0]
                         
                         # Check if the armature is the face board
-                        if instance.auto_evaluate_head and instance.face_board and instance.face_board.name.endswith(armature_name):
+                        if (
+                            instance.auto_evaluate and
+                            instance.auto_evaluate_head and 
+                            instance.face_board and 
+                            instance.face_board.data and 
+                            instance.face_board.data.name == armature_name
+                        ):
                             instance_updates.add((instance, 'head'))
-                        elif instance.auto_evaluate_body and instance.body_rig and instance.body_rig.name.endswith(armature_name):
+                        elif (
+                            instance.auto_evaluate and
+                            instance.auto_evaluate_body and
+                            instance.body_rig and
+                            instance.body_rig.data and
+                            instance.body_rig.data.name == armature_name
+                        ):
                             instance_updates.add((instance, 'body'))
 
     # apply the updates to the instances
@@ -169,6 +188,150 @@ class ShapeKeyData(bpy.types.PropertyGroup):
         get=callbacks.get_shape_key_value, # this makes the value read-only
     ) # type: ignore
 
+class RBFDriverData(bpy.types.PropertyGroup):
+    solver_index: bpy.props.IntProperty() # type: ignore
+    pose_index: bpy.props.IntProperty() # type: ignore
+    joint_index: bpy.props.IntProperty() # type: ignore
+    name: bpy.props.StringProperty() # type: ignore
+    rotation_mode: bpy.props.EnumProperty(
+        items=[
+            ('QUATERNION', 'Quaternion', 'Use the Quaternion rotation mode'),
+            ('XYZ', 'Euler XYZ', 'Use the Euler XYZ rotation mode'),
+        ],
+        default='QUATERNION',
+        description='The rotation mode of the pose transformation',
+    ) # type: ignore
+    euler_rotation: bpy.props.FloatVectorProperty(size=3) # type: ignore
+    quaternion_rotation: bpy.props.FloatVectorProperty(size=4) # type: ignore
+
+class RBFDrivenData(bpy.types.PropertyGroup):
+    pose_index: bpy.props.IntProperty() # type: ignore
+    joint_index: bpy.props.IntProperty() # type: ignore
+    name: bpy.props.StringProperty() # type: ignore
+    data_type: bpy.props.EnumProperty(
+        items=[
+            ('BONE', 'Bone Transforms', 'Drives the Bone Transforms'),
+            ('SHAPE_KEY', 'Shape Key Value', 'Drives the Shape Key Value'),
+            ('MASK', 'Mask Value', 'Drives the Mask Value'),
+        ],
+        default='BONE',
+        description='The type of driven data',
+    ) # type: ignore
+    rotation_mode: bpy.props.EnumProperty(
+        items=[
+            ('QUATERNION', 'Quaternion', 'Use the Quaternion rotation mode'),
+            ('XYZ', 'Euler XYZ', 'Use the Euler XYZ rotation mode'),
+        ],
+        default='QUATERNION',
+        description='The rotation mode of the pose transformation',
+    ) # type: ignore
+    location: bpy.props.FloatVectorProperty(size=3) # type: ignore
+    euler_rotation: bpy.props.FloatVectorProperty(size=3) # type: ignore
+    quaternion_rotation: bpy.props.FloatVectorProperty(size=4) # type: ignore
+    scale: bpy.props.FloatVectorProperty(size=3) # type: ignore
+    scalar_value: bpy.props.FloatProperty(
+        default=0.0, 
+        min=0.0, 
+        max=1.0
+    ) # type: ignore
+
+class RBFPoseData(bpy.types.PropertyGroup):
+    solver_index: bpy.props.IntProperty() # type: ignore
+    pose_index: bpy.props.IntProperty() # type: ignore
+    name: bpy.props.StringProperty(
+        default='',
+        description='The name of the pose',
+    ) # type: ignore
+    scale_factor: bpy.props.FloatProperty(
+        default=1.0,
+        description='The scale factor of the pose',
+        min=0.0
+    ) # type: ignore
+    target_enable: bpy.props.BoolProperty(
+        default=True,
+        description='Whether the target is enabled',
+    ) # type: ignore
+
+    driven: bpy.props.CollectionProperty(type=RBFDrivenData) # type: ignore
+    driven_active_index: bpy.props.IntProperty(update=callbacks.update_body_rbf_driven_active_index) # type: ignore
+    
+    drivers: bpy.props.CollectionProperty(type=RBFDriverData) # type: ignore
+    drivers_active_index: bpy.props.IntProperty() # type: ignore
+    # TODO: Implement blend shapes for RBF poses
+    # shape_key_data: bpy.props.CollectionProperty(type=ShapeKeyData) # type: ignore
+
+class RBFSolverData(bpy.types.PropertyGroup):
+    solver_index: bpy.props.IntProperty() # type: ignore
+    name: bpy.props.StringProperty(
+        default='',
+        description='The name of the RBF solver',
+    ) # type: ignore
+    mode: bpy.props.EnumProperty(
+        items=[
+            ('Additive', 'Additive', 'Use the additive RBF solver mode'),
+            ('Interpolative', 'Interpolative', 'Use the interpolative RBF solver mode'),
+        ],
+        default='Additive',
+        description='The mode of the RBF solver',
+    ) # type: ignore
+    radius: bpy.props.FloatProperty(
+        default=50.0,
+        description='The radius of the RBF solver',
+        min=0.0
+    ) # type: ignore
+    weight_threshold: bpy.props.FloatProperty(
+        default=0.001,
+        description='The weight threshold of the RBF solver',
+        min=0.0
+    ) # type: ignore
+    distance_method: bpy.props.EnumProperty(
+        items=[
+            # TODO: Should we support Euclidean?
+            # ('Euclidean', 'Euclidean', 'Use the Euclidean distance method for the RBF solver'),
+            ('Quaternion', 'Quaternion', 'Use the Quaternion distance method for the RBF solver'),
+            ('SwingAngle', 'Swing Angle', 'Use the Swing Angle distance method for the RBF solver'),
+            ('TwistAngle', 'Twist Angle', 'Use the Twist Angle distance method for the RBF solver')
+        ],
+        default='TwistAngle',
+        description='The distance method of the RBF solver',
+    ) # type: ignore
+    normalize_method: bpy.props.EnumProperty(
+        items=[
+            ('OnlyNormalizeAboveOne', 'Only Normalize Above One', 'Use the Only Normalize Above One method for the normalization method of the RBF solver'),
+            ('AlwaysNormalize', 'Always Normalize', 'Use the Always Normalize method for the normalization method of the RBF solver'),
+        ],
+        default='AlwaysNormalize',
+        description='The normalization method of the RBF solver',
+    ) # type: ignore
+    function_type: bpy.props.EnumProperty(
+        items=[
+            ('Gaussian', 'Gaussian', 'Use the Gaussian method for the function type of the RBF solver'),
+            ('Exponential', 'Exponential', 'Use the Exponential method for the function type of the RBF solver'),
+            ('Linear', 'Linear', 'Use the Linear method for the function type of the RBF solver'),
+            ('Cubic', 'Cubic', 'Use the Cubic method for the function type of the RBF solver'),
+            ('Quintic', 'Quintic', 'Use the Quintic method for the function type of the RBF solver'),
+        ],
+        default='Gaussian',
+        description='The function type of the RBF solver',
+    ) # type: ignore
+    twist_axis: bpy.props.EnumProperty(
+        items=[
+            ('X', 'X-Axis', 'Use the X axis for twisting'),
+            ('Y', 'Y-Axis', 'Use the Y axis for twisting'),
+            ('Z', 'Z-Axis', 'Use the Z axis for twisting'),
+        ],
+        default='X',
+        description='The axis around which to twists are calculated',
+    ) # type: ignore
+    automatic_radius: bpy.props.BoolProperty(
+        default=False,
+        name='Automatic Radius',
+        description='Whether to automatically calculate the radius for the RBF solver',
+    ) # type: ignore
+
+    poses: bpy.props.CollectionProperty(type=RBFPoseData) # type: ignore
+    poses_active_index: bpy.props.IntProperty(update=callbacks.update_body_rbf_poses_active_index) # type: ignore
+
 
 class RigLogicInstance(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty(
@@ -177,15 +340,20 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         set=callbacks.set_instance_name,
         get=callbacks.get_instance_name
     ) # type: ignore
+    auto_evaluate: bpy.props.BoolProperty(
+        default=True,
+        name='Auto Evaluate',
+        description='Whether to automatically evaluate this rig instance when the scene is updated',
+    ) # type: ignore
     auto_evaluate_head: bpy.props.BoolProperty(
         default=True,
         name='Auto Evaluate Head',
-        description='Whether to automatically evaluate the head on this rig instance when the scene is updated',
+        description='Whether to automatically evaluate the head components on this rig instance when the scene is updated',
     ) # type: ignore
     auto_evaluate_body: bpy.props.BoolProperty(
         default=True,
         name='Auto Evaluate Body',
-        description='Whether to automatically evaluate the body on this rig instance when the scene is updated',
+        description='Whether to automatically evaluate the body components on this rig instance when the scene is updated',
     ) # type: ignore
     evaluate_bones: bpy.props.BoolProperty(
         default=True,
@@ -290,6 +458,13 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         default='combined',
         set=callbacks.set_active_material_preview,
         get=callbacks.get_active_material_preview
+    ) # type: ignore
+    show_face_board: bpy.props.BoolProperty(
+        name="Show Face Board",
+        default=False,
+        description="Whether to show or hide the face board that belongs to this MetaHuman instance in the 3D view",
+        set=callbacks.set_show_face_board,
+        get=callbacks.get_show_face_board
     ) # type: ignore
     show_head_bones: bpy.props.BoolProperty(
         name="Show Head Bones",
@@ -524,6 +699,9 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     shape_key_list: bpy.props.CollectionProperty(type=ShapeKeyData) # type: ignore
     shape_key_list_active_index: bpy.props.IntProperty() # type: ignore
 
+    rbf_solver_list: bpy.props.CollectionProperty(type=RBFSolverData) # type: ignore
+    rbf_solver_list_active_index: bpy.props.IntProperty() # type: ignore
+
     output_head_item_list: bpy.props.CollectionProperty(type=OutputData) # type: ignore
     output_head_item_active_index: bpy.props.IntProperty() # type: ignore
     output_body_item_list: bpy.props.CollectionProperty(type=OutputData) # type: ignore
@@ -531,6 +709,9 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     calibrate_bones: bpy.props.BoolProperty(default=True) # type: ignore
     calibrate_meshes: bpy.props.BoolProperty(default=True) # type: ignore
     calibrate_shape_keys: bpy.props.BoolProperty(default=True) # type: ignore
+
+    # rbf editor
+    editing_rbf_solver: bpy.props.BoolProperty(default=False) # type: ignore
 
     # this holds the rig logic references
     data = {}
@@ -564,20 +745,52 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
     @property
     def head_valid(self) -> bool: 
+        logged_warning = self.data.get(f'{self.name}_logged_head_validation_warning', False)
+
+        if not self.head_dna_file_path:
+            if not logged_warning:
+                logger.warning(f'The Head DNA file path is not set. The Rig Logic Instance {self.name} will not be initialized.')
+                self.data[f'{self.name}_logged_head_validation_warning'] = True
+            return False
         dna_file_path = Path(bpy.path.abspath(self.head_dna_file_path))
+        if not dna_file_path.is_file():
+            if not logged_warning:
+                logger.warning(f'The Head DNA file path "{dna_file_path}" is not a file. The Rig Logic Instance {self.name} will not be initialized.')
+                self.data[f'{self.name}_logged_head_validation_warning'] = True
+            return False
+
         if not dna_file_path.exists():
-            logger.warning(f'The Head DNA file path "{dna_file_path}" does not exist. The Rig Logic Instance {self.name} will not be initialized.')
+            if not logged_warning:
+                logger.warning(f'The Head DNA file path "{dna_file_path}" does not exist. The Rig Logic Instance {self.name} will not be initialized.')
+                self.data[f'{self.name}_logged_head_validation_warning'] = True
             return False
         if not self.face_board:
-            logger.warning(f'The Face board is not set. The Rig Logic Instance {self.name} will not be initialized.')
+            if not logged_warning:
+                logger.warning(f'The Face board is not set. The Rig Logic Instance {self.name} will not be initialized.')
+                self.data[f'{self.name}_logged_head_validation_warning'] = True
             return False
         return True
     
     @property
     def body_valid(self) -> bool: 
+        logged_warning = self.data.get(f'{self.name}_logged_body_validation_warning', False)
+        if not self.body_dna_file_path:
+            if not logged_warning:
+                logger.warning(f'The Body DNA file path is not set. The Rig Logic Instance {self.name} will not be initialized.')
+                self.data[f'{self.name}_logged_body_validation_warning'] = True
+            return False
+        
         dna_file_path = Path(bpy.path.abspath(self.body_dna_file_path))
+        if not dna_file_path.is_file():
+            if not logged_warning:
+                logger.warning(f'The Body DNA file path "{dna_file_path}" is not a file. The Rig Logic Instance {self.name} will not be initialized.')
+                self.data[f'{self.name}_logged_body_validation_warning'] = True
+            return False
+
         if not dna_file_path.exists():
-            logger.warning(f'The Body DNA file path "{dna_file_path}" does not exist. The Rig Logic Instance {self.name} will not be initialized.')
+            if not logged_warning:
+                logger.warning(f'The Body DNA file path "{dna_file_path}" does not exist. The Rig Logic Instance {self.name} will not be initialized.')
+                self.data[f'{self.name}_logged_body_validation_warning'] = True
             return False
         return True
         
@@ -818,8 +1031,33 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
         # save the raw control bone names so we don't have to query them again
         self.data[f'{self.name}_body_raw_control_bone_names'] = list(raw_control_bone_names)
-        # return a copy so the original raw control bone names are not modified
         return self.data[f'{self.name}_body_raw_control_bone_names']
+    
+    @property
+    def body_updated_bone_names(self) -> list[str]:
+        updated_bone_names = self.data.get(f'{self.name}_body_updated_bone_names', [])
+        if updated_bone_names:
+            return updated_bone_names
+        
+        updated_bone_names = set()
+        # get the updated twist bone names
+        for twist_index in range(self.body_dna_reader.getTwistCount()):
+            for output_index in self.body_dna_reader.getTwistOutputJointIndices(twist_index):
+                updated_bone_names.add(self.body_dna_reader.getJointName(output_index))
+        # get the updated swing bone names
+        for swing_index in range(self.body_dna_reader.getSwingCount()):
+            for output_index in self.body_dna_reader.getSwingOutputJointIndices(swing_index):
+                updated_bone_names.add(self.body_dna_reader.getJointName(output_index))
+        # get the updated rbf driven bone names
+        for solver_index in range(self.body_dna_reader.getRBFSolverCount()):
+            for pose_index in self.body_dna_reader.getRBFSolverPoseIndices(solver_index):
+                for attr_index in self.body_dna_reader.getRBFPoseJointOutputIndices(pose_index):
+                    joint_index = attr_index // ATTR_COUNT_PER_EULER_JOINT
+                    updated_bone_names.add(self.body_dna_reader.getJointName(joint_index))
+
+        # save the updated bone names so we don't have to query them again
+        self.data[f'{self.name}_body_updated_bone_names'] = list(updated_bone_names)
+        return self.data[f'{self.name}_body_updated_bone_names']
 
     def head_initialize(self):        
         from .bindings import riglogic
@@ -865,7 +1103,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
         self.data[f'{self.name}_head_initialized'] = True
 
-    def body_initialize(self):
+    def body_initialize(self, update_rbf_solver_list: bool = True):
         from .bindings import riglogic
         from .dna_io import get_dna_reader
 
@@ -910,6 +1148,10 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             memRes=None
         )
 
+        # populate the body rbf solver list
+        if update_rbf_solver_list:
+            self.update_body_rbf_solver_list()
+
         # calling theses properties will cache their values
         self.body_raw_control_bone_names
         self.body_rest_pose
@@ -918,7 +1160,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
     def initialize(self):
         self.head_initialize()
-        # self.body_initialize()
+        self.body_initialize()
 
     def destroy(self):            
         # clears these data items from the dictionary, this frees them up to be garbage collected
@@ -1204,21 +1446,21 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
                 # update the transformations using the rest pose and the delta values
                 # we need to copy the vectors so we don't modify the original rest pose
-                location = Vector((
+                location = Vector([
                     rest_location.x + location_delta.x,
                     rest_location.y + location_delta.y,
                     rest_location.z + location_delta.z
-                ))
-                rotation = Euler((
+                ])
+                rotation = Euler([
                     rest_rotation.x + rotation_delta.x,
                     rest_rotation.y + rotation_delta.y,
                     rest_rotation.z + rotation_delta.z
-                ))
-                scale = Vector((
+                ], 'XYZ')
+                scale = Vector([
                     rest_scale.x + scale_delta.x,
                     rest_scale.y + scale_delta.y,
                     rest_scale.z + scale_delta.z
-                ))
+                ])
 
                 # update the bone matrix
                 modified_matrix = Matrix.LocRotScale(location, rotation, scale)
@@ -1320,11 +1562,15 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         
         # update joint transforms
         for joint_index in range(self.body_dna_reader.getJointCount()):
+            # skip the root joint
+            if joint_index == 0:
+                continue
+
             # get the bone 
             name = self.body_dna_reader.getJointName(joint_index)
 
-            # Only update driven bones
-            if name in self.body_raw_control_bone_names:
+            # Only update bones that are update via RBFs, twists, or swings
+            if name not in self.body_updated_bone_names:
                 continue
 
             pose_bone = self.body_rig.pose.bones.get(name)
@@ -1335,24 +1581,24 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 rest_location, rest_rotation, rest_scale, rest_to_parent_matrix = self.body_rest_pose[pose_bone.name]
                 # extract the delta values
                 location_delta = Vector([D[attr_index]/SCALE_FACTOR, D[attr_index+1]/SCALE_FACTOR, D[attr_index+2]/SCALE_FACTOR])
-                rotation_delta = Quaternion((D[attr_index+6], D[attr_index+3], D[attr_index+4], D[attr_index+5]))
-                scale_delta = Vector((D[attr_index+7], D[attr_index+8], D[attr_index+9]))
+                rotation_delta = Quaternion([D[attr_index+6], D[attr_index+3], D[attr_index+4], D[attr_index+5]])
+                scale_delta = Vector([D[attr_index+7], D[attr_index+8], D[attr_index+9]])
 
                 # update the transformations using the rest pose and the delta values
                 # we need to copy the vectors so we don't modify the original rest pose
-                location = Vector((
+                location = Vector([
                     rest_location.x + location_delta.x,
                     rest_location.y + location_delta.y,
                     rest_location.z + location_delta.z
-                ))
+                ])
 
                 rotation = rest_rotation.to_quaternion() @ rotation_delta
 
-                scale = Vector((
+                scale = Vector([
                     rest_scale.x + scale_delta.x,
                     rest_scale.y + scale_delta.y,
                     rest_scale.z + scale_delta.z
-                ))
+                ])
 
                 # update the bone matrix
                 modified_matrix = Matrix.LocRotScale(location, rotation, scale)
@@ -1361,14 +1607,51 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             else:
                 logger.warning(f'The bone "{name}" was not found on "{self.body_rig.name}". Rig Logic will not update the bone.')
 
+    def update_body_rbf_solver_list(self):
+        if not utilities.dependencies_are_valid():
+            return
+        
+        import meta_human_dna_core
+    
+        # skip if the body rig is not set
+        if not self.body_rig or not self.body_dna_reader:
+            return
+        
+        self.rbf_solver_list.clear()
+        for solver_data in meta_human_dna_core.get_rbf_solver_data(self.body_dna_reader):
+            solver = self.rbf_solver_list.add()
+            for solver_field_name in solver_data.__annotations__:
+                if solver_field_name == 'poses':
+                    solver.poses.clear()
+                    for pose_data in solver_data.poses:
+                        pose = solver.poses.add()
+                        for pose_field_name in pose_data.__annotations__:
+                            if pose_field_name == 'driven':
+                                pose.driven.clear()
+                                for driven_data in pose_data.driven:
+                                    driven = pose.driven.add()
+                                    for driven_field_name in driven_data.__annotations__:
+                                        setattr(driven, driven_field_name, getattr(driven_data, driven_field_name))
+                            elif pose_field_name == 'drivers':
+                                pose.drivers.clear()
+                                for driver_data in pose_data.drivers:
+                                    driver = pose.drivers.add()
+                                    for driver_field_name in driver_data.__annotations__:
+                                        setattr(driver, driver_field_name, getattr(driver_data, driver_field_name))
+                            else:
+                                setattr(pose, pose_field_name, getattr(pose_data, pose_field_name))
+                else:
+                    setattr(solver, solver_field_name, getattr(solver_data, solver_field_name))
+
+
     def evaluate(self, component: Literal['head', 'body', 'all'] = 'all'):
         # this condition prevents constant evaluation
         if bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph: # type: ignore
             if not self.head_initialized:
                 self.head_initialize()
             
-            # if not self.body_initialized:
-            #     self.body_initialize()
+            if not self.body_initialized:
+                self.body_initialize()
 
             # turn off the dependency graph evaluation so we can update the controls without triggering an update
             bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False # type: ignore
