@@ -551,24 +551,36 @@ def update_body_rbf_poses_active_index(self, context):
             pose_bone.rotation_quaternion = quaternion_rotation
             pose_bone.rotation_euler = Euler(driver.euler_rotation, 'XYZ')
 
-            # get the base name without _l or _r suffix
-            base_name = driver.name
-            suffix = ''
-            if base_name.lower().endswith('_l') or base_name.endswith('_r'):
-                base_name = driver.name[:-2]
-                suffix = driver.name[-1:]
+            swing_axis = pose_bone.get('swing_axis')
+            swing_bone_names = pose_bone.get('swing_bone_names', [])
+            swing_blend_weights = pose_bone.get('swing_blend_weights', [])
+            # convert to blender local rotation axis 
+            if swing_axis.lower() == 'x':
+                blender_read_swing_axis = 'z'
+                blender_write_swing_axis_1 = 'x'
+                blender_write_swing_axis_2 = 'z'
 
-            # TODO: This is not ideal, but we need to rotate the corrective root bones to match what RigLogic does
-            # Maybe we can find a better way to do this in the future
-            for child in pose_bone.children:
-                if child.name in [f'{base_name}_twist_{suffix}']:
-                    pass
+            twist_axis = pose_bone.get('twist_axis')
+            twist_bone_names = pose_bone.get('twist_bone_names', [])
+            twist_blend_weights = pose_bone.get('twist_blend_weights', [])
+            # convert to blender local rotation axis 
+            if twist_axis.lower() == 'x':
+                blender_read_twist_axis = 'z'
+                blender_write_twist_axis_1 = 'x'
 
-                if child.name in [f'{base_name}_correctiveRoot_{suffix}', f'{base_name}_half_{suffix}']:
-                    euler_rotation = quaternion_rotation.to_euler('XYZ')
-                    # rotate the corrective root opposite half the amount of the driver bone
-                    # child.rotation_euler = Euler([i*-0.5 for i in euler_rotation], 'XYZ')
-                    child.rotation_euler = Euler((euler_rotation.y, euler_rotation.x, euler_rotation.z*-0.5), 'XYZ')
+            euler_rotation = quaternion_rotation.to_euler('XYZ')
+            # update the swing bones based on the driver rotation
+            for swing_bone_name, swing_blend_weight in zip(swing_bone_names, reversed(swing_blend_weights)):
+                swing_pose_bone = instance.body_rig.pose.bones.get(swing_bone_name)
+                value = getattr(euler_rotation, blender_read_swing_axis)
+                setattr(swing_pose_bone.rotation_euler, blender_write_swing_axis_1, value * swing_blend_weight)
+                setattr(swing_pose_bone.rotation_euler, blender_write_swing_axis_2, -value * swing_blend_weight)
+
+            # update the twist bones based on the driver rotation
+            for twist_bone_name, twist_blend_weight in zip(twist_bone_names, reversed(twist_blend_weights)):
+                twist_pose_bone = instance.body_rig.pose.bones.get(twist_bone_name)
+                value = getattr(euler_rotation, blender_read_twist_axis)
+                setattr(twist_pose_bone.rotation_euler, blender_write_twist_axis_1, value * twist_blend_weight)
 
     # ensure the body is initialized
     if not instance.body_initialized:
