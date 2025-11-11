@@ -4,7 +4,7 @@ import math
 import queue
 import shutil
 import logging
-from mathutils import Vector, Matrix
+from mathutils import Vector, Matrix, Euler
 from pathlib import Path
 from datetime import datetime, timedelta
 from .ui import importer, callbacks
@@ -1773,25 +1773,44 @@ class UpdateRBFDriven(RBFEditorOperatorBase):
         existing_location = Vector(driven.location[:])
         existing_scale = Vector(driven.scale[:])
         pose_bone = instance.body_rig.pose.bones.get(driven.name)
+
         if pose_bone:
-            location = pose_bone.location
-
-            if pose_bone.parent:
-                orientation_matches = utilities.compare_bone_orientations(pose_bone, pose_bone.parent)
-                # convert from Blender Z-up to DNA Y-up if the orientation does not match the parent
-                if not orientation_matches:
-                    location = Vector((pose_bone.location.x, -pose_bone.location.y, -pose_bone.location.z))
+            # Get the rest pose for this bone
+            rest_location, rest_rotation, rest_scale, rest_to_parent_matrix = instance.body_rest_pose[pose_bone.name]
             
-            # the scale should be the delta from the scale factor
-            scale = pose_bone.scale - Vector((pose.scale_factor, pose.scale_factor, pose.scale_factor))
+            # Extract current transforms from the bone's matrix_basis
+            modified_matrix = rest_to_parent_matrix @ pose_bone.matrix_basis
+            current_location = modified_matrix.to_translation()
+            current_rotation = modified_matrix.to_euler('XYZ')
+            current_scale = modified_matrix.to_scale()
+            
+            # Calculate deltas from rest pose (this is what DNA stores)
+            location = Vector([
+                current_location.x - rest_location.x,
+                current_location.y - rest_location.y,
+                current_location.z - rest_location.z
+            ])
+            
+            rotation = Euler([
+                current_rotation.x - rest_rotation.x,
+                current_rotation.y - rest_rotation.y,
+                current_rotation.z - rest_rotation.z
+            ], 'XYZ')
+            
+            # Scale delta (DNA stores 0.0 for scale_factor, actual delta otherwise)
+            scale = Vector([
+                current_scale.x - rest_scale.x if round(current_scale.x - rest_scale.x, 5) != 0.0 else pose.scale_factor,
+                current_scale.y - rest_scale.y if round(current_scale.y - rest_scale.y, 5) != 0.0 else pose.scale_factor,
+                current_scale.z - rest_scale.z if round(current_scale.z - rest_scale.z, 5) != 0.0 else pose.scale_factor
+            ])
 
-            rotation_delta = Vector(pose_bone.rotation_euler[:]).copy() - existing_rotation
+            rotation_delta = Vector(rotation[:]).copy() - existing_rotation
             location_delta = location.copy() - existing_location
-            scale_delta = pose_bone.scale.copy() - existing_scale
+            scale_delta = scale.copy() - existing_scale
 
             # only update if the delta is significant enough to avoid floating point value drift
             if rotation_delta.length > BONE_DELTA_THRESHOLD:
-                driven.euler_rotation = pose_bone.rotation_euler[:]
+                driven.euler_rotation = rotation[:]
                 logger.debug(f'Updated RBF driven bone "{driven.name}" rotation to {driven.euler_rotation[:]}')
             if location_delta.length > BONE_DELTA_THRESHOLD:
                 driven.location = location[:]
