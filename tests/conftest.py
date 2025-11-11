@@ -78,16 +78,16 @@ def pytest_configure():
 
 from fixtures.addon import addon  # noqa: E402, F401
 from fixtures.dna_data import ( # noqa: E402, F401
-    original_dna_json_data,
-    exported_dna_json_data,
-    calibrated_dna_json_data
+    original_head_dna_json_data,
+    exported_head_dna_json_data,
+    calibrated_head_dna_json_data
 )
 from fixtures.scene import (  # noqa: E402, F401
-    load_dna,
+    load_head_dna,
     load_body_dna,
     head_bmesh,
     head_armature,
-    modify_scene
+    modify_head_scene
 )
 
 @pytest.fixture(scope='session')
