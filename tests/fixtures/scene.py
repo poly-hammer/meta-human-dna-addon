@@ -1,3 +1,4 @@
+import os
 import shutil
 import bpy
 import bmesh
@@ -82,15 +83,17 @@ def load_body_dna_for_rbf_tests(
     import_lods: list,
 ):
     file_name = 'body.dna'
+    destination_file_path = temp_folder / dna_folder_name / file_name
 
     # copy the dna file to the temp folder so we don't modify the original
+    os.makedirs(destination_file_path.parent, exist_ok=True)
     shutil.copy(
         src=TEST_DNA_FOLDER / dna_folder_name / file_name, 
-        dst=temp_folder / dna_folder_name / file_name
+        dst=destination_file_path
     )
     
     _load_dna(
-        file_path=temp_folder / dna_folder_name / file_name,
+        file_path=destination_file_path,
         import_lods=import_lods,
         import_shape_keys=import_shape_keys,
         import_face_board=False,

@@ -12,6 +12,9 @@ from utilities.bones import (
     get_bone_differences,
     show_differences
 )
+from utilities.pose_editor import (
+    set_body_pose
+)
 from constants import TEST_FBX_POSES_FOLDER, TEST_JSON_POSES_FOLDER
 from meta_human_dna.ui.callbacks import get_active_rig_logic
 from meta_human_dna.utilities import (
@@ -58,23 +61,6 @@ def get_all_pose_names(exclude_fingers: bool = False) -> list[str]:
     
     return pose_names
 
-
-def set_body_pose(
-        solver_name: str, 
-        pose_name: str
-    ):
-    instance = get_active_rig_logic()
-    if instance:
-        instance.editing_rbf_solver = True
-        instance.auto_evaluate_body = False
-        for solver_index, solver in enumerate(instance.rbf_solver_list): # type: ignore
-            if solver.name == solver_name:
-                instance.rbf_solver_list_active_index = solver_index # type: ignore
-                for pose_index, pose in enumerate(solver.poses): # type: ignore
-                    if pose.name == pose_name:
-                        solver.poses_active_index = pose_index # type: ignore
-                        break
-                break
 
 def import_fbx_pose(file_path: Path, source_rig_name: str) -> bpy.types.Object:
     armature_name = 'body_grp'

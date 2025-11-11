@@ -567,9 +567,9 @@ def update_body_rbf_poses_active_index(self, context):
             swing_outputs, twist_outputs = meta_human_dna_core.calculate_swing_twist(
                 driver_quaternion_rotation=driver.quaternion_rotation[:],
                 swing_bone_names=swing_bone_names,
-                swing_blend_weights=swing_blend_weights,
+                swing_blend_weights=swing_blend_weights[:],
                 twist_bone_names=twist_bone_names,
-                twist_blend_weights=twist_blend_weights,
+                twist_blend_weights=twist_blend_weights[:],
                 swing_axis=swing_axis,
                 twist_axis=twist_axis
             )

@@ -1780,14 +1780,14 @@ class UpdateRBFDriven(RBFEditorOperatorBase):
                 orientation_matches = utilities.compare_bone_orientations(pose_bone, pose_bone.parent)
                 # convert from Blender Z-up to DNA Y-up if the orientation does not match the parent
                 if not orientation_matches:
-                    location = Vector((pose_bone.location.x, -pose_bone.location.z, pose_bone.location.y))
+                    location = Vector((pose_bone.location.x, -pose_bone.location.y, -pose_bone.location.z))
             
             # the scale should be the delta from the scale factor
             scale = pose_bone.scale - Vector((pose.scale_factor, pose.scale_factor, pose.scale_factor))
 
             rotation_delta = Vector(pose_bone.rotation_euler[:]).copy() - existing_rotation
             location_delta = location.copy() - existing_location
-            scale_delta = scale.copy() - existing_scale
+            scale_delta = pose_bone.scale.copy() - existing_scale
 
             # only update if the delta is significant enough to avoid floating point value drift
             if rotation_delta.length > BONE_DELTA_THRESHOLD:
@@ -1796,7 +1796,9 @@ class UpdateRBFDriven(RBFEditorOperatorBase):
             if location_delta.length > BONE_DELTA_THRESHOLD:
                 driven.location = location[:]
                 logger.debug(f'Updated RBF driven bone "{driven.name}" location to {driven.location[:]}')
-            if scale_delta.length > BONE_DELTA_THRESHOLD and round(scale.length, 5) > 0:
+            
+            # only update if scale is not zero or equal to the scale factor, because only those are actual deltas
+            if all(0.0 != round(abs(i), 5) and pose.scale_factor != round(abs(i), 5) for i in scale_delta):
                 driven.scale = scale[:]
                 logger.debug(f'Updated RBF driven bone "{driven.name}" scale to {driven.scale[:]}')
 

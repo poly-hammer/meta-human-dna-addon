@@ -976,6 +976,7 @@ class META_HUMAN_DNA_PT_rbf_editor_drivers_sub_panel(RbfEditorSubPanelBase):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = 'Meta-Human DNA'
+    bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
         if not self.layout:
