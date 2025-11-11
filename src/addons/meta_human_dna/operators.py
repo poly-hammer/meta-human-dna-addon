@@ -1637,6 +1637,13 @@ class AddRBFPose(RBFEditorOperatorBase):
     bl_idname = "meta_human_dna.add_rbf_pose"
     bl_label = "Add RBF Pose"
 
+    def validate(self, context, instance) -> tuple[bool, str]:
+        if not context.selected_pose_bones:
+            return False, "No pose bones selected. Please select at least one driver bone in pose mode."
+        
+        
+        return True, ""
+
     def run(self, instance):
         pass
 

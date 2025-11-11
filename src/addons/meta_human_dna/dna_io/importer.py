@@ -37,8 +37,6 @@ class DNAImporter:
         dna_file_path: Path | None = None
     ):
         self.rig_object = None
-        self.swing_bone_names = []
-        self.twist_bone_names = []
 
         self._instance = instance
         self._import_properties = import_properties
@@ -621,7 +619,6 @@ class DNAImporter:
                     pose_bone['swing_bone_names'] = _swing_bone_names
                     pose_bone['swing_blend_weights'] = weights
                     pose_bone['swing_axis'] = axis.name.lower()
-                    self.swing_bone_names.extend(_swing_bone_names)
 
     def setup_twist_bones(self):
         if not self.rig_object:
@@ -646,7 +643,6 @@ class DNAImporter:
                     pose_bone['twist_bone_names'] = _twist_bone_names
                     pose_bone['twist_blend_weights'] = weights
                     pose_bone['twist_axis'] = axis.name.lower()
-                    self.twist_bone_names.extend(_twist_bone_names)
 
     def set_armature_modifier(self, mesh_object: bpy.types.Object):
         armature_modifier = mesh_object.modifiers.get("Armature")

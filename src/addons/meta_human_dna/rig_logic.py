@@ -1034,30 +1034,64 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         return self.data[f'{self.name}_body_raw_control_bone_names']
     
     @property
-    def body_updated_bone_names(self) -> list[str]:
-        updated_bone_names = self.data.get(f'{self.name}_body_updated_bone_names', [])
-        if updated_bone_names:
-            return updated_bone_names
+    def body_twist_bone_names(self) -> list[str]:
+        twist_bone_names = self.data.get(f'{self.name}_body_twist_bone_names', [])
+        if twist_bone_names:
+            return twist_bone_names
         
-        updated_bone_names = set()
         # get the updated twist bone names
         for twist_index in range(self.body_dna_reader.getTwistCount()):
             for output_index in self.body_dna_reader.getTwistOutputJointIndices(twist_index):
-                updated_bone_names.add(self.body_dna_reader.getJointName(output_index))
+                twist_bone_names.append(self.body_dna_reader.getJointName(output_index))
+
+        # save the updated bone names so we don't have to query them again
+        self.data[f'{self.name}_body_twist_bone_names'] = list(set(twist_bone_names))
+        return self.data[f'{self.name}_body_twist_bone_names']
+    
+    @property
+    def body_swing_bone_names(self) -> list[str]:
+        swing_bone_names = self.data.get(f'{self.name}_body_swing_bone_names', [])
+        if swing_bone_names:
+            return swing_bone_names
+        
         # get the updated swing bone names
         for swing_index in range(self.body_dna_reader.getSwingCount()):
             for output_index in self.body_dna_reader.getSwingOutputJointIndices(swing_index):
-                updated_bone_names.add(self.body_dna_reader.getJointName(output_index))
-        # get the updated rbf driven bone names
+                swing_bone_names.append(self.body_dna_reader.getJointName(output_index))
+
+        # save the updated bone names so we don't have to query them again
+        self.data[f'{self.name}_body_swing_bone_names'] = list(set(swing_bone_names))
+        return self.data[f'{self.name}_body_swing_bone_names']
+    
+    @property
+    def body_driven_bone_names(self) -> list[str]:
+        driven_bone_names = self.data.get(f'{self.name}_body_driven_bone_names', [])
+        if driven_bone_names:
+            return driven_bone_names
+        
+        # get the rbf driven bone names
         for solver_index in range(self.body_dna_reader.getRBFSolverCount()):
             for pose_index in self.body_dna_reader.getRBFSolverPoseIndices(solver_index):
                 for attr_index in self.body_dna_reader.getRBFPoseJointOutputIndices(pose_index):
                     joint_index = attr_index // ATTR_COUNT_PER_EULER_JOINT
-                    updated_bone_names.add(self.body_dna_reader.getJointName(joint_index))
+                    driven_bone_names.append(self.body_dna_reader.getJointName(joint_index))
 
-        # save the updated bone names so we don't have to query them again
-        self.data[f'{self.name}_body_updated_bone_names'] = list(updated_bone_names)
-        return self.data[f'{self.name}_body_updated_bone_names']
+        # save the driven bone names so we don't have to query them again
+        self.data[f'{self.name}_body_driven_bone_names'] = list(set(driven_bone_names))
+        return self.data[f'{self.name}_body_driven_bone_names']
+    
+    @property
+    def body_driver_bone_names(self) -> list[str]:
+        driver_bone_names = self.data.get(f'{self.name}_body_driver_bone_names', [])
+        if driver_bone_names:
+            return driver_bone_names
+        
+        # get the rbf driver bone names
+        driver_bone_names = list(set(self.body_dna_reader.getRawControlName(i).split('.')[0] for i in range(self.body_dna_reader.getRawControlCount())))
+
+        # save the driver bone names so we don't have to query them again
+        self.data[f'{self.name}_body_driver_bone_names'] = driver_bone_names
+        return self.data[f'{self.name}_body_driver_bone_names']
 
     def head_initialize(self):        
         from .bindings import riglogic
@@ -1155,6 +1189,10 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         # calling theses properties will cache their values
         self.body_raw_control_bone_names
         self.body_rest_pose
+        self.body_twist_bone_names
+        self.body_swing_bone_names
+        self.body_driven_bone_names
+        self.body_driver_bone_names
 
         self.data[f'{self.name}_body_initialized'] = True
 
@@ -1569,8 +1607,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             # get the bone 
             name = self.body_dna_reader.getJointName(joint_index)
 
-            # Only update bones that are update via RBFs, twists, or swings
-            if name not in self.body_updated_bone_names:
+            # Only update bones that are updated via RBFs, twists, or swings
+            if name not in (self.body_driven_bone_names + self.body_swing_bone_names + self.body_twist_bone_names):
                 continue
 
             pose_bone = self.body_rig.pose.bones.get(name)

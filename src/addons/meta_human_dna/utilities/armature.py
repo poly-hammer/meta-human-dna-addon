@@ -188,15 +188,16 @@ def set_body_bone_collections(
         rig_object: bpy.types.Object,
         swing_bone_names: list[str],
         twist_bone_names: list[str],
-        driver_bone_names: list[str]
+        driver_bone_names: list[str],
+        driven_bone_names: list[str]
     ):
     from .misc import dependencies_are_valid
     if mesh_object and dependencies_are_valid():
-        from ..bindings import meta_human_dna_core
-        rbf_driven_bones = meta_human_dna_core.get_all_rbf_driven_bone_names(reader)
+        import meta_human_dna_core
+
         other_name_bones = []
         for pose_bone in rig_object.pose.bones:
-            if pose_bone.name not in swing_bone_names + twist_bone_names + driver_bone_names + rbf_driven_bones:
+            if pose_bone.name not in swing_bone_names + twist_bone_names + driver_bone_names + driven_bone_names:
                 other_name_bones.append(pose_bone.name)
 
         set_bone_collection(
@@ -207,8 +208,8 @@ def set_body_bone_collections(
         )
         set_bone_collection(
             rig_object=rig_object, 
-            bone_names=rbf_driven_bones,
-            collection_name='RBF Driven',
+            bone_names=driven_bone_names,
+            collection_name='Driven',
             theme='THEME01'
         )    
         set_bone_collection(

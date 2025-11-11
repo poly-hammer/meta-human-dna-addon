@@ -52,16 +52,17 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
         self.rig_logic_instance.body_mesh = self.body_mesh_object
         self.rig_logic_instance.body_rig = self.body_rig_object
         self.rig_logic_instance.body_dna_file_path = str(self.dna_importer.source_dna_file)
+        self.rig_logic_instance.body_initialize()
 
         if self.body_rig_object and self.body_mesh_object:
-            driver_bone_names = list(set(self.dna_reader.getRawControlName(i).split('.')[0] for i in range(self.dna_reader.getRawControlCount())))
             utilities.set_body_bone_collections(
                 reader=self.dna_reader,
                 mesh_object=self.body_mesh_object,
                 rig_object=self.body_rig_object,
-                swing_bone_names=self.dna_importer.swing_bone_names,
-                twist_bone_names=self.dna_importer.twist_bone_names,
-                driver_bone_names=driver_bone_names
+                swing_bone_names=self.rig_logic_instance.body_swing_bone_names,
+                twist_bone_names=self.rig_logic_instance.body_twist_bone_names,
+                driver_bone_names=self.rig_logic_instance.body_driver_bone_names,
+                driven_bone_names=self.rig_logic_instance.body_driven_bone_names
             )
             # if this isn't the first rig, move it to the right of the last body mesh
             if len(self.scene_properties.rig_logic_instance_list) > 1:
