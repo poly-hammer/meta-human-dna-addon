@@ -1739,7 +1739,8 @@ class RBFPoseOperatorBase(RBFEditorOperatorBase):
             instance=instance,
             pose=pose,
             driver=driver,
-            pose_bone=driver_bone
+            pose_bone=driver_bone,
+            new=True
         )
 
         for pose_bone in driven_bones:

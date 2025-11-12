@@ -683,6 +683,7 @@ def set_driver_bone_data(
         pose,
         driver,
         pose_bone: bpy.types.PoseBone,
+        new: bool = False
     ):
     if pose_bone:
         if not instance.body_initialized:
@@ -693,8 +694,8 @@ def set_driver_bone_data(
         driver.name = pose_bone.name
 
         # only update if the delta is significant enough to avoid floating point value drift
-        delta = Quaternion(pose_bone.rotation_quaternion[:]) - pose_bone.rotation_quaternion.copy()
-        if all(abs(i) > BONE_DELTA_THRESHOLD for i in delta):
+        delta = Quaternion(driver.quaternion_rotation[:]) - pose_bone.rotation_quaternion.copy()
+        if any(abs(i) > BONE_DELTA_THRESHOLD for i in delta) or new:
             driver.euler_rotation = pose_bone.rotation_quaternion.to_euler('XYZ')[:]
             driver.quaternion_rotation = pose_bone.rotation_quaternion[:]
             logger.info(f'Updated RBF pose "{pose.name}" driver bone "{driver.name}" rotation to {driver.quaternion_rotation[:]}')
