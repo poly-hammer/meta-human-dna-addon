@@ -42,6 +42,35 @@ def _load_dna(
         **lods_to_import
     )
 
+def _load_temp_body_dna(
+        file_name: str,
+        temp_folder: Path,
+        dna_folder_name: str,
+        import_shape_keys: bool,
+        import_lods: list
+    ):
+    destination_file_path = temp_folder / dna_folder_name / file_name
+
+    # copy the dna file to the temp folder so we don't modify the original
+    os.makedirs(destination_file_path.parent, exist_ok=True)
+    shutil.copy(
+        src=TEST_DNA_FOLDER / dna_folder_name / file_name, 
+        dst=destination_file_path
+    )
+    # copy the export manifest as well (This is used for naming the imported instance)
+    shutil.copy(
+        src=TEST_DNA_FOLDER / dna_folder_name / 'ExportManifest.json', 
+        dst=temp_folder / dna_folder_name / 'ExportManifest.json'
+    )
+    
+    _load_dna(
+        file_path=destination_file_path,
+        import_lods=import_lods,
+        import_shape_keys=import_shape_keys,
+        import_face_board=False,
+        include_body=False
+    )
+
 @pytest.fixture(scope='session')
 def load_head_dna(
     addon, 
@@ -75,29 +104,36 @@ def load_body_dna(
 
 
 @pytest.fixture(scope='session')
-def load_body_dna_for_rbf_tests(
+def load_body_dna_for_pose_editing(
     addon, 
     temp_folder,
     dna_folder_name: str, 
     import_shape_keys: bool,
     import_lods: list,
 ):
-    file_name = 'body.dna'
-    destination_file_path = temp_folder / dna_folder_name / file_name
-
-    # copy the dna file to the temp folder so we don't modify the original
-    os.makedirs(destination_file_path.parent, exist_ok=True)
-    shutil.copy(
-        src=TEST_DNA_FOLDER / dna_folder_name / file_name, 
-        dst=destination_file_path
-    )
-    
-    _load_dna(
-        file_path=destination_file_path,
-        import_lods=import_lods,
+    _load_temp_body_dna(
+        file_name='body.dna',
+        temp_folder=temp_folder,
+        dna_folder_name=dna_folder_name,
         import_shape_keys=import_shape_keys,
-        import_face_board=False,
-        include_body=False
+        import_lods=import_lods
+    )
+
+
+@pytest.fixture(scope='session')
+def load_body_dna_for_pose_roundtrip(
+    addon, 
+    temp_folder,
+    dna_folder_name: str, 
+    import_shape_keys: bool,
+    import_lods: list,
+):
+    _load_temp_body_dna(
+        file_name='body.dna',
+        temp_folder=temp_folder,
+        dna_folder_name=dna_folder_name,
+        import_shape_keys=import_shape_keys,
+        import_lods=import_lods
     )
 
 @pytest.fixture(scope='session')

@@ -615,14 +615,15 @@ def set_driven_bone_data(
         instance,
         pose,
         driven,
-        pose_bone: bpy.types.PoseBone,
-        existing_rotation: Vector = Vector((0.0, 0.0, 0.0)),
-        existing_location: Vector = Vector((0.0, 0.0, 0.0)),
-        existing_scale: Vector = Vector((0.0, 0.0, 0.0)),
+        pose_bone: bpy.types.PoseBone
     ):
     if pose_bone:
         if not instance.body_initialized:
             instance.body_initialize(update_rbf_solver_list=False)
+
+        existing_rotation = Vector(driven.euler_rotation[:])
+        existing_location = Vector(driven.location[:])
+        existing_scale = Vector(driven.scale[:])
 
         driven.name = pose_bone.name
         driven.pose_index = pose.pose_index
@@ -640,7 +641,6 @@ def set_driven_bone_data(
         # Extract current transforms from the bone's matrix_basis
         modified_matrix = rest_to_parent_matrix @ pose_bone.matrix_basis
         current_location = modified_matrix.to_translation()
-        current_rotation = modified_matrix.to_euler('XYZ')
         current_scale = modified_matrix.to_scale()
         
         # Calculate deltas from rest pose (this is what DNA stores)
@@ -649,12 +649,9 @@ def set_driven_bone_data(
             current_location.y - rest_location.y,
             current_location.z - rest_location.z
         ])
-        
-        rotation = Euler([
-            current_rotation.x - rest_rotation.x,
-            current_rotation.y - rest_rotation.y,
-            current_rotation.z - rest_rotation.z
-        ], 'XYZ')
+
+        # rotation is directly in the bone local space
+        rotation = pose_bone.rotation_euler.copy() 
         
         # Scale delta (DNA stores 0.0 for scale_factor, actual delta otherwise)
         scale = Vector([
@@ -670,15 +667,15 @@ def set_driven_bone_data(
         # only update if the delta is significant enough to avoid floating point value drift
         if rotation_delta.length > BONE_DELTA_THRESHOLD:
             driven.euler_rotation = rotation[:]
-            logger.debug(f'Updated RBF driven bone "{driven.name}" rotation to {driven.euler_rotation[:]}')
+            logger.info(f'Updated RBF pose "{pose.name}" driven bone "{driven.name}" rotation to {driven.euler_rotation[:]}')
         if location_delta.length > BONE_DELTA_THRESHOLD:
             driven.location = location[:]
-            logger.debug(f'Updated RBF driven bone "{driven.name}" location to {driven.location[:]}')
+            logger.info(f'Updated RBF pose "{pose.name}" driven bone "{driven.name}" location to {driven.location[:]}')
         
         # only update if scale is not zero or equal to the scale factor, because only those are actual deltas
         if all(0.0 != round(abs(i), 5) and pose.scale_factor != round(abs(i), 5) for i in scale_delta):
             driven.scale = scale[:]
-            logger.debug(f'Updated RBF driven bone "{driven.name}" scale to {driven.scale[:]}')
+            logger.info(f'Updated RBF pose "{pose.name}" driven bone "{driven.name}" scale to {driven.scale[:]}')
 
 
 def set_driver_bone_data(
@@ -694,8 +691,13 @@ def set_driver_bone_data(
         driver.solver_index = pose.solver_index
         driver.pose_index = pose.pose_index
         driver.name = pose_bone.name
-        driver.euler_rotation = pose_bone.rotation_quaternion.to_euler('XYZ')[:]
-        driver.quaternion_rotation = pose_bone.rotation_quaternion[:]
+
+        # only update if the delta is significant enough to avoid floating point value drift
+        delta = Quaternion(pose_bone.rotation_quaternion[:]) - pose_bone.rotation_quaternion.copy()
+        if all(abs(i) > BONE_DELTA_THRESHOLD for i in delta):
+            driver.euler_rotation = pose_bone.rotation_quaternion.to_euler('XYZ')[:]
+            driver.quaternion_rotation = pose_bone.rotation_quaternion[:]
+            logger.info(f'Updated RBF pose "{pose.name}" driver bone "{driver.name}" rotation to {driver.quaternion_rotation[:]}')
 
         # Find the joint index for this bone
         for joint_index in range(instance.body_dna_reader.getJointCount()):

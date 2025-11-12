@@ -1,13 +1,63 @@
 import bpy
 import pytest
-from mathutils import Vector, Euler, Quaternion
+from mathutils import Vector, Quaternion
 from meta_human_dna.ui.callbacks import get_active_rig_logic
 from meta_human_dna.utilities import reset_pose
 from utilities.pose_editor import (
-    set_body_pose
+    set_body_pose,
+    get_all_body_pose_names,
+    assert_body_pose
 )
+from constants import EXCLUDE_FINGER_POSES
 
 TOLERANCE = 1e-5
+
+
+@pytest.mark.parametrize(
+    ('solver_name', 'pose_name', 'source_rig_name'),
+    [
+        (solver_name, pose_name, 'ada_body_rig') for solver_name, pose_name in get_all_body_pose_names(
+            exclude_fingers=EXCLUDE_FINGER_POSES
+        )
+    ]
+)
+def test_body_pose_roundtrip(
+    load_body_dna_for_pose_roundtrip, 
+    solver_name: str,
+    pose_name: str, 
+    source_rig_name: str,
+    show: bool = False,
+    skip_fbx_import: bool = False
+):
+    instance = get_active_rig_logic()
+
+    # reset the pose to the default position
+    reset_pose(instance.body_rig)
+    
+    _, solver_index, pose_index = set_body_pose(
+        solver_name=solver_name,
+        pose_name=pose_name
+    )
+
+    # update the rbf pose with the unmodified data
+    bpy.ops.meta_human_dna.update_rbf_pose(solver_index=solver_index, pose_index=pose_index)
+
+    # commit these changes to the dna
+    bpy.ops.meta_human_dna.commit_rbf_solver_changes()
+
+    # reset the pose to the default position
+    reset_pose(instance.body_rig)
+
+    # now check if the pose still matches the original
+    assert_body_pose(
+        solver_name=solver_name,
+        pose_name=pose_name,
+        source_rig_name=source_rig_name,
+        evaluate=True,
+        show=show,
+        skip_fbx_import=skip_fbx_import,
+    )
+
 
 @pytest.mark.parametrize(
     (
@@ -46,7 +96,7 @@ TOLERANCE = 1e-5
     ]
 )
 def test_body_pose_editing(
-    load_body_dna_for_rbf_tests,
+    load_body_dna_for_pose_editing,
     solver_name: str,
     pose_name: str,
     driver_bone_name: str,
@@ -73,7 +123,7 @@ def test_body_pose_editing(
                 # update the location
                 pose_bone.location = change_location
                 # update the driven bone transform in the pose
-                bpy.ops.meta_human_dna.update_rbf_driven(solver_index=solver_index, pose_index=pose_index, driven_index=driven_index)
+                bpy.ops.meta_human_dna.update_rbf_pose(solver_index=solver_index, pose_index=pose_index, driven_index=driven_index)
 
     # commit these changes to the dna
     bpy.ops.meta_human_dna.commit_rbf_solver_changes()

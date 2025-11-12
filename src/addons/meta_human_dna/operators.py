@@ -1895,10 +1895,7 @@ class UpdateRBFPose(RBFEditorOperatorBase):
                     instance=instance,
                     pose=pose,
                     driven=driven,
-                    pose_bone=driven_pose_bone,
-                    existing_rotation=Vector(driven.euler_rotation[:]),
-                    existing_location=Vector(driven.location[:]),
-                    existing_scale=Vector(driven.scale[:]),
+                    pose_bone=driven_pose_bone
                 )
             else:
                 logger.warning((
