@@ -18,6 +18,7 @@ from .mesh import (
 from ..constants import ( 
     CUSTOM_BONE_SHAPE_NAME, 
     CUSTOM_BONE_SHAPE_SCALE,
+    BONE_DELTA_THRESHOLD,
     ComponentType
 )
 
@@ -608,3 +609,97 @@ def compare_bone_orientations(bone1: bpy.types.PoseBone, bone2: bpy.types.PoseBo
     z_match = abs(z1.dot(z2)) > 0.999
     
     return (x_match and y_match and z_match)
+
+
+def set_driven_bone_data(
+        instance,
+        pose,
+        driven,
+        pose_bone: bpy.types.PoseBone,
+        existing_rotation: Vector = Vector((0.0, 0.0, 0.0)),
+        existing_location: Vector = Vector((0.0, 0.0, 0.0)),
+        existing_scale: Vector = Vector((0.0, 0.0, 0.0)),
+    ):
+    if pose_bone:
+        if not instance.body_initialized:
+            instance.body_initialize(update_rbf_solver_list=False)
+
+        driven.name = pose_bone.name
+        driven.pose_index = pose.pose_index
+        driven.data_type = 'BONE'
+        # Find the joint index for this bone
+        for joint_index in range(instance.body_dna_reader.getJointCount()):
+            joint_name = instance.body_dna_reader.getJointName(joint_index)
+            if joint_name == pose_bone.name:
+                driven.joint_index = joint_index
+                break
+
+        # Get the rest pose for this bone
+        rest_location, rest_rotation, rest_scale, rest_to_parent_matrix = instance.body_rest_pose[pose_bone.name]
+        
+        # Extract current transforms from the bone's matrix_basis
+        modified_matrix = rest_to_parent_matrix @ pose_bone.matrix_basis
+        current_location = modified_matrix.to_translation()
+        current_rotation = modified_matrix.to_euler('XYZ')
+        current_scale = modified_matrix.to_scale()
+        
+        # Calculate deltas from rest pose (this is what DNA stores)
+        location = Vector([
+            current_location.x - rest_location.x,
+            current_location.y - rest_location.y,
+            current_location.z - rest_location.z
+        ])
+        
+        rotation = Euler([
+            current_rotation.x - rest_rotation.x,
+            current_rotation.y - rest_rotation.y,
+            current_rotation.z - rest_rotation.z
+        ], 'XYZ')
+        
+        # Scale delta (DNA stores 0.0 for scale_factor, actual delta otherwise)
+        scale = Vector([
+            current_scale.x - rest_scale.x if round(current_scale.x - rest_scale.x, 5) != 0.0 else pose.scale_factor,
+            current_scale.y - rest_scale.y if round(current_scale.y - rest_scale.y, 5) != 0.0 else pose.scale_factor,
+            current_scale.z - rest_scale.z if round(current_scale.z - rest_scale.z, 5) != 0.0 else pose.scale_factor
+        ])
+
+        rotation_delta = Vector(rotation[:]).copy() - existing_rotation
+        location_delta = location.copy() - existing_location
+        scale_delta = scale.copy() - existing_scale
+
+        # only update if the delta is significant enough to avoid floating point value drift
+        if rotation_delta.length > BONE_DELTA_THRESHOLD:
+            driven.euler_rotation = rotation[:]
+            logger.debug(f'Updated RBF driven bone "{driven.name}" rotation to {driven.euler_rotation[:]}')
+        if location_delta.length > BONE_DELTA_THRESHOLD:
+            driven.location = location[:]
+            logger.debug(f'Updated RBF driven bone "{driven.name}" location to {driven.location[:]}')
+        
+        # only update if scale is not zero or equal to the scale factor, because only those are actual deltas
+        if all(0.0 != round(abs(i), 5) and pose.scale_factor != round(abs(i), 5) for i in scale_delta):
+            driven.scale = scale[:]
+            logger.debug(f'Updated RBF driven bone "{driven.name}" scale to {driven.scale[:]}')
+
+
+def set_driver_bone_data(
+        instance,
+        pose,
+        driver,
+        pose_bone: bpy.types.PoseBone,
+    ):
+    if pose_bone:
+        if not instance.body_initialized:
+            instance.body_initialize(update_rbf_solver_list=False)
+
+        driver.solver_index = pose.solver_index
+        driver.pose_index = pose.pose_index
+        driver.name = pose_bone.name
+        driver.euler_rotation = pose_bone.rotation_quaternion.to_euler('XYZ')[:]
+        driver.quaternion_rotation = pose_bone.rotation_quaternion[:]
+
+        # Find the joint index for this bone
+        for joint_index in range(instance.body_dna_reader.getJointCount()):
+            joint_name = instance.body_dna_reader.getJointName(joint_index)
+            if joint_name == pose_bone.name:
+                driver.joint_index = joint_index
+                break

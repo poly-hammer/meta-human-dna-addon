@@ -201,8 +201,8 @@ class RBFDriverData(bpy.types.PropertyGroup):
         default='QUATERNION',
         description='The rotation mode of the pose transformation',
     ) # type: ignore
-    euler_rotation: bpy.props.FloatVectorProperty(size=3) # type: ignore
-    quaternion_rotation: bpy.props.FloatVectorProperty(size=4) # type: ignore
+    euler_rotation: bpy.props.FloatVectorProperty(default=(0.0, 0.0, 0.0), size=3) # type: ignore
+    quaternion_rotation: bpy.props.FloatVectorProperty(default=(1.0, 0.0, 0.0, 0.0), size=4) # type: ignore
 
 class RBFDrivenData(bpy.types.PropertyGroup):
     pose_index: bpy.props.IntProperty() # type: ignore
@@ -225,10 +225,10 @@ class RBFDrivenData(bpy.types.PropertyGroup):
         default='QUATERNION',
         description='The rotation mode of the pose transformation',
     ) # type: ignore
-    location: bpy.props.FloatVectorProperty(size=3) # type: ignore
-    euler_rotation: bpy.props.FloatVectorProperty(size=3) # type: ignore
-    quaternion_rotation: bpy.props.FloatVectorProperty(size=4) # type: ignore
-    scale: bpy.props.FloatVectorProperty(size=3) # type: ignore
+    location: bpy.props.FloatVectorProperty(default=(0.0, 0.0, 0.0), size=3) # type: ignore
+    euler_rotation: bpy.props.FloatVectorProperty(default=(0.0, 0.0, 0.0), size=3) # type: ignore
+    quaternion_rotation: bpy.props.FloatVectorProperty(default=(1.0, 0.0, 0.0, 0.0), size=4) # type: ignore
+    scale: bpy.props.FloatVectorProperty(default=(0.0, 0.0, 0.0), size=3) # type: ignore
     scalar_value: bpy.props.FloatProperty(
         default=0.0, 
         min=0.0, 
@@ -1655,6 +1655,24 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         if not self.body_rig or not self.body_dna_reader:
             return
         
+        last_active_solver_index = -1
+        last_active_pose_index = -1
+        last_active_driven_index = -1
+        last_active_driver_index = -1
+
+        # store the last active indices to try and preserve them after updating the list
+        if len(self.rbf_solver_list) > 0:
+            last_active_solver_index = self.rbf_solver_list_active_index
+            _solver = self.rbf_solver_list[last_active_solver_index]
+            if len(_solver.poses) > 0:
+                last_active_pose_index = _solver.poses_active_index
+                _pose = _solver.poses[last_active_pose_index]
+                if len(_pose.driven) > 0:
+                    last_active_driven_index = _pose.driven_active_index
+                if len(_pose.drivers) > 0:
+                    last_active_driver_index = _pose.drivers_active_index
+
+        
         self.rbf_solver_list.clear()
         for solver_data in meta_human_dna_core.get_rbf_solver_data(self.body_dna_reader):
             solver = self.rbf_solver_list.add()
@@ -1680,6 +1698,18 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                                 setattr(pose, pose_field_name, getattr(pose_data, pose_field_name))
                 else:
                     setattr(solver, solver_field_name, getattr(solver_data, solver_field_name))
+
+        # restore the last active indices if possible
+        if last_active_solver_index >= 0 and last_active_solver_index < len(self.rbf_solver_list):
+            self.rbf_solver_list_active_index = last_active_solver_index
+            _solver = self.rbf_solver_list[last_active_solver_index]
+            if last_active_pose_index >= 0 and last_active_pose_index < len(_solver.poses):
+                _solver.poses_active_index = last_active_pose_index
+                _pose = _solver.poses[last_active_pose_index]
+                if last_active_driven_index >= 0 and last_active_driven_index < len(_pose.driven):
+                    _pose.driven_active_index = last_active_driven_index
+                if last_active_driver_index >= 0 and last_active_driver_index < len(_pose.drivers):
+                    _pose.drivers_active_index = last_active_driver_index
 
 
     def evaluate(self, component: Literal['head', 'body', 'all'] = 'all'):

@@ -200,17 +200,21 @@ class META_HUMAN_DNA_UL_rbf_solvers(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_prop_name):
         layout.label(text=item.name)
 
+
 class META_HUMAN_DNA_UL_rbf_poses(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_prop_name):
-        layout.label(text=item.name, icon='ARMATURE_DATA')
+        layout.prop(item, 'name', icon='ARMATURE_DATA', text='', emboss=False)
+
 
 class META_HUMAN_DNA_UL_rbf_drivers(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_prop_name):
         layout.label(text=item.name, icon='BONE_DATA')
 
+
 class META_HUMAN_DNA_UL_rbf_driven(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_prop_name):
         layout.label(text=item.name, icon='BONE_DATA')
+
 
 class META_HUMAN_DNA_PT_face_board(bpy.types.Panel):
     bl_label = "Face Board"
@@ -244,7 +248,6 @@ class META_HUMAN_DNA_PT_face_board(bpy.types.Panel):
             split.operator('meta_human_dna.bake_animation', icon='ACTION', text='Bake')
         else:
             draw_rig_logic_instance_error(self.layout, error)
-
 
 
 class META_HUMAN_DNA_PT_utilities(bpy.types.Panel):
@@ -764,8 +767,8 @@ class META_HUMAN_DNA_PT_shape_keys(bpy.types.Panel):
             draw_rig_logic_instance_error(self.layout, error)
 
 
-class META_HUMAN_DNA_PT_rbf_editor(bpy.types.Panel):
-    bl_label = "RBF Editor"
+class META_HUMAN_DNA_PT_pose_editor(bpy.types.Panel):
+    bl_label = "Pose Editor"
     bl_category = 'Meta-Human DNA'
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -813,11 +816,11 @@ class META_HUMAN_DNA_PT_rbf_editor(bpy.types.Panel):
         solver_row = self.layout.row(align=True)
         solver_row.operator('meta_human_dna.add_rbf_solver', icon='ADD', text='').solver_index = active_rbf_solver_index # type: ignore
         solver_row.operator('meta_human_dna.remove_rbf_solver', icon='REMOVE', text='').solver_index = active_rbf_solver_index # type: ignore
-        solver_row.operator('meta_human_dna.refresh_rbf_solvers', icon='FILE_REFRESH', text='')
+        solver_row.operator('meta_human_dna.evaluate_rbf_solvers', icon='FILE_REFRESH', text='')
 
 
-class META_HUMAN_DNA_PT_rbf_editor_footer_sub_panel(SubPanelBase):
-    bl_parent_id = "META_HUMAN_DNA_PT_rbf_editor"
+class META_HUMAN_DNA_PT_pose_editor_footer_sub_panel(SubPanelBase):
+    bl_parent_id = "META_HUMAN_DNA_PT_pose_editor"
     bl_label = "(Not Shown)"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -870,8 +873,8 @@ class RbfEditorSubPanelBase(bpy.types.Panel):
         return False
     
 
-class META_HUMAN_DNA_PT_rbf_editor_solver_settings_sub_panel(RbfEditorSubPanelBase):
-    bl_parent_id = "META_HUMAN_DNA_PT_rbf_editor"
+class META_HUMAN_DNA_PT_pose_editor_solver_settings_sub_panel(RbfEditorSubPanelBase):
+    bl_parent_id = "META_HUMAN_DNA_PT_pose_editor"
     bl_label = "Settings"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -916,8 +919,8 @@ class META_HUMAN_DNA_PT_rbf_editor_solver_settings_sub_panel(RbfEditorSubPanelBa
         row.prop(active_rbf_solver, 'automatic_radius', text='Automatic Radius')
 
 
-class META_HUMAN_DNA_PT_rbf_editor_poses_sub_panel(RbfEditorSubPanelBase):
-    bl_parent_id = "META_HUMAN_DNA_PT_rbf_editor"
+class META_HUMAN_DNA_PT_pose_editor_poses_sub_panel(RbfEditorSubPanelBase):
+    bl_parent_id = "META_HUMAN_DNA_PT_pose_editor"
     bl_label = "Poses"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -963,6 +966,21 @@ class META_HUMAN_DNA_PT_rbf_editor_poses_sub_panel(RbfEditorSubPanelBase):
         if not active_rbf_pose:
             return
         
+        if active_rbf_pose.driven_active_index >= 0 and len(active_rbf_pose.driven) > 0:
+            op = poses_row.operator('meta_human_dna.update_rbf_pose', icon='CHECKMARK', text='')
+            op.solver_index = active_rbf_solver_index # type: ignore
+            op.pose_index = active_rbf_pose_index # type: ignore
+            op.driven_index = active_rbf_pose.driven_active_index # type: ignore
+        
+        # Push the select all button to the right
+        sub = poses_row.row(align=True)
+        sub.alignment = 'RIGHT'
+        op = sub.operator('meta_human_dna.duplicate_rbf_pose', icon='DUPLICATE', text='')
+        op.solver_index = active_rbf_solver_index # type: ignore
+        op.pose_index = active_rbf_pose_index # type: ignore
+
+        sub.separator(factor=1.5)
+        
         # TODO: Maybe Re-enable when functionality is needed?
         # split = self.layout.split()
         # split.prop(active_rbf_pose, 'scale_factor', text='Scale Factor')
@@ -970,8 +988,8 @@ class META_HUMAN_DNA_PT_rbf_editor_poses_sub_panel(RbfEditorSubPanelBase):
 
 
 
-class META_HUMAN_DNA_PT_rbf_editor_drivers_sub_panel(RbfEditorSubPanelBase):
-    bl_parent_id = "META_HUMAN_DNA_PT_rbf_editor"
+class META_HUMAN_DNA_PT_pose_editor_drivers_sub_panel(RbfEditorSubPanelBase):
+    bl_parent_id = "META_HUMAN_DNA_PT_pose_editor"
     bl_label = "Drivers"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -1007,8 +1025,8 @@ class META_HUMAN_DNA_PT_rbf_editor_drivers_sub_panel(RbfEditorSubPanelBase):
         )
 
 
-class META_HUMAN_DNA_PT_rbf_editor_driven_sub_panel(RbfEditorSubPanelBase):
-    bl_parent_id = "META_HUMAN_DNA_PT_rbf_editor"
+class META_HUMAN_DNA_PT_pose_editor_driven_sub_panel(RbfEditorSubPanelBase):
+    bl_parent_id = "META_HUMAN_DNA_PT_pose_editor"
     bl_label = "Driven"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -1044,7 +1062,8 @@ class META_HUMAN_DNA_PT_rbf_editor_driven_sub_panel(RbfEditorSubPanelBase):
             insertion_operators=False,
             move_operators=False # type: ignore
         )
-        driven_row = self.layout.row(align=True)
+        column = self.layout.column()
+        driven_row = column.row(align=True)
         
         op = driven_row.operator('meta_human_dna.add_rbf_driven', icon='ADD', text='')
         op.solver_index = active_rbf_solver_index # type: ignore
@@ -1056,11 +1075,14 @@ class META_HUMAN_DNA_PT_rbf_editor_driven_sub_panel(RbfEditorSubPanelBase):
         op.pose_index = active_rbf_pose_index # type: ignore
         op.driven_index = active_rbf_pose.driven_active_index # type: ignore
 
-        if active_rbf_pose.driven_active_index >= 0 and len(active_rbf_pose.driven) > 0:
-            op = driven_row.operator('meta_human_dna.update_rbf_driven', icon='CHECKMARK', text='')
-            op.solver_index = active_rbf_solver_index # type: ignore
-            op.pose_index = active_rbf_pose_index # type: ignore
-            op.driven_index = active_rbf_pose.driven_active_index # type: ignore
+        # Push the select all button to the right
+        sub = driven_row.row(align=True)
+        sub.alignment = 'RIGHT'
+        op = sub.operator('meta_human_dna.select_all_rbf_driven_for_pose', icon='RESTRICT_SELECT_OFF', text='')
+        op.solver_index = active_rbf_solver_index # type: ignore
+        op.pose_index = active_rbf_pose_index # type: ignore
+
+        sub.separator(factor=1.5)
 
 
 class META_HUMAN_DNA_PT_output_panel(bpy.types.Panel):

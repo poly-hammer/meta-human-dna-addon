@@ -1624,147 +1624,14 @@ class RemoveRBFSolver(RBFEditorOperatorBase):
         pass
     
 
-class RefreshRBFSolvers(RBFEditorOperatorBase):
-    """Refresh the RBF Solvers"""
-    bl_idname = "meta_human_dna.refresh_rbf_solvers"
-    bl_label = "Refresh RBF Solvers"
+class EvaluateRBFSolvers(RBFEditorOperatorBase):
+    """Evaluate the RBF Solvers"""
+    bl_idname = "meta_human_dna.evaluate_rbf_solvers"
+    bl_label = "Evaluate RBF Solvers"
 
     def run(self, instance):
-        instance.update_body_rbf_solver_list()
-    
+        instance.evaluate(component='body')
 
-class AddRBFPose(RBFEditorOperatorBase):
-    """Add a new RBF Pose"""
-    bl_idname = "meta_human_dna.add_rbf_pose"
-    bl_label = "Add RBF Pose"
-
-    new_pose_name: bpy.props.StringProperty(
-        default="default",
-        description="The name of the new RBF Pose",
-        get=callbacks.get_new_pose_name,
-        set=callbacks.set_new_pose_name
-    ) # type: ignore
-
-    def validate(self, context, instance) -> tuple[bool, str]:
-        if not context.selected_pose_bones:
-            return False, "No pose bones selected. Please select at least one driver bone in pose mode."
-        
-        if not instance.body_initialized:
-            instance.body_initialize()
-
-        for pose_bone in context.selected_pose_bones:
-            if pose_bone.name in instance.body_driver_bone_names:
-                return False, f'The selected bone "{pose_bone.name}" is assigned as a driver bone. Please select other bones.'
-            elif pose_bone.name in instance.body_swing_bone_names:
-                return False, f'The selected bone "{pose_bone.name}" is assigned as a swing bone. Please select other bones.'
-            elif pose_bone.name in instance.body_twist_bone_names:
-                return False, f'The selected bone "{pose_bone.name}" is assigned as a twist bone. Please select other bones.'
-        
-        solver = instance.rbf_solver_list[instance.rbf_solver_list_active_index]
-        for pose in solver.poses:
-            if pose.name == self.new_pose_name:
-                return False, f'A pose with the name "{self.new_pose_name}" already exists. Use a different name.'
-            
-        driver_name_name = solver.name.replace(RBF_SOLVER_POSTFIX, '')
-        if not instance.body_rig.pose.bones.get(driver_name_name):
-            return False, f'The driver bone "{driver_name_name}" for the solver "{solver.name}" is not found in the armature. Please ensure the bone exists.'
-        
-        return True, ""
-
-    def run(self, instance):
-        solver = instance.rbf_solver_list[instance.rbf_solver_list_active_index]
-        new_pose_index = len(solver.poses)
-        pose = solver.poses.add()
-
-        pose.solver_index = instance.rbf_solver_list_active_index
-        pose.pose_index = new_pose_index
-        pose.name = self.new_pose_name if self.new_pose_name else f"Pose{new_pose_index}"
-
-        driver_bone_name = solver.name.replace(RBF_SOLVER_POSTFIX, '')
-        driver_bone = instance.body_rig.pose.bones.get(driver_bone_name)
-        if not driver_bone:
-            return
-        
-        driver = pose.drivers.add()
-        driver.name = driver_bone_name
-        driver.solver_index = instance.rbf_solver_list_active_index
-        driver.pose_index = new_pose_index
-        
-        # find the joint index for the driver bone
-        for joint_index in range(instance.body_dna_reader.getJointCount()):  # Ensure DNA reader is initialized
-            joint_name = instance.body_dna_reader.getJointName(joint_index)
-            if joint_name == driver_bone_name:
-                driver.joint_index = joint_index
-                break
-        else:
-            message = f'Driver bone "{driver_bone_name}" not found in DNA.'
-            self.report({'ERROR'}, message)
-            logger.error(message)
-            return {'CANCELLED'}
-
-        # set the driver bone transforms
-        driver.quaternion_rotation = driver_bone.rotation_quaternion.copy()
-        driver.euler_rotation = driver_bone.rotation_quaternion.to_euler('XYZ')
-
-        for pose_bone in bpy.context.selected_pose_bones:  # type: ignore
-            driven = pose.driven.add()
-            driven.name = pose_bone.name
-            driven.pose_index = new_pose_index
-
-            # find the joint index for the driven bone
-            for joint_index in range(instance.body_dna_reader.getJointCount()):  # Ensure DNA reader is initialized
-                joint_name = instance.body_dna_reader.getJointName(joint_index)
-                if joint_name == pose_bone.name:
-                    driven.joint_index = joint_index
-                    break
-            else:
-                message = f'Driven bone "{pose_bone.name}" not found in DNA.'
-                self.report({'ERROR'}, message)
-                logger.error(message)
-                return {'CANCELLED'}
-
-            # set the driven bone transforms
-            driven.quaternion_rotation = pose_bone.rotation_quaternion.copy()
-            driven.euler_rotation = pose_bone.rotation_quaternion.to_euler('XYZ')
-            driven.location = pose_bone.location.copy()
-            driven.scale = pose_bone.scale.copy()
-
-        # set the active pose to the new pose
-        solver.poses_active_index = new_pose_index # type: ignore
-
-    def invoke(self, context, event):
-        return context.window_manager.invoke_props_dialog(self, width = 200) # type: ignore
-    
-    def draw(self, context):
-        if not self.layout:
-            return
-        
-        row = self.layout.row()
-        row.label(text='Pose Name:')
-        row = self.layout.row()
-        row.prop(self, "new_pose_name", text="")
-        row = self.layout.row()
-        row.label(text="Adding bones:")
-        box = self.layout.box()
-        for pose_bone in context.selected_pose_bones:
-            row = box.row()
-            row.label(text=pose_bone.name, icon='BONE_DATA')
-
-    
-    @classmethod
-    def poll(cls, context):
-        return bool(context.selected_pose_bones)
-    
-class RemoveRBFPose(RBFEditorOperatorBase):
-    """Remove the selected RBF Pose"""
-    bl_idname = "meta_human_dna.remove_rbf_pose"
-    bl_label = "Remove RBF Pose"
-
-    def run(self, instance):
-        solver = instance.rbf_solver_list[instance.rbf_solver_list_active_index]
-        solver.poses.remove(solver.poses_active_index)
-        to_index = min(solver.poses_active_index, len(solver.poses) - 1)
-        solver.poses_active_index = to_index # type: ignore
 
 class RevertRBFSolver(RBFEditorOperatorBase):
     """Revert RBF solver back to the original DNA."""
@@ -1847,6 +1714,212 @@ class CommitRBFSolverChanges(RBFEditorOperatorBase):
         instance.evaluate(component='body')
 
 
+class RBFPoseOperatorBase(RBFEditorOperatorBase):    
+    def add_pose(
+            self, 
+            instance, 
+            pose_name: str,
+            driven_bones: list[bpy.types.PoseBone]
+        ):
+        solver = instance.rbf_solver_list[self.solver_index]
+        new_pose_index = len(solver.poses)
+        pose = solver.poses.add()
+
+        pose.solver_index = self.solver_index
+        pose.pose_index = new_pose_index
+        pose.name = pose_name
+
+        driver_bone_name = solver.name.replace(RBF_SOLVER_POSTFIX, '')
+        driver_bone = instance.body_rig.pose.bones.get(driver_bone_name)
+        if not driver_bone:
+            return
+        
+        driver = pose.drivers.add()
+        utilities.set_driver_bone_data(
+            instance=instance,
+            pose=pose,
+            driver=driver,
+            pose_bone=driver_bone
+        )
+
+        for pose_bone in driven_bones:
+            driven = pose.driven.add()            
+            utilities.set_driven_bone_data(
+                instance=instance,
+                pose=pose,
+                driven=driven,
+                pose_bone=pose_bone
+            )
+
+        # set the active pose to the new pose
+        solver.poses_active_index = new_pose_index # type: ignore
+
+        return pose
+
+
+class AddRBFPose(RBFPoseOperatorBase):
+    """Add a new RBF Pose"""
+    bl_idname = "meta_human_dna.add_rbf_pose"
+    bl_label = "Add RBF Pose"
+
+    new_pose_name: bpy.props.StringProperty(
+        default="default",
+        description="The name of the new RBF Pose",
+        get=callbacks.get_new_pose_name,
+        set=callbacks.set_new_pose_name
+    ) # type: ignore
+
+    def validate(self, context, instance) -> tuple[bool, str]:
+        if not context.selected_pose_bones:
+            return False, "No pose bones selected. Please select at least one driver bone in pose mode."
+        
+        if not instance.body_initialized:
+            instance.body_initialize()
+
+        for pose_bone in context.selected_pose_bones:
+            if pose_bone.name in instance.body_driver_bone_names:
+                return False, f'The selected bone "{pose_bone.name}" is assigned as a driver bone. Please select other bones.'
+            elif pose_bone.name in instance.body_swing_bone_names:
+                return False, f'The selected bone "{pose_bone.name}" is assigned as a swing bone. Please select other bones.'
+            elif pose_bone.name in instance.body_twist_bone_names:
+                return False, f'The selected bone "{pose_bone.name}" is assigned as a twist bone. Please select other bones.'
+        
+        solver = instance.rbf_solver_list[instance.rbf_solver_list_active_index]
+        for pose in solver.poses:
+            if pose.name == self.new_pose_name:
+                return False, f'A pose with the name "{self.new_pose_name}" already exists. Use a different name.'
+            
+        driver_name_name = solver.name.replace(RBF_SOLVER_POSTFIX, '')
+        if not instance.body_rig.pose.bones.get(driver_name_name):
+            return False, f'The driver bone "{driver_name_name}" for the solver "{solver.name}" is not found in the armature. Please ensure the bone exists.'
+        
+        return True, ""
+
+    def run(self, instance):
+        solver = instance.rbf_solver_list[instance.rbf_solver_list_active_index]
+        new_pose_index = len(solver.poses)
+        self.add_pose(
+            instance=instance,
+            pose_name=self.new_pose_name if self.new_pose_name else f"Pose{new_pose_index}",
+            driven_bones=bpy.context.selected_pose_bones.copy()  # type: ignore
+        )
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self, width = 200) # type: ignore
+    
+    def draw(self, context):
+        if not self.layout:
+            return
+        
+        row = self.layout.row()
+        row.label(text='Pose Name:')
+        row = self.layout.row()
+        row.prop(self, "new_pose_name", text="")
+        row = self.layout.row()
+        row.label(text="Adding bones:")
+        box = self.layout.box()
+        for pose_bone in context.selected_pose_bones:
+            row = box.row()
+            row.label(text=pose_bone.name, icon='BONE_DATA')
+    
+    @classmethod
+    def poll(cls, context):
+        return bool(context.selected_pose_bones)
+    
+
+class DuplicateRBFPose(RBFPoseOperatorBase):
+    """Duplicate the selected RBF Pose"""
+    bl_idname = "meta_human_dna.duplicate_rbf_pose"
+    bl_label = "Duplicate RBF Pose"
+
+    def run(self, instance):
+        solver = instance.rbf_solver_list[self.solver_index]
+        pose = solver.poses[self.pose_index]
+
+        # Generate a unique name for the duplicated pose
+        count_same_name = 1
+        for existing_pose in solver.poses:
+            if existing_pose.name.startswith(pose.name):
+                count_same_name += 1
+        new_pose_name = f"{pose.name}_{count_same_name}"
+
+        # Copy the driven bone names from the original pose
+        driven_bones = []
+        for driven in pose.driven:
+            pose_bone = instance.body_rig.pose.bones.get(driven.name)
+            if pose_bone:
+                driven_bones.append(pose_bone)
+
+        self.add_pose(
+            instance=instance,
+            pose_name=new_pose_name,
+            driven_bones=driven_bones
+        )
+
+
+class UpdateRBFPose(RBFEditorOperatorBase):
+    """Update the selected RBF Pose. This includes both the driver and driven bone transforms for the current pose"""
+    bl_idname = "meta_human_dna.update_rbf_pose"
+    bl_label = "Update RBF Pose"
+
+    def run(self, instance):      
+        # ensure the body is initialized
+        if not instance.body_initialized:
+            instance.body_initialize(update_rbf_solver_list=False)
+
+        solver = instance.rbf_solver_list[self.solver_index]
+        pose = solver.poses[self.pose_index]
+
+        # Update all the driver bone data for the pose
+        for driver in pose.drivers:
+            driver_bone = instance.body_rig.pose.bones.get(driver.name)
+            if driver_bone:
+                utilities.set_driver_bone_data(
+                    instance=instance,
+                    pose=pose,
+                    driver=driver,
+                    pose_bone=driver_bone
+                )
+            else:
+                self.report({'ERROR'}, (
+                    f'Driver bone "{driver.name}" was not found in armature "{instance.body_rig.name}" '
+                    f'when updating RBF Pose "{pose.name}". Please ensure the bone exists or delete '
+                    f'this pose and recreate it.'
+                ))
+        
+        # Update all the driven bone data for the pose
+        for driven in pose.driven:
+            driven_pose_bone = instance.body_rig.pose.bones.get(driven.name)
+            if driven_pose_bone:
+                utilities.set_driven_bone_data(
+                    instance=instance,
+                    pose=pose,
+                    driven=driven,
+                    pose_bone=driven_pose_bone,
+                    existing_rotation=Vector(driven.euler_rotation[:]),
+                    existing_location=Vector(driven.location[:]),
+                    existing_scale=Vector(driven.scale[:]),
+                )
+            else:
+                logger.warning((
+                    f'Driven bone "{driven.name}" was not found in armature when '
+                    f'updating RBF Pose "{pose.name}". It will be deleted from '
+                    'the pose when this data is committed to the dna.'
+                ))
+    
+
+class RemoveRBFPose(RBFEditorOperatorBase):
+    """Remove the selected RBF Pose"""
+    bl_idname = "meta_human_dna.remove_rbf_pose"
+    bl_label = "Remove RBF Pose"
+
+    def run(self, instance):
+        solver = instance.rbf_solver_list[instance.rbf_solver_list_active_index]
+        solver.poses.remove(solver.poses_active_index)
+        to_index = min(solver.poses_active_index, len(solver.poses) - 1)
+        solver.poses_active_index = to_index # type: ignore
+
+
 class AddRBFDriver(RBFEditorOperatorBase):
     """Add a new RBF Driver bone"""
     bl_idname = "meta_human_dna.add_rbf_driver"
@@ -1869,75 +1942,38 @@ class AddRBFDriven(RBFEditorOperatorBase):
     bl_idname = "meta_human_dna.add_rbf_driven"
     bl_label = "Add RBF Driven Bone"
 
+    @classmethod
+    def poll(cls, context):
+        instance = callbacks.get_active_rig_logic()        
+        if instance and instance.body_rig and context.selected_pose_bones:
+            return True
+        
+        return False
+
+    def validate(self, context, instance) -> tuple[bool, str]:
+        if not context.selected_pose_bones:
+            return False, "No pose bones selected. Please select at least one driven bone in pose mode."
+
+        return True, ""
+
     def run(self, instance):
-        pass
-
-class UpdateRBFDriven(RBFEditorOperatorBase):
-    """Update the selected RBF driven bone transforms for the current pose"""
-    bl_idname = "meta_human_dna.update_rbf_driven"
-    bl_label = "Update RBF Driven Bone"
-
-    def run(self, instance):      
-        # ensure the body is initialized
-        if not instance.body_initialized:
-            instance.body_initialize(update_rbf_solver_list=False)
-
         solver = instance.rbf_solver_list[self.solver_index]
         pose = solver.poses[self.pose_index]
-        driven = pose.driven[self.driven_index]
 
-        existing_rotation = Vector(driven.euler_rotation[:])
-        existing_location = Vector(driven.location[:])
-        existing_scale = Vector(driven.scale[:])
-        pose_bone = instance.body_rig.pose.bones.get(driven.name)
+        selected_pose_bones = bpy.context.selected_pose_bones.copy()  # type: ignore
 
-        if pose_bone:
-            # Get the rest pose for this bone
-            rest_location, rest_rotation, rest_scale, rest_to_parent_matrix = instance.body_rest_pose[pose_bone.name]
-            
-            # Extract current transforms from the bone's matrix_basis
-            modified_matrix = rest_to_parent_matrix @ pose_bone.matrix_basis
-            current_location = modified_matrix.to_translation()
-            current_rotation = modified_matrix.to_euler('XYZ')
-            current_scale = modified_matrix.to_scale()
-            
-            # Calculate deltas from rest pose (this is what DNA stores)
-            location = Vector([
-                current_location.x - rest_location.x,
-                current_location.y - rest_location.y,
-                current_location.z - rest_location.z
-            ])
-            
-            rotation = Euler([
-                current_rotation.x - rest_rotation.x,
-                current_rotation.y - rest_rotation.y,
-                current_rotation.z - rest_rotation.z
-            ], 'XYZ')
-            
-            # Scale delta (DNA stores 0.0 for scale_factor, actual delta otherwise)
-            scale = Vector([
-                current_scale.x - rest_scale.x if round(current_scale.x - rest_scale.x, 5) != 0.0 else pose.scale_factor,
-                current_scale.y - rest_scale.y if round(current_scale.y - rest_scale.y, 5) != 0.0 else pose.scale_factor,
-                current_scale.z - rest_scale.z if round(current_scale.z - rest_scale.z, 5) != 0.0 else pose.scale_factor
-            ])
+        for pose_bone in selected_pose_bones:
+            if pose_bone.name not in [d.name for d in pose.driven]:
+                driven = pose.driven.add()
+                utilities.set_driven_bone_data(
+                    instance=instance,
+                    pose=pose,
+                    driven=driven,
+                    pose_bone=pose_bone
+                )
 
-            rotation_delta = Vector(rotation[:]).copy() - existing_rotation
-            location_delta = location.copy() - existing_location
-            scale_delta = scale.copy() - existing_scale
-
-            # only update if the delta is significant enough to avoid floating point value drift
-            if rotation_delta.length > BONE_DELTA_THRESHOLD:
-                driven.euler_rotation = rotation[:]
-                logger.debug(f'Updated RBF driven bone "{driven.name}" rotation to {driven.euler_rotation[:]}')
-            if location_delta.length > BONE_DELTA_THRESHOLD:
-                driven.location = location[:]
-                logger.debug(f'Updated RBF driven bone "{driven.name}" location to {driven.location[:]}')
-            
-            # only update if scale is not zero or equal to the scale factor, because only those are actual deltas
-            if all(0.0 != round(abs(i), 5) and pose.scale_factor != round(abs(i), 5) for i in scale_delta):
-                driven.scale = scale[:]
-                logger.debug(f'Updated RBF driven bone "{driven.name}" scale to {driven.scale[:]}')
-
+        # set the active driven to the last one added
+        pose.driven_active_index = len(pose.driven) - 1
 
 class RemoveRBFDriven(RBFEditorOperatorBase):
     """Remove the selected RBF Driven bone"""
@@ -1946,6 +1982,27 @@ class RemoveRBFDriven(RBFEditorOperatorBase):
 
     def run(self, instance):
         pass
+
+class SelectAllRBFDriven(RBFEditorOperatorBase):
+    """Select all RBF Driven bones for the current pose"""
+    bl_idname = "meta_human_dna.select_all_rbf_driven_for_pose"
+    bl_label = "Select All RBF Driven Bones for Pose"
+
+    def run(self, instance):
+        solver = instance.rbf_solver_list[self.solver_index]
+        pose = solver.poses[self.pose_index]
+
+        # switch to pose mode
+        instance.body_rig.hide_set(False)
+        utilities.switch_to_pose_mode(instance.body_rig)
+
+        # select all driven bones for the pose
+        driven_bone_names = [driven.name for driven in pose.driven]
+        for pose_bone in instance.body_rig.pose.bones:
+            if pose_bone.name in driven_bone_names:
+                pose_bone.bone.select = True
+            else:
+                pose_bone.bone.select = False
     
 class RefreshMaterialSlotNames(bpy.types.Operator):
     """Refresh the material slot names by re-reading them from the meshes in the output list"""
