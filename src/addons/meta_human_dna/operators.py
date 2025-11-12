@@ -1641,6 +1641,8 @@ class AddRBFPose(RBFEditorOperatorBase):
     new_pose_name: bpy.props.StringProperty(
         default="default",
         description="The name of the new RBF Pose",
+        get=callbacks.get_new_pose_name,
+        set=callbacks.set_new_pose_name
     ) # type: ignore
 
     def validate(self, context, instance) -> tuple[bool, str]:

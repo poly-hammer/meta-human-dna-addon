@@ -17,6 +17,7 @@ from ..constants import (
     SEND2UE_FACE_SETTINGS,
     BASE_DNA_FOLDER,
     BODY_HIGH_LEVEL_TOPOLOGY_GROUPS,
+    RBF_SOLVER_POSTFIX,
     ToolInfo
 )
 
@@ -406,6 +407,34 @@ def get_copied_rig_logic_instance_name(self):
 
 def set_unreal_content_folder(self, value):
     self['unreal_content_folder'] = value
+
+def get_new_pose_name(self):
+    value = self.get('new_pose_name')
+    if value is None:
+        instance = get_active_rig_logic()
+        if instance:
+            solver = instance.rbf_solver_list[instance.rbf_solver_list_active_index]
+            driver_bone_name = solver.name.replace(RBF_SOLVER_POSTFIX, '')
+            driver_bone = instance.body_rig.pose.bones.get(driver_bone_name)
+            if driver_bone:
+                name = driver_bone.name
+                rotation_euler = driver_bone.rotation_quaternion.to_euler('XYZ')
+                x = round(math.degrees(rotation_euler.x))
+                y = round(math.degrees(rotation_euler.y))
+                z = round(math.degrees(rotation_euler.z))
+                
+                if x != 0:
+                    name += f'_x_{x}'
+                if y != 0:
+                    name += f'_y_{y}'
+                if z != 0:
+                    name += f'_z_{z}'
+                return name
+        return ''
+    return value
+
+def set_new_pose_name(self, value):
+    self['new_pose_name'] = value
 
 def get_unreal_content_folder(self):
     value = self.get('unreal_content_folder')

@@ -616,6 +616,12 @@ class DNAImporter:
                 pose_bone = self.rig_object.pose.bones.get(bone_name)
                 if pose_bone:
                     _swing_bone_names = [self._dna_reader.getJointName(output_index) for output_index in output_indices]
+                    # Hide the swing bones from selection
+                    for swing_bone_name in _swing_bone_names:
+                        swing_bone = self.rig_object.data.bones.get(swing_bone_name)
+                        if swing_bone:
+                            swing_bone.hide_select = True
+                            
                     pose_bone['swing_bone_names'] = _swing_bone_names
                     pose_bone['swing_blend_weights'] = weights
                     pose_bone['swing_axis'] = axis.name.lower()
@@ -640,6 +646,12 @@ class DNAImporter:
                 pose_bone = self.rig_object.pose.bones.get(bone_name)
                 if pose_bone:
                     _twist_bone_names = [self._dna_reader.getJointName(output_index) for output_index in output_indices]
+                    # Hide the twist bones from selection
+                    for twist_bone_name in _twist_bone_names:
+                        twist_bone = self.rig_object.data.bones.get(twist_bone_name)
+                        if twist_bone:
+                            twist_bone.hide_select = True
+
                     pose_bone['twist_bone_names'] = _twist_bone_names
                     pose_bone['twist_blend_weights'] = weights
                     pose_bone['twist_axis'] = axis.name.lower()
