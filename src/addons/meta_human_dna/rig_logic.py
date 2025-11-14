@@ -206,6 +206,7 @@ class RBFDriverData(bpy.types.PropertyGroup):
 
 class RBFDrivenData(bpy.types.PropertyGroup):
     pose_index: bpy.props.IntProperty() # type: ignore
+    joint_group_index: bpy.props.IntProperty(default=-1) # type: ignore
     joint_index: bpy.props.IntProperty() # type: ignore
     name: bpy.props.StringProperty() # type: ignore
     data_type: bpy.props.EnumProperty(
@@ -238,6 +239,7 @@ class RBFDrivenData(bpy.types.PropertyGroup):
 class RBFPoseData(bpy.types.PropertyGroup):
     solver_index: bpy.props.IntProperty() # type: ignore
     pose_index: bpy.props.IntProperty() # type: ignore
+    joint_group_index: bpy.props.IntProperty(default=-1) # type: ignore
     name: bpy.props.StringProperty(
         default='',
         description='The name of the pose',

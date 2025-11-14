@@ -615,7 +615,8 @@ def set_driven_bone_data(
         instance,
         pose,
         driven,
-        pose_bone: bpy.types.PoseBone
+        pose_bone: bpy.types.PoseBone,
+        new: bool = False
     ):
     if pose_bone:
         if not instance.body_initialized:
@@ -665,15 +666,15 @@ def set_driven_bone_data(
         scale_delta = scale.copy() - existing_scale
 
         # only update if the delta is significant enough to avoid floating point value drift
-        if rotation_delta.length > BONE_DELTA_THRESHOLD:
+        if rotation_delta.length > BONE_DELTA_THRESHOLD or new:
             driven.euler_rotation = rotation[:]
             logger.info(f'Updated RBF pose "{pose.name}" driven bone "{driven.name}" rotation to {driven.euler_rotation[:]}')
-        if location_delta.length > BONE_DELTA_THRESHOLD:
+        if location_delta.length > BONE_DELTA_THRESHOLD or new:
             driven.location = location[:]
             logger.info(f'Updated RBF pose "{pose.name}" driven bone "{driven.name}" location to {driven.location[:]}')
         
         # only update if scale is not zero or equal to the scale factor, because only those are actual deltas
-        if all(0.0 != round(abs(i), 5) and pose.scale_factor != round(abs(i), 5) for i in scale_delta):
+        if all(0.0 != round(abs(i), 5) and pose.scale_factor != round(abs(i), 5) for i in scale_delta) or new:
             driven.scale = scale[:]
             logger.info(f'Updated RBF pose "{pose.name}" driven bone "{driven.name}" scale to {driven.scale[:]}')
 

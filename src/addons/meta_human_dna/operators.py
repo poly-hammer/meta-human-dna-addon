@@ -1654,7 +1654,7 @@ class EditRBFSolver(RBFEditorOperatorBase):
     @classmethod
     def poll(cls, context):
         instance = callbacks.get_active_rig_logic()
-        if instance is None:
+        if not instance or not instance.body_rig:
             return False
         
         if not instance.editing_rbf_solver:
@@ -1665,6 +1665,9 @@ class EditRBFSolver(RBFEditorOperatorBase):
     def run(self, instance):
         instance.editing_rbf_solver = True
         instance.auto_evaluate_body = False
+        instance.body_rig.hide_set(False)
+        utilities.switch_to_pose_mode(instance.body_rig)
+            
 
 class CommitRBFSolverChanges(RBFEditorOperatorBase):
     """Commit the current changes for the selected RBF solver to the .dna file"""
@@ -1700,17 +1703,23 @@ class CommitRBFSolverChanges(RBFEditorOperatorBase):
 
         reader = get_dna_reader(file_path=instance.body_dna_file_path)
         writer = get_dna_writer(file_path=instance.body_dna_file_path)
+        data = utilities.collection_to_list(instance.rbf_solver_list)
+
+        # destroy the reader and writer instances to release file locks and
+        # any memory they are using
+        instance.destroy()
 
         meta_human_dna_core.commit_rbf_data_to_dna(
             reader=reader,
             writer=writer,
-            data=utilities.collection_to_list(instance.rbf_solver_list)
+            data=data
         )
         logger.info(f'DNA exported successfully to: "{instance.body_dna_file_path}"')
-
+        
+        # turn off editing mode and re-enable auto evaluation
         instance.editing_rbf_solver = False
         instance.auto_evaluate_body = True
-        instance.destroy()
+        # re-initialize and evaluate the body rig
         instance.evaluate(component='body')
 
 
@@ -1719,15 +1728,22 @@ class RBFPoseOperatorBase(RBFEditorOperatorBase):
             self, 
             instance, 
             pose_name: str,
-            driven_bones: list[bpy.types.PoseBone]
+            driven_bones: list[bpy.types.PoseBone],
+            from_pose = None
         ):
         solver = instance.rbf_solver_list[self.solver_index]
         new_pose_index = len(solver.poses)
         pose = solver.poses.add()
-
+        
         pose.solver_index = self.solver_index
         pose.pose_index = new_pose_index
         pose.name = pose_name
+        
+        # copy the values from an existing pose if provided
+        if from_pose:
+            pose.joint_group_index = from_pose.joint_group_index
+            pose.target_enable = from_pose.target_enable
+            pose.scale_factor = from_pose.scale_factor
 
         driver_bone_name = solver.name.replace(RBF_SOLVER_POSTFIX, '')
         driver_bone = instance.body_rig.pose.bones.get(driver_bone_name)
@@ -1749,7 +1765,8 @@ class RBFPoseOperatorBase(RBFEditorOperatorBase):
                 instance=instance,
                 pose=pose,
                 driven=driven,
-                pose_bone=pose_bone
+                pose_bone=pose_bone,
+                new=True
             )
 
         # set the active pose to the new pose
@@ -1854,7 +1871,8 @@ class DuplicateRBFPose(RBFPoseOperatorBase):
         self.add_pose(
             instance=instance,
             pose_name=new_pose_name,
-            driven_bones=driven_bones
+            driven_bones=driven_bones,
+            from_pose=pose,
         )
 
 
@@ -1967,7 +1985,8 @@ class AddRBFDriven(RBFEditorOperatorBase):
                     instance=instance,
                     pose=pose,
                     driven=driven,
-                    pose_bone=pose_bone
+                    pose_bone=pose_bone,
+                    new=True
                 )
 
         # set the active driven to the last one added
