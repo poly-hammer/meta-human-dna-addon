@@ -573,8 +573,9 @@ def update_body_rbf_poses_active_index(self, context):
     pose = self.poses[self.poses_active_index]
 
     # reset all bone transforms
-    for pose_bone in instance.body_rig.pose.bones:
-        pose_bone.matrix_basis = Matrix.Identity(4)
+    if instance.body_reset_rbf_pose_on_change or instance.editing_rbf_solver:
+        for pose_bone in instance.body_rig.pose.bones:
+            pose_bone.matrix_basis = Matrix.Identity(4)
 
     for driver in pose.drivers:
         pose_bone = instance.body_rig.pose.bones.get(driver.name)
@@ -615,6 +616,11 @@ def update_body_rbf_poses_active_index(self, context):
     # ensure the body is initialized
     if not instance.body_initialized:
         instance.body_initialize(update_rbf_solver_list=False)
+
+    # evaluate the body rig logic when not editing the rbf solver
+    if not instance.editing_rbf_solver:
+        instance.evaluate(component='body')
+        return
 
     for driven in pose.driven:
         if driven.data_type == 'BONE':

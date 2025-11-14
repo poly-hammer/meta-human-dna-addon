@@ -203,7 +203,13 @@ class META_HUMAN_DNA_UL_rbf_solvers(bpy.types.UIList):
 
 class META_HUMAN_DNA_UL_rbf_poses(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_prop_name):
-        layout.prop(item, 'name', icon='ARMATURE_DATA', text='', emboss=False)
+        properties = context.scene.meta_human_dna # type: ignore
+        active_index = properties.rig_logic_instance_list_active_index
+        instance = properties.rig_logic_instance_list[active_index]
+        if instance.editing_rbf_solver:
+            layout.prop(item, 'name', icon='ARMATURE_DATA', text='', emboss=False)
+        else:
+            layout.label(text=item.name, icon='ARMATURE_DATA')
 
 
 class META_HUMAN_DNA_UL_rbf_drivers(bpy.types.UIList):
@@ -812,11 +818,34 @@ class META_HUMAN_DNA_PT_pose_editor(bpy.types.Panel):
             unique_id="active_rbf_solver_list_id",
             insertion_operators=False,
             move_operators=False # type: ignore
-        )            
-        solver_row = self.layout.row(align=True)
-        solver_row.operator('meta_human_dna.add_rbf_solver', icon='ADD', text='').solver_index = active_rbf_solver_index # type: ignore
-        solver_row.operator('meta_human_dna.remove_rbf_solver', icon='REMOVE', text='').solver_index = active_rbf_solver_index # type: ignore
-        solver_row.operator('meta_human_dna.evaluate_rbf_solvers', icon='FILE_REFRESH', text='')
+        )
+        active_rbf_solver = instance.rbf_solver_list[active_rbf_solver_index] if len(instance.rbf_solver_list) > 0 else None
+
+        if not active_rbf_solver:
+            return
+
+        if not instance.editing_rbf_solver:
+            row = self.layout.row()
+            row.label(text='Poses:')
+            row = self.layout.row()
+            draw_ui_list(
+                row,
+                context,
+                class_name="META_HUMAN_DNA_UL_rbf_poses",
+                list_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses",
+                active_index_path=f"scene.meta_human_dna.rig_logic_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses_active_index",
+                unique_id="active_rbf_poses_list_id",
+                insertion_operators=False,
+                move_operators=False # type: ignore
+            )
+            row = self.layout.row()
+            row.prop(instance, 'body_reset_rbf_pose_on_change', text='Reset Pose')
+
+        if instance.editing_rbf_solver:            
+            solver_row = self.layout.row(align=True)
+            solver_row.operator('meta_human_dna.add_rbf_solver', icon='ADD', text='').solver_index = active_rbf_solver_index # type: ignore
+            solver_row.operator('meta_human_dna.remove_rbf_solver', icon='REMOVE', text='').solver_index = active_rbf_solver_index # type: ignore
+            solver_row.operator('meta_human_dna.evaluate_rbf_solvers', icon='FILE_REFRESH', text='')
 
 
 class META_HUMAN_DNA_PT_pose_editor_footer_sub_panel(SubPanelBase):
@@ -952,39 +981,40 @@ class META_HUMAN_DNA_PT_pose_editor_poses_sub_panel(RbfEditorSubPanelBase):
             insertion_operators=False,
             move_operators=False # type: ignore
         )
-        poses_row = self.layout.row(align=True)
-        op = poses_row.operator('meta_human_dna.add_rbf_pose', icon='ADD', text='')
-        op.solver_index = active_rbf_solver_index # type: ignore
-        op.pose_index = active_rbf_solver.poses_active_index # type: ignore
+        if instance.editing_rbf_solver:
+            poses_row = self.layout.row(align=True)
+            op = poses_row.operator('meta_human_dna.add_rbf_pose', icon='ADD', text='')
+            op.solver_index = active_rbf_solver_index # type: ignore
+            op.pose_index = active_rbf_solver.poses_active_index # type: ignore
 
-        op = poses_row.operator('meta_human_dna.remove_rbf_pose', icon='REMOVE', text='')
-        op.solver_index = active_rbf_solver_index # type: ignore
-        op.pose_index = active_rbf_solver.poses_active_index # type: ignore
+            op = poses_row.operator('meta_human_dna.remove_rbf_pose', icon='REMOVE', text='')
+            op.solver_index = active_rbf_solver_index # type: ignore
+            op.pose_index = active_rbf_solver.poses_active_index # type: ignore
 
-        active_rbf_pose_index = active_rbf_solver.poses_active_index
-        active_rbf_pose = active_rbf_solver.poses[active_rbf_pose_index] if len(active_rbf_solver.poses) > 0 else None
-        if not active_rbf_pose:
-            return
-        
-        if active_rbf_pose.driven_active_index >= 0 and len(active_rbf_pose.driven) > 0:
-            op = poses_row.operator('meta_human_dna.update_rbf_pose', icon='CHECKMARK', text='')
+            active_rbf_pose_index = active_rbf_solver.poses_active_index
+            active_rbf_pose = active_rbf_solver.poses[active_rbf_pose_index] if len(active_rbf_solver.poses) > 0 else None
+            if not active_rbf_pose:
+                return
+            
+            if active_rbf_pose.driven_active_index >= 0 and len(active_rbf_pose.driven) > 0:
+                op = poses_row.operator('meta_human_dna.update_rbf_pose', icon='CHECKMARK', text='')
+                op.solver_index = active_rbf_solver_index # type: ignore
+                op.pose_index = active_rbf_pose_index # type: ignore
+                op.driven_index = active_rbf_pose.driven_active_index # type: ignore
+            
+            # Push the select all button to the right
+            sub = poses_row.row(align=True)
+            sub.alignment = 'RIGHT'
+            op = sub.operator('meta_human_dna.duplicate_rbf_pose', icon='DUPLICATE', text='')
             op.solver_index = active_rbf_solver_index # type: ignore
             op.pose_index = active_rbf_pose_index # type: ignore
-            op.driven_index = active_rbf_pose.driven_active_index # type: ignore
-        
-        # Push the select all button to the right
-        sub = poses_row.row(align=True)
-        sub.alignment = 'RIGHT'
-        op = sub.operator('meta_human_dna.duplicate_rbf_pose', icon='DUPLICATE', text='')
-        op.solver_index = active_rbf_solver_index # type: ignore
-        op.pose_index = active_rbf_pose_index # type: ignore
 
-        sub.separator(factor=1.5)
-        
-        # TODO: Maybe Re-enable when functionality is needed?
-        # split = self.layout.split()
-        # split.prop(active_rbf_pose, 'scale_factor', text='Scale Factor')
-        # split.prop(active_rbf_pose, 'target_enable', text='Target Enabled')
+            sub.separator(factor=1.5)
+            
+            # TODO: Maybe Re-enable when functionality is needed?
+            # split = self.layout.split()
+            # split.prop(active_rbf_pose, 'scale_factor', text='Scale Factor')
+            # split.prop(active_rbf_pose, 'target_enable', text='Target Enabled')
 
 
 

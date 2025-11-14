@@ -524,6 +524,11 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         description="Use this to only show the high level topology groups in the topology group selection dropdown. This is useful for when you have a lot of topology groups and want to focus on the high level ones",
         default=False
     ) # type: ignore
+    body_reset_rbf_pose_on_change: bpy.props.BoolProperty(
+        name="Reset RBF Pose on Change",
+        description="If enabled, resets the rig to its rest pose before when changing the active RBF pose from one pose to another. This isolates the pose changes to only the selected pose",
+        default=True
+    ) # type: ignore
 
     # --------------------- Armature Utilities Properties ------------------
     rig_bone_group_selection_mode: bpy.props.EnumProperty(
