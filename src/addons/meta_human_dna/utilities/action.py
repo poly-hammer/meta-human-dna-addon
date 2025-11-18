@@ -4,9 +4,10 @@ import json
 import logging
 from typing import TYPE_CHECKING
 from pathlib import Path
-from mathutils import Euler, Quaternion
+from mathutils import Quaternion
 from ..constants import (
-    Axis, 
+    Axis,
+    ComponentType,
     SCALE_FACTOR,  
     EYE_AIM_BONES,
     FACE_BOARD_SWITCHES
@@ -382,7 +383,8 @@ def bake_control_curve_values_for_frame(
         action: bpy.types.Action, 
         frame: int,
         masks: bool = True,
-        shape_keys: bool = True
+        shape_keys: bool = True,
+        component: ComponentType = 'head'
     ):
     index_lookup = {
         0: 'x',
@@ -408,20 +410,29 @@ def bake_control_curve_values_for_frame(
     
     # now get the calculated values and bake them to the shape keys value
     if shape_keys:
-        for shape_key, value in instance.update_head_shape_keys():
-            shape_key.value = value
-            shape_key.keyframe_insert(data_path="value", frame=frame)
+        if component == 'head':
+            for shape_key, value in instance.update_head_shape_keys():
+                shape_key.value = value
+                shape_key.keyframe_insert(data_path="value", frame=frame)
+        elif component == 'body':
+            # TODO: implement body shape key baking
+            pass
 
     # now bake the texture mask values
     if texture_logic_node and masks:
-        for slider_name, value in instance.update_head_texture_masks():
-            texture_logic_node.inputs[slider_name].default_value = value # type: ignore
-            texture_logic_node.inputs[slider_name].keyframe_insert(
-                data_path="default_value", 
-                frame=frame
-            )
+        if component == 'head':
+            for slider_name, value in instance.update_head_texture_masks():
+                texture_logic_node.inputs[slider_name].default_value = value # type: ignore
+                texture_logic_node.inputs[slider_name].keyframe_insert(
+                    data_path="default_value", 
+                    frame=frame
+                )
+        elif component == 'body':
+            # TODO: implement body texture mask baking
+            pass
 
-def bake_to_action(
+def bake_face_board_to_action(
+        instance: 'RigLogicInstance',
         armature_object: bpy.types.Object,
         action_name: str,
         start_frame: int,
@@ -432,9 +443,8 @@ def bake_to_action(
         masks: bool = True,
         shape_keys: bool = True
     ):
-    from ..ui.callbacks import get_active_rig_logic, get_head_texture_logic_node
+    from ..ui.callbacks import get_head_texture_logic_node
 
-    instance = get_active_rig_logic()
     if instance:
         if channel_types is None:
             channel_types = {"LOCATION", "ROTATION", "SCALE"}
@@ -486,8 +496,120 @@ def bake_to_action(
                         action=action,
                         frame=frame,
                         shape_keys=shape_keys,
-                        masks=masks
+                        masks=masks,
+                        component='head'
                     )
 
             action.name = action_name
             bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True # type: ignore
+
+
+def bake_body_to_action(
+        instance: 'RigLogicInstance',
+        armature_object: bpy.types.Object,
+        action_name: str,
+        start_frame: int,
+        end_frame: int,
+        step: int = 1,
+        clean_curves: bool = True,
+        channel_types: set | None = None,
+        masks: bool = True,
+        shape_keys: bool = True,
+        driver_bones: bool = True,
+        driven_bones: bool = True,
+        twist_bones: bool = True,
+        swing_bones: bool = True,
+        other_bones: bool = True
+    ):
+    from ..ui.callbacks import get_body_texture_logic_node
+
+    if instance:
+        if channel_types is None:
+            channel_types = {"LOCATION", "ROTATION", "SCALE"}
+
+        if instance.body_rig and instance.body_rig.animation_data:
+            action = instance.body_rig.animation_data.action
+            if not action:
+                return
+            
+            instance.auto_evaluate_body = True            
+            switch_to_object_mode()
+            armature_object.hide_set(False)
+            bpy.context.view_layer.objects.active = armature_object # type: ignore
+            switch_to_pose_mode(armature_object)
+
+            # ensure the body is initialized
+            if not instance.body_initialized:
+                instance.body_initialize()
+
+            # collect all bone names to be baked
+            baked_bone_names = []
+            if driven_bones:
+                baked_bone_names += instance.body_driven_bone_names
+            if twist_bones:
+                baked_bone_names += instance.body_twist_bone_names
+            if swing_bones:
+                baked_bone_names += instance.body_swing_bone_names
+            if driver_bones:
+                baked_bone_names += instance.body_driver_bone_names
+            if other_bones:
+                # these are bones that are not any of the above
+                baked_bone_names += [
+                    bone.name for bone in armature_object.data.bones 
+                    if bone.name not in [
+                        *instance.body_driver_bone_names, 
+                        *instance.body_driven_bone_names, 
+                        *instance.body_twist_bone_names, 
+                        *instance.body_swing_bone_names
+                    ]
+                ]
+            
+            # select all secondary bones that are effected by rig logic
+            for bone in armature_object.data.bones: # type: ignore
+                if bone.name in baked_bone_names:
+                    bone.select = True
+                    bone.select_head = True
+                    bone.select_tail = True
+                else:
+                    bone.select = False
+                    bone.select_head = False
+                    bone.select_tail = False
+
+            current_actions = [a for a in bpy.data.actions]
+
+            # bake the visual keying of the pose bones
+            bpy.ops.nla.bake(
+                frame_start=start_frame,
+                frame_end=end_frame,
+                step=step,
+                only_selected=True,
+                visual_keying=True,
+                use_current_action=False,
+                bake_types={'POSE'},
+                clean_curves=clean_curves,
+                channel_types=channel_types
+            )
+            instance.auto_evaluate_body = False
+
+            # bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False # type: ignore
+            # texture_logic_node = get_body_texture_logic_node(instance.body_material)
+            # for frame in range(start_frame, end_frame + 1): # type: ignore
+            #     # modulo the step to only bake every nth frame
+            #     if frame % step == 0:
+            #         bake_control_curve_values_for_frame(
+            #             instance=instance,
+            #             texture_logic_node=texture_logic_node,
+            #             action=action,
+            #             frame=frame,
+            #             shape_keys=shape_keys,
+            #             masks=masks,
+            #             component='body'
+            #         )
+
+            # bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True # type: ignore
+
+            # rename the newly created action
+            for action in bpy.data.actions:
+                if action not in current_actions:
+                    action.name = action_name
+                    break

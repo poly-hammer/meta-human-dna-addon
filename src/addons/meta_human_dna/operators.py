@@ -246,8 +246,8 @@ class AppendOrLinkMetaHuman(bpy.types.Operator, importer.LinkAppendMetaHumanImpo
 
 class ImportFaceBoardAnimation(bpy.types.Operator, importer.ImportAnimation):
     """Import an animation for the metahuman face board exported from an Unreal Engine Level Sequence"""
-    bl_idname = "meta_human_dna.import_animation"
-    bl_label = "Import Animation"
+    bl_idname = "meta_human_dna.import_face_board_animation"
+    bl_label = "Import Face Board Animation"
     filename_ext = ".fbx"
 
     filter_glob: bpy.props.StringProperty(
@@ -337,11 +337,7 @@ class ImportComponentAnimation(bpy.types.Operator, importer.ImportAnimation):
 
         return {'FINISHED'}
     
-class BakeFaceBoardAnimation(bpy.types.Operator):
-    """Bakes the active face board action to the pose bones, shape key values, and texture logic mask values. Useful for rendering, simulations, etc. where rig logic evaluation is not available"""
-    bl_idname = "meta_human_dna.bake_animation"
-    bl_label = "Bake Animation"
-
+class BakeAnimationBase(bpy.types.Operator):
     action_name: bpy.props.StringProperty(
         name="Action Name",
         default="baked_action",
@@ -406,16 +402,45 @@ class BakeFaceBoardAnimation(bpy.types.Operator):
         default=True,
         description="Bakes the scale of the bones"
     ) # type: ignore
+    prefix_instance_name: bpy.props.BoolProperty(
+        name="Prefix Instance Name",
+        default=True,
+        description="Prefixes the baked action name with the rig instance name. This helps avoid name collisions with other action names when multiple are in the same scene."
+    ) # type: ignore
+    prefix_component_name: bpy.props.BoolProperty(
+        name="Prefix Component Name",
+        default=True,
+        description="Prefixes the baked action name with the component name. This helps avoid name collisions with other components that might have the same action names."
+    ) # type: ignore
 
     def invoke(self, context, event):
-        return context.window_manager.invoke_props_dialog(self, width = 250) # type: ignore
+        return context.window_manager.invoke_props_dialog(
+            self, 
+            title=self.dialog_title,
+            width=250
+        ) # type: ignore
+
+    @property
+    def dialog_title(self) -> str:
+        return self.bl_label
+    
+    def draw_extra_settings(self, layout, context):
+        pass
 
     def draw(self, context):
         if not self.layout:
             return
         
         row = self.layout.row()
-        row.prop(self, 'action_name', text="Name")
+        row.label(text="Naming:")
+        row = self.layout.row()
+        row.prop(self, 'action_name', text='')
+        row = self.layout.row()
+        row.prop(self, 'prefix_component_name')
+        row = self.layout.row()
+        row.prop(self, 'prefix_instance_name')
+        row = self.layout.row()
+        row.label(text="Settings:")
         row = self.layout.row()
         row.prop(self, 'start_frame')
         row.prop(self, 'end_frame')
@@ -426,6 +451,8 @@ class BakeFaceBoardAnimation(bpy.types.Operator):
         row = self.layout.row()
         row.prop(self, 'masks')
         row = self.layout.row()
+        self.draw_extra_settings(self.layout, context)
+        row = self.layout.row()
         row.label(text="Bones:")
         row = self.layout.row()
         row.prop(self, 'bone_location', text="Location")
@@ -434,13 +461,19 @@ class BakeFaceBoardAnimation(bpy.types.Operator):
         row = self.layout.row()
         row.prop(self, 'bone_scale', text="Scale")
 
+    
+class BakeFaceBoardAnimation(BakeAnimationBase):
+    """Bakes the active face board action to the pose bones, shape key values, and texture logic mask values. Useful for rendering, simulations, etc. where rig logic evaluation is not available"""
+    bl_idname = "meta_human_dna.bake_face_board_animation"
+    bl_label = "Bake Face Board Animation"
+
     def execute(self, context):
         if self.start_frame > self.end_frame:
             self.report({'ERROR'}, 'The start frame must be less than the end frame')
             return {'CANCELLED'}
 
-        head = utilities.get_active_head()
-        if head and head.head_rig_object:
+        instance = callbacks.get_active_rig_logic()
+        if instance and instance.head_rig:
             channel_types = set()
             if self.bone_location:
                 channel_types.add('LOCATION')
@@ -449,8 +482,9 @@ class BakeFaceBoardAnimation(bpy.types.Operator):
             if self.bone_scale:
                 channel_types.add('SCALE')
 
-            utilities.bake_to_action(
-                armature_object=head.head_rig_object,
+            utilities.bake_face_board_to_action(
+                instance=instance,
+                armature_object=instance.head_rig,
                 action_name=self.action_name,
                 start_frame=self.start_frame, # type: ignore
                 end_frame=self.end_frame, # type: ignore
@@ -476,6 +510,111 @@ class BakeFaceBoardAnimation(bpy.types.Operator):
         if not instance.face_board.animation_data.action:
             return False
         return True
+    
+
+class BakeComponentAnimation(BakeAnimationBase):
+    """Bakes the active component action. This takes into account how the driver pose bones effect the rbf driven bones, shape key values, and texture logic mask values. Useful for rendering, simulations, etc. where rig logic evaluation is not available"""
+    bl_idname = "meta_human_dna.bake_component_animation"
+    bl_label = "Bake Component Animation"
+
+    component_type: bpy.props.StringProperty(
+        default="body",
+        options={"HIDDEN"},
+        subtype="FILE_PATH",
+    ) # type: ignore
+
+    driver_bones: bpy.props.BoolProperty(
+        name="Driver Bones",
+        default=True,
+        description="Bakes the values of the driver bones over time"
+    ) # type: ignore
+    driven_bones: bpy.props.BoolProperty(
+        name="Driven Bones",
+        default=True,
+        description="Bakes the values of the RBF driven bones over time"
+    ) # type: ignore
+    twist_bones: bpy.props.BoolProperty(
+        name="Twist Bones",
+        default=True,
+        description="Bakes the values of the twist bones over time"
+    ) # type: ignore
+    swing_bones: bpy.props.BoolProperty(
+        name="Swing Bones",
+        default=True,
+        description="Bakes the values of the swing bones over time"
+    ) # type: ignore
+    other_bones: bpy.props.BoolProperty(
+        name="Other Bones",
+        default=True,
+        description="Bakes the values of other bones on the rig that are not explicitly categorized as driver, driven, twist, or swing bones"
+    ) # type: ignore
+
+    def execute(self, context):
+        if self.start_frame > self.end_frame:
+            self.report({'ERROR'}, 'The start frame must be less than the end frame')
+            return {'CANCELLED'}
+
+        instance = callbacks.get_active_rig_logic()
+        if instance and instance.body_rig and self.component_type == 'body':
+            channel_types = set()
+            if self.bone_location:
+                channel_types.add('LOCATION')
+            if self.bone_rotation:
+                channel_types.add('ROTATION')
+            if self.bone_scale:
+                channel_types.add('SCALE')
+
+            utilities.bake_body_to_action(
+                instance=instance,
+                armature_object=instance.body_rig,
+                action_name=self.action_name,
+                start_frame=self.start_frame, # type: ignore
+                end_frame=self.end_frame, # type: ignore
+                step=self.step,
+                channel_types=channel_types,
+                clean_curves=self.clean_curves,
+                masks=self.masks,
+                shape_keys=self.shape_keys, 
+                driver_bones=self.driver_bones,
+                driven_bones=self.driven_bones,
+                twist_bones=self.twist_bones,
+                swing_bones=self.swing_bones,
+                other_bones=self.other_bones
+            )
+        return {'FINISHED'}
+    
+    @property
+    def dialog_title(self) -> str:
+        return f'Bake {self.component_type.capitalize()} Animation'
+    
+    def draw_extra_settings(self, layout, context):
+        if self.component_type == 'body':
+            row = layout.row()
+            row.prop(self, 'driver_bones')
+            row = layout.row()
+            row.prop(self, 'driven_bones')
+            row = layout.row()
+            row.prop(self, 'twist_bones')
+            row = layout.row()
+            row.prop(self, 'swing_bones')
+    
+    @classmethod
+    def poll(cls, context):
+        instance = callbacks.get_active_rig_logic()
+
+        if not instance:
+            return False
+        
+        if context.window_manager.meta_human_dna.current_component_type == 'body':
+            if not instance.body_rig:
+                return False
+            if not instance.body_rig.animation_data:
+                return False
+            if not instance.body_rig.animation_data.action:
+                return False
+            return True
+        
+        return False
 
 
 class ImportMetahumanDna(bpy.types.Operator, importer.ImportAsset, MetahumanDnaImportProperties):

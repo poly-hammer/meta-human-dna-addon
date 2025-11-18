@@ -250,8 +250,8 @@ class META_HUMAN_DNA_PT_face_board(bpy.types.Panel):
             row = self.layout.row()
             row.label(text='Animation:')
             split = self.layout.split(factor=0.5)
-            split.operator('meta_human_dna.import_animation', icon='IMPORT', text='Import')
-            split.operator('meta_human_dna.bake_animation', icon='ACTION', text='Bake')
+            split.operator('meta_human_dna.import_face_board_animation', icon='IMPORT', text='Import')
+            split.operator('meta_human_dna.bake_face_board_animation', icon='ACTION', text='Bake')
         else:
             draw_rig_logic_instance_error(self.layout, error)
 
@@ -426,7 +426,9 @@ class META_HUMAN_DNA_PT_animation_utilities_sub_panel(SubPanelBase):
             current_component_type = context.window_manager.meta_human_dna.current_component_type # type: ignore
             row = self.layout.row()
             row.scale_y = 1.5
-            row.operator('meta_human_dna.import_component_animation', text=f'Import {current_component_type.capitalize()} Animation').component_type = current_component_type # type: ignore
+            split = row.split(factor=0.5)
+            split.operator('meta_human_dna.import_component_animation', text=f'Import on {current_component_type.capitalize()}').component_type = current_component_type # type: ignore
+            split.operator('meta_human_dna.bake_component_animation', text=f'Bake on {current_component_type.capitalize()}').component_type = current_component_type # type: ignore
 
 
 class META_HUMAN_DNA_PT_materials_utilities_sub_panel(SubPanelBase):

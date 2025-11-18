@@ -35,6 +35,7 @@ classes = [
     operators.ImportFaceBoardAnimation,
     operators.ImportComponentAnimation,
     operators.BakeFaceBoardAnimation,
+    operators.BakeComponentAnimation,
     operators.ImportShapeKeys,
     operators.TestSentry,
     operators.OpenBuildToolDocumentation,
