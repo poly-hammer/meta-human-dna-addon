@@ -23,15 +23,19 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
         if self.body_rig_object:
             # ensure the rig logic instance is initialized
             self.rig_logic_instance.initialize()
-            action = utilities.import_action_from_fbx(
+            utilities.import_action_from_fbx(
                 file_path=file_path, 
                 armature=self.body_rig_object,
-                include_only_bones=self.rig_logic_instance.body_raw_control_bone_names
+                # include animation only for body that are not driven by rig logic
+                include_only_bones=[
+                    b.name for b in self.body_rig_object.pose.bones 
+                    if b.name not in [
+                        *self.rig_logic_instance.body_driven_bone_names, 
+                        *self.rig_logic_instance.body_swing_bone_names,
+                        *self.rig_logic_instance.body_twist_bone_names
+                    ]
+                ]
             )
-            # utilities.convert_action_rotation_from_euler_to_quaternion(
-            #     action=action,
-            #     bone_names=self.rig_logic_instance.body_raw_control_bone_names
-            # )
 
     def ingest(
             self, 

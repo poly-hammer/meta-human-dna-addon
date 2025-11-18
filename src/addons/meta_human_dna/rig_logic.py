@@ -375,7 +375,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     evaluate_rbfs: bpy.props.BoolProperty(
         default=True,
         name='Evaluate RBFs',
-        description="Whether to evaluate RBFs based on the control bone's quaternion rotations",
+        description="Whether to evaluate RBFs based on the driver bones quaternion rotations",
         update=callbacks.update_evaluate_rbfs_value,
     ) # type: ignore
     face_board: bpy.props.PointerProperty(
@@ -1007,7 +1007,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         if self.body_rig and self.body_rig.pose:
             for pose_bone in self.body_rig.pose.bones:
                 # make sure the body bones are using the correct rotation mode
-                if pose_bone.name in self.body_raw_control_bone_names:
+                if pose_bone.name in self.body_driver_bone_names:
                     pose_bone.rotation_mode = "QUATERNION"
                 else:
                     pose_bone.rotation_mode = "XYZ"
@@ -1023,22 +1023,6 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         self.data[f'{self.name}_body_rest_pose'] = rest_pose
         # return a copy so the original rest position is not modified
         return self.data[f'{self.name}_body_rest_pose']
-
-    @property
-    def body_raw_control_bone_names(self) -> list[str]:
-        raw_control_bone_names = self.data.get(f'{self.name}_body_raw_control_bone_names', [])
-        if raw_control_bone_names:
-            return raw_control_bone_names
-        
-        raw_control_bone_names = set()
-        for index in range(self.body_dna_reader.getRawControlCount()):
-            full_name = self.body_dna_reader.getRawControlName(index)
-            control_name, _ = full_name.split('.')
-            raw_control_bone_names.add(control_name)
-
-        # save the raw control bone names so we don't have to query them again
-        self.data[f'{self.name}_body_raw_control_bone_names'] = list(raw_control_bone_names)
-        return self.data[f'{self.name}_body_raw_control_bone_names']
     
     @property
     def body_twist_bone_names(self) -> list[str]:
@@ -1161,7 +1145,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         # make sure the body bones are using the correct rotation mode
         if self.body_rig and self.body_rig.pose:
             for pose_bone in self.body_rig.pose.bones:
-                if pose_bone.name in self.body_raw_control_bone_names:
+                if pose_bone.name in self.body_driver_bone_names:
                     pose_bone.rotation_mode = "QUATERNION"
                 else:
                     pose_bone.rotation_mode = "XYZ"
@@ -1194,7 +1178,6 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             self.update_body_rbf_solver_list()
 
         # calling theses properties will cache their values
-        self.body_raw_control_bone_names
         self.body_rest_pose
         self.body_twist_bone_names
         self.body_swing_bone_names
@@ -1743,9 +1726,11 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                     self.update_head_texture_masks()
 
             if component in ('body', 'all') and self.body_initialized:
-                self.update_body_raw_control_values()
-                # apply the changes
                 if self.evaluate_rbfs:
+                    self.update_body_raw_control_values()
+                
+                # apply the changes
+                if self.evaluate_bones:
                     self.update_body_bone_transforms()
 
             # turn on the dependency graph evaluation back on

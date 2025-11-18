@@ -4,7 +4,7 @@ import json
 import logging
 from typing import TYPE_CHECKING
 from pathlib import Path
-from mathutils import Euler
+from mathutils import Euler, Quaternion
 from ..constants import (
     Axis, 
     SCALE_FACTOR,  
@@ -80,11 +80,7 @@ def scale_object_actions(
 
     for ordered_object in ordered_objects:
         # run the export iteration but with "scale" set to the scale of the object as it was imported
-        scale = (
-            ordered_object.scale[0] * scale_factor,
-            ordered_object.scale[1] * scale_factor,
-            ordered_object.scale[2] * scale_factor
-        )
+        scale = ordered_object.scale[:]
 
         # if the imported object is an armature
         if ordered_object.type == 'ARMATURE':
@@ -110,7 +106,7 @@ def scale_object_actions(
             # apply the scale on the object
             apply_transforms(ordered_object, scale=True)
 
-def convert_action_rotation_from_euler_to_quaternion(
+def convert_action_rotation_from_quaternion_to_euler(
         action: bpy.types.Action, 
         bone_names: list[str] | None = None
     ):
@@ -119,8 +115,8 @@ def convert_action_rotation_from_euler_to_quaternion(
         bone_names = []
 
     for fcurve in action.fcurves:
-        # save the euler rotation curves by bone for later conversion
-        if 'rotation_euler' in fcurve.data_path:
+        # save the quaternion rotation curves by bone for later conversion
+        if 'rotation_quaternion' in fcurve.data_path:
             bone_name = fcurve.data_path.split('"')[1]
             # if we have a list of bone names to filter by, skip any that are not in the list
             if bone_name not in bone_names:
@@ -129,39 +125,39 @@ def convert_action_rotation_from_euler_to_quaternion(
             rotation_curves_by_bone[bone_name] = rotation_curves_by_bone.get(bone_name, {})
             rotation_curves_by_bone[bone_name][fcurve.array_index] = fcurve
     
-    # convert euler curves to quaternion curves
-    for bone_name, euler_curves in rotation_curves_by_bone.items():
-        # collect all frames from all euler curves
+    # convert quaternion curves to euler curves
+    for bone_name, quat_curves in rotation_curves_by_bone.items():
+        # collect all frames from all quaternion curves
         frames = set()
-        for fcurve in euler_curves.values():
+        for fcurve in quat_curves.values():
             for keyframe in fcurve.keyframe_points:
                 frames.add(int(keyframe.co[0]))
         
-        # create quaternion fcurves
-        quat_fcurves = {}
-        for i in range(4):  # w, x, y, z
-            quat_fcurves[i] = action.fcurves.new(
-                data_path=f'pose.bones["{bone_name}"].rotation_quaternion',
+        # create euler fcurves
+        euler_fcurves = {}
+        for i in range(3):  # x, y, z
+            euler_fcurves[i] = action.fcurves.new(
+                data_path=f'pose.bones["{bone_name}"].rotation_euler',
                 index=i
             )
-            quat_fcurves[i].keyframe_points.add(len(frames))
+            euler_fcurves[i].keyframe_points.add(len(frames))
         
-        # convert euler values to quaternion for each frame
+        # convert quaternion values to euler for each frame
         for frame_idx, frame in enumerate(sorted(frames)):
-            euler_values = [0.0, 0.0, 0.0]
-            for axis, fcurve in euler_curves.items():
-                euler_values[axis] = fcurve.evaluate(frame)
+            quat_values = [1.0, 0.0, 0.0, 0.0]  # w, x, y, z
+            for axis, fcurve in quat_curves.items():
+                quat_values[axis] = fcurve.evaluate(frame)
             
-            # convert euler to quaternion
-            euler = Euler(euler_values, 'XYZ')
-            quat = euler.to_quaternion()
+            # convert quaternion to euler
+            quat = Quaternion(quat_values)
+            euler = quat.to_euler('XYZ')
             
-            # set quaternion keyframe values
-            for i, value in enumerate([quat.w, quat.x, quat.y, quat.z]):
-                quat_fcurves[i].keyframe_points[frame_idx].co = (frame, value)
+            # set euler keyframe values
+            for i, value in enumerate([euler.x, euler.y, euler.z]):
+                euler_fcurves[i].keyframe_points[frame_idx].co = (frame, value)
         
-        # remove original euler curves
-        for fcurve in euler_curves.values():
+        # remove original quaternion curves
+        for fcurve in quat_curves.values():
             action.fcurves.remove(fcurve)
 
 def import_action_from_fbx(
@@ -246,6 +242,13 @@ def import_action_from_fbx(
     for scene_object in bpy.data.objects:
         if scene_object not in current_objects:
             bpy.data.objects.remove(scene_object, do_unlink=True)
+
+    # match the keyframe rotation modes to the armature bones (all rotation is imported as quaternion)
+    euler_bone_names = [b.name for b in armature.pose.bones if b.rotation_mode == 'XYZ']
+    convert_action_rotation_from_quaternion_to_euler(
+        action=new_action,
+        bone_names=euler_bone_names
+    )
 
     return new_action
 

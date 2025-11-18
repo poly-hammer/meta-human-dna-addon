@@ -1642,8 +1642,8 @@ class RevertRBFSolver(RBFEditorOperatorBase):
         utilities.reset_pose(instance.body_rig)
 
         instance.editing_rbf_solver = False
-        bpy.ops.meta_human_dna.force_evaluate() # type: ignore
         instance.auto_evaluate_body = True
+        bpy.ops.meta_human_dna.force_evaluate() # type: ignore
 
 class EditRBFSolver(RBFEditorOperatorBase):
     """Switch to Editing mode for the selected RBF solver. Changes will not take effect until committed to the .dna file."""
@@ -1666,9 +1666,6 @@ class EditRBFSolver(RBFEditorOperatorBase):
         instance.auto_evaluate_body = False
         instance.body_rig.hide_set(False)
         utilities.switch_to_pose_mode(instance.body_rig)
-
-        solver = instance.rbf_solver_list[self.solver_index]
-        callbacks.update_body_rbf_poses_active_index(solver, bpy.context)
             
 
 class CommitRBFSolverChanges(RBFEditorOperatorBase):

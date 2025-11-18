@@ -100,17 +100,17 @@ class META_HUMAN_DNA_UL_rig_logic_instances(bpy.types.UIList):
         row.alignment = 'RIGHT'
         
         col = row.column(align=True)
-        col.enabled = item.auto_evaluate and item.auto_evaluate_head
+        col.enabled = item.auto_evaluate and (item.auto_evaluate_head or item.auto_evaluate_body)
         col.alert = not item.evaluate_bones
         col.prop(item, "evaluate_bones", text="", icon='BONE_DATA', emboss=False)
 
         col = row.column(align=True)
-        col.enabled = item.auto_evaluate and item.auto_evaluate_head
+        col.enabled = item.auto_evaluate and (item.auto_evaluate_head or item.auto_evaluate_body)
         col.alert = not item.evaluate_shape_keys
         col.prop(item, "evaluate_shape_keys", text="", icon='SHAPEKEY_DATA', emboss=False)
 
         col = row.column(align=True)
-        col.enabled = item.auto_evaluate and item.auto_evaluate_head
+        col.enabled = item.auto_evaluate and (item.auto_evaluate_head or item.auto_evaluate_body)
         col.alert = not item.evaluate_texture_masks
         col.prop(item, "evaluate_texture_masks", text="", icon='NODE_TEXTURE', emboss=False)
 
@@ -408,9 +408,9 @@ class META_HUMAN_DNA_PT_armature_utilities_sub_panel(SubPanelBase):
             draw_rig_logic_instance_error(self.layout, error)
 
 
-class META_HUMAN_DNA_PT_action_utilities_sub_panel(SubPanelBase):
+class META_HUMAN_DNA_PT_animation_utilities_sub_panel(SubPanelBase):
     bl_parent_id = "META_HUMAN_DNA_PT_utilities"
-    bl_label = "Action"
+    bl_label = "Animation"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = 'Meta-Human DNA'
@@ -425,7 +425,8 @@ class META_HUMAN_DNA_PT_action_utilities_sub_panel(SubPanelBase):
         if not error:
             current_component_type = context.window_manager.meta_human_dna.current_component_type # type: ignore
             row = self.layout.row()
-            row.operator('meta_human_dna.import_component_animation', text='Import Animation').component_type = current_component_type # type: ignore
+            row.scale_y = 1.5
+            row.operator('meta_human_dna.import_component_animation', text=f'Import {current_component_type.capitalize()} Animation').component_type = current_component_type # type: ignore
 
 
 class META_HUMAN_DNA_PT_materials_utilities_sub_panel(SubPanelBase):

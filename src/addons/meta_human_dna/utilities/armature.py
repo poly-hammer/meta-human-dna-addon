@@ -217,12 +217,14 @@ def set_body_bone_collections(
             rig_object=rig_object, 
             bone_names=twist_bone_names,
             collection_name='Twists',
+            visible=False,
             theme='THEME03'
         )
         set_bone_collection(
             rig_object=rig_object, 
             bone_names=swing_bone_names,
             collection_name='Swings',
+            visible=False,
             theme='THEME04'
         )
         set_bone_collection(
