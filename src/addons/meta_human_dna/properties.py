@@ -193,7 +193,7 @@ class MetahumanSceneProperties(bpy.types.PropertyGroup):
     # --------------------- user interface properties ------------------
     highlight_matching_active_bone: bpy.props.BoolProperty(
         name="Highlight Matching Active Bone",
-        description="Highlights bones that match the name of the active pose bone across all rig logic instances",
+        description="Highlights bones that match the name of the active pose bone across all rig instances",
         default=False,
         set=callbacks.set_highlight_matching_active_bone,
         get=callbacks.get_highlight_matching_active_bone

@@ -243,11 +243,9 @@ class AppendOrLinkMetaHuman(bpy.types.Operator, importer.LinkAppendMetaHumanImpo
                 )
 
         return {'FINISHED'}
+    
 
-class ImportFaceBoardAnimation(bpy.types.Operator, importer.ImportAnimation):
-    """Import an animation for the metahuman face board exported from an Unreal Engine Level Sequence"""
-    bl_idname = "meta_human_dna.import_face_board_animation"
-    bl_label = "Import Face Board Animation"
+class ImportAnimationBase(bpy.types.Operator):
     filename_ext = ".fbx"
 
     filter_glob: bpy.props.StringProperty(
@@ -273,6 +271,32 @@ class ImportFaceBoardAnimation(bpy.types.Operator, importer.ImportAnimation):
             "will scale the animation curves to match the current scene frame rate"
         )
     ) # type: ignore
+
+    prefix_instance_name: bpy.props.BoolProperty(
+        name="Prefix Instance Name",
+        default=True,
+        description="Prefixes the baked action name with the rig instance name. This helps avoid name collisions with other action names when multiple are in the same scene."
+    ) # type: ignore
+
+    prefix_component_name: bpy.props.BoolProperty(
+        name="Prefix Component Name",
+        default=True,
+        description="Prefixes the baked action name with the component name. This helps avoid name collisions with other components that might have the same action names."
+    ) # type: ignore
+
+    @property
+    def settings_title(self) -> str:
+        return "Animation Import Settings:"
+
+
+class ImportFaceBoardAnimation(ImportAnimationBase, importer.ImportAnimation):
+    """Import an animation for the metahuman face board exported from an Unreal Engine Level Sequence"""
+    bl_idname = "meta_human_dna.import_face_board_animation"
+    bl_label = "Import"
+
+    @property
+    def settings_title(self) -> str:
+        return "Face Board Animation Import Settings:"
 
     def execute(self, context):
         logger.info(f'Importing animation {self.filepath}')  # type: ignore
@@ -282,21 +306,17 @@ class ImportFaceBoardAnimation(bpy.types.Operator, importer.ImportAnimation):
                 Path(self.filepath), # type: ignore
                 is_face_board=True,
                 round_sub_frames=self.round_sub_frames,
-                match_frame_rate=self.match_frame_rate
+                match_frame_rate=self.match_frame_rate,
+                prefix_instance_name=self.prefix_instance_name,
+                prefix_component_name=self.prefix_component_name
             )
         return {'FINISHED'}
     
-class ImportComponentAnimation(bpy.types.Operator, importer.ImportAnimation):
+
+class ImportComponentAnimation(ImportAnimationBase, importer.ImportAnimation):
     """Import an animation for the selected metahuman component that has been exported from an Unreal Engine"""
     bl_idname = "meta_human_dna.import_component_animation"
-    bl_label = "Import Component Animation"
-    filename_ext = ".fbx"
-
-    filter_glob: bpy.props.StringProperty(
-        default="*.fbx",
-        options={"HIDDEN"},
-        subtype="FILE_PATH",
-    ) # type: ignore
+    bl_label = "Import"
 
     component_type: bpy.props.StringProperty(
         default="body",
@@ -304,23 +324,9 @@ class ImportComponentAnimation(bpy.types.Operator, importer.ImportAnimation):
         subtype="FILE_PATH",
     ) # type: ignore
 
-    round_sub_frames: bpy.props.BoolProperty(
-        name="Round Sub Frames",
-        default=True,
-        description=(
-            "Whether to round sub frames when importing the animation. This "
-            "ensure all keyframes are on whole frames with integer values"
-        )
-    ) # type: ignore
-
-    match_frame_rate: bpy.props.BoolProperty(
-        name="Match Frame Rate",
-        default=True,
-        description=(
-            "Whether to match the frame rate when importing the animation. This "
-            "will scale the animation curves to match the current scene frame rate"
-        )
-    ) # type: ignore
+    @property
+    def settings_title(self) -> str:
+        return f"{self.component_type.capitalize()} Animation Import Settings:"
 
     def execute(self, context):
         file_path = Path(bpy.path.abspath(self.filepath)) # type: ignore
@@ -328,20 +334,51 @@ class ImportComponentAnimation(bpy.types.Operator, importer.ImportAnimation):
         if self.component_type == 'head':
             head = utilities.get_active_head()
             if head:
-                head.import_action(file_path, is_face_board=False)  # type: ignore
+                head.import_action(
+                    file_path, 
+                    is_face_board=False,
+                    round_sub_frames=self.round_sub_frames,
+                    match_frame_rate=self.match_frame_rate,
+                    prefix_instance_name=self.prefix_instance_name,
+                    prefix_component_name=self.prefix_component_name
+                )  # type: ignore
             
         elif self.component_type == 'body':
             body = utilities.get_active_body()
             if body:
-                body.import_action(file_path)  # type: ignore
+                body.import_action(
+                    file_path, 
+                    round_sub_frames=self.round_sub_frames,
+                    match_frame_rate=self.match_frame_rate,
+                    prefix_instance_name=self.prefix_instance_name,
+                    prefix_component_name=self.prefix_component_name
+                )  # type: ignore
 
         return {'FINISHED'}
-    
+
+
 class BakeAnimationBase(bpy.types.Operator):
     action_name: bpy.props.StringProperty(
         name="Action Name",
         default="baked_action",
         description="The name of the action that will be created to store the baked animation data"
+    ) # type: ignore
+
+    prefix_instance_name: bpy.props.BoolProperty(
+        name="Prefix Instance Name",
+        default=True,
+        description="Prefixes the baked action name with the rig instance name. This helps avoid name collisions with other action names when multiple are in the same scene."
+    ) # type: ignore
+    prefix_component_name: bpy.props.BoolProperty(
+        name="Prefix Component Name",
+        default=True,
+        description="Prefixes the baked action name with the component name. This helps avoid name collisions with other components that might have the same action names."
+    ) # type: ignore
+
+    replace_action: bpy.props.BoolProperty(
+        name="Replace Action",
+        default=False,
+        description="Replaces the existing action with the baked action"
     ) # type: ignore
 
     start_frame: bpy.props.IntProperty(
@@ -402,16 +439,6 @@ class BakeAnimationBase(bpy.types.Operator):
         default=True,
         description="Bakes the scale of the bones"
     ) # type: ignore
-    prefix_instance_name: bpy.props.BoolProperty(
-        name="Prefix Instance Name",
-        default=True,
-        description="Prefixes the baked action name with the rig instance name. This helps avoid name collisions with other action names when multiple are in the same scene."
-    ) # type: ignore
-    prefix_component_name: bpy.props.BoolProperty(
-        name="Prefix Component Name",
-        default=True,
-        description="Prefixes the baked action name with the component name. This helps avoid name collisions with other components that might have the same action names."
-    ) # type: ignore
 
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(
@@ -436,9 +463,9 @@ class BakeAnimationBase(bpy.types.Operator):
         row = self.layout.row()
         row.prop(self, 'action_name', text='')
         row = self.layout.row()
-        row.prop(self, 'prefix_component_name')
-        row = self.layout.row()
         row.prop(self, 'prefix_instance_name')
+        row = self.layout.row()
+        row.prop(self, 'prefix_component_name')
         row = self.layout.row()
         row.label(text="Settings:")
         row = self.layout.row()
@@ -447,13 +474,15 @@ class BakeAnimationBase(bpy.types.Operator):
         row = self.layout.row()
         row.prop(self, 'step')
         row = self.layout.row()
+        row.prop(self, 'replace_action')
+        row = self.layout.row()
         row.prop(self, 'shape_keys')
         row = self.layout.row()
         row.prop(self, 'masks')
         row = self.layout.row()
         self.draw_extra_settings(self.layout, context)
         row = self.layout.row()
-        row.label(text="Bones:")
+        row.label(text="Bone Transforms:")
         row = self.layout.row()
         row.prop(self, 'bone_location', text="Location")
         row = self.layout.row()
@@ -482,10 +511,19 @@ class BakeFaceBoardAnimation(BakeAnimationBase):
             if self.bone_scale:
                 channel_types.add('SCALE')
 
+            action_name = utilities.get_action_name(
+                instance=instance,
+                action_name=self.action_name,
+                component='head',
+                prefix_component_name=self.prefix_component_name,
+                prefix_instance_name=self.prefix_instance_name,
+            )
+
             utilities.bake_face_board_to_action(
                 instance=instance,
                 armature_object=instance.head_rig,
-                action_name=self.action_name,
+                action_name=action_name,
+                replace_action=self.replace_action,
                 start_frame=self.start_frame, # type: ignore
                 end_frame=self.end_frame, # type: ignore
                 step=self.step,
@@ -564,10 +602,19 @@ class BakeComponentAnimation(BakeAnimationBase):
             if self.bone_scale:
                 channel_types.add('SCALE')
 
+            action_name = utilities.get_action_name(
+                instance=instance,
+                action_name=self.action_name,
+                component=self.component_type,
+                prefix_component_name=self.prefix_component_name,
+                prefix_instance_name=self.prefix_instance_name,
+            )
+
             utilities.bake_body_to_action(
                 instance=instance,
                 armature_object=instance.body_rig,
-                action_name=self.action_name,
+                action_name=action_name,
+                replace_action=self.replace_action,
                 start_frame=self.start_frame, # type: ignore
                 end_frame=self.end_frame, # type: ignore
                 step=self.step,
@@ -589,6 +636,8 @@ class BakeComponentAnimation(BakeAnimationBase):
     
     def draw_extra_settings(self, layout, context):
         if self.component_type == 'body':
+            row = layout.row()
+            row.label(text="Bone Types:")
             row = layout.row()
             row.prop(self, 'driver_bones')
             row = layout.row()

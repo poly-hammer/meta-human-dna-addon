@@ -17,13 +17,21 @@ logger = logging.getLogger(__name__)
 
 class MetaHumanComponentBody(MetaHumanComponentBase):
     @exclude_rig_logic_evaluation
-    def import_action(self, file_path: Path):
+    def import_action(
+            self, 
+            file_path: Path,
+            round_sub_frames: bool = True,
+            match_frame_rate: bool = True,
+            prefix_instance_name: bool = True,
+            prefix_component_name: bool = True
+        ):
         file_path = Path(file_path)
         
         if self.body_rig_object:
             # ensure the rig logic instance is initialized
             self.rig_logic_instance.initialize()
             utilities.import_action_from_fbx(
+                instance=self.rig_logic_instance,
                 file_path=file_path, 
                 armature=self.body_rig_object,
                 # include animation only for body that are not driven by rig logic
@@ -60,7 +68,6 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
 
         if self.body_rig_object and self.body_mesh_object:
             utilities.set_body_bone_collections(
-                reader=self.dna_reader,
                 mesh_object=self.body_mesh_object,
                 rig_object=self.body_rig_object,
                 swing_bone_names=self.rig_logic_instance.body_swing_bone_names,

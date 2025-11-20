@@ -23,6 +23,21 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+def get_action_name(
+        instance: 'RigLogicInstance', 
+        action_name: str,
+        prefix_component_name: bool,
+        prefix_instance_name: bool,
+        component: ComponentType = 'head'
+    ) -> str:
+    if prefix_component_name and not prefix_instance_name:
+        return f'{component}_{action_name}'
+    elif prefix_instance_name and not prefix_component_name:
+        return f'{instance.name}_{action_name}'
+    elif prefix_instance_name and prefix_component_name:
+        return f'{instance.name}_{component}_{action_name}'
+    return action_name
+
 def set_keys_on_bone(
         action: bpy.types.Action, 
         bone_name: str, 
@@ -162,17 +177,30 @@ def convert_action_rotation_from_quaternion_to_euler(
             action.fcurves.remove(fcurve)
 
 def import_action_from_fbx(
+        instance: 'RigLogicInstance',
         file_path: Path, 
         armature: bpy.types.Object,
-        include_only_bones: list[str] | None = None
+        include_only_bones: list[str] | None = None,
+        round_sub_frames: bool = True,
+        match_frame_rate: bool = True,
+        prefix_instance_name: bool = True,
+        prefix_component_name: bool = True
     ) -> bpy.types.Action:
     file_path = Path(file_path)
 
+    action_name = get_action_name(
+        instance=instance, # type: ignore
+        action_name=file_path.stem,
+        prefix_component_name=prefix_component_name,
+        prefix_instance_name=prefix_instance_name,
+        component='head'
+    )
+
     # remove the action if it already exists
-    new_action = bpy.data.actions.get(file_path.stem)
+    new_action = bpy.data.actions.get(action_name)
     if new_action:
         bpy.data.actions.remove(new_action)
-    new_action = bpy.data.actions.new(name=file_path.stem)
+    new_action = bpy.data.actions.new(name=action_name)
 
     # remember the current actions and objects
     current_actions = [action for action in bpy.data.actions]
@@ -195,7 +223,10 @@ def import_action_from_fbx(
     # get the frame rate of the imported fbx
     imported_frame_rate = bpy.context.scene.render.fps # type: ignore
     # calculate the frame scale factor
-    frame_scale_factor = current_frame_rate / imported_frame_rate
+    if match_frame_rate:
+        frame_scale_factor = current_frame_rate / imported_frame_rate
+    else:
+        frame_scale_factor = 1.0
     # restore the original frame rate
     bpy.context.scene.render.fps = current_frame_rate # type: ignore
 
@@ -225,14 +256,22 @@ def import_action_from_fbx(
                 # then set all all their values
                 for index, keyframe in enumerate(source_fcurve.keyframe_points):
                     # Adjust keyframe position based on frame rate scale factor
-                    target_fcurve.keyframe_points[index].co = (keyframe.co[0] * frame_scale_factor, keyframe.co[1])
+                    frame = keyframe.co[0] * frame_scale_factor
+                    
+                    # optionally round sub frames to the nearest whole frame
+                    if round_sub_frames:
+                        frame = round(frame)
+
+                    target_fcurve.keyframe_points[index].co = (frame, keyframe.co[1])
                     target_fcurve.keyframe_points[index].interpolation = keyframe.interpolation
 
     # assign the new action to as the current action of the armature
     if not armature.animation_data:
         armature.animation_data_create()
     armature.animation_data.action = new_action # type: ignore
-    armature.animation_data.action_slot = new_action.slots[0] # type: ignore
+    # assign the first action slot if there are any
+    if new_action.slots:
+        armature.animation_data.action_slot = new_action.slots[0] # type: ignore
 
     # # remove the imported actions
     for action in bpy.data.actions:
@@ -255,18 +294,29 @@ def import_action_from_fbx(
 
 
 def import_face_board_action_from_fbx(
+        instance: 'RigLogicInstance',
         file_path: Path, 
         armature: bpy.types.Object,
         round_sub_frames: bool = True,
-        match_frame_rate: bool = True
+        match_frame_rate: bool = True,
+        prefix_instance_name: bool = True,
+        prefix_component_name: bool = True
     ):
     file_path = Path(file_path)
 
+    action_name = get_action_name(
+        instance=instance, # type: ignore
+        action_name=file_path.stem,
+        prefix_component_name=prefix_component_name,
+        prefix_instance_name=prefix_instance_name,
+        component='head'
+    )
+
     # remove the action if it already exists
-    face_board_action = bpy.data.actions.get(file_path.stem)
+    face_board_action = bpy.data.actions.get(action_name)
     if face_board_action:
         bpy.data.actions.remove(face_board_action)
-    face_board_action = bpy.data.actions.new(name=file_path.stem)
+    face_board_action = bpy.data.actions.new(name=action_name)
 
     # remember the current actions and objects
     current_actions = [action for action in bpy.data.actions]
@@ -292,6 +342,7 @@ def import_face_board_action_from_fbx(
 
         curve_name = action.name.split('.')[0]
 
+        # TODO: Change this to actually support these?
         # skip any eye aim controls
         if curve_name in EYE_AIM_BONES + FACE_BOARD_SWITCHES + ['CTRL_C_eye']:
             continue
@@ -328,6 +379,9 @@ def import_face_board_action_from_fbx(
     if not armature.animation_data:
         armature.animation_data_create()
     armature.animation_data.action = face_board_action # type: ignore
+    # assign the first action slot if there are any
+    if face_board_action.slots:
+        armature.animation_data.action_slot = face_board_action.slots[0] # type: ignore
 
 def import_face_board_action_from_json(file_path: Path, armature: bpy.types.Object):
     # create animation data if it does not exist
@@ -435,6 +489,7 @@ def bake_face_board_to_action(
         instance: 'RigLogicInstance',
         armature_object: bpy.types.Object,
         action_name: str,
+        replace_action: bool,
         start_frame: int,
         end_frame: int,
         step: int = 1,
@@ -471,6 +526,8 @@ def bake_face_board_to_action(
                     bone.select_head = False
                     bone.select_tail = False
 
+            current_actions = [a for a in bpy.data.actions]
+
             # bake the visual keying of the pose bones
             bpy.ops.nla.bake(
                 frame_start=start_frame,
@@ -478,7 +535,7 @@ def bake_face_board_to_action(
                 step=step,
                 only_selected=True,
                 visual_keying=True,
-                use_current_action=True,
+                use_current_action=not replace_action,
                 bake_types={'POSE'},
                 clean_curves=clean_curves,
                 channel_types=channel_types
@@ -500,7 +557,14 @@ def bake_face_board_to_action(
                         component='head'
                     )
 
-            action.name = action_name
+            if replace_action:
+                action.name = action_name
+            else:
+                # rename the newly created action
+                for action in bpy.data.actions:
+                    if action not in current_actions:
+                        action.name = action_name
+                        break
             bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True # type: ignore
 
 
@@ -508,6 +572,7 @@ def bake_body_to_action(
         instance: 'RigLogicInstance',
         armature_object: bpy.types.Object,
         action_name: str,
+        replace_action: bool,
         start_frame: int,
         end_frame: int,
         step: int = 1,
@@ -584,7 +649,7 @@ def bake_body_to_action(
                 step=step,
                 only_selected=True,
                 visual_keying=True,
-                use_current_action=False,
+                use_current_action=not replace_action,
                 bake_types={'POSE'},
                 clean_curves=clean_curves,
                 channel_types=channel_types
@@ -609,7 +674,11 @@ def bake_body_to_action(
             # bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True # type: ignore
 
             # rename the newly created action
-            for action in bpy.data.actions:
-                if action not in current_actions:
-                    action.name = action_name
-                    break
+            if replace_action:
+                action.name = action_name
+            else:
+                # rename the newly created action
+                for action in bpy.data.actions:
+                    if action not in current_actions:
+                        action.name = action_name
+                        break

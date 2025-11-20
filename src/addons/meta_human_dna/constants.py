@@ -277,3 +277,9 @@ EXTRA_BONES = [
         'rotation': Euler((math.radians(-90.0), math.radians(3.82404), math.radians(90.0)), 'XYZ')
     })
 ]
+
+class BodyBoneCollection:
+    DRIVERS = 'Drivers'
+    DRIVEN = 'Driven'
+    TWISTS = 'Twists'
+    SWINGS = 'Swings'

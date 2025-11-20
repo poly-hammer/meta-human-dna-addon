@@ -250,6 +250,7 @@ class META_HUMAN_DNA_PT_face_board(bpy.types.Panel):
             row = self.layout.row()
             row.label(text='Animation:')
             split = self.layout.split(factor=0.5)
+            split.scale_y = 1.5
             split.operator('meta_human_dna.import_face_board_animation', icon='IMPORT', text='Import')
             split.operator('meta_human_dna.bake_face_board_animation', icon='ACTION', text='Bake')
         else:
@@ -427,8 +428,8 @@ class META_HUMAN_DNA_PT_animation_utilities_sub_panel(SubPanelBase):
             row = self.layout.row()
             row.scale_y = 1.5
             split = row.split(factor=0.5)
-            split.operator('meta_human_dna.import_component_animation', text=f'Import on {current_component_type.capitalize()}').component_type = current_component_type # type: ignore
-            split.operator('meta_human_dna.bake_component_animation', text=f'Bake on {current_component_type.capitalize()}').component_type = current_component_type # type: ignore
+            split.operator('meta_human_dna.import_component_animation', icon='IMPORT', text=f'Import on {current_component_type.capitalize()}').component_type = current_component_type # type: ignore
+            split.operator('meta_human_dna.bake_component_animation', icon='ACTION', text=f'Bake on {current_component_type.capitalize()}').component_type = current_component_type # type: ignore
 
 
 class META_HUMAN_DNA_PT_materials_utilities_sub_panel(SubPanelBase):

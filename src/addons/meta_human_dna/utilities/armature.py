@@ -19,7 +19,8 @@ from ..constants import (
     CUSTOM_BONE_SHAPE_NAME, 
     CUSTOM_BONE_SHAPE_SCALE,
     BONE_DELTA_THRESHOLD,
-    ComponentType
+    ComponentType,
+    BodyBoneCollection
 )
 
 
@@ -184,7 +185,6 @@ def set_head_bone_collections(
 
 
 def set_body_bone_collections(
-        reader,
         mesh_object: bpy.types.Object,
         rig_object: bpy.types.Object,
         swing_bone_names: list[str],
@@ -204,26 +204,26 @@ def set_body_bone_collections(
         set_bone_collection(
             rig_object=rig_object, 
             bone_names=driver_bone_names,
-            collection_name='Drivers',
+            collection_name=BodyBoneCollection.DRIVERS,
             theme='THEME09'
         )
         set_bone_collection(
             rig_object=rig_object, 
             bone_names=driven_bone_names,
-            collection_name='Driven',
+            collection_name=BodyBoneCollection.DRIVEN,
             theme='THEME01'
         )    
         set_bone_collection(
             rig_object=rig_object, 
             bone_names=twist_bone_names,
-            collection_name='Twists',
+            collection_name=BodyBoneCollection.TWISTS,
             visible=False,
             theme='THEME03'
         )
         set_bone_collection(
             rig_object=rig_object, 
             bone_names=swing_bone_names,
-            collection_name='Swings',
+            collection_name=BodyBoneCollection.SWINGS,
             visible=False,
             theme='THEME04'
         )
@@ -284,6 +284,42 @@ def set_body_bone_collections(
             collection_name=meta_human_dna_core.BodyBoneCollection.CORRECTIVE_ROOT_BONES.value,
             visible=False
         )
+
+
+def reassign_to_body_bone_collections(
+        rig_object: bpy.types.Object,
+        swing_bone_names: tuple[str] = (),
+        twist_bone_names: tuple[str] = (),
+        driver_bone_names: tuple[str] = (),
+        driven_bone_names: tuple[str] = ()
+    ):
+    items = (
+        (BodyBoneCollection.DRIVERS, driver_bone_names, 'THEME09'),
+        (BodyBoneCollection.DRIVEN, driven_bone_names, 'THEME01'),
+        (BodyBoneCollection.TWISTS, twist_bone_names, 'THEME03'),
+        (BodyBoneCollection.SWINGS, swing_bone_names, 'THEME04')
+    )
+    for collection_name, bone_names, theme in items:
+        collection = rig_object.data.collections.get(collection_name)
+        if not collection:
+            continue
+
+        # remove bones from other collections
+        for other_collection in rig_object.data.collections:
+            if other_collection.name != collection_name:
+                for bone_name in bone_names:
+                    pose_bone = rig_object.pose.bones.get(bone_name)
+                    if pose_bone:
+                        other_collection.unassign(pose_bone)
+                        pose_bone.color.palette = 'DEFAULT'
+        
+        # add bones to the correct collection
+        for bone_name in bone_names:
+            pose_bone = rig_object.pose.bones.get(bone_name)
+            if pose_bone:
+                collection.assign(pose_bone)
+                if theme:
+                    pose_bone.color.palette = theme
 
 
 def get_meshes_using_armature(armature_object: bpy.types.Object) -> list[bpy.types.Object]:
@@ -611,6 +647,46 @@ def compare_bone_orientations(bone1: bpy.types.PoseBone, bone2: bpy.types.PoseBo
     z_match = abs(z1.dot(z2)) > 0.999
     
     return (x_match and y_match and z_match)
+
+
+def get_pose_bone_local_quaternion(pose_bone: bpy.types.PoseBone) -> Quaternion:
+    """
+    Calculate the local quaternion rotation of a pose bone using world space matrices.
+    
+    This method works even when the bone is constrained by calculating the rotation
+    from the bone's evaluated world space direction vector.
+    
+    Args:
+        pose_bone: The pose bone to get the local quaternion from
+        
+    Returns:
+        The local quaternion rotation in the bone's parent space
+    """
+    # Get the bone's evaluated world matrix (includes all constraints)
+    bone_world_matrix = pose_bone.matrix
+    
+    # Get the bone's rest world matrix
+    armature_world_matrix = pose_bone.id_data.matrix_world
+    bone_rest_world_matrix = armature_world_matrix @ pose_bone.bone.matrix_local
+    
+    # Get the parent's evaluated world matrix
+    if pose_bone.parent:
+        parent_world_matrix = pose_bone.parent.matrix
+        parent_rest_world_matrix = armature_world_matrix @ pose_bone.parent.bone.matrix_local
+    else:
+        parent_world_matrix = armature_world_matrix
+        parent_rest_world_matrix = armature_world_matrix
+    
+    # Calculate the change in rotation from rest to current pose in world space
+    # World rotation = bone_world_matrix @ bone_rest_world_matrix^-1
+    world_rotation_delta = bone_world_matrix @ bone_rest_world_matrix.inverted()
+    
+    # Convert to parent's local space
+    # Local rotation = parent_world^-1 @ world_rotation_delta @ parent_rest_world
+    local_rotation_matrix = parent_world_matrix.inverted() @ world_rotation_delta @ parent_rest_world_matrix
+    
+    # Extract and return the quaternion
+    return local_rotation_matrix.to_quaternion().normalized()
 
 
 def set_driven_bone_data(

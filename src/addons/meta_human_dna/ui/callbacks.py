@@ -288,7 +288,8 @@ def get_shape_key_value(self) -> float:
 def get_active_shape_key_mesh_names(self, context):
     items = []
     if self.head_mesh_index_lookup:
-        for mesh_index, mesh_object in self.head_mesh_index_lookup.items(): 
+        enum_index = 0
+        for mesh_index, mesh_object in self.head_mesh_index_lookup.items():
             if mesh_object.data.shape_keys and len(mesh_object.data.shape_keys.key_blocks) > 0:       
                 items.append(
                     (
@@ -296,9 +297,10 @@ def get_active_shape_key_mesh_names(self, context):
                         mesh_object.name.replace(f'{self.name}_', ''),
                         f'Only display the shape key values for "{mesh_object.name}"', 
                         'NONE', 
-                        mesh_index
+                        enum_index
                     )
                 )
+                enum_index += 1
     elif self.head_mesh:
         items.append(
                 (
