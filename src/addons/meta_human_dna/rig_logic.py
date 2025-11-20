@@ -78,7 +78,11 @@ def rig_logic_listener(
                         instance.body_rig.animation_data.action and 
                         instance.body_rig.animation_data.action.name == update.id.name
                     ):
-                        instance_updates.add((instance, 'body'))
+                        # heads have rbf driven bones that move based on neck quaternions, so if head rig is present, evaluate all
+                        if instance.head_rig and instance.auto_evaluate_head:
+                            instance_updates.add((instance, 'all'))
+                        else:
+                            instance_updates.add((instance, 'body'))
                     # Otherwise, evaluate all instances. 
                     # Todo: Not ideal, so we should probably provide a way for user to specify another armature that might have
                     # the action and be evaluated.
@@ -106,7 +110,11 @@ def rig_logic_listener(
                             instance.body_rig.data and
                             instance.body_rig.data.name == armature_name
                         ):
-                            instance_updates.add((instance, 'body'))
+                            # heads have rbf driven bones that move based on neck quaternions, so if head rig is present, evaluate all
+                            if instance.head_rig and instance.auto_evaluate_head:
+                                instance_updates.add((instance, 'all'))
+                            else:
+                                instance_updates.add((instance, 'body'))
 
     # apply the updates to the instances
     for instance, component in instance_updates:
@@ -965,9 +973,10 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         # make sure the rig bone are using the correct rotation mode
         if self.head_rig and self.head_rig.pose:
             for pose_bone in self.head_rig.pose.bones:
-                if pose_bone.name.startswith('FACIAL_'):
-                    if pose_bone.rotation_mode != "XYZ":
-                        pose_bone.rotation_mode = "XYZ"
+                if pose_bone.name in self.head_driver_bone_names:
+                    pose_bone.rotation_mode = "QUATERNION"
+                else:
+                    pose_bone.rotation_mode = "XYZ"
                 # save the rest pose and their parent space matrix so we don't have to calculate it again
                 try:
                     rest_pose[pose_bone.name] = utilities.get_bone_rest_transformations(pose_bone.bone)
@@ -979,23 +988,41 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         self.data[f'{self.name}_head_rest_pose'] = rest_pose
         # return a copy so the original rest position is not modified
         return self.data[f'{self.name}_head_rest_pose']
+    
+    @property
+    def head_driven_bone_names(self) -> list[str]:
+        driven_bone_names = self.data.get(f'{self.name}_head_driven_bone_names', [])
+        if driven_bone_names:
+            return driven_bone_names
+        
+        # get the head rbf driven bone names
+        for solver_index in range(self.head_dna_reader.getRBFSolverCount()):
+            for pose_index in self.head_dna_reader.getRBFSolverPoseIndices(solver_index):
+                for attr_index in self.head_dna_reader.getRBFPoseJointOutputIndices(pose_index):
+                    joint_index = attr_index // ATTR_COUNT_PER_EULER_JOINT
+                    driven_bone_names.append(self.head_dna_reader.getJointName(joint_index))
+
+        # save the driven bone names so we don't have to query them again
+        self.data[f'{self.name}_head_driven_bone_names'] = list(set(driven_bone_names))
+        return self.data[f'{self.name}_head_driven_bone_names']
 
     @property
-    def head_raw_control_bone_names(self) -> list[str]:
-        raw_control_bone_names = self.data.get(f'{self.name}_head_raw_control_bone_names', [])
-        if raw_control_bone_names:
-            return raw_control_bone_names
+    def head_driver_bone_names(self) -> list[str]:
+        driver_bone_names = self.data.get(f'{self.name}_head_driver_bone_names', [])
+        if driver_bone_names:
+            return driver_bone_names
         
-        raw_control_bone_names = set()
+        driver_bone_names = set()
         for index in range(self.head_dna_reader.getRawControlCount()):
             full_name = self.head_dna_reader.getRawControlName(index)
-            control_name, _ = full_name.split('.')
-            raw_control_bone_names.add(control_name)
+            control_name, axis = full_name.split('.')
+            if axis.startswith('q'):
+                driver_bone_names.add(control_name)
 
         # save the raw control bone names so we don't have to query them again
-        self.data[f'{self.name}_head_raw_control_bone_names'] = list(raw_control_bone_names)
+        self.data[f'{self.name}_head_driver_bone_names'] = list(driver_bone_names)
         # return a copy so the original raw control bone names are not modified
-        return self.data[f'{self.name}_head_raw_control_bone_names']
+        return self.data[f'{self.name}_head_driver_bone_names']
 
     @property
     def body_rest_pose(self) -> dict[str, tuple[Vector, Euler, Vector, Matrix]]:
@@ -1045,7 +1072,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         if swing_bone_names:
             return swing_bone_names
         
-        # get the updated swing bone names
+        # get the body swing bone names
         for swing_index in range(self.body_dna_reader.getSwingCount()):
             for output_index in self.body_dna_reader.getSwingOutputJointIndices(swing_index):
                 swing_bone_names.append(self.body_dna_reader.getJointName(output_index))
@@ -1060,7 +1087,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         if driven_bone_names:
             return driven_bone_names
         
-        # get the rbf driven bone names
+        # get the body rbf driven bone names
         for solver_index in range(self.body_dna_reader.getRBFSolverCount()):
             for pose_index in self.body_dna_reader.getRBFSolverPoseIndices(solver_index):
                 for attr_index in self.body_dna_reader.getRBFPoseJointOutputIndices(pose_index):
@@ -1078,10 +1105,17 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             return driver_bone_names
         
         # get the rbf driver bone names
-        driver_bone_names = list(set(self.body_dna_reader.getRawControlName(i).split('.')[0] for i in range(self.body_dna_reader.getRawControlCount())))
+        driver_bone_names = set(self.body_dna_reader.getRawControlName(i).split('.')[0] for i in range(self.body_dna_reader.getRawControlCount()))
+        # also include the head driver bone names since they are stored in the head DNA, but the 
+        # body rig uses those same bones (neck_01, neck_02, head)
+        if self.head_dna_reader:
+            for bone_name in self.head_driver_bone_names:
+                # only add the driver bone if it exists in the body rig
+                if self.body_rig.pose.bones.get(bone_name):
+                    driver_bone_names.add(bone_name)
 
         # save the driver bone names so we don't have to query them again
-        self.data[f'{self.name}_body_driver_bone_names'] = driver_bone_names
+        self.data[f'{self.name}_body_driver_bone_names'] = list(driver_bone_names)
         return self.data[f'{self.name}_body_driver_bone_names']
 
     def head_initialize(self):        
@@ -1123,7 +1157,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         self.head_channel_name_to_index_lookup
         self.head_channel_index_to_mesh_index_lookup
         self.head_shape_key_blocks
-        self.head_raw_control_bone_names
+        self.head_driven_bone_names
+        self.head_driver_bone_names
         self.head_rest_pose
 
         self.data[f'{self.name}_head_initialized'] = True
@@ -1282,6 +1317,58 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 }
 
         return values
+    
+    def update_head_raw_control_values(self, override_values: dict[str, dict[str, float]] | None = None):
+        # skip if the body rig is not set
+        if not self.head_rig or not self.head_dna_reader:
+            return
+        
+        # skip if the rest pose is not initialized
+        if not self.head_rest_pose:
+            return
+        
+        missing_raw_controls = []
+        converted_quaternions = {}
+
+        # convert the quaternion values to the correct coordinate system
+        for pose_bone in self.head_rig.pose.bones:
+            if pose_bone.name in self.head_driver_bone_names:
+                # get the local quaternion, but from the world matrix to account for constraints, since we
+                # can't always assume the local quaternion value is what is driving the bone rotation. For
+                # example, if the body is driving the head bone transforms via constraints.
+                # TODO: This math might have performance implications, so we might want review this later.
+                quaternion = utilities.get_pose_bone_local_quaternion(pose_bone)
+                converted_quaternions[pose_bone.name] = quaternion.normalized()
+
+        for index in range(self.head_dna_reader.getRawControlCount()):
+            full_name = self.head_dna_reader.getRawControlName(index)
+            control_name, axis = full_name.split('.')
+            # only process quaternions
+            if not axis.startswith('q'):
+                continue
+            
+            axis = axis.rsplit('q',-1)[-1].lower()
+            if self.head_rig:
+                # override the values can be provided to update values based on them vs current head rig bone locations
+                # This can be used for baking the values to an action
+                if override_values:
+                    value = override_values.get(control_name, {}).get(axis)
+                    if value is not None:
+                        self.head_instance.setRawControl(index, value)
+                else:
+                    quaternion = converted_quaternions.get(control_name)
+                    if quaternion:
+                        value = getattr(quaternion, axis)
+                        self.head_instance.setRawControl(index, value)
+                    else:
+                        missing_raw_controls.append(control_name)
+                
+
+        if missing_raw_controls and not self.data.get(f'{self.name}_head_logged_missing_raw_controls'):
+            logger.warning(f'The following raw controls are missing on "{self.head_rig.name}":\n{pformat(missing_raw_controls)}.')
+            logger.warning(f'You are not listening to {len(missing_raw_controls)} raw controls')
+            logger.warning(f'This is most likely due to the these bones being missing from the rig {self.head_rig.name}.')
+            self.data[f'{self.name}_head_logged_missing_raw_controls'] = True
 
     def update_head_gui_control_values(self, override_values: dict[str, dict[str, float]] | None = None):
         # skip if the face board is not set
@@ -1337,6 +1424,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         self.head_instance.setLOD(level=int(self.active_lod[-1]))
         # map the GUI changes to the raw controls
         self.head_manager.mapGUIToRawControls(self.head_instance)
+        # now update the additional raw controls (The neck quaternions are not mapped from GUI controls)
+        self.update_head_raw_control_values()
         # calculate the controls
         self.head_manager.calculate(self.head_instance)
 
@@ -1454,8 +1543,11 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             # get the bone 
             name = self.head_dna_reader.getJointName(index)
 
-            # only update the facial bones
-            if not name.startswith('FACIAL_'):
+            # only update the facial bones or non-driver bones
+            # if not name.startswith('FACIAL_'):
+            #     continue
+                
+            if name in self.head_driver_bone_names:
                 continue
 
             pose_bone = self.head_rig.pose.bones.get(name)
@@ -1541,8 +1633,14 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
         # convert the quaternion values to the correct coordinate system
         for pose_bone in self.body_rig.pose.bones:
-            quaternion = pose_bone.rotation_quaternion.copy()
-            converted_quaternions[pose_bone.name] = quaternion.normalized()
+            if pose_bone.name in self.body_driver_bone_names:
+                # get the local quaternion, but from the world matrix to account for constraints, since we
+                # can't always assume the local quaternion value is what is driving the bone rotation. For
+                # example, a control rig might be driving the body bone rotation via constraints.
+                # TODO: This math might have performance implications, so we might want review this later.
+                # quaternion = utilities.get_pose_bone_local_quaternion(pose_bone)
+                quaternion = pose_bone.rotation_quaternion.copy()
+                converted_quaternions[pose_bone.name] = quaternion.normalized()
 
         for index in range(self.body_dna_reader.getRawControlCount()):
             full_name = self.body_dna_reader.getRawControlName(index)
@@ -1564,11 +1662,11 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                         missing_raw_controls.append(control_name)
                 
 
-        if missing_raw_controls and not self.data.get(f'{self.name}_logged_missing_raw_controls'):
+        if missing_raw_controls and not self.data.get(f'{self.name}_body_logged_missing_raw_controls'):
             logger.warning(f'The following raw controls are missing on "{self.body_rig.name}":\n{pformat(missing_raw_controls)}.')
             logger.warning(f'You are not listening to {len(missing_raw_controls)} raw controls')
             logger.warning(f'This is most likely due to the these bones being missing from the rig {self.body_rig.name}.')
-            self.data[f'{self.name}_logged_missing_raw_controls'] = True
+            self.data[f'{self.name}_body_logged_missing_raw_controls'] = True
 
         # set the active LOD level for the body instance to optimize performance
         self.body_instance.setLOD(level=int(self.active_lod[-1]))
