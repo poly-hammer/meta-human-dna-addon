@@ -766,19 +766,10 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         if not dependency_graph:
             dependency_graph = bpy.context.evaluated_depsgraph_get()
 
-        if self.face_board:
-            self.data[f'{self.name}_evaluated_face_board'] = self.face_board.evaluated_get(dependency_graph)
         if self.head_rig:
             self.data[f'{self.name}_evaluated_head_rig'] = self.head_rig.evaluated_get(dependency_graph)
         if self.body_rig:
             self.data[f'{self.name}_evaluated_body_rig'] = self.body_rig.evaluated_get(dependency_graph)
-
-    @property
-    def evaluated_face_board(self) -> bpy.types.Object | None:
-        return self.data.get(
-            f'{self.name}_evaluated_face_board', 
-            self.face_board.evaluated_get(bpy.context.evaluated_depsgraph_get()) if self.face_board else None
-        )
                     
     @property
     def evaluated_head_rig(self) -> bpy.types.Object | None:
@@ -1268,12 +1259,12 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         self.data[f'{self.name}_body_initialized'] = False
 
     def update_head_switch_values(self):
-        if not self.evaluated_face_board:
+        if not self.face_board:
             return
 
         # update the head follow body switch constraint influence
-        face_gui_control = self.evaluated_face_board.pose.bones.get('CTRL_faceGUI')
-        face_follow_head_switch = self.evaluated_face_board.pose.bones.get('CTRL_faceGUIfollowHead')
+        face_gui_control = self.face_board.pose.bones.get('CTRL_faceGUI')
+        face_follow_head_switch = self.face_board.pose.bones.get('CTRL_faceGUIfollowHead')
         if face_follow_head_switch and face_gui_control:
             constraint = None
             for existing_constraint in face_gui_control.constraints:
@@ -1284,8 +1275,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 constraint.influence = face_follow_head_switch.location.y
 
         # update the eye aim follow head switch constraint influence
-        eye_aim_control = self.evaluated_face_board.pose.bones.get('CTRL_C_eyesAim')
-        eye_aim_follow_head_switch = self.evaluated_face_board.pose.bones.get('CTRL_eyesAimFollowHead')
+        eye_aim_control = self.face_board.pose.bones.get('CTRL_C_eyesAim')
+        eye_aim_follow_head_switch = self.face_board.pose.bones.get('CTRL_eyesAimFollowHead')
         if eye_aim_follow_head_switch and eye_aim_control:
             constraint = None
             for existing_constraint in eye_aim_control.constraints:
@@ -1419,12 +1410,12 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
     def update_head_gui_control_values(self, override_values: dict[str, dict[str, float]] | None = None):
         # skip if the face board is not set
-        if not self.face_board or not self.evaluated_face_board or not self.head_dna_reader:
+        if not self.face_board or not self.head_dna_reader:
             return
         
         missing_gui_controls = []
         
-        center_eye_control = self.evaluated_face_board.pose.bones.get('CTRL_C_eye')
+        center_eye_control = self.face_board.pose.bones.get('CTRL_C_eye')
         
         eye_aim_override_values = {}
         if self.head_use_eye_aim:
@@ -1434,7 +1425,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             full_name = self.head_dna_reader.getGUIControlName(index)
             control_name, axis = full_name.split('.')
             axis = axis.rsplit('t',-1)[-1].lower()
-            if self.evaluated_face_board:
+            if self.face_board:
                 # override the values can be provided to update values based on them vs current face board bone locations 
                 # This can be used for baking the values to an action
                 if override_values:
@@ -1442,7 +1433,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                     if value is not None:
                         self.head_instance.setGUIControl(index, value)
                 else:
-                    pose_bone = self.evaluated_face_board.pose.bones.get(control_name)
+                    pose_bone = self.face_board.pose.bones.get(control_name)
                     if pose_bone:
                         value = getattr(pose_bone.location, axis)
                         # special case for the eye controls, if the center eye control is above 0, use that value instead
