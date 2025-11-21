@@ -852,9 +852,9 @@ def un_constrain_face_board_to_head(
         switch_to_pose_mode(face_board_object)
         pose_bone = face_board_object.pose.bones.get(bone_name) # type: ignore
         if pose_bone:
-            constraint = pose_bone.constraints.get('Child Of')
-            if constraint:
-                pose_bone.constraints.remove(constraint)
+            for constraint in pose_bone.constraints:
+                if constraint.type == 'CHILD_OF':
+                    pose_bone.constraints.remove(constraint)
 
 
 def constrain_face_board_to_head(
@@ -867,7 +867,11 @@ def constrain_face_board_to_head(
         switch_to_pose_mode(face_board_object)
         pose_bone = face_board_object.pose.bones.get(bone_name) # type: ignore
         if pose_bone:
-            constraint = pose_bone.constraints.get('Child Of')
+            constraint = None
+            for existing_constraint in pose_bone.constraints:
+                if existing_constraint.type == 'CHILD_OF':
+                    constraint = existing_constraint
+                    break
             if not constraint:
                 constraint = pose_bone.constraints.new(type='CHILD_OF')
 

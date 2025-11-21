@@ -665,28 +665,30 @@ def get_pose_bone_local_quaternion(pose_bone: bpy.types.PoseBone) -> Quaternion:
     # Get the bone's evaluated world matrix (includes all constraints)
     bone_world_matrix = pose_bone.matrix
     
-    # Get the bone's rest world matrix
-    armature_world_matrix = pose_bone.id_data.matrix_world
-    bone_rest_world_matrix = armature_world_matrix @ pose_bone.bone.matrix_local
+    # Get the bone's rest matrix in armature space
+    bone_rest_local_matrix = pose_bone.bone.matrix_local
     
-    # Get the parent's evaluated world matrix
+    # Get the armature's world matrix
+    armature_world_matrix = pose_bone.id_data.matrix_world
+    
+    # The relationship in Blender depends on whether the bone has a parent:
+    # With parent: bone_world = parent_world @ parent_rest.inverted() @ bone_rest @ matrix_basis
+    # Without parent: bone_world = armature_world @ bone_rest @ matrix_basis
+    
     if pose_bone.parent:
         parent_world_matrix = pose_bone.parent.matrix
-        parent_rest_world_matrix = armature_world_matrix @ pose_bone.parent.bone.matrix_local
+        parent_rest_local_matrix = pose_bone.parent.bone.matrix_local
+        
+        # Solve for matrix_basis:
+        # matrix_basis = bone_rest.inverted() @ parent_rest @ parent_world.inverted() @ bone_world
+        matrix_basis = bone_rest_local_matrix.inverted() @ parent_rest_local_matrix @ parent_world_matrix.inverted() @ bone_world_matrix
     else:
-        parent_world_matrix = armature_world_matrix
-        parent_rest_world_matrix = armature_world_matrix
-    
-    # Calculate the change in rotation from rest to current pose in world space
-    # World rotation = bone_world_matrix @ bone_rest_world_matrix^-1
-    world_rotation_delta = bone_world_matrix @ bone_rest_world_matrix.inverted()
-    
-    # Convert to parent's local space
-    # Local rotation = parent_world^-1 @ world_rotation_delta @ parent_rest_world
-    local_rotation_matrix = parent_world_matrix.inverted() @ world_rotation_delta @ parent_rest_world_matrix
+        # Solve for matrix_basis:
+        # matrix_basis = bone_rest.inverted() @ armature_world.inverted() @ bone_world
+        matrix_basis = bone_rest_local_matrix.inverted() @ armature_world_matrix.inverted() @ bone_world_matrix
     
     # Extract and return the quaternion
-    return local_rotation_matrix.to_quaternion().normalized()
+    return matrix_basis.to_quaternion().normalized()
 
 
 def set_driven_bone_data(
