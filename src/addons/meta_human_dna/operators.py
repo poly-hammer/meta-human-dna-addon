@@ -354,6 +354,8 @@ class ImportComponentAnimation(ImportAnimationBase, importer.ImportAnimation):
                     prefix_component_name=self.prefix_component_name
                 )  # type: ignore
 
+        self.report({'INFO'}, f'Imported {self.component_type} animation from {file_path}')  # type: ignore
+
         return {'FINISHED'}
 
 

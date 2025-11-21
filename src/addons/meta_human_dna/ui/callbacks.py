@@ -654,7 +654,7 @@ def update_body_rbf_poses_active_index(self, context):
                 pose_bone.rotation_euler = Euler(driven.euler_rotation, 'XYZ')
 
 def update_evaluate_rbfs_value(self, context):
-    self.reset_body_raw_control_values()
+    self.reset_raw_control_values()
 
 def update_head_topology_selection(self, context):
     from ..utilities import get_active_head

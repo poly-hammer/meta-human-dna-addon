@@ -42,7 +42,11 @@ def rig_logic_listener(
 
     # TODO: Investigate if this is needed and if there is a better way to do this
     # if the screen is the temp screen, then is is rendering and we need to evaluate
-    if bpy.context.screen and 'temp' in bpy.context.screen.name.lower(): # type: ignore
+    if bpy.context.screen.is_temporary:
+        # this rules out other temporary window types 
+        if len(bpy.context.screen.areas) == 1 and bpy.context.screen.areas[0].type != 'IMAGE_EDITOR':
+            return
+
         for instance in scene.meta_human_dna.rig_logic_instance_list: # type: ignore
             if instance.auto_evaluate:
                 if instance.auto_evaluate_head:
@@ -79,7 +83,7 @@ def rig_logic_listener(
                         instance.body_rig.animation_data.action.name == update.id.name
                     ):
                         # heads have rbf driven bones that move based on neck quaternions, so if head rig is present, evaluate all
-                        if instance.head_rig and instance.auto_evaluate_head:
+                        if instance.head_rig and instance.auto_evaluate_head and instance.evaluate_rbfs:
                             instance_updates.add((instance, 'all'))
                         else:
                             instance_updates.add((instance, 'body'))
@@ -111,14 +115,14 @@ def rig_logic_listener(
                             instance.body_rig.data.name == armature_name
                         ):
                             # heads have rbf driven bones that move based on neck quaternions, so if head rig is present, evaluate all
-                            if instance.head_rig and instance.auto_evaluate_head:
+                            if instance.head_rig and instance.auto_evaluate_head and instance.evaluate_rbfs:
                                 instance_updates.add((instance, 'all'))
                             else:
                                 instance_updates.add((instance, 'body'))
 
     # apply the updates to the instances
     for instance, component in instance_updates:
-        instance.evaluate(component=component)
+        instance.evaluate(component=component, dependency_graph=dependency_graph)
 
 def frame_change_handler(*args):
     rig_logic_listener(*args, is_frame_change=True)
@@ -757,6 +761,38 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                         # store the shape key in the shape key property so we don't have to search for it again
                         self.data[f'{self.name}_shape_key'][mesh_index] = shape_key
                         return key_block
+                    
+    def apply_dependency_graph_update(self, dependency_graph: bpy.types.Depsgraph | None = None):
+        if not dependency_graph:
+            dependency_graph = bpy.context.evaluated_depsgraph_get()
+
+        if self.face_board:
+            self.data[f'{self.name}_evaluated_face_board'] = self.face_board.evaluated_get(dependency_graph)
+        if self.head_rig:
+            self.data[f'{self.name}_evaluated_head_rig'] = self.head_rig.evaluated_get(dependency_graph)
+        if self.body_rig:
+            self.data[f'{self.name}_evaluated_body_rig'] = self.body_rig.evaluated_get(dependency_graph)
+
+    @property
+    def evaluated_face_board(self) -> bpy.types.Object | None:
+        return self.data.get(
+            f'{self.name}_evaluated_face_board', 
+            self.face_board.evaluated_get(bpy.context.evaluated_depsgraph_get()) if self.face_board else None
+        )
+                    
+    @property
+    def evaluated_head_rig(self) -> bpy.types.Object | None:
+        return self.data.get(
+            f'{self.name}_evaluated_head_rig', 
+            self.head_rig.evaluated_get(bpy.context.evaluated_depsgraph_get()) if self.head_rig else None
+        )
+
+    @property
+    def evaluated_body_rig(self) -> bpy.types.Object | None:
+        return self.data.get(
+            f'{self.name}_evaluated_body_rig', 
+            self.body_rig.evaluated_get(bpy.context.evaluated_depsgraph_get()) if self.body_rig else None
+        )
 
     @property
     def head_valid(self) -> bool: 
@@ -1232,19 +1268,30 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         self.data[f'{self.name}_body_initialized'] = False
 
     def update_head_switch_values(self):
+        if not self.evaluated_face_board:
+            return
+
         # update the head follow body switch constraint influence
-        face_gui_control = self.face_board.pose.bones.get('CTRL_faceGUI')
-        face_follow_head_switch = self.face_board.pose.bones.get('CTRL_faceGUIfollowHead')
+        face_gui_control = self.evaluated_face_board.pose.bones.get('CTRL_faceGUI')
+        face_follow_head_switch = self.evaluated_face_board.pose.bones.get('CTRL_faceGUIfollowHead')
         if face_follow_head_switch and face_gui_control:
-            constraint = face_gui_control.constraints.get('Child Of')
+            constraint = None
+            for existing_constraint in face_gui_control.constraints:
+                if existing_constraint.type == 'CHILD_OF':
+                    constraint = existing_constraint
+                    break
             if constraint and round(constraint.influence, 3) != round(face_follow_head_switch.location.y, 3):
                 constraint.influence = face_follow_head_switch.location.y
 
         # update the eye aim follow head switch constraint influence
-        eye_aim_control = self.face_board.pose.bones.get('CTRL_C_eyesAim')
-        eye_aim_follow_head_switch = self.face_board.pose.bones.get('CTRL_eyesAimFollowHead')
+        eye_aim_control = self.evaluated_face_board.pose.bones.get('CTRL_C_eyesAim')
+        eye_aim_follow_head_switch = self.evaluated_face_board.pose.bones.get('CTRL_eyesAimFollowHead')
         if eye_aim_follow_head_switch and eye_aim_control:
-            constraint = eye_aim_control.constraints.get('Child Of')
+            constraint = None
+            for existing_constraint in eye_aim_control.constraints:
+                if existing_constraint.type == 'CHILD_OF':
+                    constraint = existing_constraint
+                    break
             if constraint and round(constraint.influence, 3) != round(eye_aim_follow_head_switch.location.y, 3):
                 constraint.influence = eye_aim_follow_head_switch.location.y
 
@@ -1320,7 +1367,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     
     def update_head_raw_control_values(self, override_values: dict[str, dict[str, float]] | None = None):
         # skip if the body rig is not set
-        if not self.head_rig or not self.head_dna_reader:
+        if not self.head_rig or not self.evaluated_head_rig or not self.head_dna_reader:
             return
         
         # skip if the rest pose is not initialized
@@ -1331,14 +1378,14 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         converted_quaternions = {}
 
         # convert the quaternion values to the correct coordinate system
-        for pose_bone in self.head_rig.pose.bones:
+        for pose_bone in self.evaluated_head_rig.pose.bones:
             if pose_bone.name in self.head_driver_bone_names:
                 # get the local quaternion, but from the world matrix to account for constraints, since we
                 # can't always assume the local quaternion value is what is driving the bone rotation. For
                 # example, if the body is driving the head bone transforms via constraints.
                 # TODO: This math might have performance implications, so we might want review this later.
                 quaternion = utilities.get_pose_bone_local_quaternion(pose_bone)
-                converted_quaternions[pose_bone.name] = quaternion.normalized()
+                converted_quaternions[pose_bone.name] = quaternion
 
         for index in range(self.head_dna_reader.getRawControlCount()):
             full_name = self.head_dna_reader.getRawControlName(index)
@@ -1348,7 +1395,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 continue
             
             axis = axis.rsplit('q',-1)[-1].lower()
-            if self.head_rig:
+            if self.evaluated_head_rig:
                 # override the values can be provided to update values based on them vs current head rig bone locations
                 # This can be used for baking the values to an action
                 if override_values:
@@ -1372,12 +1419,12 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
     def update_head_gui_control_values(self, override_values: dict[str, dict[str, float]] | None = None):
         # skip if the face board is not set
-        if not self.face_board or not self.head_dna_reader:
+        if not self.face_board or not self.evaluated_face_board or not self.head_dna_reader:
             return
         
         missing_gui_controls = []
         
-        center_eye_control = self.face_board.pose.bones.get('CTRL_C_eye')
+        center_eye_control = self.evaluated_face_board.pose.bones.get('CTRL_C_eye')
         
         eye_aim_override_values = {}
         if self.head_use_eye_aim:
@@ -1387,7 +1434,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             full_name = self.head_dna_reader.getGUIControlName(index)
             control_name, axis = full_name.split('.')
             axis = axis.rsplit('t',-1)[-1].lower()
-            if self.face_board:
+            if self.evaluated_face_board:
                 # override the values can be provided to update values based on them vs current face board bone locations 
                 # This can be used for baking the values to an action
                 if override_values:
@@ -1395,7 +1442,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                     if value is not None:
                         self.head_instance.setGUIControl(index, value)
                 else:
-                    pose_bone = self.face_board.pose.bones.get(control_name)
+                    pose_bone = self.evaluated_face_board.pose.bones.get(control_name)
                     if pose_bone:
                         value = getattr(pose_bone.location, axis)
                         # special case for the eye controls, if the center eye control is above 0, use that value instead
@@ -1424,8 +1471,10 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         self.head_instance.setLOD(level=int(self.active_lod[-1]))
         # map the GUI changes to the raw controls
         self.head_manager.mapGUIToRawControls(self.head_instance)
-        # now update the additional raw controls (The neck quaternions are not mapped from GUI controls)
-        self.update_head_raw_control_values()
+
+        if self.evaluate_rbfs:
+            self.update_head_raw_control_values()
+            
         # calculate the controls
         self.head_manager.calculate(self.head_instance)
 
@@ -1619,9 +1668,45 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
         self.update_body_bone_transforms()
 
+    def reset_head_raw_control_values(self):
+        # skip if the head rig is not set
+        if not self.head_initialized:
+            self.head_initialize()
+
+        if not self.head_dna_reader:
+            logger.warning('The head DNA reader is not set. The head raw control values will not be reset.')
+            return
+        
+        if not self.evaluate_rbfs:
+            # reset all raw controls to 0.0
+            for index in range(self.head_dna_reader.getRawControlCount()):
+                full_name = self.head_dna_reader.getRawControlName(index)
+                control_name, axis = full_name.split('.')
+                if control_name in self.head_driver_bone_names:
+                    axis = axis.rsplit('q',-1)[-1].lower()
+                    if axis == 'w':
+                        self.head_instance.setRawControl(index, 1.0)
+                    else:
+                        self.head_instance.setRawControl(index, 0.0)
+
+            self.head_instance.setLOD(level=int(self.active_lod[-1]))
+            self.head_manager.calculate(self.head_instance)
+        else:
+            self.update_head_raw_control_values()
+            self.head_instance.setLOD(level=int(self.active_lod[-1]))
+            self.head_manager.calculate(self.head_instance)
+
+        self.update_head_bone_transforms()
+
+    def reset_raw_control_values(self):
+        bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False
+        self.reset_body_raw_control_values()
+        self.reset_head_raw_control_values()
+        bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True
+
     def update_body_raw_control_values(self, override_values: dict[str, dict[str, float]] | None = None):
         # skip if the body rig is not set
-        if not self.body_rig or not self.body_dna_reader:
+        if not self.body_rig or not self.evaluated_body_rig or not self.body_dna_reader:
             return
         
         # skip if the rest pose is not initialized
@@ -1632,21 +1717,20 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         converted_quaternions = {}
 
         # convert the quaternion values to the correct coordinate system
-        for pose_bone in self.body_rig.pose.bones:
+        for pose_bone in self.evaluated_body_rig.pose.bones:
             if pose_bone.name in self.body_driver_bone_names:
                 # get the local quaternion, but from the world matrix to account for constraints, since we
                 # can't always assume the local quaternion value is what is driving the bone rotation. For
                 # example, a control rig might be driving the body bone rotation via constraints.
                 # TODO: This math might have performance implications, so we might want review this later.
-                # quaternion = utilities.get_pose_bone_local_quaternion(pose_bone)
-                quaternion = pose_bone.rotation_quaternion.copy()
-                converted_quaternions[pose_bone.name] = quaternion.normalized()
+                quaternion = utilities.get_pose_bone_local_quaternion(pose_bone)
+                converted_quaternions[pose_bone.name] = quaternion
 
         for index in range(self.body_dna_reader.getRawControlCount()):
             full_name = self.body_dna_reader.getRawControlName(index)
             control_name, axis = full_name.split('.')
             axis = axis.rsplit('q',-1)[-1].lower()
-            if self.body_rig:
+            if self.evaluated_body_rig:
                 # override the values can be provided to update values based on them vs current body rig bone locations
                 # This can be used for baking the values to an action
                 if override_values:
@@ -1694,13 +1778,12 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
             # get the bone 
             name = self.body_dna_reader.getJointName(joint_index)
-
-            # Only update bones that are updated via RBFs, twists, or swings
-            if name not in (self.body_driven_bone_names + self.body_swing_bone_names + self.body_twist_bone_names):
-                continue
-
             pose_bone = self.body_rig.pose.bones.get(name)
             if pose_bone:
+                # Only update bones that are updated via RBFs, twists, or swings
+                if name not in (self.body_driven_bone_names + self.body_swing_bone_names + self.body_twist_bone_names):
+                    continue
+
                 # get the values
                 attr_index = joint_index * ATTR_COUNT_PER_QUATERNION_JOINT
                 # get the rest pose values that we saved during initialization
@@ -1800,7 +1883,11 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                     _pose.drivers_active_index = last_active_driver_index
 
 
-    def evaluate(self, component: Literal['head', 'body', 'all'] = 'all'):
+    def evaluate(
+            self, 
+            component: Literal['head', 'body', 'all'] = 'all',
+            dependency_graph: bpy.types.Depsgraph | None = None
+        ):
         # this condition prevents constant evaluation
         if bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph: # type: ignore
             if not self.head_initialized:
@@ -1811,10 +1898,15 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
             # turn off the dependency graph evaluation so we can update the controls without triggering an update
             bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False # type: ignore
+
+            # apply the dependency graph update so we have the latest evaluated bone transforms
+            self.apply_dependency_graph_update(dependency_graph)
             
             if component in ('head', 'all') and self.head_initialized:
+                # update the gui controls    
                 self.update_head_switch_values()
                 self.update_head_gui_control_values()
+
                 # apply the changes
                 if self.evaluate_bones:
                     self.update_head_bone_transforms()

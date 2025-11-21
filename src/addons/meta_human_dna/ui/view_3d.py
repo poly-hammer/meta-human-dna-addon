@@ -115,7 +115,7 @@ class META_HUMAN_DNA_UL_rig_logic_instances(bpy.types.UIList):
         col.prop(item, "evaluate_texture_masks", text="", icon='NODE_TEXTURE', emboss=False)
 
         col = row.column(align=True)
-        col.enabled = item.auto_evaluate and item.auto_evaluate_body
+        col.enabled = item.auto_evaluate and (item.auto_evaluate_head or item.auto_evaluate_body)
         col.alert = not item.evaluate_rbfs
         col.prop(item, "evaluate_rbfs", text="", icon='DRIVER_ROTATIONAL_DIFFERENCE', emboss=False)
 
