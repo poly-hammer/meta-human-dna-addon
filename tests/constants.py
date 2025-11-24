@@ -7,6 +7,7 @@ TEST_FILES_FOLDER = REPO_ROOT / 'tests' / 'test_files'
 EXTRA_TEST_FILES_FOLDER = REPO_ROOT / 'tests' / 'extra_test_files'
 TEST_FBX_POSES_FOLDER = EXTRA_TEST_FILES_FOLDER / 'fbx' / 'poses'
 TEST_JSON_POSES_FOLDER = TEST_FILES_FOLDER / 'json' / 'poses'
+TEST_ANIMATION_FOLDER = TEST_FILES_FOLDER / 'animation'
 TEST_DNA_FOLDER = TEST_FILES_FOLDER / 'dna'
 
 HEAD_DNA_FILE = TEST_DNA_FOLDER / 'ada' / 'head.dna'

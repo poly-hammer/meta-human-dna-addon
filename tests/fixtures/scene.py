@@ -136,6 +136,23 @@ def load_body_dna_for_pose_roundtrip(
         import_lods=import_lods
     )
 
+
+@pytest.fixture(scope='session')
+def load_full_dna_for_animation(
+    addon,
+    temp_folder,
+    dna_folder_name: str,
+    import_shape_keys: bool,
+    import_lods: list,
+):
+    _load_dna(
+        file_path=TEST_DNA_FOLDER / dna_folder_name / 'head.dna',
+        import_lods=import_lods,
+        import_shape_keys=import_shape_keys,
+        import_face_board=True,
+        include_body=True
+    )
+
 @pytest.fixture(scope='session')
 def head_bmesh(load_head_dna) -> bmesh.types.BMesh | None:
     from meta_human_dna.utilities import get_active_head

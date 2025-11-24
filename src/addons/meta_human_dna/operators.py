@@ -318,11 +318,7 @@ class ImportComponentAnimation(ImportAnimationBase, importer.ImportAnimation):
     bl_idname = "meta_human_dna.import_component_animation"
     bl_label = "Import"
 
-    component_type: bpy.props.StringProperty(
-        default="body",
-        options={"HIDDEN"},
-        subtype="FILE_PATH",
-    ) # type: ignore
+    component_type: bpy.props.StringProperty(default="body") # type: ignore
 
     @property
     def settings_title(self) -> str:

@@ -76,9 +76,10 @@ def set_keys_on_bone(
 
 def remove_object_scale_keyframes(actions: list[bpy.types.Action]):
     for action in actions:
-        for fcurve in action.fcurves:
-            if fcurve.data_path == 'scale':
-                action.fcurves.remove(fcurve)
+        # Collect fcurves to remove first to avoid modifying collection while iterating
+        fcurves_to_remove = [fcurve for fcurve in action.fcurves if fcurve and fcurve.data_path == 'scale']
+        for fcurve in fcurves_to_remove:
+            action.fcurves.remove(fcurve)
 
 def scale_object_actions(
         unordered_objects: list[bpy.types.Object], 
@@ -179,6 +180,7 @@ def convert_action_rotation_from_quaternion_to_euler(
 def import_action_from_fbx(
         instance: 'RigLogicInstance',
         file_path: Path, 
+        component: ComponentType,
         armature: bpy.types.Object,
         include_only_bones: list[str] | None = None,
         round_sub_frames: bool = True,
@@ -193,7 +195,7 @@ def import_action_from_fbx(
         action_name=file_path.stem,
         prefix_component_name=prefix_component_name,
         prefix_instance_name=prefix_instance_name,
-        component='head'
+        component=component
     )
 
     # remove the action if it already exists
@@ -309,7 +311,7 @@ def import_face_board_action_from_fbx(
         action_name=file_path.stem,
         prefix_component_name=prefix_component_name,
         prefix_instance_name=prefix_instance_name,
-        component='head'
+        component='face_board'
     )
 
     # remove the action if it already exists

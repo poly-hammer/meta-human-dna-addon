@@ -32,13 +32,14 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
             self.rig_logic_instance.initialize()
             utilities.import_action_from_fbx(
                 instance=self.rig_logic_instance,
-                file_path=file_path, 
+                file_path=file_path,
+                component='body',
                 armature=self.body_rig_object,
                 # include animation only for body that are not driven by rig logic
                 include_only_bones=[
-                    b.name for b in self.body_rig_object.pose.bones 
+                    b.name for b in self.body_rig_object.pose.bones
                     if b.name not in [
-                        *self.rig_logic_instance.body_driven_bone_names, 
+                        *self.rig_logic_instance.body_driven_bone_names,
                         *self.rig_logic_instance.body_swing_bone_names,
                         *self.rig_logic_instance.body_twist_bone_names
                     ]

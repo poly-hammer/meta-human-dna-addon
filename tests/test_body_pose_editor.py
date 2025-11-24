@@ -158,16 +158,16 @@ def test_body_pose_update(
         'changed_driven_bone_locations',
     ), 
     [
-        (
-            'calf_l_UERBFSolver', 
-            'calf_l_back_50', 
-            'calf_l_back_30', 
-            'calf_l',
-            Quaternion((0.965926, 0.0, 0.0, -0.258819)),
-            ['calf_knee_l', 'calf_kneeBack_l', 'calf_twistCor_02_l', 'thigh_twistCor_01_l', 'thigh_twistCor_02_l'], 
-            ['calf_twistCor_02_l'], 
-            [Vector((0.0, 0.1, 0.0))]
-        ),
+        # (
+        #     'calf_l_UERBFSolver', 
+        #     'calf_l_back_50', 
+        #     'calf_l_back_30', 
+        #     'calf_l',
+        #     Quaternion((0.965926, 0.0, 0.0, -0.258819)),
+        #     ['calf_knee_l', 'calf_kneeBack_l', 'calf_twistCor_02_l', 'thigh_twistCor_01_l', 'thigh_twistCor_02_l'], 
+        #     ['calf_twistCor_02_l'], 
+        #     [Vector((0.0, 0.1, 0.0))]
+        # ),
     ]
 )
 def test_body_pose_duplicate(

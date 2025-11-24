@@ -52,6 +52,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
             utilities.import_action_from_fbx(
                 instance=self.rig_logic_instance,
                 file_path=file_path,
+                component='head',
                 armature=self.head_rig_object,
                 round_sub_frames=round_sub_frames,
                 match_frame_rate=match_frame_rate,
