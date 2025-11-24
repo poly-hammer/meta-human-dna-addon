@@ -466,7 +466,7 @@ class META_HUMAN_DNA_PT_utilities_sub_panel(bpy.types.Panel):
             return
         row = self.layout.row()
         row.scale_y = 1.5
-        row.operator('meta_human_dna.convert_selected_to_dna', icon='RNA_ADD')
+        row.operator('meta_human_dna.convert_selected_to_dna', icon='RNA')
 
 
 class META_HUMAN_DNA_PT_view_options(bpy.types.Panel):
@@ -497,26 +497,28 @@ class META_HUMAN_DNA_PT_view_options(bpy.types.Panel):
             col.label(text='Head Material Color:')
             row = col.row()
             row.prop(instance, 'active_material_preview', text='')
+            row = col.row()
+            row.label(text='Bone Visibility:')
+            row = col.row()
+            row.enabled = bool(instance.head_rig)
+            row.prop(instance, 'show_head_bones', text='Head Bones', icon='HIDE_OFF' if instance.show_head_bones else 'HIDE_ON')
+            row = col.row()
+            row.enabled = bool(instance.body_rig)
+            row.prop(instance, 'show_body_bones', text='Body Bones', icon='HIDE_OFF' if instance.show_body_bones else 'HIDE_ON')
 
             col = grid.column()
             col.enabled = bool(instance.head_mesh)
             col.label(text='Active LOD:')
             row = col.row()
             row.prop(instance, 'active_lod', text='')
-            
-            row = self.layout.row()
-            row.label(text='Bone Visibility:')
-            row = self.layout.row(align=True)
-            if instance.head_rig:
-                row.prop(instance, 'show_head_bones', text='Head Bones', icon='HIDE_OFF' if instance.show_head_bones else 'HIDE_ON')
-            if instance.body_rig:
-                row.prop(instance, 'show_body_bones', text='Body Bones', icon='HIDE_OFF' if instance.show_body_bones else 'HIDE_ON')
-            
-            row = self.layout.row()
+            row = col.row()
             row.label(text='Control Visibility:')
-            row = self.layout.row(align=True)
-            if instance.face_board:
-                row.prop(instance, 'show_face_board', text='Face Board', icon='HIDE_OFF' if instance.show_face_board else 'HIDE_ON')
+            row = col.row()
+            row.enabled = bool(instance.face_board)
+            row.prop(instance, 'show_face_board', text='Face Board', icon='HIDE_OFF' if instance.show_face_board else 'HIDE_ON')
+            row = col.row()
+            row.enabled = bool(instance.control_rig)
+            row.prop(instance, 'show_control_rig', text='Control Rig', icon='HIDE_OFF' if instance.show_control_rig else 'HIDE_ON')
             
             row = self.layout.row()
             row.prop(properties, 'highlight_matching_active_bone')
@@ -680,6 +682,8 @@ class META_HUMAN_DNA_PT_rig_logic_body_sub_panel(bpy.types.Panel):
                 row = box.row()
                 row.alert = True
                 row.label(text='DNA File not found on disk.', icon='ERROR')
+            row = box.row()
+            row.prop(instance, 'control_rig', icon='CON_ARMATURE')
             row = box.row()
             row.prop(instance, 'body_mesh', icon='OUTLINER_OB_MESH')
             row = box.row()

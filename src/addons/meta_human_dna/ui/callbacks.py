@@ -264,6 +264,11 @@ def get_show_face_board(self) -> bool:
         return not self.face_board.hide_get() # type: ignore
     return False
 
+def get_show_control_rig(self) -> bool:
+    if self.control_rig:
+        return not self.control_rig.hide_get() # type: ignore
+    return False
+
 def get_show_body_bones(self) -> bool:
     if self.body_rig:
         return not self.body_rig.hide_get() # type: ignore
@@ -388,6 +393,10 @@ def set_show_face_board(self, value):
     if self.face_board:
         self.face_board.hide_set(not value)
 
+def set_show_control_rig(self, value):
+    if self.control_rig:
+        self.control_rig.hide_set(not value)
+
 def set_show_body_bones(self, value):
     if self.body_rig:
         self.body_rig.hide_set(not value)
@@ -504,7 +513,6 @@ def poll_body_materials(self, material: bpy.types.Material) -> bool:
 def poll_face_boards(self, scene_object: bpy.types.Object) -> bool:
     if scene_object.type == 'ARMATURE':
         # Check if this is the right armature by checking one bone name
-        # We don't check all bone names to avoid performance issues
         if scene_object.pose.bones.get('CTRL_rigLogic'): # type: ignore
             return True
     return False
@@ -517,6 +525,13 @@ def poll_head_rig(self, scene_object: bpy.types.Object) -> bool:
     return False
 
 def poll_body_rig(self, scene_object: bpy.types.Object) -> bool:
+    if scene_object.type == 'ARMATURE':
+        # This check will filter out the face boards
+        if not scene_object.pose.bones.get('CTRL_rigLogic'): # type: ignore
+            return True
+    return False
+
+def poll_control_rig(self, scene_object: bpy.types.Object) -> bool:
     if scene_object.type == 'ARMATURE':
         # This check will filter out the face boards
         if not scene_object.pose.bones.get('CTRL_rigLogic'): # type: ignore

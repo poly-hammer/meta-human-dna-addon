@@ -42,7 +42,8 @@ def rig_logic_listener(
 
     # TODO: Investigate if this is needed and if there is a better way to do this
     # if the screen is the temp screen, then is is rendering and we need to evaluate
-    if bpy.context.screen.is_temporary:
+    # if bpy.context.screen.is_temporary: Blender 5.0+
+    if bpy.context.screen and 'temp' in bpy.context.screen.name.lower():
         # this rules out other temporary window types 
         if len(bpy.context.screen.areas) == 1 and bpy.context.screen.areas[0].type != 'IMAGE_EDITOR':
             return
@@ -63,7 +64,7 @@ def rig_logic_listener(
             data_type = update.id.bl_rna.name # type: ignore
             if data_type == 'Action':
                 for instance in scene.meta_human_dna.rig_logic_instance_list: # type: ignore
-                    # Check if the action is being used by any face board
+                    # Check if the action is being used by the face board
                     if (
                         instance.auto_evaluate and
                         instance.auto_evaluate_head and
@@ -73,7 +74,7 @@ def rig_logic_listener(
                         instance.face_board.animation_data.action.name == update.id.name
                     ):
                         instance_updates.add((instance, 'head'))
-                    # Check if the action is being used by any body rig
+                    # Check if the action is being used by the body rig
                     elif (
                         instance.auto_evaluate and
                         instance.auto_evaluate_body and
@@ -87,16 +88,25 @@ def rig_logic_listener(
                             instance_updates.add((instance, 'all'))
                         else:
                             instance_updates.add((instance, 'body'))
-                    # Otherwise, evaluate all instances. 
-                    # Todo: Not ideal, so we should probably provide a way for user to specify another armature that might have
-                    # the action and be evaluated.
-                    # else:
-                    #     instance_updates.add((instance, 'all'))
+                    # Check if the action is being used by the associated control rig
+                    elif (
+                        instance.auto_evaluate and
+                        instance.auto_evaluate_body and
+                        instance.control_rig and 
+                        instance.control_rig.animation_data and 
+                        instance.control_rig.animation_data.action and 
+                        instance.control_rig.animation_data.action.name == update.id.name
+                    ):
+                        # heads have rbf driven bones that move based on neck quaternions, so if head rig is present, evaluate all
+                        if instance.head_rig and instance.auto_evaluate_head and instance.evaluate_rbfs:
+                            instance_updates.add((instance, 'all'))
+                        else:
+                            instance_updates.add((instance, 'body'))
 
             elif data_type == 'Armature':
                  if update.is_updated_transform:
                     for instance in scene.meta_human_dna.rig_logic_instance_list: # type: ignore
-                        armature_name = update.id.name.split('.')[0]
+                        armature_name = update.id.name
                         
                         # Check if the armature is the face board
                         if (
@@ -107,12 +117,26 @@ def rig_logic_listener(
                             instance.face_board.data.name == armature_name
                         ):
                             instance_updates.add((instance, 'head'))
+                        # Check if the armature is the body rig
                         elif (
                             instance.auto_evaluate and
                             instance.auto_evaluate_body and
                             instance.body_rig and
                             instance.body_rig.data and
                             instance.body_rig.data.name == armature_name
+                        ):
+                            # heads have rbf driven bones that move based on neck quaternions, so if head rig is present, evaluate all
+                            if instance.head_rig and instance.auto_evaluate_head and instance.evaluate_rbfs:
+                                instance_updates.add((instance, 'all'))
+                            else:
+                                instance_updates.add((instance, 'body'))
+                        # Check if the armature is being used by the associated control rig
+                        elif (
+                            instance.auto_evaluate and
+                            instance.auto_evaluate_body and
+                            instance.control_rig and 
+                            instance.control_rig.data and
+                            instance.control_rig.data.name == armature_name
                         ):
                             # heads have rbf driven bones that move based on neck quaternions, so if head rig is present, evaluate all
                             if instance.head_rig and instance.auto_evaluate_head and instance.evaluate_rbfs:
@@ -396,6 +420,12 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         description='The face board that rig logic reads control positions from',
         poll=callbacks.poll_face_boards # type: ignore
     ) # type: ignore
+    control_rig: bpy.props.PointerProperty(
+        type=bpy.types.Object, # type: ignore
+        name='Control Rig',
+        description='The control rig that drives the body rig',
+        poll=callbacks.poll_control_rig # type: ignore
+    ) # type: ignore
     head_dna_file_path: bpy.props.StringProperty(
         name="Head DNA File",
         description="The path to the head DNA file that rig logic reads from when evaluating the face board controls",
@@ -479,6 +509,13 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         description="Whether to show or hide the face board that belongs to this MetaHuman instance in the 3D view",
         set=callbacks.set_show_face_board,
         get=callbacks.get_show_face_board
+    ) # type: ignore
+    show_control_rig: bpy.props.BoolProperty(
+        name="Show Control Rig",
+        default=False,
+        description="Whether to show or hide the control rig that belongs to this MetaHuman instance in the 3D view",
+        set=callbacks.set_show_control_rig,
+        get=callbacks.get_show_control_rig
     ) # type: ignore
     show_head_bones: bpy.props.BoolProperty(
         name="Show Head Bones",
