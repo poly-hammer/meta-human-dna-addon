@@ -153,6 +153,7 @@ def load_full_dna_for_animation(
         include_body=True
     )
 
+
 @pytest.fixture(scope='session')
 def head_bmesh(load_head_dna) -> bmesh.types.BMesh | None:
     from meta_human_dna.utilities import get_active_head
@@ -161,12 +162,14 @@ def head_bmesh(load_head_dna) -> bmesh.types.BMesh | None:
     if head and head.head_mesh_object:
         return DNAExporter.get_bmesh(head.head_mesh_object)
 
+
 @pytest.fixture(scope='session')
 def head_armature(load_head_dna) -> bpy.types.Object | None:
     from meta_human_dna.utilities import get_active_head
     head = get_active_head()
     if head and head.head_rig_object:
         return head.head_rig_object
+
 
 @pytest.fixture(scope='session')
 def modify_head_scene(
@@ -178,9 +181,17 @@ def modify_head_scene(
     changed_head_mesh_name: str,
     changed_head_vertex_index: int,
     changed_head_vertex_location: tuple[Vector, Vector, Vector],
+    changed_head_vertex_group_name: str,
+    changed_head_vertex_group_vertex_index: int,
+    changed_head_vertex_group_weight: float,
     temp_folder
     ):
-    from utilities.modify import apply_bone_transform, apply_vertex_transform
+    from utilities.modify import (
+        apply_bone_transform, 
+        apply_vertex_transform,
+        apply_vertex_group_weight
+    )
+
     # Make some changes
     apply_vertex_transform(
         prefix=dna_folder_name,
@@ -194,6 +205,13 @@ def modify_head_scene(
         bone_name=changed_head_bone_name,
         location=changed_head_bone_location[0],
         rotation=changed_head_bone_rotation[0],
+    )
+    apply_vertex_group_weight(
+        prefix=dna_folder_name,
+        mesh_name=changed_head_mesh_name,
+        vertex_group_name=changed_head_vertex_group_name,
+        vertex_index=changed_head_vertex_group_vertex_index,
+        weight=changed_head_vertex_group_weight
     )
 
     # Save the blend file

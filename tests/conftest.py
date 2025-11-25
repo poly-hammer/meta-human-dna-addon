@@ -157,6 +157,18 @@ def changed_head_vertex_location() -> tuple[Vector, Vector, Vector]:
     )
 
 @pytest.fixture(scope='session')
+def changed_head_vertex_group_name() -> str:
+    return 'FACIAL_L_12IPV_NeckB7'
+
+@pytest.fixture(scope='session')
+def changed_head_vertex_group_vertex_index() -> int:
+    return 11525
+
+@pytest.fixture(scope='session')
+def changed_head_vertex_group_weight() -> float:
+    return 0.01
+
+@pytest.fixture(scope='session')
 def temp_folder():
     temp_folder = Path(__file__).parent / 'temp'
     if temp_folder.exists():

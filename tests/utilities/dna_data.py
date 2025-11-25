@@ -53,6 +53,15 @@ def get_mesh_names(dna_file_path: Path) -> list[str]:
     )    
     return [reader.getMeshName(index) for index in range(reader.getMeshCount())]
 
+def get_mesh_vertex_count(dna_file_path: Path) -> list[int]:
+    from meta_human_dna.dna_io import get_dna_reader
+    reader = get_dna_reader(
+        file_path=dna_file_path, 
+        file_format='binary',
+        data_layer='Geometry'
+    )
+    return [reader.getVertexPositionCount(index) for index in range(reader.getMeshCount())]
+
 
 def get_test_bone_definitions_params(dna_file_path: Path):
 
@@ -95,3 +104,17 @@ def get_test_mesh_geometry_params(
 
             for axis_name in axis_names:
                 yield mesh_name, attribute, axis_name
+
+def get_test_skin_weights_params(
+        dna_file_path: Path,
+        lods: list[int] | None = None,
+    ):
+    for mesh_name, mesh_vertex_count in zip(get_mesh_names(dna_file_path), get_mesh_vertex_count(dna_file_path)):
+        if lods:
+            # skip checking meshes that are not in the specified lods
+            if not any(mesh_name.endswith(f'_lod{lod}_mesh') for lod in lods):
+                continue
+        
+        attributes = ['skinWeights']
+        for attribute in attributes:
+            yield mesh_name, attribute, mesh_vertex_count

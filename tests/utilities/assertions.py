@@ -157,4 +157,63 @@ def assert_mesh_geometry(
                 assert expected_value == pytest.approx(current_value, abs=tolerance), \
                     f'Mesh {mesh_name} {attribute} {axis_name} value mismatch. Expected {expected_value} but has {current_value}.'
         
+
+def assert_skin_weights(
+    expected_data: dict,
+    current_data: dict,
+    mesh_name: str,
+    mesh_vertex_count: int,
+    attribute: str,
+    changed_mesh_name: int,
+    changed_vertex_group_name: str,
+    changed_vertex_group_vertex_index: int,
+    changed_vertex_group_weight: float,
+    tolerance: float = 1e-3,
+    assert_index_order: bool = True,
+):
+    expected_mesh_index = expected_data[DNA_DEFINITION_VERSION]['meshNames'].index(mesh_name)
+    current_mesh_index = current_data[DNA_DEFINITION_VERSION]['meshNames'].index(mesh_name)
+
+    for vertex_index in range(mesh_vertex_count):
+        expected_joint_indices = expected_data[DNA_GEOMETRY_VERSION]['meshes'][expected_mesh_index][attribute][vertex_index]['jointIndices']
+        current_joint_indices = current_data[DNA_GEOMETRY_VERSION]['meshes'][current_mesh_index][attribute][vertex_index]['jointIndices']
+
+        expected_weights = expected_data[DNA_GEOMETRY_VERSION]['meshes'][expected_mesh_index][attribute][vertex_index]['weights']
+        current_weights = current_data[DNA_GEOMETRY_VERSION]['meshes'][current_mesh_index][attribute][vertex_index]['weights']
+
+        # The mesh indices should be the same
+        if assert_index_order:
+            assert len(expected_joint_indices) == len(current_joint_indices), \
+                f'Mesh {mesh_name} vertex index {vertex_index} {attribute} joint indices length mismatch. Expected {len(expected_joint_indices)} indices but has {len(current_joint_indices)}.'
+
+            for index, (expected_joint_index, current_joint_index) in enumerate(zip(expected_joint_indices, current_joint_indices)):
+                assert expected_joint_index == current_joint_index, \
+                    f'Mesh {mesh_name} vertex index {vertex_index} {attribute} joint indices order mismatch at array index {index}. Expected {expected_joint_index} but has {current_joint_index}.'
+                
+            for index, (expected_joint_index, current_joint_index) in enumerate(zip(expected_joint_indices, current_joint_indices)):
+                expected_weight = expected_weights[index]
+                current_weight = current_weights[index]
+                joint_name = expected_data[DNA_DEFINITION_VERSION]['jointNames'][expected_joint_index]
+
+                # if this is the changed vertex group index
+                if mesh_name == changed_mesh_name and joint_name == changed_vertex_group_name and vertex_index == changed_vertex_group_vertex_index:
+                    assert current_weight == pytest.approx(changed_vertex_group_weight, abs=tolerance), \
+                        f'Mesh {mesh_name} {attribute} on vertex group index {changed_vertex_group_vertex_index} should have weight since it was changed in blender {changed_vertex_group_weight} but has {current_weight}.'
+                else:
+                    assert expected_weight == pytest.approx(current_weight, abs=tolerance), \
+                        f'Mesh {mesh_name} {attribute} on vertex group index {expected_joint_index} mismatch. Expected {expected_weight} but has {current_weight}.'
+        
+        # Otherwise, the mesh indices can be in any order but still the number unique indices should be the same
+        else:     
+            sorted_expected_values = sorted(expected_weights)
+            sorted_current_values = sorted(current_weights)
+            
+            for expected_weight, current_weight in zip(sorted_expected_values, sorted_current_values):
+                if expected_weight != pytest.approx(current_weight, abs=tolerance) and vertex_index == changed_vertex_group_vertex_index:
+                    assert expected_weights[changed_vertex_group_vertex_index] == expected_weight, \
+                    f'Mesh {mesh_name} {attribute} on vertex group index {changed_vertex_group_vertex_index} value mismatch. The vertex group index that was moved was {changed_vertex_group_vertex_index} but this is not that one.'
+                else:
+                    assert expected_weight == pytest.approx(current_weight, abs=tolerance), \
+                        f'Mesh {mesh_name} {attribute} on vertex group index {changed_vertex_group_vertex_index} value mismatch. Expected {expected_weight} but has {current_weight}.'
+            
         

@@ -20,6 +20,7 @@ TOLERANCE = {
     'normals': 1e-3, 
     'positions': 1e-2, # these assertions are in centimeters
     'textureCoordinates': 1e-3,
+    'skinWeights': 1e-5,
 }
 
 DNA_DEFINITION_VERSION = "defn1.1"

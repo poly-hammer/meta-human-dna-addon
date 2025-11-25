@@ -32,6 +32,7 @@ class DNAExporter:
             bones: bool = True,
             textures: bool = True,
             vertex_colors: bool = True,
+            vertex_groups: bool = True,
             file_name: str | None = None,
             component_type: ComponentType | None = None,
             reader: 'riglogic.BinaryStreamReader | None' = None
@@ -42,6 +43,7 @@ class DNAExporter:
 
         self._include_meshes = meshes
         self._include_shape_keys = shape_keys
+        self._include_vertex_groups = vertex_groups
         self._include_bones = bones
         self._include_textures = textures
         self._include_vertex_colors = vertex_colors
