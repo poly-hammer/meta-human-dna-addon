@@ -29,7 +29,9 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
             file_path: Path, 
             is_face_board: bool = True,
             round_sub_frames: bool = True,
-            match_frame_rate: bool = True
+            match_frame_rate: bool = True,
+            prefix_instance_name: bool = True,
+            prefix_component_name: bool = True
         ):
         file_path = Path(file_path)
         
@@ -38,13 +40,25 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
                 utilities.import_face_board_action_from_json(file_path, self.face_board_object)
             elif file_path.suffix.lower() == '.fbx':
                 utilities.import_face_board_action_from_fbx(
-                    file_path, 
-                    self.face_board_object,
+                    instance=self.rig_logic_instance,
+                    file_path=file_path,
+                    armature=self.face_board_object,
                     round_sub_frames=round_sub_frames,
-                    match_frame_rate=match_frame_rate
+                    match_frame_rate=match_frame_rate,
+                    prefix_instance_name=prefix_instance_name,
+                    prefix_component_name=prefix_component_name
                 )
         elif self.head_rig_object:
-            utilities.import_action_from_fbx(file_path, self.head_rig_object)
+            utilities.import_action_from_fbx(
+                instance=self.rig_logic_instance,
+                file_path=file_path,
+                component='head',
+                armature=self.head_rig_object,
+                round_sub_frames=round_sub_frames,
+                match_frame_rate=match_frame_rate,
+                prefix_instance_name=prefix_instance_name,
+                prefix_component_name=prefix_component_name
+            )
 
     def ingest(
             self, 
@@ -84,17 +98,25 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
                 rig_object=self.head_rig_object,
             )
             
-            if self.body_rig_object and align:
-                # Align the head rig with the body rig if it exists
-                body_object_head_bone = self.body_rig_object.pose.bones.get('head') # type: ignore
-                head_object_head_bone = self.head_rig_object.pose.bones.get('head') # type: ignore
-                if body_object_head_bone and head_object_head_bone:
-                    # get the location offset between the body head bone and the head head bone
-                    body_head_location = body_object_head_bone.matrix @ Vector((0, 0, 0))
-                    head_head_location = head_object_head_bone.matrix @ Vector((0, 0, 0))
-                    delta = body_head_location - head_head_location
-                    # move the head rig object to align with the body rig head bone
-                    self.head_rig_object.location += delta
+            if self.body_rig_object:
+                # Add the additional driver bones from the head to the body rig,
+                # since they share these same bones for driving the neck rbfs
+                utilities.reassign_to_body_bone_collections(
+                    rig_object=self.body_rig_object,
+                    driver_bone_names=[self.dna_reader.getRawControlName(i).split('.')[0] for i in range(self.dna_reader.getRawControlCount())]
+                )
+
+                if align:
+                    # Align the head rig with the body rig if it exists
+                    body_object_head_bone = self.body_rig_object.pose.bones.get('head') # type: ignore
+                    head_object_head_bone = self.head_rig_object.pose.bones.get('head') # type: ignore
+                    if body_object_head_bone and head_object_head_bone:
+                        # get the location offset between the body head bone and the head head bone
+                        body_head_location = body_object_head_bone.matrix @ Vector((0, 0, 0))
+                        head_head_location = head_object_head_bone.matrix @ Vector((0, 0, 0))
+                        delta = body_head_location - head_head_location
+                        # move the head rig object to align with the body rig head bone
+                        self.head_rig_object.location += delta
             else:
                 # if this isn't the first rig, move it to the right of the last head mesh
                 if len(self.scene_properties.rig_logic_instance_list) > 1:

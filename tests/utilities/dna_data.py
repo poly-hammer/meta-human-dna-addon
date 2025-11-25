@@ -1,17 +1,24 @@
 import json
 from pathlib import Path
 
-def get_dna_json_data(dna_file_path: Path, json_file_path: Path) -> dict:
+def get_dna_json_data(dna_file_path: Path, json_file_path: Path, data_layer: str = 'All') -> dict:
     from meta_human_dna.bindings import riglogic
     from meta_human_dna.dna_io import (
         get_dna_reader, 
         get_dna_writer
     )
-    reader = get_dna_reader(dna_file_path, 'binary')
-    writer = get_dna_writer(json_file_path, 'json')
+    reader = get_dna_reader(
+        dna_file_path, 
+        file_format='binary',
+        data_layer=data_layer
+    )
+    writer = get_dna_writer(
+        json_file_path, 
+        file_format='json'
+    )
     writer.setFrom(
         reader,
-        riglogic.DataLayer.All,
+        getattr(riglogic.DataLayer, data_layer),
         riglogic.UnknownLayerPolicy.Preserve,
         None
     )
@@ -45,6 +52,15 @@ def get_mesh_names(dna_file_path: Path) -> list[str]:
         data_layer='Definition'
     )    
     return [reader.getMeshName(index) for index in range(reader.getMeshCount())]
+
+def get_mesh_vertex_count(dna_file_path: Path) -> list[int]:
+    from meta_human_dna.dna_io import get_dna_reader
+    reader = get_dna_reader(
+        file_path=dna_file_path, 
+        file_format='binary',
+        data_layer='Geometry'
+    )
+    return [reader.getVertexPositionCount(index) for index in range(reader.getMeshCount())]
 
 
 def get_test_bone_definitions_params(dna_file_path: Path):
@@ -88,3 +104,17 @@ def get_test_mesh_geometry_params(
 
             for axis_name in axis_names:
                 yield mesh_name, attribute, axis_name
+
+def get_test_skin_weights_params(
+        dna_file_path: Path,
+        lods: list[int] | None = None,
+    ):
+    for mesh_name, mesh_vertex_count in zip(get_mesh_names(dna_file_path), get_mesh_vertex_count(dna_file_path)):
+        if lods:
+            # skip checking meshes that are not in the specified lods
+            if not any(mesh_name.endswith(f'_lod{lod}_mesh') for lod in lods):
+                continue
+        
+        attributes = ['skinWeights']
+        for attribute in attributes:
+            yield mesh_name, attribute, mesh_vertex_count

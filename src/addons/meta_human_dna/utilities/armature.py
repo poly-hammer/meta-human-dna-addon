@@ -18,7 +18,9 @@ from .mesh import (
 from ..constants import ( 
     CUSTOM_BONE_SHAPE_NAME, 
     CUSTOM_BONE_SHAPE_SCALE,
-    ComponentType
+    BONE_DELTA_THRESHOLD,
+    ComponentType,
+    BodyBoneCollection
 )
 
 
@@ -183,44 +185,46 @@ def set_head_bone_collections(
 
 
 def set_body_bone_collections(
-        reader,
         mesh_object: bpy.types.Object,
         rig_object: bpy.types.Object,
         swing_bone_names: list[str],
         twist_bone_names: list[str],
-        driver_bone_names: list[str]
+        driver_bone_names: list[str],
+        driven_bone_names: list[str]
     ):
     from .misc import dependencies_are_valid
     if mesh_object and dependencies_are_valid():
-        from ..bindings import meta_human_dna_core
-        rbf_driven_bones = meta_human_dna_core.get_all_rbf_driven_bone_names(reader)
+        import meta_human_dna_core
+
         other_name_bones = []
         for pose_bone in rig_object.pose.bones:
-            if pose_bone.name not in swing_bone_names + twist_bone_names + driver_bone_names + rbf_driven_bones:
+            if pose_bone.name not in swing_bone_names + twist_bone_names + driver_bone_names + driven_bone_names:
                 other_name_bones.append(pose_bone.name)
 
         set_bone_collection(
             rig_object=rig_object, 
             bone_names=driver_bone_names,
-            collection_name='Drivers',
+            collection_name=BodyBoneCollection.DRIVERS,
             theme='THEME09'
         )
         set_bone_collection(
             rig_object=rig_object, 
-            bone_names=rbf_driven_bones,
-            collection_name='RBF Driven',
+            bone_names=driven_bone_names,
+            collection_name=BodyBoneCollection.DRIVEN,
             theme='THEME01'
         )    
         set_bone_collection(
             rig_object=rig_object, 
             bone_names=twist_bone_names,
-            collection_name='Twists',
+            collection_name=BodyBoneCollection.TWISTS,
+            visible=False,
             theme='THEME03'
         )
         set_bone_collection(
             rig_object=rig_object, 
             bone_names=swing_bone_names,
-            collection_name='Swings',
+            collection_name=BodyBoneCollection.SWINGS,
+            visible=False,
             theme='THEME04'
         )
         set_bone_collection(
@@ -280,6 +284,42 @@ def set_body_bone_collections(
             collection_name=meta_human_dna_core.BodyBoneCollection.CORRECTIVE_ROOT_BONES.value,
             visible=False
         )
+
+
+def reassign_to_body_bone_collections(
+        rig_object: bpy.types.Object,
+        swing_bone_names: tuple[str] = (),
+        twist_bone_names: tuple[str] = (),
+        driver_bone_names: tuple[str] = (),
+        driven_bone_names: tuple[str] = ()
+    ):
+    items = (
+        (BodyBoneCollection.DRIVERS, driver_bone_names, 'THEME09'),
+        (BodyBoneCollection.DRIVEN, driven_bone_names, 'THEME01'),
+        (BodyBoneCollection.TWISTS, twist_bone_names, 'THEME03'),
+        (BodyBoneCollection.SWINGS, swing_bone_names, 'THEME04')
+    )
+    for collection_name, bone_names, theme in items:
+        collection = rig_object.data.collections.get(collection_name)
+        if not collection:
+            continue
+
+        # remove bones from other collections
+        for other_collection in rig_object.data.collections:
+            if other_collection.name != collection_name:
+                for bone_name in bone_names:
+                    pose_bone = rig_object.pose.bones.get(bone_name)
+                    if pose_bone:
+                        other_collection.unassign(pose_bone)
+                        pose_bone.color.palette = 'DEFAULT'
+        
+        # add bones to the correct collection
+        for bone_name in bone_names:
+            pose_bone = rig_object.pose.bones.get(bone_name)
+            if pose_bone:
+                collection.assign(pose_bone)
+                if theme:
+                    pose_bone.color.palette = theme
 
 
 def get_meshes_using_armature(armature_object: bpy.types.Object) -> list[bpy.types.Object]:
@@ -607,3 +647,128 @@ def compare_bone_orientations(bone1: bpy.types.PoseBone, bone2: bpy.types.PoseBo
     z_match = abs(z1.dot(z2)) > 0.999
     
     return (x_match and y_match and z_match)
+
+
+def get_pose_bone_local_quaternion(pose_bone: bpy.types.PoseBone) -> Quaternion:
+    """
+    Calculate the local quaternion rotation of a pose bone using world space matrices.
+    
+    This method works even when the bone is constrained by calculating the rotation
+    from the bone's evaluated world space direction vector. Note, this only works if
+    the pose bone passed in is from an already evaluated armature object. 
+    (i.e., armature.evaluated_get(dependency_graph)).
+    
+    Args:
+        pose_bone: The pose bone to get the local quaternion from
+        
+    Returns:
+        The local quaternion rotation in the bone's parent space
+    """    
+    # Solve for matrix_basis
+    if pose_bone.parent:
+        parent_world_matrix = pose_bone.parent.matrix
+        parent_rest_local_matrix = pose_bone.parent.bone.matrix_local
+        matrix_basis = pose_bone.bone.matrix_local.inverted() @ parent_rest_local_matrix @ parent_world_matrix.inverted() @ pose_bone.matrix
+    else:
+        matrix_basis = pose_bone.bone.matrix_local.inverted() @ pose_bone.id_data.matrix_world.inverted() @ pose_bone.matrix
+    
+    # Extract and return the quaternion
+    return matrix_basis.to_quaternion().normalized()
+
+
+def set_driven_bone_data(
+        instance,
+        pose,
+        driven,
+        pose_bone: bpy.types.PoseBone,
+        new: bool = False
+    ):
+    if pose_bone:
+        if not instance.body_initialized:
+            instance.body_initialize(update_rbf_solver_list=False)
+
+        existing_rotation = Vector(driven.euler_rotation[:])
+        existing_location = Vector(driven.location[:])
+        existing_scale = Vector(driven.scale[:])
+
+        driven.name = pose_bone.name
+        driven.pose_index = pose.pose_index
+        driven.data_type = 'BONE'
+        # Find the joint index for this bone
+        for joint_index in range(instance.body_dna_reader.getJointCount()):
+            joint_name = instance.body_dna_reader.getJointName(joint_index)
+            if joint_name == pose_bone.name:
+                driven.joint_index = joint_index
+                break
+
+        # Get the rest pose for this bone
+        rest_location, rest_rotation, rest_scale, rest_to_parent_matrix = instance.body_rest_pose[pose_bone.name]
+        
+        # Extract current transforms from the bone's matrix_basis
+        modified_matrix = rest_to_parent_matrix @ pose_bone.matrix_basis
+        current_location = modified_matrix.to_translation()
+        current_scale = modified_matrix.to_scale()
+        
+        # Calculate deltas from rest pose (this is what DNA stores)
+        location = Vector([
+            current_location.x - rest_location.x,
+            current_location.y - rest_location.y,
+            current_location.z - rest_location.z
+        ])
+
+        # rotation is directly in the bone local space
+        rotation = pose_bone.rotation_euler.copy() 
+        
+        # Scale delta (DNA stores 0.0 for scale_factor, actual delta otherwise)
+        scale = Vector([
+            current_scale.x - rest_scale.x if round(current_scale.x - rest_scale.x, 5) != 0.0 else pose.scale_factor,
+            current_scale.y - rest_scale.y if round(current_scale.y - rest_scale.y, 5) != 0.0 else pose.scale_factor,
+            current_scale.z - rest_scale.z if round(current_scale.z - rest_scale.z, 5) != 0.0 else pose.scale_factor
+        ])
+
+        rotation_delta = Vector(rotation[:]).copy() - existing_rotation
+        location_delta = location.copy() - existing_location
+        scale_delta = scale.copy() - existing_scale
+
+        # only update if the delta is significant enough to avoid floating point value drift
+        if rotation_delta.length > BONE_DELTA_THRESHOLD or new:
+            driven.euler_rotation = rotation[:]
+            logger.info(f'Updated RBF pose "{pose.name}" driven bone "{driven.name}" rotation to {driven.euler_rotation[:]}')
+        if location_delta.length > BONE_DELTA_THRESHOLD or new:
+            driven.location = location[:]
+            logger.info(f'Updated RBF pose "{pose.name}" driven bone "{driven.name}" location to {driven.location[:]}')
+        
+        # only update if scale is not zero or equal to the scale factor, because only those are actual deltas
+        if all(0.0 != round(abs(i), 5) and pose.scale_factor != round(abs(i), 5) for i in scale_delta) or new:
+            driven.scale = scale[:]
+            logger.info(f'Updated RBF pose "{pose.name}" driven bone "{driven.name}" scale to {driven.scale[:]}')
+
+
+def set_driver_bone_data(
+        instance,
+        pose,
+        driver,
+        pose_bone: bpy.types.PoseBone,
+        new: bool = False
+    ):
+    if pose_bone:
+        if not instance.body_initialized:
+            instance.body_initialize(update_rbf_solver_list=False)
+
+        driver.solver_index = pose.solver_index
+        driver.pose_index = pose.pose_index
+        driver.name = pose_bone.name
+
+        # only update if the delta is significant enough to avoid floating point value drift
+        delta = Quaternion(driver.quaternion_rotation[:]) - pose_bone.rotation_quaternion.copy()
+        if any(abs(i) > BONE_DELTA_THRESHOLD for i in delta) or new:
+            driver.euler_rotation = pose_bone.rotation_quaternion.to_euler('XYZ')[:]
+            driver.quaternion_rotation = pose_bone.rotation_quaternion[:]
+            logger.info(f'Updated RBF pose "{pose.name}" driver bone "{driver.name}" rotation to {driver.quaternion_rotation[:]}')
+
+        # Find the joint index for this bone
+        for joint_index in range(instance.body_dna_reader.getJointCount()):
+            joint_name = instance.body_dna_reader.getJointName(joint_index)
+            if joint_name == pose_bone.name:
+                driver.joint_index = joint_index
+                break

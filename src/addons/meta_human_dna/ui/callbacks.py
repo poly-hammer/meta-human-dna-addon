@@ -17,6 +17,7 @@ from ..constants import (
     SEND2UE_FACE_SETTINGS,
     BASE_DNA_FOLDER,
     BODY_HIGH_LEVEL_TOPOLOGY_GROUPS,
+    RBF_SOLVER_POSTFIX,
     ToolInfo
 )
 
@@ -263,6 +264,11 @@ def get_show_face_board(self) -> bool:
         return not self.face_board.hide_get() # type: ignore
     return False
 
+def get_show_control_rig(self) -> bool:
+    if self.control_rig:
+        return not self.control_rig.hide_get() # type: ignore
+    return False
+
 def get_show_body_bones(self) -> bool:
     if self.body_rig:
         return not self.body_rig.hide_get() # type: ignore
@@ -287,7 +293,8 @@ def get_shape_key_value(self) -> float:
 def get_active_shape_key_mesh_names(self, context):
     items = []
     if self.head_mesh_index_lookup:
-        for mesh_index, mesh_object in self.head_mesh_index_lookup.items(): 
+        enum_index = 0
+        for mesh_index, mesh_object in self.head_mesh_index_lookup.items():
             if mesh_object.data.shape_keys and len(mesh_object.data.shape_keys.key_blocks) > 0:       
                 items.append(
                     (
@@ -295,9 +302,10 @@ def get_active_shape_key_mesh_names(self, context):
                         mesh_object.name.replace(f'{self.name}_', ''),
                         f'Only display the shape key values for "{mesh_object.name}"', 
                         'NONE', 
-                        mesh_index
+                        enum_index
                     )
                 )
+                enum_index += 1
     elif self.head_mesh:
         items.append(
                 (
@@ -385,6 +393,10 @@ def set_show_face_board(self, value):
     if self.face_board:
         self.face_board.hide_set(not value)
 
+def set_show_control_rig(self, value):
+    if self.control_rig:
+        self.control_rig.hide_set(not value)
+
 def set_show_body_bones(self, value):
     if self.body_rig:
         self.body_rig.hide_set(not value)
@@ -406,6 +418,34 @@ def get_copied_rig_logic_instance_name(self):
 
 def set_unreal_content_folder(self, value):
     self['unreal_content_folder'] = value
+
+def get_new_pose_name(self):
+    value = self.get('new_pose_name')
+    if value is None:
+        instance = get_active_rig_logic()
+        if instance:
+            solver = instance.rbf_solver_list[instance.rbf_solver_list_active_index]
+            driver_bone_name = solver.name.replace(RBF_SOLVER_POSTFIX, '')
+            driver_bone = instance.body_rig.pose.bones.get(driver_bone_name)
+            if driver_bone:
+                name = driver_bone.name
+                rotation_euler = driver_bone.rotation_quaternion.to_euler('XYZ')
+                x = round(math.degrees(rotation_euler.x))
+                y = round(math.degrees(rotation_euler.y))
+                z = round(math.degrees(rotation_euler.z))
+                
+                if x != 0:
+                    name += f'_x_{x}'
+                if y != 0:
+                    name += f'_y_{y}'
+                if z != 0:
+                    name += f'_z_{z}'
+                return name
+        return ''
+    return value
+
+def set_new_pose_name(self, value):
+    self['new_pose_name'] = value
 
 def get_unreal_content_folder(self):
     value = self.get('unreal_content_folder')
@@ -473,7 +513,6 @@ def poll_body_materials(self, material: bpy.types.Material) -> bool:
 def poll_face_boards(self, scene_object: bpy.types.Object) -> bool:
     if scene_object.type == 'ARMATURE':
         # Check if this is the right armature by checking one bone name
-        # We don't check all bone names to avoid performance issues
         if scene_object.pose.bones.get('CTRL_rigLogic'): # type: ignore
             return True
     return False
@@ -486,6 +525,13 @@ def poll_head_rig(self, scene_object: bpy.types.Object) -> bool:
     return False
 
 def poll_body_rig(self, scene_object: bpy.types.Object) -> bool:
+    if scene_object.type == 'ARMATURE':
+        # This check will filter out the face boards
+        if not scene_object.pose.bones.get('CTRL_rigLogic'): # type: ignore
+            return True
+    return False
+
+def poll_control_rig(self, scene_object: bpy.types.Object) -> bool:
     if scene_object.type == 'ARMATURE':
         # This check will filter out the face boards
         if not scene_object.pose.bones.get('CTRL_rigLogic'): # type: ignore
@@ -544,8 +590,9 @@ def update_body_rbf_poses_active_index(self, context):
     pose = self.poses[self.poses_active_index]
 
     # reset all bone transforms
-    for pose_bone in instance.body_rig.pose.bones:
-        pose_bone.matrix_basis = Matrix.Identity(4)
+    if instance.body_reset_rbf_pose_on_change or instance.editing_rbf_solver:
+        for pose_bone in instance.body_rig.pose.bones:
+            pose_bone.matrix_basis = Matrix.Identity(4)
 
     for driver in pose.drivers:
         pose_bone = instance.body_rig.pose.bones.get(driver.name)
@@ -567,9 +614,9 @@ def update_body_rbf_poses_active_index(self, context):
             swing_outputs, twist_outputs = meta_human_dna_core.calculate_swing_twist(
                 driver_quaternion_rotation=driver.quaternion_rotation[:],
                 swing_bone_names=swing_bone_names,
-                swing_blend_weights=swing_blend_weights,
+                swing_blend_weights=swing_blend_weights[:],
                 twist_bone_names=twist_bone_names,
-                twist_blend_weights=twist_blend_weights,
+                twist_blend_weights=twist_blend_weights[:],
                 swing_axis=swing_axis,
                 twist_axis=twist_axis
             )
@@ -586,6 +633,11 @@ def update_body_rbf_poses_active_index(self, context):
     # ensure the body is initialized
     if not instance.body_initialized:
         instance.body_initialize(update_rbf_solver_list=False)
+
+    # evaluate the body rig logic when not editing the rbf solver
+    if not instance.editing_rbf_solver:
+        instance.evaluate(component='body')
+        return
 
     for driven in pose.driven:
         if driven.data_type == 'BONE':
@@ -617,7 +669,7 @@ def update_body_rbf_poses_active_index(self, context):
                 pose_bone.rotation_euler = Euler(driven.euler_rotation, 'XYZ')
 
 def update_evaluate_rbfs_value(self, context):
-    self.reset_body_raw_control_values()
+    self.reset_raw_control_values()
 
 def update_head_topology_selection(self, context):
     from ..utilities import get_active_head

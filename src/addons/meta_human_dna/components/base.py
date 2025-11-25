@@ -517,16 +517,6 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
             )
 
         return materials
-    
-    def import_action(self, file_path: Path):
-        file_path = Path(file_path)
-        if not self.face_board_object:
-            return
-        
-        if file_path.suffix.lower() == '.json':
-            utilities.import_face_board_action_from_json(file_path, self.face_board_object)    
-        elif file_path.suffix.lower() == '.fbx':
-            utilities.import_face_board_action_from_fbx(file_path, self.face_board_object)
 
     def validate_conversion(
             self, 
@@ -760,4 +750,8 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
 
     @abstractmethod
     def revert_bone_transforms_to_dna(self):
+        pass
+
+    @abstractmethod
+    def import_action(self, file_path: Path, **kwargs):
         pass

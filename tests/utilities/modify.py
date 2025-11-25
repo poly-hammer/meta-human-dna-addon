@@ -23,3 +23,19 @@ def apply_vertex_transform(
     ):
     mesh_object = bpy.data.objects[f'{prefix}_{mesh_name}']
     mesh_object.data.vertices[vertex_index].co = location # type: ignore
+
+
+def apply_vertex_group_weight(
+        prefix: str,
+        mesh_name: str,
+        vertex_group_name: str,
+        vertex_index: int,
+        weight: float,
+    ):
+    mesh_object = bpy.data.objects[f'{prefix}_{mesh_name}']
+    vertex_group = mesh_object.vertex_groups.get(vertex_group_name)
+    vertex_group.add(
+        index=[vertex_index],
+        weight=weight,
+        type='REPLACE'
+    )

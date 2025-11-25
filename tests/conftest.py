@@ -78,16 +78,19 @@ def pytest_configure():
 
 from fixtures.addon import addon  # noqa: E402, F401
 from fixtures.dna_data import ( # noqa: E402, F401
-    original_dna_json_data,
-    exported_dna_json_data,
-    calibrated_dna_json_data
+    original_head_dna_json_data,
+    exported_head_dna_json_data,
+    calibrated_head_dna_json_data
 )
 from fixtures.scene import (  # noqa: E402, F401
-    load_dna,
+    load_head_dna,
     load_body_dna,
+    load_body_dna_for_pose_editing,
+    load_body_dna_for_pose_roundtrip,
+    load_full_dna_for_animation,
     head_bmesh,
     head_armature,
-    modify_scene
+    modify_head_scene
 )
 
 @pytest.fixture(scope='session')
@@ -152,6 +155,18 @@ def changed_head_vertex_location() -> tuple[Vector, Vector, Vector]:
         Vector((0.85206276, 170.66174, -4.644782)),  # original dna value Y-up
         Vector((0.8358, 175.288, -5.9853077)), # new dna value Y-up
     )
+
+@pytest.fixture(scope='session')
+def changed_head_vertex_group_name() -> str:
+    return 'FACIAL_L_12IPV_NeckB7'
+
+@pytest.fixture(scope='session')
+def changed_head_vertex_group_vertex_index() -> int:
+    return 11525
+
+@pytest.fixture(scope='session')
+def changed_head_vertex_group_weight() -> float:
+    return 0.01
 
 @pytest.fixture(scope='session')
 def temp_folder():

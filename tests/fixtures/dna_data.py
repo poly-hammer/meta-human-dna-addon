@@ -3,7 +3,7 @@ from constants import TEST_DNA_FOLDER
 
 
 @pytest.fixture(scope="session")
-def original_dna_json_data(temp_folder, dna_folder_name: str) -> dict:
+def original_head_dna_json_data(temp_folder, dna_folder_name: str) -> dict:
     from utilities.dna_data import get_dna_json_data
 
     dna_file_path = TEST_DNA_FOLDER / dna_folder_name / 'head.dna'
@@ -12,8 +12,8 @@ def original_dna_json_data(temp_folder, dna_folder_name: str) -> dict:
 
 
 @pytest.fixture(scope="session")
-def exported_dna_json_data(
-    modify_scene,
+def exported_head_dna_json_data(
+    modify_head_scene,
     temp_folder,
     dna_folder_name: str
 ) -> dict:
@@ -40,8 +40,8 @@ def exported_dna_json_data(
 
 
 @pytest.fixture(scope="session")
-def calibrated_dna_json_data(
-    modify_scene,
+def calibrated_head_dna_json_data(
+    modify_head_scene,
     temp_folder,
     dna_folder_name: str
 ) -> dict:

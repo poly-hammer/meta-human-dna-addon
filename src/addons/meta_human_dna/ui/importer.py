@@ -231,11 +231,15 @@ class ImportAnimation(ImportAsset):
             return
         
         row = layout.row()
-        row.label(text="Animation Import Options:")
+        row.label(text=self.settings_title)
         row = layout.row()
         row.prop(operator, "round_sub_frames")
         row = layout.row()
         row.prop(operator, "match_frame_rate")
+        row = layout.row()
+        row.prop(operator, "prefix_instance_name")
+        row = layout.row()
+        row.prop(operator, "prefix_component_name")
 
 class LinkAppendMetaHumanImportHelper(ImportHelper):
     """

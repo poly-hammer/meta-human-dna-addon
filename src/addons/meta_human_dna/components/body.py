@@ -17,21 +17,34 @@ logger = logging.getLogger(__name__)
 
 class MetaHumanComponentBody(MetaHumanComponentBase):
     @exclude_rig_logic_evaluation
-    def import_action(self, file_path: Path):
+    def import_action(
+            self, 
+            file_path: Path,
+            round_sub_frames: bool = True,
+            match_frame_rate: bool = True,
+            prefix_instance_name: bool = True,
+            prefix_component_name: bool = True
+        ):
         file_path = Path(file_path)
         
         if self.body_rig_object:
             # ensure the rig logic instance is initialized
             self.rig_logic_instance.initialize()
-            action = utilities.import_action_from_fbx(
-                file_path=file_path, 
+            utilities.import_action_from_fbx(
+                instance=self.rig_logic_instance,
+                file_path=file_path,
+                component='body',
                 armature=self.body_rig_object,
-                include_only_bones=self.rig_logic_instance.body_raw_control_bone_names
+                # include animation only for body that are not driven by rig logic
+                include_only_bones=[
+                    b.name for b in self.body_rig_object.pose.bones
+                    if b.name not in [
+                        *self.rig_logic_instance.body_driven_bone_names,
+                        *self.rig_logic_instance.body_swing_bone_names,
+                        *self.rig_logic_instance.body_twist_bone_names
+                    ]
+                ]
             )
-            # utilities.convert_action_rotation_from_euler_to_quaternion(
-            #     action=action,
-            #     bone_names=self.rig_logic_instance.body_raw_control_bone_names
-            # )
 
     def ingest(
             self, 
@@ -52,16 +65,16 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
         self.rig_logic_instance.body_mesh = self.body_mesh_object
         self.rig_logic_instance.body_rig = self.body_rig_object
         self.rig_logic_instance.body_dna_file_path = str(self.dna_importer.source_dna_file)
+        self.rig_logic_instance.body_initialize()
 
         if self.body_rig_object and self.body_mesh_object:
-            driver_bone_names = list(set(self.dna_reader.getRawControlName(i).split('.')[0] for i in range(self.dna_reader.getRawControlCount())))
             utilities.set_body_bone_collections(
-                reader=self.dna_reader,
                 mesh_object=self.body_mesh_object,
                 rig_object=self.body_rig_object,
-                swing_bone_names=self.dna_importer.swing_bone_names,
-                twist_bone_names=self.dna_importer.twist_bone_names,
-                driver_bone_names=driver_bone_names
+                swing_bone_names=self.rig_logic_instance.body_swing_bone_names,
+                twist_bone_names=self.rig_logic_instance.body_twist_bone_names,
+                driver_bone_names=self.rig_logic_instance.body_driver_bone_names,
+                driven_bone_names=self.rig_logic_instance.body_driven_bone_names
             )
             # if this isn't the first rig, move it to the right of the last body mesh
             if len(self.scene_properties.rig_logic_instance_list) > 1:

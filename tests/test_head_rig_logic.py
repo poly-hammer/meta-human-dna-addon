@@ -80,7 +80,7 @@ def import_fbx_pose(file_path: Path) -> bpy.types.Object:
     ]
 )
 def test_head_pose(
-    load_dna, 
+    load_head_dna, 
     pose_name: str, 
     source_rig_name: str, 
     changed_head_bone_name: str,
@@ -152,7 +152,7 @@ def test_head_pose(
         (3, 'topology')
     ]
 )
-def test_active_face_material(load_dna, enum_index, active_face_material_name):
+def test_active_face_material(load_head_dna, enum_index, active_face_material_name):
     pytest.skip('TODO: Fix this')
     bpy.context.scene.meta_human_dna.active_face_material = active_face_material_name # type: ignore
     instance = get_active_rig_logic()

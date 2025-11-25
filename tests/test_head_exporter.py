@@ -19,8 +19,8 @@ from constants import (
      get_test_bone_definitions_params(dna_file_path=HEAD_DNA_FILE)
 )
 def test_bone_definitions(
-    original_dna_json_data, 
-    exported_dna_json_data,
+    original_head_dna_json_data, 
+    exported_head_dna_json_data,
     bone_name: str,
     attribute: str,
     axis_name: str,
@@ -29,8 +29,8 @@ def test_bone_definitions(
     changed_head_bone_location: tuple[Vector, Vector]
 ):
     assert_bone_definitions(
-        expected_data=original_dna_json_data,
-        current_data=exported_dna_json_data,
+        expected_data=original_head_dna_json_data,
+        current_data=exported_head_dna_json_data,
         bone_name=bone_name,
         attribute=attribute,
         axis_name=axis_name,
@@ -54,8 +54,8 @@ def test_bone_definitions(
     )
 )
 def test_mesh_geometry(
-    original_dna_json_data, 
-    exported_dna_json_data,
+    original_head_dna_json_data, 
+    exported_head_dna_json_data,
     mesh_name: str,
     attribute: str,
     axis_name: str,
@@ -64,8 +64,8 @@ def test_mesh_geometry(
     changed_head_vertex_location: tuple[Vector, Vector, Vector],
 ):
     assert_mesh_geometry(
-        expected_data=original_dna_json_data,
-        current_data=exported_dna_json_data,
+        expected_data=original_head_dna_json_data,
+        current_data=exported_head_dna_json_data,
         mesh_name=mesh_name,
         attribute=attribute,
         axis_name=axis_name,

@@ -3,12 +3,14 @@ from mathutils import Euler, Vector
 from utilities.dna_data import (
     get_test_bone_definitions_params, 
     get_test_bone_behaviors_params,
-    get_test_mesh_geometry_params
+    get_test_mesh_geometry_params,
+    get_test_skin_weights_params
 )
 from utilities.assertions import (
     assert_bone_definitions, 
     assert_bone_behaviors, 
-    assert_mesh_geometry
+    assert_mesh_geometry,
+    assert_skin_weights
 )
 from constants import (
     TOLERANCE, 
@@ -22,8 +24,8 @@ from constants import (
      get_test_bone_definitions_params(dna_file_path=HEAD_DNA_FILE)
 )
 def test_bone_definitions(
-    original_dna_json_data, 
-    calibrated_dna_json_data,
+    original_head_dna_json_data, 
+    calibrated_head_dna_json_data,
     bone_name: str,
     attribute: str,
     axis_name: str,
@@ -32,8 +34,8 @@ def test_bone_definitions(
     changed_head_bone_location: tuple[Vector, Vector]
 ):
     assert_bone_definitions(
-        expected_data=original_dna_json_data,
-        current_data=calibrated_dna_json_data,
+        expected_data=original_head_dna_json_data,
+        current_data=calibrated_head_dna_json_data,
         bone_name=bone_name,
         attribute=attribute,
         axis_name=axis_name,
@@ -50,13 +52,13 @@ def test_bone_definitions(
      get_test_bone_behaviors_params(dna_file_path=HEAD_DNA_FILE)
 )
 def test_bone_behaviors(
-    original_dna_json_data, 
-    calibrated_dna_json_data,
+    original_head_dna_json_data, 
+    calibrated_head_dna_json_data,
     bone_name: str
 ):
     assert_bone_behaviors(
-        expected_data=original_dna_json_data,
-        current_data=calibrated_dna_json_data,
+        expected_data=original_head_dna_json_data,
+        current_data=calibrated_head_dna_json_data,
         bone_name=bone_name
     )
 
@@ -71,8 +73,8 @@ def test_bone_behaviors(
     )
 )
 def test_mesh_geometry(
-    original_dna_json_data, 
-    calibrated_dna_json_data,
+    original_head_dna_json_data, 
+    calibrated_head_dna_json_data,
     mesh_name: str,
     attribute: str,
     axis_name: str,
@@ -81,8 +83,8 @@ def test_mesh_geometry(
     changed_head_vertex_location: tuple[Vector, Vector, Vector]
 ):
     assert_mesh_geometry(
-        expected_data=original_dna_json_data,
-        current_data=calibrated_dna_json_data,
+        expected_data=original_head_dna_json_data,
+        current_data=calibrated_head_dna_json_data,
         mesh_name=mesh_name,
         attribute=attribute,
         axis_name=axis_name,
@@ -92,4 +94,35 @@ def test_mesh_geometry(
         tolerance=TOLERANCE[attribute],
         assert_mesh_indices=True,
         output_method='calibrate'
+    )
+
+
+@pytest.mark.parametrize(
+    ('mesh_name', 'attribute', 'mesh_vertex_count'), 
+    get_test_skin_weights_params(
+        dna_file_path=HEAD_DNA_FILE
+    )
+)
+def test_skin_weights(
+    original_head_dna_json_data, 
+    calibrated_head_dna_json_data,
+    mesh_name: str,
+    attribute: str,
+    mesh_vertex_count: int,
+    changed_head_mesh_name: int,
+    changed_head_vertex_group_name: str,
+    changed_head_vertex_group_vertex_index: int,
+    changed_head_vertex_group_weight: float
+):
+    assert_skin_weights(
+        expected_data=original_head_dna_json_data,
+        current_data=calibrated_head_dna_json_data,
+        mesh_name=mesh_name,
+        mesh_vertex_count=mesh_vertex_count,
+        attribute=attribute,
+        changed_mesh_name=changed_head_mesh_name,
+        changed_vertex_group_name=changed_head_vertex_group_name,
+        changed_vertex_group_vertex_index=changed_head_vertex_group_vertex_index,
+        changed_vertex_group_weight=changed_head_vertex_group_weight,
+        tolerance=TOLERANCE[attribute]
     )
