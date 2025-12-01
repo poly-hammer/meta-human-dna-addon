@@ -92,6 +92,7 @@
         "BOUNDBOX",
         "BSDF",
         "bvhtree",
+        "channelbag",
         "CHECKMARK",
         "childof",
         "colorspace",

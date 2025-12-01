@@ -17,3 +17,4 @@ jobs:
     secrets: inherit
     with:
       python-version: "3.11"
+      blender-version: "4.5"

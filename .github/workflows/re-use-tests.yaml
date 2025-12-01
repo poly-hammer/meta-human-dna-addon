@@ -5,6 +5,9 @@ on:
       python-version:
         required: true
         type: string
+      blender-version:
+        required: true
+        type: string
 
     secrets:
       GH_PAT:
@@ -56,6 +59,7 @@ jobs:
         run: |
           cd meta-human-dna-addon
           pip install --upgrade -r requirements.txt
+          pip install --upgrade bpy==${{ inputs.blender-version }}.*
 
       - name: Run Tests Windows
         if: matrix.os == 'windows-latest'
@@ -80,7 +84,7 @@ jobs:
         # always run even if the previous step fails
         if: success() || failure()
         with:
-          check_name: Test Results (${{ matrix.os }})
+          check_name: Test Results (${{ matrix.os }} ${{ inputs.blender-version }})
           include_passed: True
           fail_on_failure: True
           require_tests: True
@@ -94,29 +98,29 @@ jobs:
         with:
           github-token: ${{ secrets.GH_PAT }}
           pytest-xml-coverage-path: ./meta-human-dna-addon/reports/coverage/results.xml
-          title: Coverage ${{ matrix.os }}
-          badge-title: Coverage ${{ matrix.os }}
+          title: Coverage ${{ matrix.os }} ${{ inputs.blender-version }}
+          badge-title: Coverage ${{ matrix.os }} ${{ inputs.blender-version }}
           hide-badge: false
           hide-report: false
           create-new-comment: false
           hide-comment: false
           report-only-changed-files: false
           remove-link-from-badge: false
-          unique-id-for-comment: ${{ matrix.os }}
+          unique-id-for-comment: ${{ matrix.os }}-${{ inputs.blender-version }}
           junitxml-path: ./meta-human-dna-addon/reports/pytest/results.xml
-          junitxml-title: Tests Summary ${{ matrix.os }}
+          junitxml-title: Tests Summary ${{ matrix.os }} ${{ inputs.blender-version }}
 
       - name: Generate Badges
         run: |
           cd meta-human-dna-addon
-          genbadge tests --name "Tests (${{ matrix.os }})" --input-file reports/pytest/results.xml --output-file docs/images/badges/tests-${{ matrix.os }}.svg
-          genbadge coverage --name "Coverage (${{ matrix.os }})" --input-file reports/coverage/results.xml --output-file docs/images/badges/coverage-${{ matrix.os }}.svg
+          genbadge tests --name "Tests (${{ matrix.os }} ${{ inputs.blender-version }})" --input-file reports/pytest/results.xml --output-file docs/images/badges/tests-${{ matrix.os }}-${{ inputs.blender-version }}.svg
+          genbadge coverage --name "Coverage (${{ matrix.os }} ${{ inputs.blender-version }})" --input-file reports/coverage/results.xml --output-file docs/images/badges/coverage-${{ matrix.os }}-${{ inputs.blender-version }}.svg
 
       - name: Upload Badges
         uses: EndBug/add-and-commit@v9
         with:
           cwd: './meta-human-dna-addon'
-          message: 'Updated badges for ${{ matrix.os }}'
+          message: 'Updated badges for ${{ matrix.os }} ${{ inputs.blender-version }}'
           add: 'docs/images/badges/*.svg'
           pull: '--rebase --autostash' 
           push: true

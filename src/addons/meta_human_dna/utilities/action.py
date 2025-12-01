@@ -21,6 +21,12 @@ from . import (
 if TYPE_CHECKING:
     from ..rig_logic import RigLogicInstance
 
+# blender 4.5 and 5.0 support
+if bpy.app.version >= (5, 0, 0):
+    from bpy_extras import anim_utils
+else:
+    anim_utils = None
+
 logger = logging.getLogger(__name__)
 
 def get_action_name(
@@ -63,7 +69,13 @@ def set_keys_on_bone(
 
     # create the fcurve
     index = index_lookup.get(axis.lower())
-    fcurve = action.fcurves.new(
+
+    if anim_utils:
+        channel_bag = anim_utils.action_ensure_channelbag_for_slot(action, action.slots[0])
+    else:
+        channel_bag = action
+
+    fcurve = channel_bag.fcurves.new(
         data_path=f'pose.bones["{bone_name}"].{data_path}',
         index=index
     )
@@ -76,10 +88,14 @@ def set_keys_on_bone(
 
 def remove_object_scale_keyframes(actions: list[bpy.types.Action]):
     for action in actions:
+        if anim_utils:
+            channel_bag = anim_utils.action_ensure_channelbag_for_slot(action, action.slots[0])
+        else:
+            channel_bag = action
         # Collect fcurves to remove first to avoid modifying collection while iterating
-        fcurves_to_remove = [fcurve for fcurve in action.fcurves if fcurve and fcurve.data_path == 'scale']
+        fcurves_to_remove = [fcurve for fcurve in channel_bag.fcurves if fcurve and fcurve.data_path == 'scale']
         for fcurve in fcurves_to_remove:
-            action.fcurves.remove(fcurve)
+            channel_bag.fcurves.remove(fcurve)
 
 def scale_object_actions(
         unordered_objects: list[bpy.types.Object], 
@@ -103,8 +119,13 @@ def scale_object_actions(
         if ordered_object.type == 'ARMATURE':
             # iterate over any imported actions first this time...
             for action in actions:
+                if anim_utils:
+                    channel_bag = anim_utils.action_ensure_channelbag_for_slot(action, action.slots[0])
+                else:
+                    channel_bag = action
+
                 # iterate through the location curves
-                for fcurve in [fcurve for fcurve in action.fcurves if fcurve.data_path.endswith('location')]:
+                for fcurve in [fcurve for fcurve in channel_bag.fcurves if fcurve.data_path.endswith('location')]:
                     # the location fcurve of the object
                     if fcurve.data_path == 'location':
                         for keyframe_point in fcurve.keyframe_points:
@@ -131,7 +152,12 @@ def convert_action_rotation_from_quaternion_to_euler(
     if bone_names is None:
         bone_names = []
 
-    for fcurve in action.fcurves:
+    if anim_utils:
+        channel_bag = anim_utils.action_ensure_channelbag_for_slot(action, action.slots[0])
+    else:
+        channel_bag = action
+
+    for fcurve in channel_bag.fcurves:
         # save the quaternion rotation curves by bone for later conversion
         if 'rotation_quaternion' in fcurve.data_path:
             bone_name = fcurve.data_path.split('"')[1]
@@ -153,7 +179,7 @@ def convert_action_rotation_from_quaternion_to_euler(
         # create euler fcurves
         euler_fcurves = {}
         for i in range(3):  # x, y, z
-            euler_fcurves[i] = action.fcurves.new(
+            euler_fcurves[i] = channel_bag.fcurves.new(
                 data_path=f'pose.bones["{bone_name}"].rotation_euler',
                 index=i
             )
@@ -175,7 +201,7 @@ def convert_action_rotation_from_quaternion_to_euler(
         
         # remove original quaternion curves
         for fcurve in quat_curves.values():
-            action.fcurves.remove(fcurve)
+            channel_bag.fcurves.remove(fcurve)
 
 def import_action_from_fbx(
         instance: 'RigLogicInstance',
@@ -203,6 +229,13 @@ def import_action_from_fbx(
     if new_action:
         bpy.data.actions.remove(new_action)
     new_action = bpy.data.actions.new(name=action_name)
+
+    if anim_utils:
+        if len(new_action.slots) == 0:
+            new_action.slots.new('OBJECT', name=armature.name)
+        new_channel_bag = anim_utils.action_ensure_channelbag_for_slot(new_action, new_action.slots[0])
+    else:
+        new_channel_bag = new_action
 
     # remember the current actions and objects
     current_actions = [action for action in bpy.data.actions]
@@ -237,7 +270,12 @@ def import_action_from_fbx(
         if action in current_actions:
             continue
 
-        for source_fcurve in action.fcurves:
+        if anim_utils:
+            channel_bag = anim_utils.action_ensure_channelbag_for_slot(action, action.slots[0])
+        else:
+            channel_bag = action
+
+        for source_fcurve in channel_bag.fcurves:
             if len(source_fcurve.data_path.split('"')) > 1:
                 bone_name = source_fcurve.data_path.split('"')[1]
                 curve_name = source_fcurve.data_path.split('.')[-1]
@@ -249,7 +287,7 @@ def import_action_from_fbx(
                 if include_only_bones and bone_name not in include_only_bones:
                     continue
 
-                target_fcurve = new_action.fcurves.new(
+                target_fcurve = new_channel_bag.fcurves.new(
                     data_path=f'pose.bones["{bone_name}"].{curve_name}',
                     index=source_fcurve.array_index
                 )
@@ -320,6 +358,13 @@ def import_face_board_action_from_fbx(
         bpy.data.actions.remove(face_board_action)
     face_board_action = bpy.data.actions.new(name=action_name)
 
+    if anim_utils:
+        if len(face_board_action.slots) == 0:
+            face_board_action.slots.new('OBJECT', name=armature.name)
+        face_board_channel_bag = anim_utils.action_ensure_channelbag_for_slot(face_board_action, face_board_action.slots[0])
+    else:
+        face_board_channel_bag = face_board_action
+
     # remember the current actions and objects
     current_actions = [action for action in bpy.data.actions]
     current_objects = [scene_object for scene_object in bpy.data.objects]
@@ -349,8 +394,13 @@ def import_face_board_action_from_fbx(
         if curve_name in EYE_AIM_BONES + FACE_BOARD_SWITCHES + ['CTRL_C_eye']:
             continue
 
-        for source_fcurve in action.fcurves:
-            target_fcurve = face_board_action.fcurves.new(
+        if anim_utils:
+            channel_bag = anim_utils.action_ensure_channelbag_for_slot(action, action.slots[0])
+        else:
+            channel_bag = action
+
+        for source_fcurve in channel_bag.fcurves:
+            target_fcurve = face_board_channel_bag.fcurves.new(
                 data_path=f'pose.bones["{curve_name}"].{source_fcurve.data_path}',
                 index=source_fcurve.array_index
             )
@@ -396,9 +446,16 @@ def import_face_board_action_from_json(file_path: Path, armature: bpy.types.Obje
     if not action:
         action = bpy.data.actions.new(action_name) # type: ignore
 
+    if anim_utils:
+        if len(action.slots) == 0:
+            action.slots.new('OBJECT', name=armature.name)
+        channel_bag = anim_utils.action_ensure_channelbag_for_slot(action, action.slots[0])
+    else:
+        channel_bag = action
+
     # delete all existing fcurves
-    for fcurve in action.fcurves:
-        action.fcurves.remove(fcurve)
+    for fcurve in channel_bag.fcurves:
+        channel_bag.fcurves.remove(fcurve)
 
     # ensure all bones are using euler xyz rotation
     for pose_bone in armature.pose.bones: # type: ignore
@@ -449,7 +506,12 @@ def bake_control_curve_values_for_frame(
     }
     control_curve_values = {}
 
-    for fcurve in action.fcurves:
+    if anim_utils:
+        channel_bag = anim_utils.action_ensure_channelbag_for_slot(action, action.slots[0])
+    else:
+        channel_bag = action
+    
+    for fcurve in channel_bag.fcurves:
         # type: ignore
         control_curve_name, transform = fcurve.data_path.split('"].')
         if transform == 'location' and fcurve.array_index != 2:
