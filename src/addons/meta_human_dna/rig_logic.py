@@ -1620,10 +1620,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             # get the bone 
             name = self.head_dna_reader.getJointName(index)
 
-            # only update the facial bones or non-driver bones
-            # if not name.startswith('FACIAL_'):
-            #     continue
-                
+            # only update the facial bones or non-driver bones                
             if name in self.head_driver_bone_names:
                 continue
 
