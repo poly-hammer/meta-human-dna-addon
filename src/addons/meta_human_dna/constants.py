@@ -1,9 +1,13 @@
 import os
+import bpy
 import math
 import tempfile
 from pathlib import Path
 from mathutils import Vector, Euler
 from typing import Literal
+
+
+IS_BLENDER_5 = bpy.app.version >= (5, 0, 0)
 
 class ToolInfo:
     NAME = "meta_human_dna"

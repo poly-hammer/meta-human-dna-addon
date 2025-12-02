@@ -644,6 +644,8 @@ class BakeComponentAnimation(BakeAnimationBase):
             row.prop(self, 'twist_bones')
             row = layout.row()
             row.prop(self, 'swing_bones')
+            row = layout.row()
+            row.prop(self, 'other_bones')
     
     @classmethod
     def poll(cls, context):

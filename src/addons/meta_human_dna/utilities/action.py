@@ -10,7 +10,8 @@ from ..constants import (
     ComponentType,
     SCALE_FACTOR,  
     EYE_AIM_BONES,
-    FACE_BOARD_SWITCHES
+    FACE_BOARD_SWITCHES,
+    IS_BLENDER_5
 )
 from . import (
     switch_to_pose_mode,
@@ -21,8 +22,9 @@ from . import (
 if TYPE_CHECKING:
     from ..rig_logic import RigLogicInstance
 
+
 # blender 4.5 and 5.0 support
-if bpy.app.version >= (5, 0, 0):
+if IS_BLENDER_5:
     from bpy_extras import anim_utils
 else:
     anim_utils = None
@@ -578,19 +580,34 @@ def bake_face_board_to_action(
             armature_object.hide_set(False)
             bpy.context.view_layer.objects.active = armature_object # type: ignore
             switch_to_pose_mode(armature_object)
-            
-            # select all facial bones that are effected by rig logic
-            for bone in armature_object.data.bones: # type: ignore
-                if bone.name.startswith('FACIAL_'):
-                    bone.select = True
-                    bone.select_head = True
-                    bone.select_tail = True
-                else:
-                    bone.select = False
-                    bone.select_head = False
-                    bone.select_tail = False
 
-            current_actions = [a for a in bpy.data.actions]
+            # TODO: Do we want to provide more granular control over which bones to bake?
+            # collect all bone names to be baked
+            baked_bone_names = [bone.name for bone in armature_object.data.bones]
+            
+            # select all secondary bones that are effected by rig logic
+            for pose_bone in armature_object.pose.bones: # type: ignore
+                if pose_bone.name in baked_bone_names:
+                    if IS_BLENDER_5:
+                        pose_bone.select = True
+                    else:
+                        pose_bone.bone.select = True
+                        pose_bone.bone.select_head = True
+                        pose_bone.bone.select_tail = True
+                else:
+                    if IS_BLENDER_5:
+                        pose_bone.select = False
+                    else:
+                        pose_bone.bone.select = False
+                        pose_bone.bone.select_head = False
+                        pose_bone.bone.select_tail = False
+
+            if IS_BLENDER_5:
+                current_object_actions = [a for a in bpy.data.actions if len(a.slots) > 0 and a.slots[0].target_id_type == 'OBJECT']
+                current_node_tree_actions = [a for a in bpy.data.actions if len(a.slots) > 0 and a.slots[0].target_id_type == 'NODETREE']
+            else:
+                current_object_actions = [a for a in bpy.data.actions if a.id_root == 'OBJECT']
+                current_node_tree_actions = [a for a in bpy.data.actions if a.id_root == 'NODETREE']
 
             # bake the visual keying of the pose bones
             bpy.ops.nla.bake(
@@ -599,7 +616,7 @@ def bake_face_board_to_action(
                 step=step,
                 only_selected=True,
                 visual_keying=True,
-                use_current_action=not replace_action,
+                use_current_action=replace_action,
                 bake_types={'POSE'},
                 clean_curves=clean_curves,
                 channel_types=channel_types
@@ -620,15 +637,27 @@ def bake_face_board_to_action(
                         masks=masks,
                         component='head'
                     )
-
-            if replace_action:
-                action.name = action_name
-            else:
-                # rename the newly created action
-                for action in bpy.data.actions:
-                    if action not in current_actions:
-                        action.name = action_name
+            
+            # rename the newly created object action
+            for _action in bpy.data.actions:
+                if getattr(_action, 'id_root', None) == 'OBJECT' or (len(_action.slots) > 0 and _action.slots[0].target_id_type == 'OBJECT'):
+                    if _action not in current_object_actions:
+                        _action.name = action_name
                         break
+
+            # rename the newly created node tree action
+            for _action in bpy.data.actions:
+                if getattr(_action, 'id_root', None) == 'NODETREE' or (len(_action.slots) > 0 and _action.slots[0].target_id_type == 'NODETREE'):
+                    if _action not in current_node_tree_actions:
+                        _action.name = f'{action_name}_shader'
+                        break
+            
+            # cleanup old action if replacing
+            if replace_action:
+                old_action = instance.face_board.animation_data.action
+                instance.face_board.animation_data_clear()
+                bpy.data.actions.remove(old_action, do_unlink=True)
+            
             bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True # type: ignore
 
 
@@ -694,17 +723,28 @@ def bake_body_to_action(
                 ]
             
             # select all secondary bones that are effected by rig logic
-            for bone in armature_object.data.bones: # type: ignore
-                if bone.name in baked_bone_names:
-                    bone.select = True
-                    bone.select_head = True
-                    bone.select_tail = True
+            for pose_bone in armature_object.pose.bones: # type: ignore
+                if pose_bone.name in baked_bone_names:
+                    if IS_BLENDER_5:
+                        pose_bone.select = True
+                    else:
+                        pose_bone.bone.select = True
+                        pose_bone.bone.select_head = True
+                        pose_bone.bone.select_tail = True
                 else:
-                    bone.select = False
-                    bone.select_head = False
-                    bone.select_tail = False
+                    if IS_BLENDER_5:
+                        pose_bone.select = False
+                    else:
+                        pose_bone.bone.select = False
+                        pose_bone.bone.select_head = False
+                        pose_bone.bone.select_tail = False
 
-            current_actions = [a for a in bpy.data.actions]
+            if IS_BLENDER_5:
+                current_object_actions = [a for a in bpy.data.actions if len(a.slots) > 0 and a.slots[0].target_id_type == 'OBJECT']
+                current_node_tree_actions = [a for a in bpy.data.actions if len(a.slots) > 0 and a.slots[0].target_id_type == 'NODETREE']
+            else:
+                current_object_actions = [a for a in bpy.data.actions if a.id_root == 'OBJECT']
+                current_node_tree_actions = [a for a in bpy.data.actions if a.id_root == 'NODETREE']
 
             # bake the visual keying of the pose bones
             bpy.ops.nla.bake(
@@ -713,7 +753,7 @@ def bake_body_to_action(
                 step=step,
                 only_selected=True,
                 visual_keying=True,
-                use_current_action=not replace_action,
+                use_current_action=replace_action,
                 bake_types={'POSE'},
                 clean_curves=clean_curves,
                 channel_types=channel_types
@@ -741,8 +781,16 @@ def bake_body_to_action(
             if replace_action:
                 action.name = action_name
             else:
-                # rename the newly created action
-                for action in bpy.data.actions:
-                    if action not in current_actions:
-                        action.name = action_name
+                # rename the newly created object action
+                for _action in bpy.data.actions:
+                    if getattr(_action, 'id_root', None) == 'OBJECT' or (len(_action.slots) > 0 and _action.slots[0].target_id_type == 'OBJECT'):
+                        if _action not in current_object_actions:
+                            _action.name = action_name
+                            break
+
+            # rename the newly created node tree action
+            for _action in bpy.data.actions:
+                if getattr(_action, 'id_root', None) == 'NODETREE' or (len(_action.slots) > 0 and _action.slots[0].target_id_type == 'NODETREE'):
+                    if _action not in current_node_tree_actions:
+                        _action.name = f'{action_name}_shader'
                         break

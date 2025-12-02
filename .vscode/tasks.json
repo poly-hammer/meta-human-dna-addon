@@ -93,13 +93,13 @@
             "default": "",
             "options": [
                 "",
+                "tests/test_animation.py",
                 "tests/test_addon_registration.py",
                 "tests/test_head_calibrator.py",
                 "tests/test_head_exporter.py",
                 "tests/test_head_rig_logic.py",
                 "tests/test_body_rig_logic.py",
-                "tests/test_body_pose_editor.py",
-                "tests/test_body_animation.py",
+                "tests/test_body_pose_editor.py"
             ],
             "description": "What test suite do you want to run?"
         },
