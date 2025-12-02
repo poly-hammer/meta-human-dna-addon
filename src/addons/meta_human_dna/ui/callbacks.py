@@ -602,21 +602,21 @@ def update_body_rbf_poses_active_index(self, context):
             pose_bone.rotation_quaternion = quaternion_rotation
             pose_bone.rotation_euler = Euler(driver.euler_rotation, 'XYZ')
 
-            swing_axis = pose_bone.get('swing_axis')
+            swing_axis = pose_bone.get('swing_axis', '')
             swing_bone_names = pose_bone.get('swing_bone_names', [])
             swing_blend_weights = pose_bone.get('swing_blend_weights', [])
 
-            twist_axis = pose_bone.get('twist_axis')
+            twist_axis = pose_bone.get('twist_axis', '')
             twist_bone_names = pose_bone.get('twist_bone_names', [])
             twist_blend_weights = pose_bone.get('twist_blend_weights', [])
 
             # calculate swing and twist outputs
             swing_outputs, twist_outputs = meta_human_dna_core.calculate_swing_twist(
-                driver_quaternion_rotation=driver.quaternion_rotation[:],
+                driver_quaternion_rotation=list(driver.quaternion_rotation[:]),
                 swing_bone_names=swing_bone_names,
-                swing_blend_weights=swing_blend_weights[:],
+                swing_blend_weights=list(swing_blend_weights[:]),
                 twist_bone_names=twist_bone_names,
-                twist_blend_weights=twist_blend_weights[:],
+                twist_blend_weights=list(twist_blend_weights[:]),
                 swing_axis=swing_axis,
                 twist_axis=twist_axis
             )
