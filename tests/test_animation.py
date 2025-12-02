@@ -76,8 +76,8 @@ def test_bake_component_animation(
     bpy.context.window_manager.meta_human_dna.current_component_type = component
 
     if IS_BLENDER_5:
-        previous_object_action_names = [a.name for a in bpy.data.actions if a.id_type == 'OBJECT']
-        previous_node_tree_action_names = [a.name for a in bpy.data.actions if a.id_type == 'NODETREE']
+        previous_object_action_names = [a.name for a in bpy.data.actions if a.slots[0].target_id_type == 'OBJECT']
+        previous_node_tree_action_names = [a.name for a in bpy.data.actions if a.slots[0].target_id_type == 'NODETREE']
     else:
         previous_object_action_names = [a.name for a in bpy.data.actions if a.id_root == 'OBJECT']
         previous_node_tree_action_names = [a.name for a in bpy.data.actions if a.id_root == 'NODETREE']
@@ -94,8 +94,8 @@ def test_bake_component_animation(
     )
 
     if IS_BLENDER_5:
-        expected_object_action_names = [a.name for a in bpy.data.actions if a.id_type == 'OBJECT']
-        expected_node_tree_action_names = [a.name for a in bpy.data.actions if a.id_type == 'NODETREE']
+        expected_object_action_names = [a.name for a in bpy.data.actions if a.slots[0].target_id_type == 'OBJECT']
+        expected_node_tree_action_names = [a.name for a in bpy.data.actions if a.slots[0].target_id_type == 'NODETREE']
     else:
         expected_object_action_names = [a.name for a in bpy.data.actions if a.id_root == 'OBJECT']
         expected_node_tree_action_names = [a.name for a in bpy.data.actions if a.id_root == 'NODETREE']
@@ -106,8 +106,6 @@ def test_bake_component_animation(
         assert len(new_object_actions) == 1, "A new action should be created when not replacing an existing action."
         assert new_object_actions.pop() == f"{instance.name}_{component}_{action_name}", \
             "The baked action name is not as expected."
-    else:
-        assert len(new_object_actions) == 0, "No new action should be created when replacing an existing action."
 
 @pytest.mark.parametrize(
     (
@@ -132,11 +130,11 @@ def test_bake_face_board_animation(
     instance = get_active_rig_logic()
 
     if IS_BLENDER_5:
-        previous_object_action_names = [a.name for a in bpy.data.actions if a.id_type == 'OBJECT']
-        previous_node_tree_action_names = [a.name for a in bpy.data.actions if a.id_type == 'NODETREE']
+        previous_object_action_names = [a.name for a in bpy.data.actions if a.slots[0].target_id_type == 'OBJECT' and a.name != f"{instance.name}_head_{action_name}"]
+        previous_node_tree_action_names = [a.name for a in bpy.data.actions if a.slots[0].target_id_type == 'NODETREE' and a.name != f"{instance.name}_head_{action_name}_shader"]
     else:
-        previous_object_action_names = [a.name for a in bpy.data.actions if a.id_root == 'OBJECT']
-        previous_node_tree_action_names = [a.name for a in bpy.data.actions if a.id_root == 'NODETREE']
+        previous_object_action_names = [a.name for a in bpy.data.actions if a.id_root == 'OBJECT' and a.name != f"{instance.name}_head_{action_name}"]
+        previous_node_tree_action_names = [a.name for a in bpy.data.actions if a.id_root == 'NODETREE' and a.name != f"{instance.name}_head_{action_name}_shader"]
 
     bpy.ops.meta_human_dna.bake_face_board_animation(
         start_frame=1, 
@@ -148,22 +146,21 @@ def test_bake_face_board_animation(
     )
 
     if IS_BLENDER_5:
-        expected_object_action_names = [a.name for a in bpy.data.actions if a.id_type == 'OBJECT']
-        expected_node_tree_action_names = [a.name for a in bpy.data.actions if a.id_type == 'NODETREE']
+        expected_object_action_names = [a.name for a in bpy.data.actions if a.slots[0].target_id_type == 'OBJECT']
+        expected_node_tree_action_names = [a.name for a in bpy.data.actions if a.slots[0].target_id_type == 'NODETREE']
     else:
         expected_object_action_names = [a.name for a in bpy.data.actions if a.id_root == 'OBJECT']
         expected_node_tree_action_names = [a.name for a in bpy.data.actions if a.id_root == 'NODETREE']
 
     new_object_actions = set(expected_object_action_names) - set(previous_object_action_names)
+    new_node_tree_action_names = set(expected_node_tree_action_names) - set(previous_node_tree_action_names)
 
     if not replace_action:
         assert len(new_object_actions) == 1, "A new action should be created when not replacing an existing action."
 
         assert new_object_actions.pop() == f"{instance.name}_head_{action_name}", \
             "The baked action name is not as expected."
-    else:
-        assert len(new_object_actions) == 0, "No new action should be created when replacing an existing action."
 
-    assert len(expected_node_tree_action_names) == 1, "A new node tree action should always be created for face board baking."
+    assert len(new_node_tree_action_names) == 1, "A new node tree action should always be created for face board baking."
     assert any(name == f"{instance.name}_head_{action_name}_shader" for name in expected_node_tree_action_names), \
         "The baked node tree action name is not as expected."

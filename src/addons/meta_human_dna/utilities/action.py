@@ -603,8 +603,8 @@ def bake_face_board_to_action(
                         pose_bone.bone.select_tail = False
 
             if IS_BLENDER_5:
-                current_object_actions = [a for a in bpy.data.actions if a.id_type == 'OBJECT']
-                current_node_tree_actions = [a for a in bpy.data.actions if a.id_type == 'NODETREE']
+                current_object_actions = [a for a in bpy.data.actions if len(a.slots) > 0 and a.slots[0].target_id_type == 'OBJECT']
+                current_node_tree_actions = [a for a in bpy.data.actions if len(a.slots) > 0 and a.slots[0].target_id_type == 'NODETREE']
             else:
                 current_object_actions = [a for a in bpy.data.actions if a.id_root == 'OBJECT']
                 current_node_tree_actions = [a for a in bpy.data.actions if a.id_root == 'NODETREE']
@@ -640,14 +640,14 @@ def bake_face_board_to_action(
             
             # rename the newly created object action
             for _action in bpy.data.actions:
-                if getattr(_action, 'id_root', None) == 'OBJECT' or getattr(_action, 'id_type', None) == 'OBJECT':
+                if getattr(_action, 'id_root', None) == 'OBJECT' or (len(_action.slots) > 0 and _action.slots[0].target_id_type == 'OBJECT'):
                     if _action not in current_object_actions:
                         _action.name = action_name
                         break
 
             # rename the newly created node tree action
             for _action in bpy.data.actions:
-                if getattr(_action, 'id_root', None) == 'NODETREE' or getattr(_action, 'id_type', None) == 'NODETREE':
+                if getattr(_action, 'id_root', None) == 'NODETREE' or (len(_action.slots) > 0 and _action.slots[0].target_id_type == 'NODETREE'):
                     if _action not in current_node_tree_actions:
                         _action.name = f'{action_name}_shader'
                         break
@@ -740,8 +740,8 @@ def bake_body_to_action(
                         pose_bone.bone.select_tail = False
 
             if IS_BLENDER_5:
-                current_object_actions = [a for a in bpy.data.actions if a.id_type == 'OBJECT']
-                current_node_tree_actions = [a for a in bpy.data.actions if a.id_type == 'NODETREE']
+                current_object_actions = [a for a in bpy.data.actions if len(a.slots) > 0 and a.slots[0].target_id_type == 'OBJECT']
+                current_node_tree_actions = [a for a in bpy.data.actions if len(a.slots) > 0 and a.slots[0].target_id_type == 'NODETREE']
             else:
                 current_object_actions = [a for a in bpy.data.actions if a.id_root == 'OBJECT']
                 current_node_tree_actions = [a for a in bpy.data.actions if a.id_root == 'NODETREE']
@@ -783,14 +783,14 @@ def bake_body_to_action(
             else:
                 # rename the newly created object action
                 for _action in bpy.data.actions:
-                    if getattr(_action, 'id_root', None) == 'OBJECT' or getattr(_action, 'id_type', None) == 'OBJECT':
+                    if getattr(_action, 'id_root', None) == 'OBJECT' or (len(_action.slots) > 0 and _action.slots[0].target_id_type == 'OBJECT'):
                         if _action not in current_object_actions:
                             _action.name = action_name
                             break
 
             # rename the newly created node tree action
             for _action in bpy.data.actions:
-                if getattr(_action, 'id_root', None) == 'NODETREE' or getattr(_action, 'id_type', None) == 'NODETREE':
+                if getattr(_action, 'id_root', None) == 'NODETREE' or (len(_action.slots) > 0 and _action.slots[0].target_id_type == 'NODETREE'):
                     if _action not in current_node_tree_actions:
                         _action.name = f'{action_name}_shader'
                         break
