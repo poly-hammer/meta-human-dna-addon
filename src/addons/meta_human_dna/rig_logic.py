@@ -36,6 +36,11 @@ def rig_logic_listener(
     # this condition prevents constant evaluation
     if not bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph: # type: ignore
         return
+    
+    # this condition prevents evaluation after an undo operation
+    if bpy.context.window_manager.meta_human_dna.is_undoing: # type: ignore
+        bpy.context.window_manager.meta_human_dna.is_undoing = False # type: ignore
+        return
 
     # track the minimal set of instances that need to be updated and their components
     instance_updates = set()
@@ -375,8 +380,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty(
         default='my_metahuman',
         description='The name associated with this Rig Logic instance. This is also the unique identifier for all data associated with the metahuman head',
-        set=callbacks.set_instance_name,
-        get=callbacks.get_instance_name
+        update=callbacks.update_instance_name
     ) # type: ignore
     auto_evaluate: bpy.props.BoolProperty(
         default=True,
@@ -752,6 +756,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     unreal_material_slot_to_instance_mapping_active_index: bpy.props.IntProperty() # type: ignore
 
     # ----- Internal Properties -----
+    old_name: bpy.props.StringProperty(default='') # type: ignore
     shape_key_list: bpy.props.CollectionProperty(type=ShapeKeyData) # type: ignore
     shape_key_list_active_index: bpy.props.IntProperty() # type: ignore
 
@@ -876,18 +881,10 @@ class RigLogicInstance(bpy.types.PropertyGroup):
     @property
     def head_texture_masks_node(self) -> bpy.types.ShaderNodeGroup | None:
         # first check if the texture masks node is set
-        texture_masks_node = self.data.get(f'{self.name}_head_texture_masks_node')
-        if texture_masks_node is False:
+        if not self.head_material:
             return None
-        elif texture_masks_node is not None:
-            return texture_masks_node
-        else:
-            node = callbacks.get_head_texture_logic_node(self.head_material)
-            if node:
-                self.data[f'{self.name}_head_texture_masks_node'] = node
-                return self.data[f'{self.name}_head_texture_masks_node']
-
-        self.data[f'{self.name}_head_texture_masks_node'] = False
+    
+        return callbacks.get_head_texture_logic_node(self.head_material)
 
     @property
     def head_initialized(self) -> bool:
@@ -1583,8 +1580,9 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         if not self.head_material or not self.head_dna_reader:
             return []
 
+        head_texture_masks_node = self.head_texture_masks_node
         # if the texture masks node is not set, we can't update the texture masks
-        if not self.head_texture_masks_node:
+        if not head_texture_masks_node:
             logger.warning(f'The texture masks node was not found on the material "{self.head_material.name}"')
             return []
         
@@ -1595,7 +1593,7 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             name = self.head_dna_reader.getAnimatedMapName(index)
             slider_name = f"{name.split('.')[0].split('_')[1].lower().replace('cm', 'wm')}.{name.split('.')[-1]}_msk"
             
-            mask_slider = self.head_texture_masks_node.inputs.get(slider_name)
+            mask_slider = head_texture_masks_node.inputs.get(slider_name)
             if mask_slider:
                 mask_slider.default_value = value # type: ignore
                 texture_mask_values.append((slider_name, value))

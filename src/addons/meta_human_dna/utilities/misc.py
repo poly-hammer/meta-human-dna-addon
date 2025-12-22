@@ -349,6 +349,7 @@ def pre_undo(*args):
         bpy.context.region.type == 'WINDOW'
     ):
         bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False # type: ignore
+        bpy.context.window_manager.meta_human_dna.is_undoing = True # type: ignore
         for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list: # type: ignore
             instance.destroy()
 
@@ -360,7 +361,13 @@ def post_undo(*args):
         bpy.context.region and
         bpy.context.region.type == 'WINDOW'
     ):
-        bpy.ops.meta_human_dna.force_evaluate() # type: ignore
+        bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True # type: ignore
+
+def pre_redo(*args):
+    pre_undo(*args)
+
+def post_redo(*args):
+    post_undo(*args)
 
 def pre_render(*args):
     pre_undo(*args)

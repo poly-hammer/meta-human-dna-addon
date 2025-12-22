@@ -24,7 +24,7 @@ MASKS_TEXTURE = "combined_masks.tga"
 HEAD_TOPOLOGY_TEXTURE = "head_topology.png"
 BODY_TOPOLOGY_TEXTURE = "body_topology.png"
 NUMBER_OF_HEAD_LODS = 8
-SENTRY_DSN = "https://38575ef4609265865b46dcc274249962@sentry.polyhammer.com/13"
+SENTRY_DSN = "https://38575ef4609265865b46dcc274249962@sentry.poly-hammer.com/13"
 
 INVALID_NAME_CHARACTERS_REGEX = r"[^-+\w]+"
 LOD_REGEX = r"(?i)(_LOD\d).*"

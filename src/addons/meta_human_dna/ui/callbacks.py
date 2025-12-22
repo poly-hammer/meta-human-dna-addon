@@ -760,20 +760,15 @@ def get_body_image_output_items(instance: 'RigLogicInstance') -> list[tuple[bpy.
                         image_nodes.append((image_node.image, file_name)) # type: ignore
     return image_nodes
 
-def get_instance_name(self):
-    return self.get('instance_name', '')
-
-def set_instance_name(self, value):
-    old_name = self.get('instance_name')
-    if old_name != value and value:
-        if old_name:
-            from ..utilities import rename_rig_logic_instance
-            rename_rig_logic_instance(
-                instance=self,
-                old_name=old_name,
-                new_name=value
-            )
-        self['instance_name'] = value
+def update_instance_name(self, context):
+    if self.old_name != self.name:
+        from ..utilities import rename_rig_logic_instance
+        rename_rig_logic_instance(
+            instance=self,
+            old_name=self.old_name,
+            new_name=self.name
+        )
+        self.old_name = self.name
 
 def update_body_output_items(self, context):
     if not hasattr(bpy.context.scene, ToolInfo.NAME):

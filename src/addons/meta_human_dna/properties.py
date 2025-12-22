@@ -148,6 +148,7 @@ class MetahumanWindowMangerProperties(bpy.types.PropertyGroup, MetahumanDnaImpor
     progress_description: bpy.props.StringProperty(default='') # type: ignore
     progress_mesh_name: bpy.props.StringProperty(default='') # type: ignore
     evaluate_dependency_graph: bpy.props.BoolProperty(default=True) # type: ignore
+    is_undoing: bpy.props.BoolProperty(default=False) # type: ignore
 
     face_pose_previews: bpy.props.EnumProperty( # type: ignore
         name="Face Poses",

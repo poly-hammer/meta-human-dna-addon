@@ -120,6 +120,8 @@ app_handlers = {
     'load_post': bpy.app.handlers.persistent(utilities.setup_scene),
     'undo_pre': bpy.app.handlers.persistent(utilities.pre_undo),
     'undo_post': bpy.app.handlers.persistent(utilities.post_undo),
+    'redo_pre': bpy.app.handlers.persistent(utilities.pre_redo),
+    'redo_post': bpy.app.handlers.persistent(utilities.post_redo),
     'render_init': bpy.app.handlers.persistent(utilities.pre_render),
     'render_complete': bpy.app.handlers.persistent(utilities.post_render),
     'render_cancel': bpy.app.handlers.persistent(utilities.post_render)
@@ -158,6 +160,8 @@ def register():
     bpy.app.handlers.load_post.append(app_handlers['load_post'])
     bpy.app.handlers.undo_pre.append(app_handlers['undo_pre'])
     bpy.app.handlers.undo_post.append(app_handlers['undo_post'])
+    bpy.app.handlers.redo_pre.append(app_handlers['redo_pre'])
+    bpy.app.handlers.redo_post.append(app_handlers['redo_post'])
     bpy.app.handlers.render_init.append(app_handlers['render_init'])
     bpy.app.handlers.render_complete.append(app_handlers['render_complete'])
     bpy.app.handlers.render_cancel.append(app_handlers['render_cancel'])
@@ -177,6 +181,10 @@ def unregister():
         bpy.app.handlers.undo_pre.remove(app_handlers['undo_pre'])
     if app_handlers['undo_post'] in bpy.app.handlers.undo_post:
         bpy.app.handlers.undo_post.remove(app_handlers['undo_post'])
+    if app_handlers['redo_pre'] in bpy.app.handlers.redo_pre:
+        bpy.app.handlers.redo_pre.remove(app_handlers['redo_pre'])
+    if app_handlers['redo_post'] in bpy.app.handlers.redo_post:
+        bpy.app.handlers.redo_post.remove(app_handlers['redo_post'])
     if app_handlers['load_pre'] in bpy.app.handlers.load_pre:
         bpy.app.handlers.load_pre.remove(app_handlers['load_pre'])
     if app_handlers['load_post'] in bpy.app.handlers.load_post:

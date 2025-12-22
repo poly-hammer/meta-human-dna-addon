@@ -1,12 +1,5 @@
-## Major Changes
-* Evaluation support for RBF Solvers [#168](https://github.com/poly-hammer/meta-human-dna-addon/issues/168)
-
-## Minor Changes
-* Calibrate Vertex Groups [#200](https://github.com/poly-hammer/meta-human-dna-addon/issues/200)
-* Option to preserve Face Board animation when baking [#93](https://github.com/poly-hammer/meta-human-dna-addon/issues/93)
-
 ## Patch Changes
-* Fixed Append/Link operator [#206](https://github.com/poly-hammer/meta-human-dna-addon/issues/206)
+* Fixed Crashes with Shader Edits and Undo/Redo [#237](https://github.com/poly-hammer/meta-human-dna-addon/issues/237)
 
 
 > [!WARNING]  
