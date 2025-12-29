@@ -266,10 +266,11 @@ class DNAExporter:
         # Switch to edit mode so we can get edit bone data
         armature_object.hide_set(False)
         utilities.switch_to_bone_edit_mode(armature_object)
+        armature_object_evaluated = armature_object.evaluated_get(bpy.context.evaluated_depsgraph_get())
 
         # Remove the extra bones from the list of bones
         ignored_bone_names = [i for i, _ in extra_bones]
-        edit_bones = [i for i in armature_object.data.edit_bones if i.name not in ignored_bone_names] # type: ignore
+        edit_bones = [i for i in armature_object_evaluated.data.edit_bones if i.name not in ignored_bone_names] # type: ignore
         for index, edit_bone in enumerate(edit_bones): # type: ignore
             if index == 0:
                 # get translation and rotation of the bone globally
