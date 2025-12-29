@@ -6,7 +6,7 @@ venv
 *.pyc
 *.blend*
 .env
-
+releases
 tests/extra_test_files
 tests/test_files/unreal_projects
 src/addons/meta_human_dna/resources/packages

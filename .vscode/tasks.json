@@ -54,6 +54,19 @@
                 "panel": "shared",
                 "focus": true
             }
+        },
+        {
+            "label": "package addon",
+            "command": "${workspaceFolder}/.venv/Scripts/python -m poly_hammer_utils.addon.packager",
+            "type": "shell",
+            "group": {
+                "kind": "build"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            }
         }
     ],
     "inputs": [
