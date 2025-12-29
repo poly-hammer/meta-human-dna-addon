@@ -278,10 +278,18 @@ def import_action_from_fbx(
             channel_bag = action
 
         for source_fcurve in channel_bag.fcurves:
+            bone_name = None
+            curve_name = None
+
             if len(source_fcurve.data_path.split('"')) > 1:
                 bone_name = source_fcurve.data_path.split('"')[1]
                 curve_name = source_fcurve.data_path.split('.')[-1]
+            # object level transforms are mapped to the root bone
+            elif source_fcurve.data_path in {'location', 'rotation_euler', 'rotation_quaternion', 'scale'}:
+                bone_name = 'root'
+                curve_name = source_fcurve.data_path
 
+            if bone_name and curve_name:
                 if not armature.pose.bones.get(bone_name): # type: ignore
                     logger.warning(f'Skipping fcurve for unknown bone: {bone_name}')
                     continue
@@ -315,7 +323,7 @@ def import_action_from_fbx(
     if new_action.slots:
         armature.animation_data.action_slot = new_action.slots[0] # type: ignore
 
-    # # remove the imported actions
+    # remove the imported actions
     for action in bpy.data.actions:
         if action not in current_actions:
             bpy.data.actions.remove(action, do_unlink=True)

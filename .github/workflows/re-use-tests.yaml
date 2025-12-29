@@ -32,6 +32,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: 'meta-human-dna-addon'
+          ref: ${{ github.head_ref }}
           lfs: true
           submodules: true
           token: ${{ secrets.GH_PAT }}

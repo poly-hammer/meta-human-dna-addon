@@ -1,6 +1,7 @@
 ## Patch Changes
 * Fixed Blender 5.0 shape key imports [#229](https://github.com/poly-hammer/meta-human-dna-addon/issues/229)
 * Fixed Blender 5.0 action baking [#229](https://github.com/poly-hammer/meta-human-dna-addon/issues/229)
+* Fixed animation import bugs with root motion [#233](https://github.com/poly-hammer/meta-human-dna-addon/issues/233)
 * Fixed Crashes with Shader Edits and Undo/Redo [#237](https://github.com/poly-hammer/meta-human-dna-addon/issues/237)
 * Added validation for when user tries to append/link rig instance with the same name [#203](https://github.com/poly-hammer/meta-human-dna-addon/issues/203)
 
