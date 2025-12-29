@@ -32,7 +32,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: 'meta-human-dna-addon'
-          ref: ${{ github.head_ref }}
           lfs: true
           submodules: true
           token: ${{ secrets.GH_PAT }}
@@ -111,17 +110,17 @@ jobs:
           junitxml-path: ./meta-human-dna-addon/reports/pytest/results.xml
           junitxml-title: Tests Summary ${{ matrix.os }} ${{ inputs.blender-version }}
 
-      - name: Generate Badges
-        run: |
-          cd meta-human-dna-addon
-          genbadge tests --name "Tests (${{ matrix.os }} ${{ inputs.blender-version }})" --input-file reports/pytest/results.xml --output-file docs/images/badges/tests-${{ matrix.os }}-${{ inputs.blender-version }}.svg
-          genbadge coverage --name "Coverage (${{ matrix.os }} ${{ inputs.blender-version }})" --input-file reports/coverage/results.xml --output-file docs/images/badges/coverage-${{ matrix.os }}-${{ inputs.blender-version }}.svg
+      # - name: Generate Badges
+      #   run: |
+      #     cd meta-human-dna-addon
+      #     genbadge tests --name "Tests (${{ matrix.os }} ${{ inputs.blender-version }})" --input-file reports/pytest/results.xml --output-file docs/images/badges/tests-${{ matrix.os }}-${{ inputs.blender-version }}.svg
+      #     genbadge coverage --name "Coverage (${{ matrix.os }} ${{ inputs.blender-version }})" --input-file reports/coverage/results.xml --output-file docs/images/badges/coverage-${{ matrix.os }}-${{ inputs.blender-version }}.svg
 
-      - name: Upload Badges
-        uses: EndBug/add-and-commit@v9
-        with:
-          cwd: './meta-human-dna-addon'
-          message: 'Updated badges for ${{ matrix.os }} ${{ inputs.blender-version }}'
-          add: 'docs/images/badges/*.svg'
-          pull: '--rebase --autostash' 
-          push: true
+      # - name: Upload Badges
+      #   uses: EndBug/add-and-commit@v9
+      #   with:
+      #     cwd: './meta-human-dna-addon'
+      #     message: 'Updated badges for ${{ matrix.os }} ${{ inputs.blender-version }}'
+      #     add: 'docs/images/badges/*.svg'
+      #     pull: '--rebase --autostash' 
+      #     push: true
