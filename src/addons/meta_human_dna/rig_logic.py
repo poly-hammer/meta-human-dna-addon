@@ -1040,8 +1040,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             return rest_pose
         
         # make sure the rig bone are using the correct rotation mode
-        if self.head_rig and self.head_rig.pose:
-            for pose_bone in self.head_rig.pose.bones:
+        if self.evaluated_head_rig and self.evaluated_head_rig.pose:
+            for pose_bone in self.evaluated_head_rig.pose.bones:
                 if pose_bone.name in self.head_driver_bone_names:
                     pose_bone.rotation_mode = "QUATERNION"
                 else:
@@ -1100,8 +1100,8 @@ class RigLogicInstance(bpy.types.PropertyGroup):
             return rest_pose
         
         # make sure the rig bone are using the correct rotation mode
-        if self.body_rig and self.body_rig.pose:
-            for pose_bone in self.body_rig.pose.bones:
+        if self.evaluated_body_rig and self.evaluated_body_rig.pose:
+            for pose_bone in self.evaluated_body_rig.pose.bones:
                 # make sure the body bones are using the correct rotation mode
                 if pose_bone.name in self.body_driver_bone_names:
                     pose_bone.rotation_mode = "QUATERNION"
@@ -1921,14 +1921,14 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         ):
         # this condition prevents constant evaluation
         if bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph: # type: ignore
+            # turn off the dependency graph evaluation so we can update the controls without triggering an update
+            bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False # type: ignore
+            
             if not self.head_initialized:
                 self.head_initialize()
             
             if not self.body_initialized:
                 self.body_initialize()
-
-            # turn off the dependency graph evaluation so we can update the controls without triggering an update
-            bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False # type: ignore
 
             # apply the dependency graph update so we have the latest evaluated bone transforms
             self.apply_dependency_graph_update(dependency_graph)

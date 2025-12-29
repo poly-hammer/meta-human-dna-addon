@@ -1,3 +1,4 @@
 tests/test_files/dna/*.dna filter=lfs diff=lfs merge=lfs -text
 tests/test_files/dna/**/*.dna filter=lfs diff=lfs merge=lfs -text
+tests/test_files/fbx/*.fbx filter=lfs diff=lfs merge=lfs -text
 src/addons/meta_human_dna/resources/dna/default.dna filter=lfs diff=lfs merge=lfs -text

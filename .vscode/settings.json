@@ -12,7 +12,7 @@
     "files.associations": {
         ".coveragerc": "ini",
     },
-// "python.analysis.disabled": ["unresolved-import"],
+    // "python.analysis.disabled": ["unresolved-import"],
     "python.autoComplete.extraPaths": [
         "${workspaceFolder}/src/addons",
         "${workspaceFolder}/.stubs-venv/Lib/site-packages",
@@ -27,7 +27,13 @@
         "${workspaceFolder}/src/addons/meta_human_dna/resources/unreal",
         "${workspaceFolder}/src/addons/meta_human_dna/bindings/windows/amd64"
     ],
-    "python.analysis.exclude": ["**"],
+    "python.analysis.exclude": [
+        "**/node_modules",
+        "**/__pycache__",
+        "**/.*",
+        ".stubs-venv",
+        ".venv"
+    ],
     "python.analysis.diagnosticMode": "openFilesOnly",
     "python.analysis.enablePytestSupport": true,
     "python.analysis.autoFormatStrings": true,
@@ -115,6 +121,7 @@
         "forcelogflush",
         "funcs",
         "genbadge",
+        "homefile",
         "idname",
         "Ihead",
         "instancer",

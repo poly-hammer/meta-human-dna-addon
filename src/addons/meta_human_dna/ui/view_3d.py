@@ -59,6 +59,42 @@ class SubPanelBase(bpy.types.Panel):
             return True
         return False
     
+class ArmatureDependentSubPanel(bpy.types.Panel):
+    @classmethod
+    def poll(cls, context):
+        error = valid_rig_logic_instance_exists(context, ignore_face_board=True)
+        if error:
+            return False
+        
+        properties = context.scene.meta_human_dna # type: ignore
+        active_index = properties.rig_logic_instance_list_active_index
+        instance = properties.rig_logic_instance_list[active_index]
+
+        current_component = context.window_manager.meta_human_dna.current_component_type # type: ignore
+        if current_component == 'head' and instance.head_rig:
+            return True
+        elif current_component == 'body' and instance.body_rig:
+            return True
+        return False
+    
+class MeshDependentSubPanel(bpy.types.Panel):
+    @classmethod
+    def poll(cls, context):
+        error = valid_rig_logic_instance_exists(context, ignore_face_board=True)
+        if error:
+            return False
+        
+        properties = context.scene.meta_human_dna # type: ignore
+        active_index = properties.rig_logic_instance_list_active_index
+        instance = properties.rig_logic_instance_list[active_index]
+
+        current_component = context.window_manager.meta_human_dna.current_component_type # type: ignore
+        if current_component == 'head' and instance.head_mesh:
+            return True
+        elif current_component == 'body' and instance.body_mesh:
+            return True
+        return False
+    
 
 class META_HUMAN_DNA_UL_output_items(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_prop_name):
@@ -275,7 +311,7 @@ class META_HUMAN_DNA_PT_utilities(bpy.types.Panel):
         row.prop(context.window_manager.meta_human_dna, 'current_component_type', text='') # type: ignore
 
 
-class META_HUMAN_DNA_PT_mesh_utilities_sub_panel(SubPanelBase):
+class META_HUMAN_DNA_PT_mesh_utilities_sub_panel(MeshDependentSubPanel):
     bl_parent_id = "META_HUMAN_DNA_PT_utilities"
     bl_label = "Mesh"
     bl_space_type = 'VIEW_3D'
@@ -285,7 +321,7 @@ class META_HUMAN_DNA_PT_mesh_utilities_sub_panel(SubPanelBase):
 
     def draw(self, context):
         properties = context.scene.meta_human_dna # type: ignore
-        error = valid_rig_logic_instance_exists(context)
+        error = valid_rig_logic_instance_exists(context, ignore_face_board=True)
         if not self.layout:
             return
         
@@ -293,6 +329,10 @@ class META_HUMAN_DNA_PT_mesh_utilities_sub_panel(SubPanelBase):
             active_index = properties.rig_logic_instance_list_active_index
             instance = properties.rig_logic_instance_list[active_index]
             current_component_type = context.window_manager.meta_human_dna.current_component_type # type: ignore
+
+            # whether to enable the topology vertex group dropdowns
+            enabled = bool(current_component_type == 'head' and instance.head_mesh or current_component_type == 'body' and instance.body_mesh)
+
             box = self.layout.box()
             row = box.row()
             row.label(text='Topology Vertex Groups:')
@@ -305,13 +345,13 @@ class META_HUMAN_DNA_PT_mesh_utilities_sub_panel(SubPanelBase):
                 align=True
             )
             col = grid.column()
-            col.enabled = bool(instance.head_mesh)
+            col.enabled = enabled
             col.label(text='Selection Mode:')
             row = col.row()
             row.prop(instance, 'mesh_topology_selection_mode', text='')
 
             col = grid.column()
-            col.enabled = bool(instance.head_mesh)
+            col.enabled = enabled
             col.label(text='Set Selection:')
             row = col.row()
             if current_component_type == 'head':
@@ -336,7 +376,7 @@ class META_HUMAN_DNA_PT_mesh_utilities_sub_panel(SubPanelBase):
             draw_rig_logic_instance_error(self.layout, error)
 
 
-class META_HUMAN_DNA_PT_armature_utilities_sub_panel(SubPanelBase):
+class META_HUMAN_DNA_PT_armature_utilities_sub_panel(ArmatureDependentSubPanel):
     bl_parent_id = "META_HUMAN_DNA_PT_utilities"
     bl_label = "Armature"
     bl_space_type = 'VIEW_3D'
@@ -346,7 +386,7 @@ class META_HUMAN_DNA_PT_armature_utilities_sub_panel(SubPanelBase):
 
     def draw(self, context):
         properties = context.scene.meta_human_dna # type: ignore
-        error = valid_rig_logic_instance_exists(context)
+        error = valid_rig_logic_instance_exists(context, ignore_face_board=True)
 
         if not self.layout:
             return
@@ -409,7 +449,7 @@ class META_HUMAN_DNA_PT_armature_utilities_sub_panel(SubPanelBase):
             draw_rig_logic_instance_error(self.layout, error)
 
 
-class META_HUMAN_DNA_PT_animation_utilities_sub_panel(SubPanelBase):
+class META_HUMAN_DNA_PT_animation_utilities_sub_panel(ArmatureDependentSubPanel):
     bl_parent_id = "META_HUMAN_DNA_PT_utilities"
     bl_label = "Animation"
     bl_space_type = 'VIEW_3D'
@@ -418,7 +458,7 @@ class META_HUMAN_DNA_PT_animation_utilities_sub_panel(SubPanelBase):
     bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
-        error = valid_rig_logic_instance_exists(context)
+        error = valid_rig_logic_instance_exists(context, ignore_face_board=True)
 
         if not self.layout:
             return

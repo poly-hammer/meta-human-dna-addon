@@ -5,7 +5,10 @@ import bmesh
 import pytest
 from pathlib import Path
 from mathutils import Vector, Euler
-from constants import TEST_DNA_FOLDER
+from constants import (
+    TEST_DNA_FOLDER,
+    TEST_FBX_FOLDER
+)
 
 
 def _load_dna(
@@ -152,6 +155,17 @@ def load_full_dna_for_animation(
         import_face_board=True,
         include_body=True
     )
+
+@pytest.fixture(scope='session')
+def load_mhc_conformed_topology_meshes(
+    addon
+):
+    # open default scene
+    bpy.ops.wm.read_homefile(app_template="")
+    # import head and body wrapped meshes
+    for component in ['head', 'body']:
+        file_path = TEST_FBX_FOLDER / 'mhc_conformed_topology' / f'{component}.fbx'
+        bpy.ops.import_scene.fbx(filepath=str(file_path))
 
 
 @pytest.fixture(scope='session')
