@@ -153,12 +153,19 @@ def create_shape_key(
     shape_key_name = f'{prefix}{name}'
     
     switch_to_object_mode()
+
+    # Ensure no existing shape key influence is active before we create a new one
+    if mesh_object.data.shape_keys:  # type: ignore
+        for key_block in mesh_object.data.shape_keys.key_blocks:  # type: ignore
+            key_block.value = 0.0
+        mesh_object.active_shape_key_index = 0  # type: ignore
+
     shape_key = mesh_object.data.shape_keys.key_blocks.get(shape_key_name) # type: ignore
     if shape_key:
         shape_key.lock_shape = False
         mesh_object.shape_key_remove(shape_key)
 
-    shape_key_block = mesh_object.shape_key_add(name=shape_key_name)
+    shape_key_block = mesh_object.shape_key_add(name=shape_key_name, from_mix=False)
 
     # Import the deltas if the shape key is not supposed to be neutral
     if not is_neutral:
@@ -177,7 +184,8 @@ def create_shape_key(
                 rotated_delta = rotation_matrix @ delta
                 
                 # set the positions of the shape key vertices
-                shape_key_block.data[vertex_index].co = mesh_object.data.vertices[vertex_index].co.copy() + rotated_delta # type: ignore
+                base_co = mesh_object.data.shape_keys.reference_key.data[vertex_index].co.copy()  # type: ignore
+                shape_key_block.data[vertex_index].co = base_co + rotated_delta
             except IndexError:
                 logger.warning(f'Vertex index {vertex_index} is missing for shape key "{name}". Was this deleted on the base mesh "{mesh_object.name}"?')
 

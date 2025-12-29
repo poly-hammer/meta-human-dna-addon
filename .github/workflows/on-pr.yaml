@@ -11,10 +11,18 @@ on:
       - '!src/**/release_notes.md'
 
 jobs:
-  test:
-    name: Tests
+  test-blender-4.5:
+    name: Blender 4.5 Tests
     uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-tests.yaml@main
     secrets: inherit
     with:
       python-version: "3.11"
       blender-version: "4.5"
+
+  test-blender-5.0:
+    name: Blender 5.0 Tests
+    uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-tests.yaml@main
+    secrets: inherit
+    with:
+      python-version: "3.11"
+      blender-version: "5.0"

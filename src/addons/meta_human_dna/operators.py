@@ -4,7 +4,7 @@ import math
 import queue
 import shutil
 import logging
-from mathutils import Vector, Matrix, Euler
+from mathutils import Vector, Matrix
 from pathlib import Path
 from datetime import datetime, timedelta
 from .ui import importer, callbacks
@@ -31,7 +31,6 @@ from .constants import (
     HEAD_TEXTURE_LOGIC_NODE_LABEL,
     SHAPE_KEY_BASIS_NAME,
     FACE_BOARD_NAME,
-    BONE_DELTA_THRESHOLD,
     RBF_SOLVER_POSTFIX
 )
 
@@ -439,11 +438,11 @@ class BakeAnimationBase(bpy.types.Operator):
     ) # type: ignore
 
     def invoke(self, context, event):
-        return context.window_manager.invoke_props_dialog(
+        return context.window_manager.invoke_props_dialog( # type: ignore
             self, 
             title=self.dialog_title,
             width=250
-        ) # type: ignore
+        )
 
     @property
     def dialog_title(self) -> str:
@@ -654,7 +653,7 @@ class BakeComponentAnimation(BakeAnimationBase):
         if not instance:
             return False
         
-        if context.window_manager.meta_human_dna.current_component_type == 'body':
+        if context.window_manager.meta_human_dna.current_component_type == 'body': # type: ignore
             if not instance.body_rig:
                 return False
             if not instance.body_rig.animation_data:
@@ -1853,7 +1852,7 @@ class EditRBFSolver(RBFEditorOperatorBase):
         instance.editing_rbf_solver = True
         instance.auto_evaluate_body = False
         instance.body_rig.hide_set(False)
-        utilities.switch_to_pose_mode(instance.body_rig)
+        utilities.switch_to_pose_mode(instance.body_rig) # type: ignore
             
 
 class CommitRBFSolverChanges(RBFEditorOperatorBase):
@@ -2198,7 +2197,7 @@ class SelectAllRBFDriven(RBFEditorOperatorBase):
 
         # switch to pose mode
         instance.body_rig.hide_set(False)
-        utilities.switch_to_pose_mode(instance.body_rig)
+        utilities.switch_to_pose_mode(instance.body_rig) # type: ignore
 
         # select all driven bones for the pose
         driven_bone_names = [driven.name for driven in pose.driven]

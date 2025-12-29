@@ -149,8 +149,16 @@ def rig_logic_listener(
                             else:
                                 instance_updates.add((instance, 'body'))
 
-    # apply the updates to the instances
+    # reduce redundant updates if 'all' components are being updated anyway, no need to update head/body again separately
+    final_instance_updates = set()
     for instance, component in instance_updates:
+        if (instance, 'all') in instance_updates:
+            final_instance_updates.add((instance, 'all'))
+        else:
+            final_instance_updates.add((instance, component))
+
+    # apply the updates to the instances
+    for instance, component in final_instance_updates:
         instance.evaluate(component=component, dependency_graph=dependency_graph)
 
 def frame_change_handler(*args):
@@ -1924,6 +1932,14 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
             # apply the dependency graph update so we have the latest evaluated bone transforms
             self.apply_dependency_graph_update(dependency_graph)
+
+            if component in ('body', 'all') and self.body_initialized:
+                if self.evaluate_rbfs:
+                    self.update_body_raw_control_values()
+                
+                # apply the changes
+                if self.evaluate_bones:
+                    self.update_body_bone_transforms()
             
             if component in ('head', 'all') and self.head_initialized:
                 # update the gui controls    
@@ -1937,14 +1953,6 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                     self.update_head_shape_keys()
                 if self.evaluate_texture_masks:
                     self.update_head_texture_masks()
-
-            if component in ('body', 'all') and self.body_initialized:
-                if self.evaluate_rbfs:
-                    self.update_body_raw_control_values()
-                
-                # apply the changes
-                if self.evaluate_bones:
-                    self.update_body_bone_transforms()
 
             # turn on the dependency graph evaluation back on
             bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True # type: ignore
