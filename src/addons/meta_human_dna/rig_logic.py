@@ -1664,7 +1664,11 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
                 # update the bone matrix
                 modified_matrix = Matrix.LocRotScale(location, rotation, scale)
-                pose_bone.matrix_basis = rest_to_parent_matrix.inverted() @ modified_matrix
+                try:
+                    pose_bone.matrix_basis = rest_to_parent_matrix.inverted() @ modified_matrix
+                except ValueError as error:
+                    logger.warning(f'Error updating bone "{name}" matrix: {error}')
+                    continue
 
                 # if the bone is not a leaf bone, we need to update the rotation again
                 if pose_bone.children:
@@ -1842,7 +1846,11 @@ class RigLogicInstance(bpy.types.PropertyGroup):
 
                 # update the bone matrix
                 modified_matrix = Matrix.LocRotScale(location, rotation, scale)
-                pose_bone.matrix_basis = rest_to_parent_matrix.inverted() @ modified_matrix
+                try:
+                    pose_bone.matrix_basis = rest_to_parent_matrix.inverted() @ modified_matrix
+                except ValueError as error:
+                    logger.warning(f'Error updating bone "{name}" matrix: {error}')
+                    continue
 
             else:
                 logger.warning(f'The bone "{name}" was not found on "{self.body_rig.name}". Rig Logic will not update the bone.')
