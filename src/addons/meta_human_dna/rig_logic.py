@@ -1734,10 +1734,10 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         self.update_head_bone_transforms()
 
     def reset_raw_control_values(self):
-        bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False
+        bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False # type: ignore
         self.reset_body_raw_control_values()
         self.reset_head_raw_control_values()
-        bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True
+        bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True # type: ignore
 
     def update_body_raw_control_values(self, override_values: dict[str, dict[str, float]] | None = None):
         # skip if the body rig is not set

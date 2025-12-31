@@ -761,6 +761,12 @@ def get_body_image_output_items(instance: 'RigLogicInstance') -> list[tuple[bpy.
     return image_nodes
 
 def update_instance_name(self, context):
+    existing_names = [instance.name for instance in context.scene.meta_human_dna.rig_logic_instance_list]
+    if existing_names.count(self.name) > 1:
+        self.name = self.old_name
+        logger.warning(f'Rig Instance with name "{self.name}" already exists. Please choose a different name.')
+        return
+
     if self.old_name != self.name:
         from ..utilities import rename_rig_logic_instance
         rename_rig_logic_instance(

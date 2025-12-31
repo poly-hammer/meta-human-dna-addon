@@ -135,6 +135,7 @@ class AppendOrLinkMetaHuman(bpy.types.Operator, importer.LinkAppendMetaHumanImpo
         default='APPEND'
     ) # type: ignore
     meta_human_list: bpy.props.CollectionProperty(type=BlendFileMetaHumanCollection) # type: ignore
+    meta_human_names: bpy.props.StringProperty(default="") # type: ignore
 
     def execute(self, context):
         if not self.filepath: # type: ignore
@@ -148,7 +149,14 @@ class AppendOrLinkMetaHuman(bpy.types.Operator, importer.LinkAppendMetaHumanImpo
         if bpy.data.filepath == self.filepath: # type: ignore
             self.report({'ERROR'}, 'You cannot import a MetaHuman from the current .blend file')
             return {'CANCELLED'}
-
+        
+        # this is for headless imports and automated tests
+        if self.meta_human_names:
+            self.meta_human_list.clear()
+            for name in self.meta_human_names.split(','):
+                item = self.meta_human_list.add()
+                item.name = name
+                item.include = True
 
         # track the current control objects
         current_control_objects = []

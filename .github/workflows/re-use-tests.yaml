@@ -92,35 +92,16 @@ jobs:
           detailed_summary: True
           report_paths: './meta-human-dna-addon/reports/pytest/*.xml'
 
-      - name: Pytest coverage comment
-        uses: MishaKav/pytest-coverage-comment@v1
-        if: success() || failure()
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
         with:
-          github-token: ${{ secrets.GH_PAT }}
-          pytest-xml-coverage-path: ./meta-human-dna-addon/reports/coverage/results.xml
-          title: Coverage ${{ matrix.os }} ${{ inputs.blender-version }}
-          badge-title: Coverage ${{ matrix.os }} ${{ inputs.blender-version }}
-          hide-badge: false
-          hide-report: false
-          create-new-comment: false
-          hide-comment: false
-          report-only-changed-files: false
-          remove-link-from-badge: false
-          unique-id-for-comment: ${{ matrix.os }}-${{ inputs.blender-version }}
-          junitxml-path: ./meta-human-dna-addon/reports/pytest/results.xml
-          junitxml-title: Tests Summary ${{ matrix.os }} ${{ inputs.blender-version }}
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./meta-human-dna-addon/reports/coverage/results.xml
+          report_type: "coverage"
 
-      # - name: Generate Badges
-      #   run: |
-      #     cd meta-human-dna-addon
-      #     genbadge tests --name "Tests (${{ matrix.os }} ${{ inputs.blender-version }})" --input-file reports/pytest/results.xml --output-file docs/images/badges/tests-${{ matrix.os }}-${{ inputs.blender-version }}.svg
-      #     genbadge coverage --name "Coverage (${{ matrix.os }} ${{ inputs.blender-version }})" --input-file reports/coverage/results.xml --output-file docs/images/badges/coverage-${{ matrix.os }}-${{ inputs.blender-version }}.svg
-
-      # - name: Upload Badges
-      #   uses: EndBug/add-and-commit@v9
-      #   with:
-      #     cwd: './meta-human-dna-addon'
-      #     message: 'Updated badges for ${{ matrix.os }} ${{ inputs.blender-version }}'
-      #     add: 'docs/images/badges/*.svg'
-      #     pull: '--rebase --autostash' 
-      #     push: true
+      - name: Upload test reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./meta-human-dna-addon/reports/pytest/results.xml
+          report_type: "test_results"

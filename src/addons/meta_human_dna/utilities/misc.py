@@ -750,11 +750,12 @@ def extract_rig_instance_data_from_blend_file(blend_file_path: Path) -> tuple[li
     script_file = SCRIPTS_FOLDER / 'save_rig_instance_data.py'
     data_file = TEMP_FOLDER / f"{file_id}.json"
     error_file = TEMP_FOLDER / f"{file_id}_error.log"
+    addon_folder = Path(__file__).parent.parent.parent
 
     if sys.platform == 'win32':
-        command = f'"{bpy.app.binary_path}" --background --python "{script_file}" -- --data-file "{data_file}" --blend-file "{blend_file_path}"'
+        command = f'"{sys.executable}" "{script_file}" -- --data-file "{data_file}" --blend-file "{blend_file_path}" --addon-folder "{addon_folder}"'
     else:
-        command = f"{Path(bpy.app.binary_path).as_posix()} --background --python {script_file} -- --data-file {data_file.as_posix()} --blend-file {blend_file_path.as_posix()}"
+        command = f"{sys.executable} {script_file.as_posix()} -- --data-file {data_file.as_posix()} --blend-file {blend_file_path.as_posix()} --addon-folder {addon_folder.as_posix()}"
 
     for line in shell(command=command):
         pass
@@ -819,7 +820,7 @@ def hide_face_board_widgets():
 
 
 def purge_face_board_components():
-    with bpy.data.libraries.load(str(FACE_BOARD_FILE_PATH)) as (data_from, data_to):
+    with bpy.data.libraries.load(str(FACE_BOARD_FILE_PATH)) as (data_from, data_to): # type: ignore
         if data_from.objects:
             for name in data_from.objects:
                 scene_object = bpy.data.objects.get(name)

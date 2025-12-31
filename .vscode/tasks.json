@@ -108,6 +108,7 @@
                 "",
                 "tests/test_animation.py",
                 "tests/test_convert_to_dna.py",
+                "tests/test_reference_blend_file.py",
                 "tests/test_addon_registration.py",
                 "tests/test_head_calibrator.py",
                 "tests/test_head_exporter.py",

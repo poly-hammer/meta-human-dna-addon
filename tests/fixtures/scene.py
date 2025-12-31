@@ -11,7 +11,7 @@ from constants import (
 )
 
 
-def _load_dna(
+def load_dna(
         file_path: Path,
         import_lods: list,
         include_body: bool = True,
@@ -66,7 +66,7 @@ def _load_temp_body_dna(
         dst=temp_folder / dna_folder_name / 'ExportManifest.json'
     )
     
-    _load_dna(
+    load_dna(
         file_path=destination_file_path,
         import_lods=import_lods,
         import_shape_keys=import_shape_keys,
@@ -81,7 +81,7 @@ def load_head_dna(
     import_shape_keys: bool,
     import_lods: list,
 ):
-    _load_dna(
+    load_dna(
         file_path=TEST_DNA_FOLDER / dna_folder_name / 'head.dna',
         import_lods=import_lods,
         import_shape_keys=import_shape_keys,
@@ -97,7 +97,7 @@ def load_body_dna(
     import_shape_keys: bool,
     import_lods: list,
 ):
-    _load_dna(
+    load_dna(
         file_path=TEST_DNA_FOLDER / dna_folder_name / 'body.dna',
         import_lods=import_lods,
         import_shape_keys=import_shape_keys,
@@ -148,7 +148,7 @@ def load_full_dna_for_animation(
     import_shape_keys: bool,
     import_lods: list,
 ):
-    _load_dna(
+    load_dna(
         file_path=TEST_DNA_FOLDER / dna_folder_name / 'head.dna',
         import_lods=import_lods,
         import_shape_keys=import_shape_keys,
@@ -166,6 +166,24 @@ def load_mhc_conformed_topology_meshes(
     for component in ['head', 'body']:
         file_path = TEST_FBX_FOLDER / 'mhc_conformed_topology' / f'{component}.fbx'
         bpy.ops.import_scene.fbx(filepath=str(file_path))
+
+@pytest.fixture(scope='session')
+def setup_reference_blend_file(
+    addon,
+    temp_folder
+) -> Path:
+    load_dna(
+        file_path=TEST_DNA_FOLDER / 'ada' / 'head.dna',
+        import_lods=['lod0'],
+        import_shape_keys=False,
+        import_face_board=True,
+        include_body=True
+    )
+    file_path = temp_folder / 'reference_blend_file.blend'
+    # Save the blend file
+    bpy.ops.wm.save_as_mainfile(filepath=str(file_path))
+
+    return file_path
 
 
 @pytest.fixture(scope='session')

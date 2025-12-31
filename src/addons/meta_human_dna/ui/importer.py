@@ -308,13 +308,13 @@ class LinkAppendMetaHumanImportHelper(ImportHelper):
 
         for item in operator.meta_human_list:
             row = layout.row()
-            icon = None
+            icon = "NONE"
             text = item.name
             if not item.enabled:
                 row.enabled = False
                 row.alert = True
                 icon = 'ERROR'
-                text = f"{item.name} (Already exists in scene)"
+                text = f"{item.name} (Exists in current scene)"
 
             row.prop(item, "include", text="")
             row.label(text=text, icon=icon)
