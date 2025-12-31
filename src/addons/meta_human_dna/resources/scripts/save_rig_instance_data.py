@@ -47,9 +47,7 @@ def main():
     data_file = Path(args.data_file)
 
     bpy.ops.wm.open_mainfile(filepath=args.blend_file)
-    # data_file = Path(r'E:\repos\meta-human-dna-addon\scratches\rig_instance_data.json')
-    # bpy.ops.wm.open_mainfile(filepath=r'E:\repos\poly-hammer-tutorials\feature-examples\Ada-root-motion.blend')
-
+    
     # Ensure the addon is enabled
     ensure_addon_enabled('meta_human_dna', Path(args.addon_folder))
 
