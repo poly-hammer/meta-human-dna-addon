@@ -2534,28 +2534,53 @@ class UILIST_RIG_LOGIC_OT_entry_remove(GenericUIListOperator, bpy.types.Operator
     bl_idname = "meta_human_dna.rig_logic_instance_entry_remove"
     bl_label = "Remove Selected Entry"
 
+    delete_associated_data: bpy.props.BoolProperty(
+        name="Delete associated data",
+        description="Delete all associated objects and collections linked to this rig instance",
+        default=True
+    ) # type: ignore
+
     def execute(self, context):
         my_list = context.scene.meta_human_dna.rig_logic_instance_list # type: ignore
 
-        instance = context.scene.meta_human_dna.rig_logic_instance_list[self.active_index] # type: ignore
-        for component_type in ['body', 'head']:
-            for item in getattr(instance, f'output_{component_type}_item_list'):
-                if item.scene_object:
-                    bpy.data.objects.remove(item.scene_object, do_unlink=True)
-                if item.image_object:
-                    bpy.data.images.remove(item.image_object, do_unlink=True)
+        if self.delete_associated_data:
+            instance = context.scene.meta_human_dna.rig_logic_instance_list[self.active_index] # type: ignore
+            for component_type in ['body', 'head']:
+                for item in getattr(instance, f'output_{component_type}_item_list'):
+                    if item.scene_object:
+                        bpy.data.objects.remove(item.scene_object, do_unlink=True)
+                    if item.image_object:
+                        bpy.data.images.remove(item.image_object, do_unlink=True)
 
-            # remove the collections for the component type
-            for collection_name in [instance.name] + [f'{instance.name}_{component_type}_lod{i}' for i in range(NUMBER_OF_HEAD_LODS)]:
-                collection = bpy.data.collections.get(collection_name)
-                if collection:
-                    bpy.data.collections.remove(collection, do_unlink=True)
+                # remove the collections for the component type
+                for collection_name in [instance.name] + [f'{instance.name}_{component_type}_lod{i}' for i in range(NUMBER_OF_HEAD_LODS)]:
+                    collection = bpy.data.collections.get(collection_name)
+                    if collection:
+                        bpy.data.collections.remove(collection, do_unlink=True)
 
         my_list.remove(self.active_index)
         to_index = min(self.active_index, len(my_list) - 1)
         context.scene.meta_human_dna.rig_logic_instance_list_active_index = to_index # type: ignore
         return {'FINISHED'}
 
+    def invoke(self, context, event):
+        instance = context.scene.meta_human_dna.rig_logic_instance_list[self.active_index] # type: ignore
+        self.instance_name = instance.name if instance else "this instance"
+        return context.window_manager.invoke_props_dialog( # type: ignore
+            self, 
+            title=f"Remove: {self.instance_name}",
+            confirm_text="Remove",
+            width=400
+        )
+    
+    def draw(self, context):
+        if not self.layout:
+            return
+        
+        row = self.layout.row()
+        row.label(text=f"Are you sure you want to remove the '{self.instance_name}' rig instance?", icon='ERROR')
+        row = self.layout.row()
+        row.prop(self, "delete_associated_data")
 
 class UILIST_RIG_LOGIC_OT_entry_add(GenericUIListOperator, bpy.types.Operator):
     """Add an entry to the list after the current active item"""

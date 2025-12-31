@@ -157,6 +157,18 @@ def load_full_dna_for_animation(
     )
 
 @pytest.fixture(scope='session')
+def load_dna_for_rig_instance_ops(
+    addon
+):
+    load_dna(
+        file_path=TEST_DNA_FOLDER / 'ada' / 'head.dna',
+        import_lods=['lod0'],
+        import_shape_keys=False,
+        import_face_board=True,
+        include_body=True
+    )
+
+@pytest.fixture(scope='session')
 def load_mhc_conformed_topology_meshes(
     addon
 ):

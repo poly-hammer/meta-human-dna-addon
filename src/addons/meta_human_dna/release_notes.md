@@ -1,3 +1,6 @@
+## Minor Changes
+* Added confirm option when deleting rig instances with option to delete linked data [#202](https://github.com/poly-hammer/meta-human-dna-addon/issues/202)
+
 ## Patch Changes
 * Fixed Blender 5.0 shape key imports [#229](https://github.com/poly-hammer/meta-human-dna-addon/issues/229)
 * Fixed Blender 5.0 action baking [#229](https://github.com/poly-hammer/meta-human-dna-addon/issues/229)
