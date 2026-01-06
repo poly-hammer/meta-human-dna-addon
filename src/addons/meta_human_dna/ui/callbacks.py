@@ -18,7 +18,8 @@ from ..constants import (
     BASE_DNA_FOLDER,
     BODY_HIGH_LEVEL_TOPOLOGY_GROUPS,
     RBF_SOLVER_POSTFIX,
-    ToolInfo
+    ToolInfo,
+    IS_BLENDER_5
 )
 
 if TYPE_CHECKING:
@@ -570,10 +571,17 @@ def update_body_rbf_driven_active_index(self, context):
     switch_to_pose_mode(instance.body_rig)
     for pose_bone in instance.body_rig.pose.bones:
         if pose_bone.name == driven.name:
-            pose_bone.bone.select = True
+            # Note: In Blender 5.0+, the select property moved from Bone to PoseBone
+            if IS_BLENDER_5:
+                pose_bone.select = True
+            else:
+                pose_bone.bone.select = True
             instance.body_rig.data.bones.active = pose_bone.bone
         else:
-            pose_bone.bone.select = False
+            if IS_BLENDER_5:
+                pose_bone.select = False
+            else:
+                pose_bone.bone.select = False
 
 def update_body_rbf_poses_active_index(self, context):
     from ..utilities import dependencies_are_valid

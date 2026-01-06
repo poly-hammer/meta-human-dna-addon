@@ -5,6 +5,7 @@ venv
 .*-venv
 *.pyc
 *.blend*
+*.code-workspace
 .env
 releases
 tests/extra_test_files
@@ -21,3 +22,4 @@ temp
 coverage.xml
 .coverage
 .github/instructions
+AGENT_INSTRUCTIONS.md

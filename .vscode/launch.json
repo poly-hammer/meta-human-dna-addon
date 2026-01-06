@@ -42,6 +42,7 @@
       "options": [
         "",
         "tests/test_animation.py",
+        "tests/test_rbf_edits.py",
         "tests/test_convert_to_dna.py",
         "tests/test_rig_instance_ops.py",
         "tests/test_reference_blend_file.py",

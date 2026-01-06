@@ -830,9 +830,6 @@ class META_HUMAN_DNA_PT_pose_editor(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        # Todo: remove this when pose editor is ready
-        return False
-
         properties = context.scene.meta_human_dna # type: ignore
         if not len(properties.rig_logic_instance_list) > 0:
             return False
