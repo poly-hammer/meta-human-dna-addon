@@ -5,7 +5,7 @@ import bpy.utils.previews
 import logging
 
 from . import operators, properties, utilities, manual_map, rig_logic
-from .ui import menus, importer, view_3d, addon_preferences, callbacks
+from .ui import menus, importer, view_3d, viewport_overlay, addon_preferences, callbacks
 from .resources.unreal import meta_human_dna_utilities
 
 # ensure these modules are available to the send2ue extension
@@ -150,6 +150,9 @@ def register():
         menus.add_dna_import_menu()
         menus.add_rig_logic_texture_node_menu()
 
+        # register the overlay
+        viewport_overlay.register()
+
     except Exception as error:
         logger.error(error)
 
@@ -203,6 +206,9 @@ def unregister():
         # remove menu items
         menus.remove_dna_import_menu()
         menus.remove_rig_logic_texture_node_menu()
+
+        # unregister the overlay
+        viewport_overlay.unregister()
 
         # unregister the classes
         for cls in reversed(classes):

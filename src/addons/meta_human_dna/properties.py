@@ -69,6 +69,12 @@ class MetahumanDnaAddonProperties:
         description="This will send anonymous usage data to Poly Hammer to help improve the addon and help catch bugs"
     ) # type: ignore
 
+    show_pose_editor_viewport_overlay: bpy.props.BoolProperty(
+        name="Show Pose Editor Viewport Overlay",
+        default=True,
+        description="Display an overlay in the 3D viewport when the Pose Editor is in edit mode"
+    ) # type: ignore
+
     next_metrics_consent_timestamp: bpy.props.FloatProperty(default=0.0) # type: ignore
     extra_dna_folder_list: bpy.props.CollectionProperty(type=ExtraDnaFolder) # type: ignore
     extra_dna_folder_list_active_index: bpy.props.IntProperty() # type: ignore

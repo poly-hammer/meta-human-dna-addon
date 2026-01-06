@@ -24,6 +24,8 @@ class MetaHumanDnaPreferences(MetahumanDnaAddonProperties, bpy.types.AddonPrefer
         row = self.layout.row()
         row.prop(self, "metrics_collection", text="Allow Metrics Collection")
         row = self.layout.row()
+        row.prop(self, "show_pose_editor_viewport_overlay", text="Show Pose Editor Viewport Overlay")
+        row = self.layout.row()
 
         row.label(text="Extra DNA Folder Paths:")
         row = self.layout.row()
