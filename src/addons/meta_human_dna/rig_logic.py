@@ -11,6 +11,7 @@ from .constants import (
     SCALE_FACTOR, 
     SHAPE_KEY_NAME_MAX_LENGTH,
     FLOATING_POINT_PRECISION,
+    IS_BLENDER_5,
     ToolInfo
 )
 
@@ -1329,14 +1330,23 @@ class RigLogicInstance(bpy.types.PropertyGroup):
                 constraint.influence = eye_aim_follow_head_switch.location.y
 
         # update the eye aim control visibility if needed
+        # Note: In Blender 5.0+, the hide property moved from Bone to PoseBone
         if eye_aim_control:
-            if self.head_use_eye_aim == eye_aim_control.bone.hide:
-                eye_aim_control.bone.hide = not self.head_use_eye_aim
+            current_hide = eye_aim_control.hide if IS_BLENDER_5 else eye_aim_control.bone.hide
+            if self.head_use_eye_aim == current_hide:
+                if IS_BLENDER_5:
+                    eye_aim_control.hide = not self.head_use_eye_aim
+                else:
+                    eye_aim_control.bone.hide = not self.head_use_eye_aim
 
             for child in eye_aim_control.children_recursive:
                 if not child.name.startswith(('GRP_', 'LOC_')):
-                    if self.head_use_eye_aim == child.bone.hide:
-                        child.bone.hide = not self.head_use_eye_aim
+                    child_hide = child.hide if IS_BLENDER_5 else child.bone.hide
+                    if self.head_use_eye_aim == child_hide:
+                        if IS_BLENDER_5:
+                            child.hide = not self.head_use_eye_aim
+                        else:
+                            child.bone.hide = not self.head_use_eye_aim
 
     def get_head_gui_control_values_from_eye_aim(self) -> dict[str, dict[str, float]]:
         values = {}
