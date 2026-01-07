@@ -8,7 +8,7 @@ from mathutils import Vector, Matrix, Euler
 from .misc import get_dna_reader
 from ..properties import MetahumanDnaImportProperties
 from .. import utilities
-from ..rig_logic import RigLogicInstance
+from ..rig_instance import RigInstance
 from ..constants import (
     ComponentType,
     UV_MAP_NAME,
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 class DNAImporter:
     def __init__(
         self,
-        instance: RigLogicInstance,
+        instance: RigInstance,
         import_properties: MetahumanDnaImportProperties,
         linear_modifier: float,
         component_type: ComponentType = 'head',

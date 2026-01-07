@@ -94,7 +94,7 @@ class GenericProgressQueueOperator(bpy.types.Operator):
         context.window_manager.event_timer_remove(self._timer) # type: ignore
         context.window_manager.meta_human_dna.progress = 1 # type: ignore
         # re-initialize the rig logic instance so the shape key blocks collection is updated for the UI
-        instance = callbacks.get_active_rig_logic()
+        instance = callbacks.get_active_rig_instance()
         if instance:
             instance.data.clear()
             instance.initialize()
@@ -160,7 +160,7 @@ class AppendOrLinkMetaHuman(bpy.types.Operator, importer.LinkAppendMetaHumanImpo
 
         # track the current control objects
         current_control_objects = []
-        for instance in context.scene.meta_human_dna.rig_logic_instance_list: # type: ignore
+        for instance in context.scene.meta_human_dna.rig_instance_list: # type: ignore
             if instance.face_board: 
                 for pose_bone in instance.face_board.pose.bones:
                     current_control_objects.append(pose_bone.custom_shape)
@@ -216,7 +216,7 @@ class AppendOrLinkMetaHuman(bpy.types.Operator, importer.LinkAppendMetaHumanImpo
             instance.output_folder_path = data[collection_name]['output_folder_path']
 
             # duplicate the face board if there is one already in the scene
-            if any(i.face_board for i in context.scene.meta_human_dna.rig_logic_instance_list): # type: ignore
+            if any(i.face_board for i in context.scene.meta_human_dna.rig_instance_list): # type: ignore
                 instance.face_board = utilities.duplicate_face_board(name=collection_name)
             # otherwise import it
             else:
@@ -506,7 +506,7 @@ class BakeFaceBoardAnimation(BakeAnimationBase):
             self.report({'ERROR'}, 'The start frame must be less than the end frame')
             return {'CANCELLED'}
 
-        instance = callbacks.get_active_rig_logic()
+        instance = callbacks.get_active_rig_instance()
         if instance and instance.head_rig:
             channel_types = set()
             if self.bone_location:
@@ -541,7 +541,7 @@ class BakeFaceBoardAnimation(BakeAnimationBase):
     
     @classmethod
     def poll(cls, context):
-        instance = callbacks.get_active_rig_logic()
+        instance = callbacks.get_active_rig_instance()
         if not instance:
             return False
         if not instance.head_rig:
@@ -597,7 +597,7 @@ class BakeComponentAnimation(BakeAnimationBase):
             self.report({'ERROR'}, 'The start frame must be less than the end frame')
             return {'CANCELLED'}
 
-        instance = callbacks.get_active_rig_logic()
+        instance = callbacks.get_active_rig_instance()
         if instance and instance.body_rig and self.component_type == 'body':
             channel_types = set()
             if self.bone_location:
@@ -656,7 +656,7 @@ class BakeComponentAnimation(BakeAnimationBase):
     
     @classmethod
     def poll(cls, context):
-        instance = callbacks.get_active_rig_logic()
+        instance = callbacks.get_active_rig_instance()
 
         if not instance:
             return False
@@ -720,7 +720,7 @@ class ImportMetahumanDna(bpy.types.Operator, importer.ImportAsset, MetahumanDnaI
             body_component = get_meta_human_component(
                 file_path=body_file,
                 properties=self.properties, # type: ignore
-                rig_logic_instance=component.rig_logic_instance
+                rig_instance=component.rig_instance
             )
             valid, message = body_component.ingest()
             logger.info(f'Finished importing "{body_file}"')
@@ -778,8 +778,8 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
     new_name: bpy.props.StringProperty(
         name="Name", 
         default="",
-        get=callbacks.get_copied_rig_logic_instance_name,
-        set=callbacks.set_copied_rig_logic_instance_name
+        get=callbacks.get_copied_rig_instance_name,
+        set=callbacks.set_copied_rig_instance_name
     ) # type: ignore
     constrain_head_to_body: bpy.props.BoolProperty(
         name="Constrain Head to Body",
@@ -926,12 +926,12 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
         logger.info(f'Finished converting "{window_manager_properties.base_dna}"') # type: ignore
 
         # set the output folder path
-        component.rig_logic_instance.output_folder_path = window_manager_properties.new_folder
+        component.rig_instance.output_folder_path = window_manager_properties.new_folder
 
         if self.run_calibration:
             # now we can export the new DNA file
             calibrator = DNACalibrator(
-                instance=component.rig_logic_instance,
+                instance=component.rig_instance,
                 linear_modifier=component.linear_modifier,
                 component_type=window_manager_properties.current_component_type,
                 file_name=f'{window_manager_properties.current_component_type}.dna'
@@ -948,9 +948,9 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
             
             # now we can set the new DNA file path on the component
             if window_manager_properties.current_component_type == 'head':
-                component.rig_logic_instance.head_dna_file_path = new_dna_file_path
+                component.rig_instance.head_dna_file_path = new_dna_file_path
             elif window_manager_properties.current_component_type == 'body':
-                component.rig_logic_instance.body_dna_file_path = new_dna_file_path
+                component.rig_instance.body_dna_file_path = new_dna_file_path
 
         # now hide the component rig and switch it back to object mode and change the
         # active object to the face board
@@ -984,7 +984,7 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
         selected_object = context.active_object # type: ignore
         properties = context.scene.meta_human_dna # type: ignore
         if selected_object and selected_object.type == 'MESH' and selected_object.select_get():
-            for instance in properties.rig_logic_instance_list:
+            for instance in properties.rig_instance_list:
                 for item in instance.output_head_item_list:
                     if item.scene_object == selected_object:
                         return False
@@ -1062,7 +1062,7 @@ class GenerateMaterial(bpy.types.Operator):
     
     @classmethod
     def poll(cls, context):
-        instance = callbacks.get_active_rig_logic()
+        instance = callbacks.get_active_rig_instance()
         if instance and instance.head_mesh and not instance.head_material and bpy.context.mode == 'OBJECT': # type: ignore
             return True
         return False
@@ -1094,7 +1094,7 @@ class ForceEvaluate(bpy.types.Operator):
     def execute(self, context):
         utilities.teardown_scene()
         utilities.setup_scene()
-        instance = callbacks.get_active_rig_logic()
+        instance = callbacks.get_active_rig_instance()
         if instance:
             instance.evaluate()
             # NOTE: Some dependency graph weirdness here. This is necessary to ensure that the rig logic 
@@ -1147,7 +1147,7 @@ class SendToMetaHumanCreator(bpy.types.Operator):
     bl_label = "Send to MetaHuman Creator"
 
     def execute(self, context):
-        instance = callbacks.get_active_rig_logic()
+        instance = callbacks.get_active_rig_instance()
         if instance:
             # store the current auto evaluate settings
             auto_evaluate_head = instance.auto_evaluate_head
@@ -1233,8 +1233,8 @@ class SendToUnreal(bpy.types.Operator):
             return {'CANCELLED'}
 
         head = utilities.get_active_head()
-        if head and head.rig_logic_instance and head.head_mesh_object and head.head_rig_object:
-            instance = head.rig_logic_instance
+        if head and head.rig_instance and head.head_mesh_object and head.head_rig_object:
+            instance = head.rig_instance
             dna_io_instance: DNAExporter = None # type: ignore
 
             # sync the spine bones with the body skeleton in the unreal blueprint
@@ -1243,19 +1243,19 @@ class SendToUnreal(bpy.types.Operator):
 
             # export a separate DNA file since we are only going to export bone 
             # transforms, mesh are sent across via FBX
-            dna_file = f'export/{head.rig_logic_instance.name}.dna'
-            if head.rig_logic_instance.output_method == 'calibrate':
+            dna_file = f'export/{head.rig_instance.name}.dna'
+            if head.rig_instance.output_method == 'calibrate':
                 dna_io_instance = DNACalibrator(
-                    instance=head.rig_logic_instance,
+                    instance=head.rig_instance,
                     linear_modifier=head.linear_modifier,
                     meshes=False,
                     vertex_colors=False,
                     bones=True,
                     file_name=dna_file
                 )              
-            elif head.rig_logic_instance.output_method == 'overwrite':
+            elif head.rig_instance.output_method == 'overwrite':
                 dna_io_instance = DNAExporter(
-                    instance=head.rig_logic_instance,
+                    instance=head.rig_instance,
                     linear_modifier=head.linear_modifier,
                     meshes=False,
                     vertex_colors=False,
@@ -1328,7 +1328,7 @@ class ExportSelectedComponent(bpy.types.Operator):
     bl_label = "Export Selected Component"
 
     def execute(self, context):
-        instance = callbacks.get_active_rig_logic()
+        instance = callbacks.get_active_rig_instance()
         if not instance:
             self.report({'ERROR'}, 'No active Rig Logic Instance found. Please select an instance from the list under the RigLogic panel.')
             return {'CANCELLED'}
@@ -1380,29 +1380,6 @@ class ExportSelectedComponent(bpy.types.Operator):
         utilities.set_context(current_context)
 
         return {'FINISHED'}
-
-class SyncWithBodyBonesInBlueprint(bpy.types.Operator):
-    """Syncs the spine bone positions with the body skeleton in the unreal blueprint. This can help ensure that your head matches the body height. You must have the blueprint asset path set in your Send to Unreal Settings so it knows where to look for the bone positions"""
-    bl_idname = "meta_human_dna.sync_with_body_in_blueprint"
-    bl_label = "Sync with Body in Blueprint"
-
-    def execute(self, context):
-        instance = callbacks.get_active_rig_logic()
-        if instance:
-            utilities.sync_spine_with_body_skeleton(instance)
-        return {'FINISHED'}
-    
-    @classmethod
-    def poll(cls, context):
-        from .utilities import send2ue_addon_is_valid
-        if not send2ue_addon_is_valid():
-            return False
-
-        instance = callbacks.get_active_rig_logic()
-        if instance:
-            if instance.unreal_blueprint_asset_path:
-                return True
-        return False
     
 class MirrorSelectedBones(bpy.types.Operator):
     """Mirrors the selected bone positions to the other side of the head mesh"""
@@ -1455,7 +1432,7 @@ class AutoFitSelectedBones(bpy.types.Operator):
             
             for pose_bone in bpy.context.selected_pose_bones: # type: ignore
                 if pose_bone.id_data != head.head_rig_object:
-                    self.report({'ERROR'}, f'The selected bone "{pose_bone.id_data.name}:{pose_bone.name}" is not associated with the rig logic instance "{head.rig_logic_instance.name}"')
+                    self.report({'ERROR'}, f'The selected bone "{pose_bone.id_data.name}:{pose_bone.name}" is not associated with the rig logic instance "{head.rig_instance.name}"')
                     return {'CANCELLED'}
             
             utilities.auto_fit_bones(
@@ -1483,8 +1460,8 @@ class RevertBoneTransformsToDna(bpy.types.Operator):
                 self.report({'ERROR'}, 'Must be in pose mode')
                 return {'CANCELLED'}
             
-            if not head.rig_logic_instance.head_rig:
-                self.report({'ERROR'}, f'"{head.rig_logic_instance.name}" does not have a head rig assigned')
+            if not head.rig_instance.head_rig:
+                self.report({'ERROR'}, f'"{head.rig_instance.name}" does not have a head rig assigned')
                 return {'CANCELLED'}
 
             head.revert_bone_transforms_to_dna()
@@ -1572,7 +1549,7 @@ class RBFEditorOperatorBase(bpy.types.Operator):
         return True, ""
     
     def execute(self, context):
-        instance = callbacks.get_active_rig_logic()
+        instance = callbacks.get_active_rig_instance()
         if instance and instance.body_rig:
             result, message = self.validate(context, instance)
             if not result:
@@ -1691,7 +1668,7 @@ class SculptThisShapeKey(ShapeKeyOperatorBase):
     bl_label = "Edit this Shape Key"
 
     def execute(self, context):
-        instance = callbacks.get_active_rig_logic()
+        instance = callbacks.get_active_rig_instance()
         if instance and instance.head_rig:
             result = self.validate(context, instance)
             if not result:
@@ -1715,7 +1692,7 @@ class EditThisShapeKey(ShapeKeyOperatorBase):
     bl_label = "Edit this Shape Key"
 
     def execute(self, context):
-        instance = callbacks.get_active_rig_logic()
+        instance = callbacks.get_active_rig_instance()
         if instance and instance.head_rig:
             result = self.validate(context, instance)
             if not result:
@@ -1743,8 +1720,8 @@ class ReImportThisShapeKey(ShapeKeyOperatorBase):
 
     def execute(self, context):
         head = utilities.get_active_head()
-        if head and head.rig_logic_instance:
-            instance = head.rig_logic_instance
+        if head and head.rig_instance:
+            instance = head.rig_instance
             result = self.validate(context, instance)
             if not result:
                 return {'CANCELLED'}
@@ -1847,7 +1824,7 @@ class EditRBFSolver(RBFEditorOperatorBase):
 
     @classmethod
     def poll(cls, context):
-        instance = callbacks.get_active_rig_logic()
+        instance = callbacks.get_active_rig_instance()
         if not instance or not instance.body_rig:
             return False
         
@@ -1870,7 +1847,7 @@ class CommitRBFSolverChanges(RBFEditorOperatorBase):
 
     @classmethod
     def poll(cls, context):
-        instance = callbacks.get_active_rig_logic()
+        instance = callbacks.get_active_rig_instance()
         if instance is None:
             return False
         
@@ -2158,7 +2135,7 @@ class AddRBFDriven(RBFEditorOperatorBase):
 
     @classmethod
     def poll(cls, context):
-        instance = callbacks.get_active_rig_logic()        
+        instance = callbacks.get_active_rig_instance()        
         if instance and instance.body_rig and context.selected_pose_bones:
             return True
         
@@ -2219,27 +2196,6 @@ class SelectAllRBFDriven(RBFEditorOperatorBase):
             else:
                 pose_bone.bone.select = False
     
-class RefreshMaterialSlotNames(bpy.types.Operator):
-    """Refresh the material slot names by re-reading them from the meshes in the output list"""
-    bl_idname = "meta_human_dna.refresh_material_slot_names"
-    bl_label = "Refresh Material Slot Names"
-
-    def execute(self, context):
-        callbacks.update_material_slot_to_instance_mapping(self, context)
-        return {'FINISHED'}
-    
-class RevertMaterialSlotValues(bpy.types.Operator):
-    """Revert the material slot to unreal material instance values to their default values"""
-    bl_idname = "meta_human_dna.revert_material_slot_values"
-    bl_label = "Revert Material Slot Values"
-
-    def execute(self, context):
-        instance = callbacks.get_active_rig_logic()
-        if instance:
-            instance.unreal_material_slot_to_instance_mapping.clear()
-        callbacks.update_material_slot_to_instance_mapping(self, context)
-        return {'FINISHED'}
-    
 class DuplicateRigInstance(bpy.types.Operator):
     """Duplicate the active Rig Instance. This copies all it's associated data and offsets it to the right"""
     bl_idname = "meta_human_dna.duplicate_rig_instance"
@@ -2248,8 +2204,8 @@ class DuplicateRigInstance(bpy.types.Operator):
     new_name: bpy.props.StringProperty(
         name="New Name", 
         default="",
-        get=callbacks.get_copied_rig_logic_instance_name,
-        set=callbacks.set_copied_rig_logic_instance_name
+        get=callbacks.get_copied_rig_instance_name,
+        set=callbacks.set_copied_rig_instance_name
     ) # type: ignore
     new_folder: bpy.props.StringProperty(
         name="New Output Folder", 
@@ -2273,7 +2229,7 @@ class DuplicateRigInstance(bpy.types.Operator):
             self.report({'ERROR'}, f'Folder not found: {new_folder}')
             return {'CANCELLED'}
 
-        instance = callbacks.get_active_rig_logic()
+        instance = callbacks.get_active_rig_instance()
         if instance:
             for component_type, mesh_object, rig_object in [
                 ('body', instance.body_mesh, instance.body_rig),
@@ -2386,7 +2342,7 @@ class DuplicateRigInstance(bpy.types.Operator):
                             )                        
 
                     # move the duplicated rig to the right of the last mesh
-                    last_instance = context.scene.meta_human_dna.rig_logic_instance_list[-1] # type: ignore
+                    last_instance = context.scene.meta_human_dna.rig_instance_list[-1] # type: ignore
                     
                     if component_type == 'body':
                         new_rig_object.location.x = utilities.get_bounding_box_left_x(last_instance.body_mesh) - (utilities.get_bounding_box_width(last_instance.body_mesh) / 2)
@@ -2411,12 +2367,12 @@ class DuplicateRigInstance(bpy.types.Operator):
                     shutil.copy(instance.head_dna_file_path, new_dna_file_path)
 
                     # add the duplicated instance to the list if it doesn't already exist
-                    for _rig_logic_instance in context.scene.meta_human_dna.rig_logic_instance_list: # type: ignore
-                        if _rig_logic_instance.name == self.new_name:
-                            new_instance = _rig_logic_instance
+                    for _rig_instance in context.scene.meta_human_dna.rig_instance_list: # type: ignore
+                        if _rig_instance.name == self.new_name:
+                            new_instance = _rig_instance
                             break
                     else:
-                        new_instance = context.scene.meta_human_dna.rig_logic_instance_list.add() # type: ignore
+                        new_instance = context.scene.meta_human_dna.rig_instance_list.add() # type: ignore
 
                     # now set the values on the instance
                     new_instance.name = self.new_name
@@ -2430,7 +2386,7 @@ class DuplicateRigInstance(bpy.types.Operator):
                     new_instance.output_folder_path = self.new_folder
 
                     # set the new instance as the active one
-                    context.scene.meta_human_dna.rig_logic_instance_list_active_index = len(context.scene.meta_human_dna.rig_logic_instance_list) - 1 # type: ignore
+                    context.scene.meta_human_dna.rig_instance_list_active_index = len(context.scene.meta_human_dna.rig_instance_list) - 1 # type: ignore
 
 
         return {'FINISHED'}
@@ -2440,7 +2396,7 @@ class DuplicateRigInstance(bpy.types.Operator):
     
     @classmethod
     def poll(cls, context):
-        return callbacks.get_active_rig_logic() is not None
+        return callbacks.get_active_rig_instance() is not None
     
     def draw(self, context):
         if not self.layout:
@@ -2532,10 +2488,10 @@ class UILIST_ADDON_PREFERENCES_OT_extra_dna_entry_add(GenericUIListOperator, bpy
         return {'FINISHED'}
 
 
-class UILIST_RIG_LOGIC_OT_entry_remove(GenericUIListOperator, bpy.types.Operator):
+class UILIST_RIG_INSTANCE_OT_entry_remove(GenericUIListOperator, bpy.types.Operator):
     """Remove the selected entry from the list"""
 
-    bl_idname = "meta_human_dna.rig_logic_instance_entry_remove"
+    bl_idname = "meta_human_dna.rig_instance_entry_remove"
     bl_label = "Remove Selected Entry"
 
     delete_associated_data: bpy.props.BoolProperty(
@@ -2545,10 +2501,10 @@ class UILIST_RIG_LOGIC_OT_entry_remove(GenericUIListOperator, bpy.types.Operator
     ) # type: ignore
 
     def execute(self, context):
-        my_list = context.scene.meta_human_dna.rig_logic_instance_list # type: ignore
+        my_list = context.scene.meta_human_dna.rig_instance_list # type: ignore
 
         if self.delete_associated_data:
-            instance = context.scene.meta_human_dna.rig_logic_instance_list[self.active_index] # type: ignore
+            instance = context.scene.meta_human_dna.rig_instance_list[self.active_index] # type: ignore
             for component_type in ['body', 'head']:
                 for item in getattr(instance, f'output_{component_type}_item_list'):
                     if item.scene_object:
@@ -2564,11 +2520,11 @@ class UILIST_RIG_LOGIC_OT_entry_remove(GenericUIListOperator, bpy.types.Operator
 
         my_list.remove(self.active_index)
         to_index = min(self.active_index, len(my_list) - 1)
-        context.scene.meta_human_dna.rig_logic_instance_list_active_index = to_index # type: ignore
+        context.scene.meta_human_dna.rig_instance_list_active_index = to_index # type: ignore
         return {'FINISHED'}
 
     def invoke(self, context, event):
-        instance = context.scene.meta_human_dna.rig_logic_instance_list[self.active_index] # type: ignore
+        instance = context.scene.meta_human_dna.rig_instance_list[self.active_index] # type: ignore
         self.instance_name = instance.name if instance else "this instance"
         return context.window_manager.invoke_props_dialog( # type: ignore
             self, 
@@ -2586,10 +2542,10 @@ class UILIST_RIG_LOGIC_OT_entry_remove(GenericUIListOperator, bpy.types.Operator
         row = self.layout.row()
         row.prop(self, "delete_associated_data")
 
-class UILIST_RIG_LOGIC_OT_entry_add(GenericUIListOperator, bpy.types.Operator):
+class UILIST_RIG_INSTANCE_OT_entry_add(GenericUIListOperator, bpy.types.Operator):
     """Add an entry to the list after the current active item"""
 
-    bl_idname = "meta_human_dna.rig_logic_instance_entry_add"
+    bl_idname = "meta_human_dna.rig_instance_entry_add"
     bl_label = "Add Entry"
 
     def execute(self, context):
@@ -2601,10 +2557,10 @@ class UILIST_RIG_LOGIC_OT_entry_add(GenericUIListOperator, bpy.types.Operator):
         return utilities.dependencies_are_valid()
 
 
-class UILIST_RIG_LOGIC_OT_entry_move(GenericUIListOperator, bpy.types.Operator):
+class UILIST_RIG_INSTANCE_OT_entry_move(GenericUIListOperator, bpy.types.Operator):
     """Move an entry in the list up or down"""
 
-    bl_idname = "meta_human_dna.rig_logic_instance_entry_move"
+    bl_idname = "meta_human_dna.rig_instance_entry_move"
     bl_label = "Move Entry"
 
     direction: bpy.props.EnumProperty(
@@ -2617,7 +2573,7 @@ class UILIST_RIG_LOGIC_OT_entry_move(GenericUIListOperator, bpy.types.Operator):
     ) # type: ignore
 
     def execute(self, context):
-        my_list = context.scene.meta_human_dna.rig_logic_instance_list # type: ignore
+        my_list = context.scene.meta_human_dna.rig_instance_list # type: ignore
         delta = {
             'DOWN': 1,
             'UP': -1,
@@ -2625,8 +2581,8 @@ class UILIST_RIG_LOGIC_OT_entry_move(GenericUIListOperator, bpy.types.Operator):
 
         to_index = (self.active_index + delta) % len(my_list)
 
-        from_instance = context.scene.meta_human_dna.rig_logic_instance_list[self.active_index] # type: ignore
-        to_instance = context.scene.meta_human_dna.rig_logic_instance_list[to_index] # type: ignore
+        from_instance = context.scene.meta_human_dna.rig_instance_list[self.active_index] # type: ignore
+        to_instance = context.scene.meta_human_dna.rig_instance_list[to_index] # type: ignore
 
         if from_instance.body_rig and to_instance.body_rig:
             to_x = to_instance.body_rig.location.x
@@ -2654,5 +2610,5 @@ class UILIST_RIG_LOGIC_OT_entry_move(GenericUIListOperator, bpy.types.Operator):
             from_instance.face_board.location.x += (to_x - from_x)
 
         my_list.move(self.active_index, to_index)
-        context.scene.meta_human_dna.rig_logic_instance_list_active_index = to_index # type: ignore
+        context.scene.meta_human_dna.rig_instance_list_active_index = to_index # type: ignore
         return {'FINISHED'}

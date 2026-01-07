@@ -67,7 +67,7 @@ def main():
                 'body_dna_file_path': i.body_dna_file_path,
                 'output_folder_path': i.output_folder_path,
             }
-            for i in bpy.context.scene.meta_human_dna.rig_logic_instance_list # type: ignore
+            for i in bpy.context.scene.meta_human_dna.rig_instance_list # type: ignore
         }
     except Exception as error:
         with open(f'{data_file.parent / data_file.stem}_error.log', 'w') as f:

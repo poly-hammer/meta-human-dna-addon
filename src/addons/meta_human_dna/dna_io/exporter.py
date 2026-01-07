@@ -9,7 +9,7 @@ from pathlib import Path
 from mathutils import Vector, Matrix
 from .. import utilities
 from ..utilities import preserve_context
-from ..rig_logic import RigLogicInstance
+from ..rig_instance import RigInstance
 from .misc import get_dna_writer, get_dna_reader
 from ..bindings import riglogic
 from ..exceptions import InvalidComponentTypeError
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 class DNAExporter:
     def __init__(
             self, 
-            instance: RigLogicInstance,
+            instance: RigInstance,
             linear_modifier: float,
             meshes: bool = True,
             shape_keys: bool = True,

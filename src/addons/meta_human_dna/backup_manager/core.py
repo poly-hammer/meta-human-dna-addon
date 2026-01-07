@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import bpy
 
 if TYPE_CHECKING:
-    from ..rig_logic import RigLogicInstance
+    from ..rig_instance import RigInstance
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +69,7 @@ def get_max_backups() -> int:
 
 
 def create_backup(
-    instance: 'RigLogicInstance',
+    instance: 'RigInstance',
     backup_type: BackupType,
     description: str | None = None
 ) -> str | None:
@@ -158,7 +158,7 @@ def create_backup(
 
 
 def _add_backup_to_list(
-    instance: 'RigLogicInstance',
+    instance: 'RigInstance',
     backup_id: str,
     timestamp: datetime,
     backup_type: BackupType,
@@ -189,7 +189,7 @@ def _add_backup_to_list(
     instance.dna_backup_list_active_index = len(backup_list) - 1 # type: ignore
 
 
-def restore_backup(instance: 'RigLogicInstance', backup_id: str) -> bool:
+def restore_backup(instance: 'RigInstance', backup_id: str) -> bool:
     """
     Restore DNA files from a backup.
     
@@ -238,7 +238,7 @@ def restore_backup(instance: 'RigLogicInstance', backup_id: str) -> bool:
         return False
 
 
-def delete_backup(instance: 'RigLogicInstance', backup_id: str) -> bool:
+def delete_backup(instance: 'RigInstance', backup_id: str) -> bool:
     """
     Delete a backup folder and its contents.
     
@@ -264,7 +264,7 @@ def delete_backup(instance: 'RigLogicInstance', backup_id: str) -> bool:
         return False
 
 
-def cleanup_old_backups(instance: 'RigLogicInstance') -> None:
+def cleanup_old_backups(instance: 'RigInstance') -> None:
     """
     Remove old backups that exceed the maximum count for a specific instance.
     
@@ -303,7 +303,7 @@ def cleanup_old_backups(instance: 'RigLogicInstance') -> None:
         logger.info(f"Cleaned up {len(folders_to_delete)} old backups for {instance.name}")
 
 
-def sync_backup_list_with_disk(instance: 'RigLogicInstance') -> None:
+def sync_backup_list_with_disk(instance: 'RigInstance') -> None:
     """
     Synchronize the instance's backup list with backups on disk.
     

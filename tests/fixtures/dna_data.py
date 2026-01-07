@@ -27,11 +27,11 @@ def exported_head_dna_json_data(
     json_file_path = export_folder / "head.json"
     export_folder.mkdir(parents=True, exist_ok=True)
 
-    if head and head.rig_logic_instance:
-        head.rig_logic_instance.output_folder_path = str(export_folder)
+    if head and head.rig_instance:
+        head.rig_instance.output_folder_path = str(export_folder)
         DNAExporter(
             file_name="head.dna",
-            instance=head.rig_logic_instance, 
+            instance=head.rig_instance, 
             linear_modifier=head.linear_modifier
         ).run()
         return get_dna_json_data(dna_file_path, json_file_path)
@@ -55,11 +55,11 @@ def calibrated_head_dna_json_data(
     json_file_path = calibrate_folder / "head.json"
     calibrate_folder.mkdir(parents=True, exist_ok=True)
 
-    if head and head.rig_logic_instance:
-        head.rig_logic_instance.output_folder_path = str(calibrate_folder)
+    if head and head.rig_instance:
+        head.rig_instance.output_folder_path = str(calibrate_folder)
         DNACalibrator(
             file_name="head.dna",
-            instance=head.rig_logic_instance, 
+            instance=head.rig_instance, 
             linear_modifier=head.linear_modifier
         ).run()
         

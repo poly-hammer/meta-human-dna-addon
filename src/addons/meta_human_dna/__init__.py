@@ -4,16 +4,10 @@ import bpy
 import bpy.utils.previews
 import logging
 
-from . import operators, properties, utilities, manual_map, rig_logic
+from . import operators, properties, rig_instance, utilities, manual_map
 from .ui import menus, importer, view_3d, viewport_overlay, addon_preferences, callbacks
 from .backup_manager import ui as backup_manager_ui
 from .backup_manager import operators as backup_manager_operators
-from .resources.unreal import meta_human_dna_utilities
-
-# ensure these modules are available to the send2ue extension
-sys.modules['meta_human_dna_utilities'] = meta_human_dna_utilities # namespaced for unreal environment
-sys.modules['meta_human_dna.ui.callbacks'] = callbacks
-sys.modules['meta_human_dna.utilities'] = utilities
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +38,6 @@ classes = [
     operators.OpenMetricsCollectionAgreement,
     operators.MetricsCollectionConsent,
     operators.MirrorSelectedBones,
-    operators.SyncWithBodyBonesInBlueprint,
     operators.ShrinkWrapVertexGroup,
     # operators.AutoFitSelectedBones,
     operators.RevertBoneTransformsToDna,
@@ -71,14 +64,12 @@ classes = [
     operators.AddRBFDriven,
     operators.RemoveRBFDriven,
     operators.SelectAllRBFDriven,
-    operators.RefreshMaterialSlotNames,
-    operators.RevertMaterialSlotValues,
     operators.DuplicateRigInstance,
     operators.AddRigLogicTextureNode,
     operators.MetaHumanDnaReportError,
-    operators.UILIST_RIG_LOGIC_OT_entry_move,
-    operators.UILIST_RIG_LOGIC_OT_entry_add,
-    operators.UILIST_RIG_LOGIC_OT_entry_remove,
+    operators.UILIST_RIG_INSTANCE_OT_entry_move,
+    operators.UILIST_RIG_INSTANCE_OT_entry_add,
+    operators.UILIST_RIG_INSTANCE_OT_entry_remove,
     operators.UILIST_ADDON_PREFERENCES_OT_extra_dna_entry_add,
     operators.UILIST_ADDON_PREFERENCES_OT_extra_dna_entry_remove,
     importer.META_HUMAN_DNA_FILE_DATA_PT_panel,
@@ -87,10 +78,10 @@ classes = [
     importer.META_HUMAN_DNA_FILE_INFO_PT_panel,
     view_3d.META_HUMAN_DNA_PT_face_board,
     view_3d.META_HUMAN_DNA_PT_view_options,
-    view_3d.META_HUMAN_DNA_PT_rig_logic,
-    view_3d.META_HUMAN_DNA_PT_rig_logic_head_sub_panel,
-    view_3d.META_HUMAN_DNA_PT_rig_logic_body_sub_panel,
-    view_3d.META_HUMAN_DNA_PT_rig_logic_footer_sub_panel,
+    view_3d.META_HUMAN_DNA_PT_rig_instance,
+    view_3d.META_HUMAN_DNA_PT_rig_instance_head_sub_panel,
+    view_3d.META_HUMAN_DNA_PT_rig_instance_body_sub_panel,
+    view_3d.META_HUMAN_DNA_PT_rig_instance_footer_sub_panel,
     view_3d.META_HUMAN_DNA_PT_shape_keys,
     view_3d.META_HUMAN_DNA_UL_shape_keys,
     view_3d.META_HUMAN_DNA_PT_pose_editor,
@@ -110,11 +101,10 @@ classes = [
     # view_3d.META_HUMAN_DNA_PT_materials_utilities_sub_panel,
     view_3d.META_HUMAN_DNA_PT_utilities_sub_panel,
     view_3d.META_HUMAN_DNA_UL_output_items,
-    view_3d.META_HUMAN_DNA_UL_rig_logic_instances,
+    view_3d.META_HUMAN_DNA_UL_rig_instances,
     view_3d.META_HUMAN_DNA_UL_material_slot_to_instance_mapping,
     view_3d.META_HUMAN_DNA_PT_output_panel,
-    # view_3d.META_HUMAN_DNA_PT_send2ue_settings_sub_panel,
-    view_3d.META_HUMAN_DNA_PT_buttons_sub_panel,
+    view_3d.META_HUMAN_DNA_PT_output_buttons_sub_panel,
     # DNA Backup Manager
     backup_manager_operators.META_HUMAN_DNA_OT_restore_backup,
     backup_manager_operators.META_HUMAN_DNA_OT_delete_backup,
@@ -189,7 +179,7 @@ def unregister():
 
     # remove event handlers
     if not os.environ.get('META_HUMAN_DNA_DEV'):
-        rig_logic.stop_listening()
+        rig_instance.stop_listening()
 
     if app_handlers['undo_pre'] in bpy.app.handlers.undo_pre:
         bpy.app.handlers.undo_pre.remove(app_handlers['undo_pre'])

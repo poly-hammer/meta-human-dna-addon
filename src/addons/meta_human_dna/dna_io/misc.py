@@ -10,7 +10,7 @@ from ..constants import (
     SHAPE_KEY_DELTA_THRESHOLD
 )
 from ..utilities import (
-    exclude_rig_logic_evaluation, 
+    exclude_rig_instance_evaluation, 
     switch_to_object_mode,
     update_mesh
 )
@@ -131,7 +131,7 @@ def get_dna_component_type(file_path: Path) -> ComponentType | None:
                 component_type = 'body'
     return component_type
 
-@exclude_rig_logic_evaluation
+@exclude_rig_instance_evaluation
 def create_shape_key(
         index: int,
         mesh_index: int,

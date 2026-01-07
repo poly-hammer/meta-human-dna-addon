@@ -35,17 +35,17 @@ class META_HUMAN_DNA_PT_dna_backups(bpy.types.Panel):
     
     @classmethod
     def poll(cls, context):
-        from ..ui.callbacks import get_active_rig_logic
-        return get_active_rig_logic() is not None
+        from ..ui.callbacks import get_active_rig_instance
+        return get_active_rig_instance() is not None
     
     def draw(self, context):
-        from ..ui.callbacks import get_active_rig_logic
+        from ..ui.callbacks import get_active_rig_instance
         
         layout = self.layout
         if not layout:
             return
         
-        instance = get_active_rig_logic()
+        instance = get_active_rig_instance()
         if instance is None:
             layout.label(text="No active MetaHuman instance", icon='INFO')
             return

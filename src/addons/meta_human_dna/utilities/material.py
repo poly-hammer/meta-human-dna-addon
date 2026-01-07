@@ -1,9 +1,9 @@
 import bpy
 import shutil
 from pathlib import Path
-from .misc import exclude_rig_logic_evaluation
+from .misc import exclude_rig_instance_evaluation
 
-@exclude_rig_logic_evaluation
+@exclude_rig_instance_evaluation
 def copy_materials(
         mesh_object: bpy.types.Object, 
         old_prefix: str,

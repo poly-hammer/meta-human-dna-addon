@@ -6,14 +6,14 @@ from ..dna_io.misc import get_dna_component_type
 
 if TYPE_CHECKING:
     from ..properties import MetahumanDnaImportProperties
-    from ..rig_logic import RigLogicInstance
+    from ..rig_instance import RigInstance
 
 
 def get_meta_human_component(
         file_path: Path, 
         properties: 'MetahumanDnaImportProperties',
         name: str | None = None,
-        rig_logic_instance: 'RigLogicInstance | None' = None,
+        rig_instance: 'RigInstance | None' = None,
     ) -> MetaHumanComponentHead | MetaHumanComponentBody:
     component_type = get_dna_component_type(file_path=file_path)
     if component_type == 'head':
@@ -21,7 +21,7 @@ def get_meta_human_component(
             name=name,
             dna_file_path=file_path,
             dna_import_properties=properties,
-            rig_logic_instance=rig_logic_instance,
+            rig_instance=rig_instance,
             component_type='head'
         )
     elif component_type == 'body':
@@ -29,7 +29,7 @@ def get_meta_human_component(
             name=name,
             dna_file_path=file_path,
             dna_import_properties=properties,
-            rig_logic_instance=rig_logic_instance,
+            rig_instance=rig_instance,
             component_type='body'
         )
     else:

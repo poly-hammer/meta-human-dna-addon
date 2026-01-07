@@ -8,7 +8,7 @@ from pathlib import Path
 from mathutils import Vector, Matrix
 from bpy_extras.bmesh_utils import bmesh_linked_uv_islands
 from .misc import (
-    exclude_rig_logic_evaluation,
+    exclude_rig_instance_evaluation,
     switch_to_edit_mode,
     switch_to_object_mode,
     preserve_context
@@ -26,7 +26,7 @@ from ..constants import (
 logger = logging.getLogger(__name__)
 
 
-@exclude_rig_logic_evaluation
+@exclude_rig_instance_evaluation
 def initialize_basis_shape_key(mesh_object: bpy.types.Object) -> bpy.types.Key:
     """
     Get the shape key that has the mesh as its user. If the shape 
@@ -389,7 +389,7 @@ def find_closest_vertex(vertices, position):
         key=lambda vert: (position - vert).length_squared
     )
     
-@exclude_rig_logic_evaluation
+@exclude_rig_instance_evaluation
 def copy_mesh(
         mesh_object: bpy.types.Object, 
         new_mesh_name: str, 

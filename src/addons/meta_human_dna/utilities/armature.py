@@ -5,7 +5,7 @@ import logging
 from typing import Literal
 from mathutils import Vector, Matrix, Euler, Quaternion
 from .misc import (
-    exclude_rig_logic_evaluation,
+    exclude_rig_instance_evaluation,
     preserve_context,
     switch_to_pose_mode,
     switch_to_bone_edit_mode,
@@ -452,7 +452,7 @@ def get_weighted_bone_names(mesh_object: bpy.types.Object) -> list[str]:
     return list(weighted_bones)
 
 
-@exclude_rig_logic_evaluation
+@exclude_rig_instance_evaluation
 def copy_armature(armature_object: bpy.types.Object, new_armature_name: str) -> bpy.types.Object:
     # remove the object if it already exists
     armature_object_copy = bpy.data.objects.get(new_armature_name) # type: ignore

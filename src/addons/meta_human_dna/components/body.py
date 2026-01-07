@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 from mathutils import Vector
 from .. import utilities
-from ..utilities import preserve_context, exclude_rig_logic_evaluation
+from ..utilities import preserve_context, exclude_rig_instance_evaluation
 from .base import MetaHumanComponentBase
 from ..dna_io import DNAExporter
 from ..constants import (
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class MetaHumanComponentBody(MetaHumanComponentBase):
-    @exclude_rig_logic_evaluation
+    @exclude_rig_instance_evaluation
     def import_action(
             self, 
             file_path: Path,
@@ -29,9 +29,9 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
         
         if self.body_rig_object:
             # ensure the rig logic instance is initialized
-            self.rig_logic_instance.initialize()
+            self.rig_instance.initialize()
             utilities.import_action_from_fbx(
-                instance=self.rig_logic_instance,
+                instance=self.rig_instance,
                 file_path=file_path,
                 component='body',
                 armature=self.body_rig_object,
@@ -39,9 +39,9 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
                 include_only_bones=[
                     b.name for b in self.body_rig_object.pose.bones
                     if b.name not in [
-                        *self.rig_logic_instance.body_driven_bone_names,
-                        *self.rig_logic_instance.body_swing_bone_names,
-                        *self.rig_logic_instance.body_twist_bone_names
+                        *self.rig_instance.body_driven_bone_names,
+                        *self.rig_instance.body_swing_bone_names,
+                        *self.rig_instance.body_twist_bone_names
                     ]
                 ]
             )
@@ -52,7 +52,7 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
             constrain: bool = True
         ) -> tuple[bool, str]:
         valid, message = self.dna_importer.run()
-        self.rig_logic_instance.body_rig = self.dna_importer.rig_object
+        self.rig_instance.body_rig = self.dna_importer.rig_object
 
         self._organize_viewport()
         self.import_materials()
@@ -62,30 +62,30 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
             self.create_topology_vertex_groups()
 
         # set the references on the rig logic instance
-        self.rig_logic_instance.body_mesh = self.body_mesh_object
-        self.rig_logic_instance.body_rig = self.body_rig_object
-        self.rig_logic_instance.body_dna_file_path = str(self.dna_importer.source_dna_file)
-        self.rig_logic_instance.body_initialize()
+        self.rig_instance.body_mesh = self.body_mesh_object
+        self.rig_instance.body_rig = self.body_rig_object
+        self.rig_instance.body_dna_file_path = str(self.dna_importer.source_dna_file)
+        self.rig_instance.body_initialize()
 
         if self.body_rig_object and self.body_mesh_object:
             utilities.set_body_bone_collections(
                 mesh_object=self.body_mesh_object,
                 rig_object=self.body_rig_object,
-                swing_bone_names=self.rig_logic_instance.body_swing_bone_names,
-                twist_bone_names=self.rig_logic_instance.body_twist_bone_names,
-                driver_bone_names=self.rig_logic_instance.body_driver_bone_names,
-                driven_bone_names=self.rig_logic_instance.body_driven_bone_names
+                swing_bone_names=self.rig_instance.body_swing_bone_names,
+                twist_bone_names=self.rig_instance.body_twist_bone_names,
+                driver_bone_names=self.rig_instance.body_driver_bone_names,
+                driven_bone_names=self.rig_instance.body_driven_bone_names
             )
             # if this isn't the first rig, move it to the right of the last body mesh
-            if len(self.scene_properties.rig_logic_instance_list) > 1:
-                last_instance = self.scene_properties.rig_logic_instance_list[-2] # type: ignore
+            if len(self.scene_properties.rig_instance_list) > 1:
+                last_instance = self.scene_properties.rig_instance_list[-2] # type: ignore
                 if last_instance.body_mesh:
                     self.body_rig_object.location.x = utilities.get_bounding_box_left_x(last_instance.body_mesh) - (utilities.get_bounding_box_width(last_instance.body_mesh) / 2)
 
 
         # focus the view on body object
-        if self.rig_logic_instance.body_mesh:
-            utilities.select_only(self.rig_logic_instance.body_mesh)
+        if self.rig_instance.body_mesh:
+            utilities.select_only(self.rig_instance.body_mesh)
             utilities.focus_on_selected()
 
         # collapse the outliner
@@ -113,7 +113,7 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
             utilities.switch_to_object_mode() # type: ignore
             # select all the objects and set their origins to the 3d cursor
             utilities.deselect_all()
-            for item in self.rig_logic_instance.output_body_item_list:
+            for item in self.rig_instance.output_body_item_list:
                 if item.scene_object:
                     item.scene_object.hide_set(False)
                     item.scene_object.select_set(True)
@@ -160,13 +160,13 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
         pass
 
     def delete(self):
-        for item in self.rig_logic_instance.output_body_item_list:
+        for item in self.rig_instance.output_body_item_list:
             if item.scene_object:
                 bpy.data.objects.remove(item.scene_object, do_unlink=True)
             if item.image_object:
                 bpy.data.images.remove(item.image_object, do_unlink=True)
 
-        self._delete_rig_logic_instance()
+        self._delete_rig_instance()
 
     def create_topology_vertex_groups(self):
         if not self.dna_import_properties.import_mesh:
@@ -189,62 +189,62 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
                     )
 
     def select_vertex_group(self):
-        if self.rig_logic_instance and self.rig_logic_instance.body_mesh:
+        if self.rig_instance and self.rig_instance.body_mesh:
             # TODO: Fix once there are topology vertex groups for all LODS
-            self.rig_logic_instance.active_lod = 'lod0'
+            self.rig_instance.active_lod = 'lod0'
             utilities.select_vertex_group(
-                mesh_object=self.rig_logic_instance.body_mesh,
-                vertex_group_name=self.rig_logic_instance.body_mesh_topology_groups,
-                add=self.rig_logic_instance.mesh_topology_selection_mode == 'add'
+                mesh_object=self.rig_instance.body_mesh,
+                vertex_group_name=self.rig_instance.body_mesh_topology_groups,
+                add=self.rig_instance.mesh_topology_selection_mode == 'add'
             )
 
     def select_bone_group(self):
-        if self.rig_logic_instance and self.rig_logic_instance.body_rig:
-            if self.rig_logic_instance.rig_bone_group_selection_mode != 'add':
+        if self.rig_instance and self.rig_instance.body_rig:
+            if self.rig_instance.rig_bone_group_selection_mode != 'add':
                 # deselect all bones first
-                for bone in self.rig_logic_instance.body_rig.data.bones: # type: ignore
+                for bone in self.rig_instance.body_rig.data.bones: # type: ignore
                     bone.select = False
             
             from ..bindings import meta_human_dna_core
-            for bone_name in meta_human_dna_core.BODY_BONE_SELECTION_GROUPS.get(self.rig_logic_instance.body_rig_bone_groups, []): # type: ignore
-                bone = self.rig_logic_instance.body_rig.data.bones.get(bone_name) # type: ignore
+            for bone_name in meta_human_dna_core.BODY_BONE_SELECTION_GROUPS.get(self.rig_instance.body_rig_bone_groups, []): # type: ignore
+                bone = self.rig_instance.body_rig.data.bones.get(bone_name) # type: ignore
                 if bone:
                     bone.select = True
 
-            if self.rig_logic_instance.body_rig_bone_groups.startswith(TOPO_GROUP_PREFIX):
+            if self.rig_instance.body_rig_bone_groups.startswith(TOPO_GROUP_PREFIX):
                 for bone in utilities.get_topology_group_surface_bones(
-                    mesh_object=self.rig_logic_instance.body_mesh,
-                    armature_object=self.rig_logic_instance.body_rig,
-                    vertex_group_name=self.rig_logic_instance.body_rig_bone_groups,
+                    mesh_object=self.rig_instance.body_mesh,
+                    armature_object=self.rig_instance.body_rig,
+                    vertex_group_name=self.rig_instance.body_rig_bone_groups,
                     dna_reader=self.dna_reader
                 ):
                     bone.select = True
 
-            self.rig_logic_instance.body_rig.hide_set(False)
-            utilities.switch_to_pose_mode(self.rig_logic_instance.body_rig) # type: ignore
+            self.rig_instance.body_rig.hide_set(False)
+            utilities.switch_to_pose_mode(self.rig_instance.body_rig) # type: ignore
 
     def shrink_wrap_vertex_group(self):
-        if self.rig_logic_instance and self.rig_logic_instance.body_mesh:
-            modifier = self.rig_logic_instance.body_mesh.modifiers.get(self.rig_logic_instance.body_mesh_topology_groups)
+        if self.rig_instance and self.rig_instance.body_mesh:
+            modifier = self.rig_instance.body_mesh.modifiers.get(self.rig_instance.body_mesh_topology_groups)
             if not modifier:
-                modifier = self.rig_logic_instance.body_mesh.modifiers.new(name=self.rig_logic_instance.body_mesh_topology_groups, type='SHRINKWRAP')
+                modifier = self.rig_instance.body_mesh.modifiers.new(name=self.rig_instance.body_mesh_topology_groups, type='SHRINKWRAP')
                 modifier.show_viewport = False
                 modifier.wrap_method = 'PROJECT'
                 modifier.use_negative_direction = True
 
-            modifier.target = self.rig_logic_instance.head_shrink_wrap_target
-            modifier.vertex_group = self.rig_logic_instance.body_mesh_topology_groups
+            modifier.target = self.rig_instance.head_shrink_wrap_target
+            modifier.vertex_group = self.rig_instance.body_mesh_topology_groups
             # toggle the visibility of the modifier
             modifier.show_viewport = not modifier.show_viewport
 
             utilities.set_vertex_selection(
-                mesh_object=self.rig_logic_instance.body_mesh, 
+                mesh_object=self.rig_instance.body_mesh, 
                 vertex_indexes=[],
                 add=False
             )
             utilities.select_vertex_group(
-                mesh_object=self.rig_logic_instance.body_mesh,
-                vertex_group_name=self.rig_logic_instance.body_mesh_topology_groups
+                mesh_object=self.rig_instance.body_mesh,
+                vertex_group_name=self.rig_instance.body_mesh_topology_groups
             )
 
     @preserve_context

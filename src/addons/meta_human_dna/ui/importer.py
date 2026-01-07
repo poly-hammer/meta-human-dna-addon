@@ -253,7 +253,7 @@ class LinkAppendMetaHumanImportHelper(ImportHelper):
 
     def refresh_meta_human_list(self, operator):
         self.meta_human_list.clear() # type: ignore
-        rig_instance_names = [i.name for i in bpy.context.scene.meta_human_dna.rig_logic_instance_list] # type: ignore
+        rig_instance_names = [i.name for i in bpy.context.scene.meta_human_dna.rig_instance_list] # type: ignore
 
         with bpy.data.libraries.load(operator.filepath) as (data_from, data_to): # type: ignore
             object_names = list(data_from.objects)

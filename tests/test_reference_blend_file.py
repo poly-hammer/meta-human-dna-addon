@@ -1,7 +1,7 @@
 import bpy
 import pytest
 from pathlib import Path
-from meta_human_dna.ui.callbacks import get_active_rig_logic
+from meta_human_dna.ui.callbacks import get_active_rig_instance
 from constants import TEST_DNA_FOLDER
 
 @pytest.mark.parametrize(
@@ -26,7 +26,7 @@ def test_reference_blend_file(
         import_face_board=True,
         include_body=True
     )
-    instance = get_active_rig_logic()
+    instance = get_active_rig_instance()
     if not instance:
         pytest.fail('Rig instance should be created after loading DNA')
 
@@ -39,7 +39,7 @@ def test_reference_blend_file(
         meta_human_names=','.join(metahuman_names)
     )
 
-    instances = [instance for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list] # type: ignore
+    instances = [instance for instance in bpy.context.scene.meta_human_dna.rig_instance_list] # type: ignore
     instance_names = [instance.name for instance in instances]
 
     for name in metahuman_names + [current_metahuman_name]:

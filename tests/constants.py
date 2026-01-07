@@ -3,6 +3,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent
 
+ADDON_NAME = 'meta_human_dna'
+
 TEST_FILES_FOLDER = REPO_ROOT / 'tests' / 'test_files'
 EXTRA_TEST_FILES_FOLDER = REPO_ROOT / 'tests' / 'extra_test_files'
 TEST_FBX_POSES_FOLDER = EXTRA_TEST_FILES_FOLDER / 'fbx' / 'poses'

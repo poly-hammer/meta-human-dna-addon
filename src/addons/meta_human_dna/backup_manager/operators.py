@@ -10,17 +10,17 @@ class META_HUMAN_DNA_OT_restore_backup(bpy.types.Operator):
     
     @classmethod
     def poll(cls, context):
-        from ..ui.callbacks import get_active_rig_logic
-        instance = get_active_rig_logic()
+        from ..ui.callbacks import get_active_rig_instance
+        instance = get_active_rig_instance()
         if instance is None:
             return False
         return len(instance.dna_backup_list) > 0 # type: ignore
     
     def execute(self, context):
-        from ..ui.callbacks import get_active_rig_logic
+        from ..ui.callbacks import get_active_rig_instance
         from .core import restore_backup
         
-        instance = get_active_rig_logic()
+        instance = get_active_rig_instance()
         if instance is None:
             self.report({'ERROR'}, "No active MetaHuman instance")
             return {'CANCELLED'}
@@ -51,17 +51,17 @@ class META_HUMAN_DNA_OT_delete_backup(bpy.types.Operator):
     
     @classmethod
     def poll(cls, context):
-        from ..ui.callbacks import get_active_rig_logic
-        instance = get_active_rig_logic()
+        from ..ui.callbacks import get_active_rig_instance
+        instance = get_active_rig_instance()
         if instance is None:
             return False
         return len(instance.dna_backup_list) > 0 # type: ignore
     
     def execute(self, context):
-        from ..ui.callbacks import get_active_rig_logic
+        from ..ui.callbacks import get_active_rig_instance
         from .core import delete_backup
         
-        instance = get_active_rig_logic()
+        instance = get_active_rig_instance()
         if instance is None:
             self.report({'ERROR'}, "No active MetaHuman instance")
             return {'CANCELLED'}
@@ -119,14 +119,14 @@ class META_HUMAN_DNA_OT_sync_backups(bpy.types.Operator):
     
     @classmethod
     def poll(cls, context):
-        from ..ui.callbacks import get_active_rig_logic
-        return get_active_rig_logic() is not None
+        from ..ui.callbacks import get_active_rig_instance
+        return get_active_rig_instance() is not None
     
     def execute(self, context):
-        from ..ui.callbacks import get_active_rig_logic
+        from ..ui.callbacks import get_active_rig_instance
         from .core import sync_backup_list_with_disk
         
-        instance = get_active_rig_logic()
+        instance = get_active_rig_instance()
         if instance is None:
             self.report({'ERROR'}, "No active MetaHuman instance")
             return {'CANCELLED'}

@@ -1,7 +1,7 @@
 import bpy
 import pytest
 from mathutils import Vector, Quaternion
-from meta_human_dna.ui.callbacks import get_active_rig_logic
+from meta_human_dna.ui.callbacks import get_active_rig_instance
 from meta_human_dna.utilities import reset_pose
 from utilities.pose_editor import (
     set_body_pose,
@@ -29,7 +29,7 @@ def test_body_pose_roundtrip(
     show: bool = False,
     skip_fbx_import: bool = False
 ):
-    instance = get_active_rig_logic()
+    instance = get_active_rig_instance()
 
     # reset the pose to the default position
     reset_pose(instance.body_rig)
@@ -104,7 +104,7 @@ def test_body_pose_update(
     changed_driven_bone_names: list[str],
     changed_driven_bone_locations: list[Vector]
 ):
-    instance = get_active_rig_logic()
+    instance = get_active_rig_instance()
 
     # reset the pose to the default position
     reset_pose(instance.body_rig)
@@ -181,7 +181,7 @@ def test_body_pose_duplicate(
     changed_driven_bone_names: list[str],
     changed_driven_bone_locations: list[Vector]
 ):
-    instance = get_active_rig_logic()
+    instance = get_active_rig_instance()
 
     # reset the pose to the default position
     reset_pose(instance.body_rig)

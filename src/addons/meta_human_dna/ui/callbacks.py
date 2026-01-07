@@ -23,7 +23,7 @@ from ..constants import (
 )
 
 if TYPE_CHECKING:
-    from ..rig_logic import RigLogicInstance
+    from ..rig_instance import RigInstance
 
 
 logger = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ def get_bake_end_frame(self) -> int:
     except AttributeError:
         return self.get('bake_end_frame', 250)
     
-def get_active_rig_logic() -> 'RigLogicInstance | None':
+def get_active_rig_instance() -> 'RigInstance | None':
     """
     Gets the active rig logic instance.
     """
@@ -49,9 +49,9 @@ def get_active_rig_logic() -> 'RigLogicInstance | None':
         return None
     
     properties = bpy.context.scene.meta_human_dna # type: ignore
-    if len(properties.rig_logic_instance_list) > 0:
-        index = properties.rig_logic_instance_list_active_index
-        return properties.rig_logic_instance_list[index]
+    if len(properties.rig_instance_list) > 0:
+        index = properties.rig_instance_list_active_index
+        return properties.rig_instance_list[index]
     
 def get_head_texture_logic_node(material: bpy.types.Material) -> bpy.types.ShaderNodeGroup | None:
     if not material or not material.node_tree:
@@ -79,7 +79,7 @@ def get_active_material_preview(self) -> int:
 def get_output_instance_items(self, context):
     enum_items = []
     properties = bpy.context.scene.meta_human_dna # type: ignore
-    for instance in properties.rig_logic_instance_list:
+    for instance in properties.rig_instance_list:
         enum_items.append((instance.name, instance.name, f'Face rig logic instance {instance.name}'))
     return enum_items
 
@@ -126,7 +126,7 @@ def get_face_pose_previews_items(self, context):
 
 def get_head_mesh_topology_groups(self, context):
     enum_items = []
-    instance = get_active_rig_logic()
+    instance = get_active_rig_instance()
     if instance and instance.head_mesh:
         for group_name in instance.head_mesh.vertex_groups.keys():
             if group_name.startswith('TOPO_GROUP_'):
@@ -144,7 +144,7 @@ def get_head_mesh_topology_groups(self, context):
 
 def get_body_mesh_topology_groups(self, context):
     enum_items = []
-    instance = get_active_rig_logic()
+    instance = get_active_rig_instance()
     if instance and instance.body_mesh:
         for group_name in instance.body_mesh.vertex_groups.keys():
             if group_name.startswith('TOPO_GROUP_'):
@@ -175,7 +175,7 @@ def get_head_rig_bone_groups(self, context):
                 f'Select bones in the group {group_name} on the head rig'
             )
         )
-    instance = get_active_rig_logic()
+    instance = get_active_rig_instance()
     if instance and instance.head_mesh and instance.list_surface_bone_groups:
         for item in get_head_mesh_topology_groups(self, context):
             _item = list(item)
@@ -196,12 +196,6 @@ def get_body_rig_bone_groups(self, context):
         )
     
     # TODO: Maybe add surface bone groups here as well
-    # instance = get_active_rig_logic()
-    # if instance and instance.body_mesh and instance.list_surface_bone_groups:
-    #     for item in get_body_mesh_topology_groups(self, context):
-    #         _item = list(item)
-    #         _item[1] = f'(Surface) {item[1]}'
-    #         enum_items.append(tuple(_item))
     return enum_items
 
 def get_base_dna_folder(self, context):
@@ -276,7 +270,7 @@ def get_show_body_bones(self) -> bool:
     return False
 
 def get_shape_key_value(self) -> float:
-    instance = get_active_rig_logic()
+    instance = get_active_rig_instance()
     if instance:
         channel_index = instance.head_channel_name_to_index_lookup.get(self.name)
         if not channel_index:
@@ -329,7 +323,7 @@ def set_highlight_matching_active_bone(self, value):
             if bpy.context.mode == 'POSE': # type: ignore
                 pose_bone = bpy.context.active_pose_bone # type: ignore
                 if pose_bone:
-                    for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list: # type: ignore
+                    for instance in bpy.context.scene.meta_human_dna.rig_instance_list: # type: ignore
                         if instance and instance.head_rig and pose_bone.id_data not in [instance.head_rig, instance.body_rig]:
                             source_pose_bone = instance.head_rig.pose.bones.get(pose_bone.name)
                             if source_pose_bone:
@@ -402,13 +396,13 @@ def set_show_body_bones(self, value):
     if self.body_rig:
         self.body_rig.hide_set(not value)
 
-def set_copied_rig_logic_instance_name(self, value):
-    self['copied_rig_logic_instance_name'] = value
+def set_copied_rig_instance_name(self, value):
+    self['copied_rig_instance_name'] = value
 
-def get_copied_rig_logic_instance_name(self):
-    value = self.get('copied_rig_logic_instance_name')
+def get_copied_rig_instance_name(self):
+    value = self.get('copied_rig_instance_name')
     if value is None:
-        instance = get_active_rig_logic()
+        instance = get_active_rig_instance()
         if instance and (instance.head_mesh and instance.body_mesh):
             return f'{instance.name}_copy'
         elif instance and (not instance.head_mesh or not instance.body_mesh):
@@ -423,7 +417,7 @@ def set_unreal_content_folder(self, value):
 def get_new_pose_name(self):
     value = self.get('new_pose_name')
     if value is None:
-        instance = get_active_rig_logic()
+        instance = get_active_rig_instance()
         if instance:
             solver = instance.rbf_solver_list[instance.rbf_solver_list_active_index]
             driver_bone_name = solver.name.replace(RBF_SOLVER_POSTFIX, '')
@@ -451,7 +445,7 @@ def set_new_pose_name(self, value):
 def get_unreal_content_folder(self):
     value = self.get('unreal_content_folder')
     if value is None:
-        instance = get_active_rig_logic()
+        instance = get_active_rig_instance()
         if instance:
             return f'/Game/MetaHumans/{instance.name}/Face'
     return value
@@ -492,7 +486,7 @@ def set_active_material_preview(self, value):
 
 
 def poll_head_rig_bone_selection(cls, context):
-    instance = get_active_rig_logic()
+    instance = get_active_rig_instance()
     return (
         context.mode == 'POSE' and # type: ignore
         context.selected_pose_bones and # type: ignore
@@ -559,7 +553,7 @@ def poll_shrink_wrap_target(self, scene_object: bpy.types.Object) -> bool:
     return False
 
 def update_body_rbf_driven_active_index(self, context):
-    instance = get_active_rig_logic()
+    instance = get_active_rig_instance()
 
     if not instance or not instance.body_rig:
         return
@@ -590,7 +584,7 @@ def update_body_rbf_poses_active_index(self, context):
     
     import meta_human_dna_core
     
-    instance = get_active_rig_logic()
+    instance = get_active_rig_instance()
 
     if not instance or not instance.body_rig:
         return
@@ -705,12 +699,12 @@ def update_body_rig_bone_group_selection(self, context):
 
 def update_face_pose(self, context):
     from ..utilities import get_head
-    active_instance = get_active_rig_logic()
+    active_instance = get_active_rig_instance()
     if not active_instance:
         return
 
     # update all instances with the same face board
-    for instance in context.scene.meta_human_dna.rig_logic_instance_list:
+    for instance in context.scene.meta_human_dna.rig_instance_list:
         if instance.face_board == active_instance.face_board:
             head = get_head(instance.name)
             if head:
@@ -723,7 +717,7 @@ def update_head_to_body_constraint_influence(self, context):
         head.set_head_to_body_constraint_influence(self.head_to_body_constraint_influence)
 
 
-def get_head_mesh_output_items(instance: 'RigLogicInstance') -> list[bpy.types.Object]:
+def get_head_mesh_output_items(instance: 'RigInstance') -> list[bpy.types.Object]:
     mesh_objects =[]
 
     # get all mesh objects that are skinned to the head rig
@@ -736,7 +730,7 @@ def get_head_mesh_output_items(instance: 'RigLogicInstance') -> list[bpy.types.O
     
     return mesh_objects
 
-def get_body_mesh_output_items(instance: 'RigLogicInstance') -> list[bpy.types.Object]:
+def get_body_mesh_output_items(instance: 'RigInstance') -> list[bpy.types.Object]:
     mesh_objects =[]
 
     # get all mesh objects that are skinned to the body rig
@@ -749,7 +743,7 @@ def get_body_mesh_output_items(instance: 'RigLogicInstance') -> list[bpy.types.O
     
     return mesh_objects
 
-def get_head_image_output_items(instance: 'RigLogicInstance') -> list[tuple[bpy.types.Image, str]]:
+def get_head_image_output_items(instance: 'RigInstance') -> list[tuple[bpy.types.Image, str]]:
     image_nodes = []
     if instance.head_material:
         head_texture_logic_node = get_head_texture_logic_node(instance.head_material)
@@ -762,7 +756,7 @@ def get_head_image_output_items(instance: 'RigLogicInstance') -> list[tuple[bpy.
                         image_nodes.append((image_node.image, file_name)) # type: ignore
     return image_nodes
 
-def get_body_image_output_items(instance: 'RigLogicInstance') -> list[tuple[bpy.types.Image, str]]:
+def get_body_image_output_items(instance: 'RigInstance') -> list[tuple[bpy.types.Image, str]]:
     image_nodes = []
     if instance.body_material:
         body_texture_logic_node = get_body_texture_logic_node(instance.body_material)
@@ -776,15 +770,15 @@ def get_body_image_output_items(instance: 'RigLogicInstance') -> list[tuple[bpy.
     return image_nodes
 
 def update_instance_name(self, context):
-    existing_names = [instance.name for instance in context.scene.meta_human_dna.rig_logic_instance_list]
+    existing_names = [instance.name for instance in context.scene.meta_human_dna.rig_instance_list]
     if existing_names.count(self.name) > 1:
         self.name = self.old_name
         logger.warning(f'Rig Instance with name "{self.name}" already exists. Please choose a different name.')
         return
 
     if self.old_name != self.name:
-        from ..utilities import rename_rig_logic_instance
-        rename_rig_logic_instance(
+        from ..utilities import rename_rig_instance
+        rename_rig_instance(
             instance=self,
             old_name=self.old_name,
             new_name=self.name
@@ -795,7 +789,7 @@ def update_body_output_items(self, context):
     if not hasattr(bpy.context.scene, ToolInfo.NAME):
         return
 
-    for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list: # type: ignore
+    for instance in bpy.context.scene.meta_human_dna.rig_instance_list: # type: ignore
         if instance and instance.body_mesh and instance.body_rig:
             # update the output items for the scene objects
             for scene_object in get_body_mesh_output_items(instance) + [instance.body_rig]:
@@ -836,7 +830,7 @@ def update_head_output_items(self, context):
     if not hasattr(bpy.context.scene, ToolInfo.NAME):
         return
 
-    for instance in context.scene.meta_human_dna.rig_logic_instance_list: # type: ignore
+    for instance in context.scene.meta_human_dna.rig_instance_list: # type: ignore
         if instance and instance.head_mesh and instance.head_rig:
             # update the output items for the scene objects
             for scene_object in get_head_mesh_output_items(instance) + [instance.head_rig]:
@@ -873,42 +867,17 @@ def update_head_output_items(self, context):
                     index = instance.output_head_item_list.find(item.name)
                     instance.output_head_item_list.remove(index)
 
-    # update the material slots to instance mappings
-    update_material_slot_to_instance_mapping(self, context)
-
 
 def update_output_component(self, context):
     update_head_output_items(self, context)
     update_body_output_items(self, context)
-
-def update_material_slot_to_instance_mapping(self, context):
-    instance = get_active_rig_logic()
-    if instance and instance.head_rig:
-        material_slot_names = []
-        for item in instance.output_head_item_list:
-            if item.scene_object and item.scene_object.type == 'MESH':
-                material_slot_names.extend(list(item.scene_object.material_slots.keys()))
-        
-        # remove duplicates
-        material_slot_names = list(set(material_slot_names))
-        # remove any material slot names that are linked to a mesh
-        for index, item in enumerate(instance.unreal_material_slot_to_instance_mapping):
-            if item.name not in material_slot_names:
-                instance.unreal_material_slot_to_instance_mapping.remove(index)
-
-        for material_slot_name in material_slot_names:
-            slot_name = material_slot_name.replace(f'{instance.name}_', '')
-            if instance.unreal_material_slot_to_instance_mapping.find(material_slot_name) == -1:
-                slot = instance.unreal_material_slot_to_instance_mapping.add()
-                slot.name = material_slot_name
-                slot.asset_path = MATERIAL_SLOT_TO_MATERIAL_INSTANCE_DEFAULTS.get(slot_name, '')
     
 def get_head_mesh_lod_items(self, context):
     items = []
     
     try:
         # get the lods for the active face
-        instance = get_active_rig_logic()
+        instance = get_active_rig_instance()
         if instance:
             for i in range(NUMBER_OF_HEAD_LODS):
                 head_mesh = bpy.data.objects.get(f'{instance.name}_head_lod{i}_mesh')

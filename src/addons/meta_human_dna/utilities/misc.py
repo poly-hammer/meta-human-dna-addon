@@ -8,7 +8,7 @@ import uuid
 import logging
 import subprocess
 import addon_utils
-from typing import Any, Generator
+from typing import Generator
 from pathlib import Path
 from mathutils import Vector
 from typing import TYPE_CHECKING, Callable
@@ -16,10 +16,9 @@ from ..constants import (
     MATERIALS_FILE_PATH, 
     HEAD_TEXTURE_LOGIC_NODE_LABEL,
     SCRIPTS_FOLDER,
-    FACE_BOARD_NAME,
-    SCALE_FACTOR
+    FACE_BOARD_NAME
 )
-from ..rig_logic import start_listening
+from ..rig_instance import start_listening
 from ..constants import (
     SENTRY_DSN,
     SEND2UE_EXTENSION,
@@ -37,11 +36,11 @@ from ..constants import (
 if TYPE_CHECKING:
     from ..components.head import MetaHumanComponentHead
     from ..components.body import MetaHumanComponentBody
-    from ..rig_logic import RigLogicInstance
+    from ..rig_instance import RigInstance
 
 logger = logging.getLogger(__name__)
 
-def exclude_rig_logic_evaluation(func):
+def exclude_rig_instance_evaluation(func):
     def wrapper(*args, **kwargs):
         bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False # type: ignore
         result = func(*args, **kwargs)
@@ -326,7 +325,7 @@ def setup_scene(*args):
     scene_properties = getattr(bpy.context.scene, ToolInfo.NAME, object) # type: ignore
     
     # initialize the rig logic instances
-    for instance in getattr(scene_properties, 'rig_logic_instance_list', []):
+    for instance in getattr(scene_properties, 'rig_instance_list', []):
         instance.initialize()
 
     start_listening()
@@ -335,7 +334,7 @@ def setup_scene(*args):
 def teardown_scene(*args):
     scene_properties = getattr(bpy.context.scene, ToolInfo.NAME, object) # type: ignore
     
-    for instance in getattr(scene_properties, 'rig_logic_instance_list', []):
+    for instance in getattr(scene_properties, 'rig_instance_list', []):
         instance.destroy()
     else:
         logging.info('De-allocated Rig Logic instances...')
@@ -350,7 +349,7 @@ def pre_undo(*args):
     ):
         bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False # type: ignore
         bpy.context.window_manager.meta_human_dna.is_undoing = True # type: ignore
-        for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list: # type: ignore
+        for instance in bpy.context.scene.meta_human_dna.rig_instance_list: # type: ignore
             instance.destroy()
 
 def post_undo(*args):
@@ -376,8 +375,8 @@ def post_render(*args):
     post_undo(*args)
 
 def post_save(*args):
-    from ..ui.callbacks import get_active_rig_logic
-    instance = get_active_rig_logic()
+    from ..ui.callbacks import get_active_rig_instance
+    instance = get_active_rig_instance()
     if not instance:
         return
     
@@ -432,10 +431,10 @@ def get_head(name: str) -> 'MetaHumanComponentHead | None':
     from ..components.head import MetaHumanComponentHead
     
     properties = bpy.context.scene.meta_human_dna # type: ignore
-    for instance in properties.rig_logic_instance_list:
+    for instance in properties.rig_instance_list:
         if instance.name == name:
             return MetaHumanComponentHead(
-                rig_logic_instance=instance,
+                rig_instance=instance,
                 component_type='head'
             )
         
@@ -446,10 +445,10 @@ def get_body(name: str) -> 'MetaHumanComponentBody | None':
     from ..components.body import MetaHumanComponentBody
     
     properties = bpy.context.scene.meta_human_dna # type: ignore
-    for instance in properties.rig_logic_instance_list:
+    for instance in properties.rig_instance_list:
         if instance.name == name:
             return MetaHumanComponentBody(
-                rig_logic_instance=instance,
+                rig_instance=instance,
                 component_type='body'
             )
 
@@ -460,9 +459,9 @@ def get_active_head() -> 'MetaHumanComponentHead | None':
     Gets the active head object.
     """
     properties = bpy.context.scene.meta_human_dna # type: ignore
-    if len(properties.rig_logic_instance_list) > 0:
-        index = properties.rig_logic_instance_list_active_index
-        instance = properties.rig_logic_instance_list[index]
+    if len(properties.rig_instance_list) > 0:
+        index = properties.rig_instance_list_active_index
+        instance = properties.rig_instance_list[index]
         return get_head(instance.name)
 
 def get_active_body() -> 'MetaHumanComponentBody | None':
@@ -470,9 +469,9 @@ def get_active_body() -> 'MetaHumanComponentBody | None':
     Gets the active body object.
     """
     properties = bpy.context.scene.meta_human_dna # type: ignore
-    if len(properties.rig_logic_instance_list) > 0:
-        index = properties.rig_logic_instance_list_active_index
-        instance = properties.rig_logic_instance_list[index]
+    if len(properties.rig_instance_list) > 0:
+        index = properties.rig_instance_list_active_index
+        instance = properties.rig_instance_list[index]
         return get_body(instance.name)
 
 def move_to_collection(
@@ -516,41 +515,8 @@ def set_objects_origins(scene_objects: list[bpy.types.Object], location: Vector)
         bpy.ops.object.origin_set(type='ORIGIN_CURSOR', center='BOUNDS')
         apply_transforms(scene_object, location=True, rotation=True, scale=True)
 
-def re_create_rig_logic_instance(
-        instance: 'RigLogicInstance',
-        new_name: str,
-        new_dna_file_path: Path | str,
-) -> 'RigLogicInstance':
-    # copy the instance data
-    face_board = instance.face_board
-    head_mesh = instance.head_mesh
-    head_rig = instance.head_rig
-    head_material = instance.head_material
-
-    # clear data dictionary from the old instance so underlying data can be garbage collected
-    instance.data.clear()
-    # find the index of the old instance and remove it
-    index = bpy.context.scene.meta_human_dna.rig_logic_instance_list.find(instance.name) # type: ignore
-    bpy.context.scene.meta_human_dna.rig_logic_instance_list.remove(index) # type: ignore
-
-    # create a new instance with the copied data
-    new_instance = bpy.context.scene.meta_human_dna.rig_logic_instance_list.add() # type: ignore
-    new_instance.name = new_name
-    new_instance.head_dna_file_path = str(new_dna_file_path)
-    new_instance.face_board = face_board
-    new_instance.head_mesh = head_mesh
-    new_instance.head_rig = head_rig
-    new_instance.head_material = head_material
-    
-    # set the new instance as the active instance
-    index = bpy.context.scene.meta_human_dna.rig_logic_instance_list.find(new_instance.name) # type: ignore
-    bpy.context.scene.meta_human_dna.rig_logic_instance_list_active_index = index # type: ignore
-
-    return new_instance
-
-
-def rename_rig_logic_instance(
-        instance: 'RigLogicInstance',
+def rename_rig_instance(
+        instance: 'RigInstance',
         old_name: str,
         new_name: str
     ):
@@ -591,9 +557,6 @@ def rename_rig_logic_instance(
         if item.image_object:
             item.image_object.name = item.image_object.name.replace(old_name, new_name)
 
-    instance.unreal_content_folder = instance.unreal_content_folder.replace(old_name, new_name)
-    instance.unreal_blueprint_asset_path = instance.unreal_blueprint_asset_path.replace(old_name, new_name)
-
     # rename the main collection
     main_collection = bpy.data.collections.get(old_name)
     if main_collection:
@@ -610,8 +573,8 @@ def rename_rig_logic_instance(
     instance.destroy()
 
 def rename_as_lod0_meshes(mesh_objects: list[bpy.types.Object]):
-    from ..ui.callbacks import get_active_rig_logic, update_head_output_items
-    instance = get_active_rig_logic()
+    from ..ui.callbacks import get_active_rig_instance, update_head_output_items
+    instance = get_active_rig_instance()
     if instance:
         for mesh_object in mesh_objects:
             mesh_object.name = re.sub(INVALID_NAME_CHARACTERS_REGEX, "_",  mesh_object.name.strip())
@@ -737,9 +700,9 @@ def shell(command: str, **kwargs) -> Generator[str, None, None]:
         raise OSError("\n".join(output))
 
 
-def add_rig_instance(name: None | str = None) -> 'RigLogicInstance':
-    my_list = bpy.context.scene.meta_human_dna.rig_logic_instance_list # type: ignore
-    active_index = bpy.context.scene.meta_human_dna.rig_logic_instance_list_active_index # type: ignore
+def add_rig_instance(name: None | str = None) -> 'RigInstance':
+    my_list = bpy.context.scene.meta_human_dna.rig_instance_list # type: ignore
+    active_index = bpy.context.scene.meta_human_dna.rig_instance_list_active_index # type: ignore
     to_index = min(len(my_list), active_index + 1)
     instance = my_list.add()
     
@@ -749,7 +712,7 @@ def add_rig_instance(name: None | str = None) -> 'RigLogicInstance':
         instance.name = name
 
     my_list.move(len(my_list) - 1, to_index)
-    bpy.context.scene.meta_human_dna.rig_logic_instance_list_active_index = to_index # type: ignore
+    bpy.context.scene.meta_human_dna.rig_instance_list_active_index = to_index # type: ignore
     return instance
 
 
@@ -796,7 +759,7 @@ def extract_rig_instance_data_from_blend_file(blend_file_path: Path) -> tuple[li
 
 
 def duplicate_face_board(name: str) -> bpy.types.Object | None:    
-    for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list: # type: ignore
+    for instance in bpy.context.scene.meta_human_dna.rig_instance_list: # type: ignore
         if instance.face_board:
             # Duplicate the face board object
             face_board_duplicate = instance.face_board.copy()
@@ -931,7 +894,6 @@ def position_eye_aim(
                     if bone:
                         bone.head -= offset
                         bone.tail -= offset
-
 
 def position_face_board(
         head_mesh_object: bpy.types.Object,

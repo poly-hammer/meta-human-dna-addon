@@ -20,7 +20,7 @@ from . import (
 )
 
 if TYPE_CHECKING:
-    from ..rig_logic import RigLogicInstance
+    from ..rig_instance import RigInstance
 
 
 # blender 4.5 and 5.0 support
@@ -32,7 +32,7 @@ else:
 logger = logging.getLogger(__name__)
 
 def get_action_name(
-        instance: 'RigLogicInstance', 
+        instance: 'RigInstance', 
         action_name: str,
         prefix_component_name: bool,
         prefix_instance_name: bool,
@@ -206,7 +206,7 @@ def convert_action_rotation_from_quaternion_to_euler(
             channel_bag.fcurves.remove(fcurve)
 
 def import_action_from_fbx(
-        instance: 'RigLogicInstance',
+        instance: 'RigInstance',
         file_path: Path, 
         component: ComponentType,
         armature: bpy.types.Object,
@@ -344,7 +344,7 @@ def import_action_from_fbx(
 
 
 def import_face_board_action_from_fbx(
-        instance: 'RigLogicInstance',
+        instance: 'RigInstance',
         file_path: Path, 
         armature: bpy.types.Object,
         round_sub_frames: bool = True,
@@ -501,7 +501,7 @@ def import_face_board_action_from_json(file_path: Path, armature: bpy.types.Obje
     armature.animation_data.action = action # type: ignore
 
 def bake_control_curve_values_for_frame(
-        instance: 'RigLogicInstance', 
+        instance: 'RigInstance', 
         texture_logic_node: bpy.types.ShaderNodeGroup | None,
         action: bpy.types.Action, 
         frame: int,
@@ -560,7 +560,7 @@ def bake_control_curve_values_for_frame(
             pass
 
 def bake_face_board_to_action(
-        instance: 'RigLogicInstance',
+        instance: 'RigInstance',
         armature_object: bpy.types.Object,
         action_name: str,
         replace_action: bool,
@@ -670,7 +670,7 @@ def bake_face_board_to_action(
 
 
 def bake_body_to_action(
-        instance: 'RigLogicInstance',
+        instance: 'RigInstance',
         armature_object: bpy.types.Object,
         action_name: str,
         replace_action: bool,

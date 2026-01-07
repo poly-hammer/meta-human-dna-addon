@@ -2,15 +2,14 @@ import bpy
 import logging
 from .ui import callbacks
 from .constants import ToolInfo, NUMBER_OF_HEAD_LODS
-from .rig_logic import (
-    RigLogicInstance, 
+from .rig_instance import (
+    RigInstance, 
     ShapeKeyData, 
     RBFPoseData, 
     RBFDriverData, 
     RBFDrivenData, 
     RBFSolverData, 
     OutputData,
-    MaterialSlotToInstance
 )
 
 logger = logging.getLogger(__name__)
@@ -229,8 +228,8 @@ class MetahumanSceneProperties(bpy.types.PropertyGroup):
         precision=5
     ) # type: ignore
     # --------------------- riglogic properties ------------------
-    rig_logic_instance_list: bpy.props.CollectionProperty(type=RigLogicInstance) # type: ignore
-    rig_logic_instance_list_active_index: bpy.props.IntProperty(
+    rig_instance_list: bpy.props.CollectionProperty(type=RigInstance) # type: ignore
+    rig_instance_list_active_index: bpy.props.IntProperty(
         update=callbacks.update_head_output_items
     ) # type: ignore
 
@@ -241,7 +240,6 @@ def register():
     addon is enabled.
     """
     # register the list data classes first, since the scene property groups depends on them
-    bpy.utils.register_class(MaterialSlotToInstance)
     bpy.utils.register_class(OutputData)
     bpy.utils.register_class(ShapeKeyData)
     bpy.utils.register_class(RBFDriverData)
@@ -254,13 +252,13 @@ def register():
     bpy.utils.register_class(backup_manager_properties.DnaBackupEntry)
     
     # Add the backup list property to RigLogicInstance BEFORE registering it
-    RigLogicInstance.__annotations__['dna_backup_list'] = bpy.props.CollectionProperty(
+    RigInstance.__annotations__['dna_backup_list'] = bpy.props.CollectionProperty(
         type=backup_manager_properties.DnaBackupEntry
     )
-    RigLogicInstance.__annotations__['dna_backup_list_active_index'] = bpy.props.IntProperty()
+    RigInstance.__annotations__['dna_backup_list_active_index'] = bpy.props.IntProperty()
     
     # Now register RigLogicInstance with the backup list properties included
-    bpy.utils.register_class(RigLogicInstance)
+    bpy.utils.register_class(RigInstance)
     bpy.utils.register_class(BlendFileMetaHumanCollection)
 
     try:
@@ -301,13 +299,13 @@ def unregister():
         bpy.utils.unregister_class(scene_property_class)
 
     # unregister the list data classes
-    bpy.utils.unregister_class(RigLogicInstance)
+    bpy.utils.unregister_class(RigInstance)
     
     # Remove dynamic backup list properties from RigLogicInstance annotations
-    if 'dna_backup_list' in RigLogicInstance.__annotations__:
-        del RigLogicInstance.__annotations__['dna_backup_list']
-    if 'dna_backup_list_active_index' in RigLogicInstance.__annotations__:
-        del RigLogicInstance.__annotations__['dna_backup_list_active_index']
+    if 'dna_backup_list' in RigInstance.__annotations__:
+        del RigInstance.__annotations__['dna_backup_list']
+    if 'dna_backup_list_active_index' in RigInstance.__annotations__:
+        del RigInstance.__annotations__['dna_backup_list_active_index']
     
     # Unregister DnaBackupEntry after RigLogicInstance (since RigLogicInstance depends on it)
     from .backup_manager import properties as backup_properties
@@ -322,7 +320,6 @@ def unregister():
     bpy.utils.unregister_class(RBFDrivenData)
     bpy.utils.unregister_class(RBFDriverData)
     bpy.utils.unregister_class(OutputData)
-    bpy.utils.unregister_class(MaterialSlotToInstance)
     bpy.utils.unregister_class(BlendFileMetaHumanCollection)
 
     if hasattr(bpy.types.WindowManager, ToolInfo.NAME):

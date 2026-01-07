@@ -1,6 +1,6 @@
 import bpy
 import pytest
-from meta_human_dna.ui.callbacks import get_active_rig_logic
+from meta_human_dna.ui.callbacks import get_active_rig_instance
 from meta_human_dna.constants import IS_BLENDER_5
 from constants import TEST_ANIMATION_FOLDER
 
@@ -17,7 +17,7 @@ def test_import_component_animation(
     component: str,
     file_name: str
 ):
-    instance = get_active_rig_logic()
+    instance = get_active_rig_instance()
     file_path = TEST_ANIMATION_FOLDER / component / file_name
 
     bpy.ops.meta_human_dna.import_component_animation(
@@ -41,7 +41,7 @@ def test_import_face_board_animation(
     load_full_dna_for_animation,
     file_name: str
 ):
-    instance = get_active_rig_logic()
+    instance = get_active_rig_instance()
     file_path = TEST_ANIMATION_FOLDER / 'head' / file_name
 
     bpy.ops.meta_human_dna.import_face_board_animation(filepath=str(file_path)
@@ -72,7 +72,7 @@ def test_bake_component_animation(
     prefix_component_name: bool,
     replace_action: bool
 ):
-    instance = get_active_rig_logic()
+    instance = get_active_rig_instance()
     bpy.context.window_manager.meta_human_dna.current_component_type = component
 
     if IS_BLENDER_5:
@@ -127,7 +127,7 @@ def test_bake_face_board_animation(
     prefix_component_name: bool,
     replace_action: bool
 ):
-    instance = get_active_rig_logic()
+    instance = get_active_rig_instance()
 
     if IS_BLENDER_5:
         previous_object_action_names = [a.name for a in bpy.data.actions if a.slots[0].target_id_type == 'OBJECT' and a.name != f"{instance.name}_head_{action_name}"]

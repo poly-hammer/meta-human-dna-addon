@@ -4,7 +4,7 @@ import json
 import pytest
 from pprint import pformat
 from pathlib import Path
-from meta_human_dna.ui.callbacks import get_active_rig_logic
+from meta_human_dna.ui.callbacks import get_active_rig_instance
 from typing import Any
 from meta_human_dna.constants import (
     CUSTOM_BONE_SHAPE_NAME, 
@@ -28,7 +28,7 @@ def set_body_pose(
         solver_name: str, 
         pose_name: str
     ) -> tuple[Any, int, int]:
-    instance = get_active_rig_logic()
+    instance = get_active_rig_instance()
     if instance:
         instance.editing_rbf_solver = True
         instance.auto_evaluate_body = False
@@ -205,7 +205,7 @@ def assert_body_pose(
     skip_fbx_import: bool = False,
     tolerance: float = 0.001
 ):
-    instance = get_active_rig_logic()
+    instance = get_active_rig_instance()
 
     differences = get_pose_differences(
         instance=instance,

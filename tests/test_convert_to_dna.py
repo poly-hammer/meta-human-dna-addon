@@ -1,7 +1,7 @@
 import bpy
 import pytest
 from pathlib import Path
-from meta_human_dna.ui.callbacks import get_active_rig_logic
+from meta_human_dna.ui.callbacks import get_active_rig_instance
 from meta_human_dna import utilities
 
 
@@ -33,7 +33,7 @@ def test_convert_component_to_dna(
 
     ) # type: ignore
 
-    instance = get_active_rig_logic()
+    instance = get_active_rig_instance()
 
     assert instance is not None, 'Rig instance should be created'
     if component == 'body':

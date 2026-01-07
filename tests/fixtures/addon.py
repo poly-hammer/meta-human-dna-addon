@@ -2,6 +2,7 @@ import sys
 import pytest
 import bpy
 from pathlib import Path
+from constants import ADDON_NAME
 
 @pytest.fixture(scope='session', autouse=True)
 def addon(addons: list[tuple[str, Path]]):
@@ -29,3 +30,10 @@ def addon(addons: list[tuple[str, Path]]):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     # Close Blender
     bpy.ops.wm.quit_blender()
+
+@pytest.fixture(scope='session', autouse=True)
+def disable_auto_save():
+    # Disable auto DNA backups for tests to improve performance
+    bpy.context.preferences.addons[ADDON_NAME].preferences.enable_auto_dna_backups = False # type: ignore
+    yield
+    bpy.context.preferences.addons[ADDON_NAME].preferences.enable_auto_dna_backups = True # type: ignore

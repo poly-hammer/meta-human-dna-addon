@@ -17,7 +17,7 @@ from utilities.bones import (
     show_differences
 )
 from meta_human_dna.ui.callbacks import (
-    get_active_rig_logic,
+    get_active_rig_instance,
 )
 
 def get_all_pose_names() -> list[str]:
@@ -155,7 +155,7 @@ def test_head_pose(
 def test_active_face_material(load_head_dna, enum_index, active_face_material_name):
     pytest.skip('TODO: Fix this')
     bpy.context.scene.meta_human_dna.active_face_material = active_face_material_name # type: ignore
-    instance = get_active_rig_logic()
+    instance = get_active_rig_instance()
     assert instance, 'No active rig logic found'
 
     assert instance.active_face_material == enum_index, \

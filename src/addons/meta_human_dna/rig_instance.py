@@ -26,7 +26,7 @@ ATTR_COUNT_PER_EULER_JOINT = 9
 logger = logging.getLogger(__name__)
 
 
-def rig_logic_listener(
+def rig_instance_listener(
         scene: bpy.types.Scene, 
         dependency_graph: bpy.types.Depsgraph, 
         is_frame_change: bool = False
@@ -54,7 +54,7 @@ def rig_logic_listener(
         if len(bpy.context.screen.areas) == 1 and bpy.context.screen.areas[0].type != 'IMAGE_EDITOR':
             return
 
-        for instance in scene.meta_human_dna.rig_logic_instance_list: # type: ignore
+        for instance in scene.meta_human_dna.rig_instance_list: # type: ignore
             if instance.auto_evaluate:
                 if instance.auto_evaluate_head:
                     instance_updates.add((instance, 'head'))
@@ -69,7 +69,7 @@ def rig_logic_listener(
 
             data_type = update.id.bl_rna.name # type: ignore
             if data_type == 'Action':
-                for instance in scene.meta_human_dna.rig_logic_instance_list: # type: ignore
+                for instance in scene.meta_human_dna.rig_instance_list: # type: ignore
                     # Check if the action is being used by the face board
                     if (
                         instance.auto_evaluate and
@@ -111,7 +111,7 @@ def rig_logic_listener(
 
             elif data_type == 'Armature':
                  if update.is_updated_transform:
-                    for instance in scene.meta_human_dna.rig_logic_instance_list: # type: ignore
+                    for instance in scene.meta_human_dna.rig_instance_list: # type: ignore
                         armature_name = update.id.name
                         
                         # Check if the armature is the face board
@@ -163,11 +163,11 @@ def rig_logic_listener(
         instance.evaluate(component=component, dependency_graph=dependency_graph)
 
 def frame_change_handler(*args):
-    rig_logic_listener(*args, is_frame_change=True)
+    rig_instance_listener(*args, is_frame_change=True)
 
 def stop_listening():
     for handler in bpy.app.handlers.depsgraph_update_post:
-        if handler.__name__ == rig_logic_listener.__name__:
+        if handler.__name__ == rig_instance_listener.__name__:
             bpy.app.handlers.depsgraph_update_post.remove(handler)
 
     for handler in bpy.app.handlers.frame_change_post:
@@ -178,21 +178,8 @@ def start_listening():
     stop_listening()
     logging.info('Listening for Rig Logic...')
     callbacks.update_head_output_items(None, bpy.context)
-    bpy.app.handlers.depsgraph_update_post.append(rig_logic_listener) # type: ignore
+    bpy.app.handlers.depsgraph_update_post.append(rig_instance_listener) # type: ignore
     bpy.app.handlers.frame_change_post.append(frame_change_handler) # type: ignore
-
-
-class MaterialSlotToInstance(bpy.types.PropertyGroup):
-    name: bpy.props.StringProperty(
-        default='',
-        description='The name of the shape key',
-    ) # type: ignore
-    asset_path: bpy.props.StringProperty(
-        default='',
-        description='The unreal asset path to the material instance',
-    ) # type: ignore
-    valid_path: bpy.props.BoolProperty(default=True) # type: ignore
-
 
 class OutputData(bpy.types.PropertyGroup):
     include: bpy.props.BoolProperty(
@@ -225,7 +212,6 @@ class OutputData(bpy.types.PropertyGroup):
         default=True,
         description='Whether to include this data in the output',
     ) # type: ignore
-
 
 class ShapeKeyData(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty(
@@ -385,7 +371,7 @@ class RBFSolverData(bpy.types.PropertyGroup):
     poses_active_index: bpy.props.IntProperty(update=callbacks.update_body_rbf_poses_active_index) # type: ignore
 
 
-class RigLogicInstance(bpy.types.PropertyGroup):
+class RigInstance(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty(
         default='my_metahuman',
         description='The name associated with this Rig Logic instance. This is also the unique identifier for all data associated with the metahuman head',
@@ -694,75 +680,6 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         description="Whether to align the overlapping head and body bones, as well as, aligning the vertices in the edge loop around the neck during the calibration process",
         default=True
     ) # type: ignore
-    send2ue_settings_template: bpy.props.EnumProperty(
-        name='Send to Unreal Settings Template',
-        description='The output method to use when creating the dna file',
-        options={'ANIMATABLE'},
-        items=callbacks.get_send2ue_settings_templates
-    ) # type: ignore
-    unreal_copy_assets: bpy.props.BoolProperty(
-        default=True,
-        name='Copy Supporting Unreal Assets',
-        description=(
-            'Whether to copy the referenced unreal assets (Control Rig, Anim BP, Materials Instances, etc.) to the same folder as '
-            'the face skeletal mesh asset if they dont already exist. This should be preferred, it is not a good idea to import on top '
-            'of the original metahuman common assets, however if you have a custom setup with different asset references, you can disable this option'
-        )
-    ) # type: ignore
-    unreal_content_folder: bpy.props.StringProperty(
-        name='Content Folder',
-        description='The content folder in your unreal project where the assets will be imported',
-        set=callbacks.set_unreal_content_folder,
-        get=callbacks.get_unreal_content_folder
-    ) # type: ignore
-    
-    unreal_blueprint_asset_path: bpy.props.StringProperty(
-        default='',
-        name='Blueprint Asset',
-        description=(
-            'The asset path to the Metahuman Blueprint asset that the '
-            'SkeletalMesh data will be bound to. If left empty, the blueprint will '
-            'be created in the same folder as the SkeletalMesh asset'
-        )
-    ) # type: ignore
-    auto_sync_spine_with_body: bpy.props.BoolProperty(
-        default=True,
-        name='Auto-Sync Head with Body',
-        description=(
-            'Whether to automatically sync the head spine bone positions with '
-            'the body spine bone positions. This uses the blueprint asset path to '
-            'find the body skeleton. This will modify the objects in your blender scene'
-        )
-    ) # type: ignore
-    unreal_level_sequence_asset_path: bpy.props.StringProperty(
-        default='',
-        name='Level Sequence Asset',
-        description=(
-            'The asset path to the Level Sequence that the blueprint actor '
-            'will be added too. If the level sequence does not exist, it will be'
-            ' created. If left empty the blueprint will not be spawned into a level sequence'
-        )
-    ) # type: ignore
-    unreal_face_control_rig_asset_path: bpy.props.StringProperty(
-        default='/Game/MetaHumans/Common/Face/Face_ControlBoard_CtrlRig',
-        name='Face Control Rig',
-        description=(
-            'The asset path to the Metahuman Face Board Control Rig asset that will '
-            'drive the SkeletalMesh data'
-        )
-    ) # type: ignore
-    unreal_face_anim_bp_asset_path: bpy.props.StringProperty(
-        default='/Game/MetaHumans/Common/Face/Face_PostProcess_AnimBP',
-        name='Face Post Process Animation Blueprint',
-        description=(
-            'The asset path to the Face Post Process Animation Blueprint asset that will '
-            'drive the SkeletalMesh data'
-        )
-    ) # type: ignore
-
-
-    unreal_material_slot_to_instance_mapping: bpy.props.CollectionProperty(type=MaterialSlotToInstance) # type: ignore
-    unreal_material_slot_to_instance_mapping_active_index: bpy.props.IntProperty() # type: ignore
 
     # ----- Internal Properties -----
     old_name: bpy.props.StringProperty(default='') # type: ignore
@@ -1417,6 +1334,9 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         if not self.head_rest_pose:
             return
         
+        if not self.evaluated_head_rig.pose:
+            return
+        
         missing_raw_controls = []
         converted_quaternions = {}
 
@@ -1756,6 +1676,9 @@ class RigLogicInstance(bpy.types.PropertyGroup):
         
         # skip if the rest pose is not initialized
         if not self.body_rest_pose:
+            return
+        
+        if not self.evaluated_body_rig.pose:
             return
         
         missing_raw_controls = []

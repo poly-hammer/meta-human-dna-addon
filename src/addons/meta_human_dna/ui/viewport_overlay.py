@@ -5,22 +5,17 @@ from gpu_extras.batch import batch_for_shader
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..rig_logic import RigLogicInstance
+    from ..rig_instance import RigInstance
 
 
 # Global storage for draw handler
 _meta_human_dna_viewport_overlay_draw_handler = None
 
 
-def get_active_rig_logic() -> 'RigLogicInstance | None':
-    """
-    Gets the active rig logic instance.
-    
-    Returns:
-        The active RigLogicInstance or None if not available.
-    """
-    from .callbacks import get_active_rig_logic as _get_active_rig_logic
-    return _get_active_rig_logic()
+def get_active_rig_instance() -> 'RigInstance | None':
+    # Avoid circular import
+    from .callbacks import get_active_rig_instance as _get_active_rig_instance
+    return _get_active_rig_instance()
 
 
 def draw_text_2d(
@@ -112,7 +107,7 @@ def draw_pose_editor_overlay() -> None:
     if preferences and not preferences.preferences.show_pose_editor_viewport_overlay: # type: ignore
         return
     
-    instance = get_active_rig_logic()
+    instance = get_active_rig_instance()
     if instance is None:
         return
     

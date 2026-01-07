@@ -76,7 +76,10 @@ def pytest_configure():
     sys.path.append(str(REPO_ROOT / 'src' / 'addons'))
         
 
-from fixtures.addon import addon  # noqa: E402, F401
+from fixtures.addon import ( # noqa: E402, F401
+    addon, 
+    disable_auto_save
+)
 from fixtures.dna_data import ( # noqa: E402, F401
     original_head_dna_json_data,
     exported_head_dna_json_data,

@@ -4,7 +4,7 @@ import uuid
 import shutil
 import pytest
 from mathutils import Vector
-from meta_human_dna.ui.callbacks import get_active_rig_logic
+from meta_human_dna.ui.callbacks import get_active_rig_instance
 from meta_human_dna.utilities import reset_pose
 from utilities.pose_editor import set_body_pose
 from utilities.dna_data import get_dna_json_data
@@ -106,7 +106,7 @@ def test_rbf_pose_scale_factor_edit(
     Test that modifying an RBF pose's scale factor is correctly persisted 
     when committing changes to the DNA file.
     """
-    instance = get_active_rig_logic()
+    instance = get_active_rig_instance()
     assert instance is not None, "No active rig logic instance found"
     assert instance.body_rig is not None, "No body rig found on instance"
 
@@ -190,7 +190,7 @@ def test_rbf_pose_name_edit(
     Test that renaming an RBF pose is correctly persisted when committing 
     changes to the DNA file.
     """
-    instance = get_active_rig_logic()
+    instance = get_active_rig_instance()
     assert instance is not None, "No active rig logic instance found"
     assert instance.body_rig is not None, "No body rig found on instance"
 
@@ -280,7 +280,7 @@ def test_rbf_driven_bone_location_edit(
     This verifies that the poseJointOutputValues in the DNA JSON are updated
     to reflect the bone transform changes made in Blender.
     """
-    instance = get_active_rig_logic()
+    instance = get_active_rig_instance()
     assert instance is not None, "No active rig logic instance found"
     assert instance.body_rig is not None, "No body rig found on instance"
 
@@ -365,7 +365,7 @@ def test_rbf_pose_duplicate(
     Test that duplicating an RBF pose creates a new pose with the correct
     data and that it is correctly persisted in the DNA file.
     """
-    instance = get_active_rig_logic()
+    instance = get_active_rig_instance()
     assert instance is not None, "No active rig logic instance found"
     assert instance.body_rig is not None, "No body rig found on instance"
 

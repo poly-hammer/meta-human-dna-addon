@@ -44,7 +44,7 @@ from ..constants import (
 )
 
 if TYPE_CHECKING:
-    from ..rig_logic import RigLogicInstance
+    from ..rig_instance import RigInstance
     from ..properties import (
         MetahumanDnaImportProperties,
         MetahumanSceneProperties, 
@@ -59,7 +59,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
     def __init__(
             self, 
             name: str | None = None,
-            rig_logic_instance: 'RigLogicInstance | None' = None,
+            rig_instance: 'RigInstance | None' = None,
             dna_file_path: Path | None = None,
             dna_import_properties: 'MetahumanDnaImportProperties | None' = None,
             component_type: ComponentType = 'head'
@@ -67,8 +67,8 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
         # make sure dna file path is a Path object
         dna_file_path = Path(bpy.path.abspath(str(dna_file_path))) if dna_file_path else None
 
-        assert rig_logic_instance or dna_file_path, \
-            f"Either rig_logic_instance or dna_file_path must be provided to {self.__class__.__name__}!"
+        assert rig_instance or dna_file_path, \
+            f"Either rig_instance or dna_file_path must be provided to {self.__class__.__name__}!"
 
         self._linear_modifier = None
         self._angle_modifier = None
@@ -78,37 +78,37 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
         self.asset_root_folder = None
         if dna_file_path:
             self.asset_root_folder = dna_file_path.parent
-        elif rig_logic_instance:
-            if rig_logic_instance.head_dna_file_path:
-                self.asset_root_folder = Path(bpy.path.abspath(str(rig_logic_instance.head_dna_file_path))).parent
-            elif rig_logic_instance.body_dna_file_path:
-                self.asset_root_folder = Path(bpy.path.abspath(str(rig_logic_instance.body_dna_file_path))).parent
+        elif rig_instance:
+            if rig_instance.head_dna_file_path:
+                self.asset_root_folder = Path(bpy.path.abspath(str(rig_instance.head_dna_file_path))).parent
+            elif rig_instance.body_dna_file_path:
+                self.asset_root_folder = Path(bpy.path.abspath(str(rig_instance.body_dna_file_path))).parent
 
-        self.rig_logic_instance: 'RigLogicInstance' = rig_logic_instance # type: ignore
+        self.rig_instance: 'RigInstance' = rig_instance # type: ignore
         self.addon_properties = bpy.context.preferences.addons[ToolInfo.NAME].preferences # type: ignore
         self.window_manager_properties: MetahumanWindowMangerProperties = bpy.context.window_manager.meta_human_dna # type: ignore
         self.scene_properties: MetahumanSceneProperties = bpy.context.scene.meta_human_dna # type: ignore
         self.dna_import_properties: MetahumanDnaImportProperties = dna_import_properties # type: ignore
 
-        # if no rig_logic_instance is provided, create a new one and supply the dna_file_path to it
-        if not self.rig_logic_instance and dna_file_path:
+        # if no rig_instance is provided, create a new one and supply the dna_file_path to it
+        if not self.rig_instance and dna_file_path:
             name = self._get_name(name=name, dna_file_path=dna_file_path)
             # find a rig logic instance with the same name and use it if it exists
-            for instance in self.scene_properties.rig_logic_instance_list:
+            for instance in self.scene_properties.rig_instance_list:
                 if instance.name == name:
-                    self.rig_logic_instance = instance
+                    self.rig_instance = instance
                     break
             # otherwise create a new one
             else:
-                self.rig_logic_instance = self.scene_properties.rig_logic_instance_list.add()
-                self.rig_logic_instance.name = name
+                self.rig_instance = self.scene_properties.rig_instance_list.add()
+                self.rig_instance.name = name
                 # set the active rig logic instance
-                self.scene_properties.rig_logic_instance_list_active_index = len(self.scene_properties.rig_logic_instance_list) - 1
+                self.scene_properties.rig_instance_list_active_index = len(self.scene_properties.rig_instance_list) - 1
 
             if component_type == 'head':
-                self.rig_logic_instance.head_dna_file_path = str(dna_file_path)
+                self.rig_instance.head_dna_file_path = str(dna_file_path)
             elif component_type == 'body':
-                self.rig_logic_instance.body_dna_file_path = str(dna_file_path)
+                self.rig_instance.body_dna_file_path = str(dna_file_path)
 
         if (not self.dna_import_properties or not self.dna_import_properties.alternate_maps_folder) and dna_file_path:
             self.maps_folder = dna_file_path.parent / 'Maps'
@@ -123,7 +123,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
             file_format=file_format
         )
         self.dna_importer = DNAImporter(
-            instance=self.rig_logic_instance, 
+            instance=self.rig_instance, 
             import_properties=self.dna_import_properties,
             linear_modifier=self.linear_modifier,
             reader=self.dna_reader,
@@ -159,34 +159,34 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
     
     @property
     def name(self) -> str:
-        return self.rig_logic_instance.name
+        return self.rig_instance.name
 
     @property
     def dna_file_path(self) -> Path: # type: ignore
         if self._component_type == 'head':
-            return Path(bpy.path.abspath(self.rig_logic_instance.head_dna_file_path))
+            return Path(bpy.path.abspath(self.rig_instance.head_dna_file_path))
         elif self._component_type == 'body':
-            return Path(bpy.path.abspath(self.rig_logic_instance.body_dna_file_path))
+            return Path(bpy.path.abspath(self.rig_instance.body_dna_file_path))
 
     @property
     def face_board_object(self) -> bpy.types.Object | None:
-        return self.rig_logic_instance.face_board or bpy.data.objects.get(f'{self.name}_{FACE_BOARD_NAME}')
+        return self.rig_instance.face_board or bpy.data.objects.get(f'{self.name}_{FACE_BOARD_NAME}')
     
     @property
     def head_mesh_object(self) -> bpy.types.Object | None:
-        return self.rig_logic_instance.head_mesh or bpy.data.objects.get(f'{self.name}_head_lod0_mesh')
+        return self.rig_instance.head_mesh or bpy.data.objects.get(f'{self.name}_head_lod0_mesh')
     
     @property
     def head_rig_object(self) -> bpy.types.Object | None:
-        return self.rig_logic_instance.head_rig or bpy.data.objects.get(f'{self.name}_head_rig')
+        return self.rig_instance.head_rig or bpy.data.objects.get(f'{self.name}_head_rig')
     
     @property
     def body_mesh_object(self) -> bpy.types.Object | None:
-        return self.rig_logic_instance.body_mesh or bpy.data.objects.get(f'{self.name}_body_lod0_mesh')
+        return self.rig_instance.body_mesh or bpy.data.objects.get(f'{self.name}_body_lod0_mesh')
     
     @property
     def body_rig_object(self) -> bpy.types.Object | None:
-        return self.rig_logic_instance.body_rig or bpy.data.objects.get(f'{self.name}_body_rig')
+        return self.rig_instance.body_rig or bpy.data.objects.get(f'{self.name}_body_rig')
 
     @property
     def metadata(self) -> dict:
@@ -405,13 +405,13 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
                         
         logger.error(f'Could not find bone {to_bone_name}')
 
-    def _delete_rig_logic_instance(self):
-        if not self.rig_logic_instance.head_mesh and not self.rig_logic_instance.head_rig and not self.rig_logic_instance.body_mesh and not self.rig_logic_instance.body_rig:
-            my_list = self.scene_properties.rig_logic_instance_list
-            active_index = self.scene_properties.rig_logic_instance_list_active_index
+    def _delete_rig_instance(self):
+        if not self.rig_instance.head_mesh and not self.rig_instance.head_rig and not self.rig_instance.body_mesh and not self.rig_instance.body_rig:
+            my_list = self.scene_properties.rig_instance_list
+            active_index = self.scene_properties.rig_instance_list_active_index
             my_list.remove(active_index)
             to_index = min(active_index, len(my_list) - 1)
-            self.scene_properties.rig_logic_instance_list_active_index = to_index # type: ignore
+            self.scene_properties.rig_instance_list_active_index = to_index # type: ignore
 
     def import_materials(self):
         if self.dna_import_properties and not self.dna_import_properties.import_materials:
@@ -459,7 +459,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
 
                 # set the material on the head texture logic instance
                 if material.name == HEAD_MATERIAL_NAME:
-                    self.rig_logic_instance.head_material = material
+                    self.rig_instance.head_material = material
                     node = callbacks.get_head_texture_logic_node(material)
                     if node:
                         node.name = f'{self.name}_{HEAD_TEXTURE_LOGIC_NODE_NAME}'
@@ -469,7 +469,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
 
                 # set the material on the body texture logic instance
                 if material.name == BODY_MATERIAL_NAME:
-                    self.rig_logic_instance.body_material = material
+                    self.rig_instance.body_material = material
                     node = callbacks.get_body_texture_logic_node(material)
                     if node:
                         node.name = f'{self.name}_{BODY_TEXTURE_LOGIC_NODE_NAME}'
@@ -638,7 +638,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
         Writes the export manifest to a JSON file like MetaHuman Creator does for a DCC export.
         """
         from .. import bl_info
-        file_path = Path(bpy.path.abspath(str(self.rig_logic_instance.output_folder_path))) / "ExportManifest.json"
+        file_path = Path(bpy.path.abspath(str(self.rig_instance.output_folder_path))) / "ExportManifest.json"
         with open(file_path, 'w') as file:
             json.dump(
                 {
@@ -654,14 +654,14 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
 
     @preserve_context
     def constrain_head_to_body(self):
-        if not self.rig_logic_instance.head_rig or not self.rig_logic_instance.body_rig:
+        if not self.rig_instance.head_rig or not self.rig_instance.body_rig:
             logger.warning("Head rig or body rig not found. Cannot constrain head rig to body rig.")
             return
 
-        body_bone_names = [pose_bone.name for pose_bone in self.rig_logic_instance.body_rig.pose.bones] # type: ignore
+        body_bone_names = [pose_bone.name for pose_bone in self.rig_instance.body_rig.pose.bones] # type: ignore
 
         # add copy transforms constraint to the head rig
-        for pose_bone in self.rig_logic_instance.head_rig.pose.bones:
+        for pose_bone in self.rig_instance.head_rig.pose.bones:
             if pose_bone.name in body_bone_names:
                 name = utilities.get_body_constraint_name(pose_bone.name)
                 constraint = pose_bone.constraints.get(name)
@@ -669,43 +669,43 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
                     constraint = pose_bone.constraints.new(type='COPY_TRANSFORMS')
                     constraint.name = name
 
-                constraint.target = self.rig_logic_instance.body_rig
+                constraint.target = self.rig_instance.body_rig
                 constraint.subtarget = pose_bone.name
                 constraint.target_space = 'WORLD'
                 constraint.owner_space = 'WORLD'
 
-        self.rig_logic_instance.head_to_body_constraint_influence = 1.0
+        self.rig_instance.head_to_body_constraint_influence = 1.0
                 
     def set_head_to_body_constraint_influence(self, influence: float):
-        if not self.rig_logic_instance.head_rig:
+        if not self.rig_instance.head_rig:
             return
 
-        for pose_bone in self.rig_logic_instance.head_rig.pose.bones:
+        for pose_bone in self.rig_instance.head_rig.pose.bones:
             constraint = pose_bone.constraints.get(utilities.get_body_constraint_name(pose_bone.name))
             if constraint:
                 constraint.influence = influence
     
     @preserve_context
     def snap_head_bones_to_body_bones(self):
-        if not self.rig_logic_instance.head_rig or not self.rig_logic_instance.body_rig:
+        if not self.rig_instance.head_rig or not self.rig_instance.body_rig:
             return
 
-        self.rig_logic_instance.head_rig.hide_set(False)
-        self.rig_logic_instance.body_rig.hide_set(False)
+        self.rig_instance.head_rig.hide_set(False)
+        self.rig_instance.body_rig.hide_set(False)
         # Switch to edit mode to access edit bones data
         utilities.switch_to_bone_edit_mode(
-            self.rig_logic_instance.head_rig, 
-            self.rig_logic_instance.body_rig
+            self.rig_instance.head_rig, 
+            self.rig_instance.body_rig
         )
         
         # snap the head rig to the body rig in rest pose
-        for head_edit_bone in self.rig_logic_instance.head_rig.data.edit_bones:
+        for head_edit_bone in self.rig_instance.head_rig.data.edit_bones:
             # get the corresponding body edit bone
-            body_edit_bone = self.rig_logic_instance.body_rig.data.edit_bones.get(head_edit_bone.name)
+            body_edit_bone = self.rig_instance.body_rig.data.edit_bones.get(head_edit_bone.name)
             if body_edit_bone:
                 # Get world space matrices
-                body_world_matrix = self.rig_logic_instance.body_rig.matrix_world
-                head_world_matrix = self.rig_logic_instance.head_rig.matrix_world
+                body_world_matrix = self.rig_instance.body_rig.matrix_world
+                head_world_matrix = self.rig_instance.head_rig.matrix_world
                 
                 # Convert body bone positions to world space
                 body_head_world = body_world_matrix @ body_edit_bone.head

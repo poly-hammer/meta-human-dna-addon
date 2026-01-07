@@ -20,7 +20,7 @@ def test_duplicate_rig_instance(
         new_folder=str(temp_folder)
     )
 
-    instances = [instance for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list] # type: ignore
+    instances = [instance for instance in bpy.context.scene.meta_human_dna.rig_instance_list] # type: ignore
     instance_names = [instance.name for instance in instances]
 
     assert metahuman_name in instance_names, f'Rig instance {metahuman_name} should be present in the scene' 
@@ -47,26 +47,26 @@ def test_rig_instance_entry_move(
     initial_index: int,
     expected_index: int
     ):
-    instance_names = [instance.name for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list] # type: ignore
+    instance_names = [instance.name for instance in bpy.context.scene.meta_human_dna.rig_instance_list] # type: ignore
     assert instance_names.index(name) == initial_index, f'Rig instance {name} should be at index {initial_index} before move'
-    bpy.ops.meta_human_dna.rig_logic_instance_entry_move(active_index=initial_index, direction=direction)  # type: ignore
-    instance_names = [instance.name for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list] # type: ignore
+    bpy.ops.meta_human_dna.rig_instance_entry_move(active_index=initial_index, direction=direction)  # type: ignore
+    instance_names = [instance.name for instance in bpy.context.scene.meta_human_dna.rig_instance_list] # type: ignore
     assert instance_names.index(name) == expected_index, f'Rig instance {name} should be at index {expected_index} after move'
 
 def test_rig_instance_entry_add():
     name = 'Untitled1'
     # open default scene
     bpy.ops.wm.read_homefile(app_template="")
-    instance_names = [instance.name for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list] # type: ignore
+    instance_names = [instance.name for instance in bpy.context.scene.meta_human_dna.rig_instance_list] # type: ignore
     assert len(instance_names) == 0, 'Rig instance list should be empty before add'
-    bpy.ops.meta_human_dna.rig_logic_instance_entry_add(active_index=0)  # type: ignore
-    instance_names = [instance.name for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list] # type: ignore
+    bpy.ops.meta_human_dna.rig_instance_entry_add(active_index=0)  # type: ignore
+    instance_names = [instance.name for instance in bpy.context.scene.meta_human_dna.rig_instance_list] # type: ignore
     assert instance_names.index(name) == 0, f'Rig instance {name} should be at index 0 before move'
 
 def test_rig_instance_entry_remove():
     name = 'Untitled1'
-    instance_names = [instance.name for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list] # type: ignore
+    instance_names = [instance.name for instance in bpy.context.scene.meta_human_dna.rig_instance_list] # type: ignore
     assert instance_names.index(name) == 0, f'Rig instance {name} should be at index 0 from the previous "add" test'    
-    bpy.ops.meta_human_dna.rig_logic_instance_entry_remove(active_index=0)  # type: ignore
-    instance_names = [instance.name for instance in bpy.context.scene.meta_human_dna.rig_logic_instance_list] # type: ignore
+    bpy.ops.meta_human_dna.rig_instance_entry_remove(active_index=0)  # type: ignore
+    instance_names = [instance.name for instance in bpy.context.scene.meta_human_dna.rig_instance_list] # type: ignore
     assert len(instance_names) == 0, 'Rig instance list should be empty after remove'
