@@ -75,6 +75,20 @@ class MetahumanDnaAddonProperties:
         description="Display an overlay in the 3D viewport when the Pose Editor is in edit mode"
     ) # type: ignore
 
+    enable_auto_dna_backups: bpy.props.BoolProperty(
+        name="Enable Auto DNA Backups",
+        default=True,
+        description="Automatically backup DNA files when saving the blend file, or committing edit mode changes from the Pose Editor or Expression Editor"
+    ) # type: ignore
+
+    max_dna_backups: bpy.props.IntProperty(
+        name="Maximum Backups",
+        default=5,
+        min=1,
+        max=50,
+        description="Maximum number of DNA backups to keep. Older backups will be automatically deleted"
+    ) # type: ignore
+
     next_metrics_consent_timestamp: bpy.props.FloatProperty(default=0.0) # type: ignore
     extra_dna_folder_list: bpy.props.CollectionProperty(type=ExtraDnaFolder) # type: ignore
     extra_dna_folder_list_active_index: bpy.props.IntProperty() # type: ignore
@@ -234,6 +248,18 @@ def register():
     bpy.utils.register_class(RBFDrivenData)
     bpy.utils.register_class(RBFPoseData)
     bpy.utils.register_class(RBFSolverData)
+    
+    # Register DnaBackupEntry BEFORE RigLogicInstance since RigLogicInstance depends on it
+    from .backup_manager import properties as backup_manager_properties
+    bpy.utils.register_class(backup_manager_properties.DnaBackupEntry)
+    
+    # Add the backup list property to RigLogicInstance BEFORE registering it
+    RigLogicInstance.__annotations__['dna_backup_list'] = bpy.props.CollectionProperty(
+        type=backup_manager_properties.DnaBackupEntry
+    )
+    RigLogicInstance.__annotations__['dna_backup_list_active_index'] = bpy.props.IntProperty()
+    
+    # Now register RigLogicInstance with the backup list properties included
     bpy.utils.register_class(RigLogicInstance)
     bpy.utils.register_class(BlendFileMetaHumanCollection)
 
@@ -276,6 +302,20 @@ def unregister():
 
     # unregister the list data classes
     bpy.utils.unregister_class(RigLogicInstance)
+    
+    # Remove dynamic backup list properties from RigLogicInstance annotations
+    if 'dna_backup_list' in RigLogicInstance.__annotations__:
+        del RigLogicInstance.__annotations__['dna_backup_list']
+    if 'dna_backup_list_active_index' in RigLogicInstance.__annotations__:
+        del RigLogicInstance.__annotations__['dna_backup_list_active_index']
+    
+    # Unregister DnaBackupEntry after RigLogicInstance (since RigLogicInstance depends on it)
+    from .backup_manager import properties as backup_properties
+    try:
+        bpy.utils.unregister_class(backup_properties.DnaBackupEntry)
+    except RuntimeError:
+        pass  # Already unregistered
+    
     bpy.utils.unregister_class(ShapeKeyData)
     bpy.utils.unregister_class(RBFSolverData)
     bpy.utils.unregister_class(RBFPoseData)

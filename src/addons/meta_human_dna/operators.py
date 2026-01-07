@@ -1893,6 +1893,10 @@ class CommitRBFSolverChanges(RBFEditorOperatorBase):
         return True, ""
 
     def run(self, instance):
+        # Create a backup before committing edit mode changes
+        from .backup_manager.core import create_backup, BackupType
+        create_backup(instance, BackupType.POSE_EDITOR)
+
         import meta_human_dna_core
 
         reader = get_dna_reader(file_path=instance.body_dna_file_path)

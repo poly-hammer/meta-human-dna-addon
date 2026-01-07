@@ -21,11 +21,26 @@ class MetaHumanDnaPreferences(MetahumanDnaAddonProperties, bpy.types.AddonPrefer
 
     def draw(self, context):
         preferences = context.preferences.addons[ToolInfo.NAME].preferences
-        row = self.layout.row()
+        layout = self.layout
+        
+        # General Settings
+        row = layout.row()
         row.prop(self, "metrics_collection", text="Allow Metrics Collection")
-        row = self.layout.row()
+        row = layout.row()
         row.prop(self, "show_pose_editor_viewport_overlay", text="Show Pose Editor Viewport Overlay")
-        row = self.layout.row()
+        
+        # DNA Backup Settings
+        layout.separator()
+        box = layout.box()
+        box.label(text="Backup Manager Settings:", icon='FILE_BACKUP')
+        row = box.row()
+        row.prop(self, "enable_auto_dna_backups", text="Enable Auto DNA Backups")
+        row.enabled = self.enable_auto_dna_backups
+        row.prop(self, "max_dna_backups", text="Maximum Backups to Keep")
+        
+        # Extra DNA Folder Paths
+        layout.separator()
+        row = layout.row()
 
         row.label(text="Extra DNA Folder Paths:")
         row = self.layout.row()

@@ -375,6 +375,16 @@ def pre_render(*args):
 def post_render(*args):
     post_undo(*args)
 
+def post_save(*args):
+    from ..ui.callbacks import get_active_rig_logic
+    instance = get_active_rig_logic()
+    if not instance:
+        return
+    
+    # Create a DNA backup
+    from ..backup_manager.core import create_backup, BackupType
+    create_backup(instance, BackupType.BLENDER_FILE_SAVE)
+
 def create_empty(empty_name):
     empty_object = bpy.data.objects.get(empty_name)
     if not empty_object:

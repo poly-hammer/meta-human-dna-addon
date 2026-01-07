@@ -6,6 +6,8 @@ import logging
 
 from . import operators, properties, utilities, manual_map, rig_logic
 from .ui import menus, importer, view_3d, viewport_overlay, addon_preferences, callbacks
+from .backup_manager import ui as backup_manager_ui
+from .backup_manager import operators as backup_manager_operators
 from .resources.unreal import meta_human_dna_utilities
 
 # ensure these modules are available to the send2ue extension
@@ -112,7 +114,14 @@ classes = [
     view_3d.META_HUMAN_DNA_UL_material_slot_to_instance_mapping,
     view_3d.META_HUMAN_DNA_PT_output_panel,
     # view_3d.META_HUMAN_DNA_PT_send2ue_settings_sub_panel,
-    view_3d.META_HUMAN_DNA_PT_buttons_sub_panel
+    view_3d.META_HUMAN_DNA_PT_buttons_sub_panel,
+    # DNA Backup Manager
+    backup_manager_operators.META_HUMAN_DNA_OT_restore_backup,
+    backup_manager_operators.META_HUMAN_DNA_OT_delete_backup,
+    backup_manager_operators.META_HUMAN_DNA_OT_open_backup_folder,
+    backup_manager_operators.META_HUMAN_DNA_OT_sync_backups,
+    backup_manager_ui.META_HUMAN_DNA_UL_dna_backups,
+    backup_manager_ui.META_HUMAN_DNA_PT_dna_backups,
 ]
 
 app_handlers = {
@@ -124,7 +133,8 @@ app_handlers = {
     'redo_post': bpy.app.handlers.persistent(utilities.post_redo),
     'render_init': bpy.app.handlers.persistent(utilities.pre_render),
     'render_complete': bpy.app.handlers.persistent(utilities.post_render),
-    'render_cancel': bpy.app.handlers.persistent(utilities.post_render)
+    'render_cancel': bpy.app.handlers.persistent(utilities.post_render),
+    'save_post': bpy.app.handlers.persistent(utilities.post_save),
 }
 
 def register():
@@ -168,6 +178,7 @@ def register():
     bpy.app.handlers.render_init.append(app_handlers['render_init'])
     bpy.app.handlers.render_complete.append(app_handlers['render_complete'])
     bpy.app.handlers.render_cancel.append(app_handlers['render_cancel'])
+    bpy.app.handlers.save_post.append(app_handlers['save_post'])
 
 
 def unregister():
@@ -198,6 +209,8 @@ def unregister():
         bpy.app.handlers.render_complete.remove(app_handlers['render_complete'])
     if app_handlers['render_cancel'] in bpy.app.handlers.render_cancel:
         bpy.app.handlers.render_cancel.remove(app_handlers['render_cancel'])
+    if app_handlers['save_post'] in bpy.app.handlers.save_post:
+        bpy.app.handlers.save_post.remove(app_handlers['save_post'])
 
     try:
         # unregister the manual map
