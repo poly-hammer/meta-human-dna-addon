@@ -87,7 +87,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
         if len(self.dna_reader.getVertexLayoutPositionIndices(0)) == DEFAULT_HEAD_MESH_VERTEX_POSITION_COUNT:
             self.create_topology_vertex_groups()
 
-        # set the references on the rig logic instance
+        # set the references on the rig instance
         self.rig_instance.head_mesh = self.head_mesh_object
         self.rig_instance.head_rig = self.head_rig_object
         self.rig_instance.face_board = face_board_object
@@ -103,7 +103,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
                 # since they share these same bones for driving the neck rbfs
                 utilities.reassign_to_body_bone_collections(
                     rig_object=self.body_rig_object,
-                    driver_bone_names=[self.dna_reader.getRawControlName(i).split('.')[0] for i in range(self.dna_reader.getRawControlCount())]
+                    driver_bone_names=tuple(self.dna_reader.getRawControlName(i).split('.')[0] for i in range(self.dna_reader.getRawControlCount()))
                 )
 
                 if align:
@@ -376,7 +376,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
                     location.y = location.y * self.dna_importer.get_height_scale_factor()
                     global_matrix = Matrix.Translation(location) @ rotation.to_matrix().to_4x4()
                     # default values are stored in Y-up, so convert to Z-up
-                    edit_bone.matrix = Matrix.Rotation(math.radians(90), 4, 'X').to_4x4() @ global_matrix
+                    edit_bone.matrix = Matrix.Rotation(math.radians(90), 4, 'X').to_4x4() @ global_matrix # type: ignore
                 else:
                     bone_matrix = self.dna_importer.get_bone_matrix(bone_name=bone_name)
                     if bone_matrix:

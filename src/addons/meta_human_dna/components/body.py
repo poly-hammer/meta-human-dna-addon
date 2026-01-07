@@ -27,8 +27,8 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
         ):
         file_path = Path(file_path)
         
-        if self.body_rig_object:
-            # ensure the rig logic instance is initialized
+        if self.body_rig_object and self.body_rig_object.pose:
+            # ensure the rig instance is initialized
             self.rig_instance.initialize()
             utilities.import_action_from_fbx(
                 instance=self.rig_instance,
@@ -61,7 +61,7 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
         if len(self.dna_reader.getVertexLayoutPositionIndices(0)) == 32334:
             self.create_topology_vertex_groups()
 
-        # set the references on the rig logic instance
+        # set the references on the rig instance
         self.rig_instance.body_mesh = self.body_mesh_object
         self.rig_instance.body_rig = self.body_rig_object
         self.rig_instance.body_dna_file_path = str(self.dna_importer.source_dna_file)

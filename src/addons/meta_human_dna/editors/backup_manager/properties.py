@@ -1,8 +1,6 @@
 import bpy
-from bpy.types import PropertyGroup
 
-
-class DnaBackupEntry(PropertyGroup):
+class DnaBackupEntry(bpy.types.PropertyGroup):
     """PropertyGroup representing a single DNA backup entry."""
     
     backup_id: bpy.props.StringProperty(
@@ -31,7 +29,7 @@ class DnaBackupEntry(PropertyGroup):
     
     instance_name: bpy.props.StringProperty(
         name="Instance Name",
-        description="Name of the rig logic instance that was backed up",
+        description="Name of the rig instance that was backed up",
         default=""
     )  # type: ignore
     

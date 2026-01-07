@@ -71,19 +71,6 @@ BODY_MESH_SHADER_MAPPING = {
     "body_lod": "body_shader"
 }
 
-MATERIAL_SLOT_TO_MATERIAL_INSTANCE_DEFAULTS = {
-    "head_shader": "/Game/MetaHumans/Common/Face/Materials/Baked/MI_HeadSynthesized_Baked",
-    "teeth_shader": "/Game/MetaHumans/Common/Materials/M_TeethCharacterCreator_Inst",
-    "saliva_shader": "/Game/MetaHumans/Common/Face/Materials/MI_lacrimal_fluid_Inst",
-    "eyeLeft_shader": "/Game/MetaHumans/Common/Face/Materials/MI_EyeRefractive_Inst_L",
-    "eyeRight_shader": "/Game/MetaHumans/Common/Face/Materials/MI_EyeRefractive_Inst_R",
-    "eyeshell_shader": "/Game/MetaHumans/Common/Face/Materials/MI_EyeOcclusion_Inst",
-    "eyelashes_shader": "/Game/MetaHumans/Common/Materials/M_EyelashLowerLODs_Inst",
-    "eyelashesShadow_shader": "/Game/MetaHumans/Common/Face/Materials/MI_EyeOcclusion_Inst",
-    "eyeEdge_shader": "/Game/MetaHumans/Common/Face/Materials/MI_lacrimal_fluid_Inst",
-    "cartilage_shader": "/Game/MetaHumans/Common/Face/Materials/M_Cartilage",
-}
-
 TEMP_FOLDER = Path(tempfile.gettempdir()) /  f"{ToolInfo.NAME}_addon"
 RESOURCES_FOLDER = Path(os.path.dirname(__file__), "resources")
 BINDINGS_FOLDER = Path(os.path.dirname(__file__), "bindings")
@@ -112,12 +99,6 @@ BODY_TOPOLOGY_TEXTURE_FILE_PATH = IMAGES_FOLDER / BODY_TOPOLOGY_TEXTURE
 MATERIALS_FILE_PATH = BLENDS_FOLDER / "materials.blend"
 
 FACE_BOARD_FILE_PATH = BLENDS_FOLDER / "face_board.blend"
-
-CAGE_MESH_FILE_PATH = BLENDS_FOLDER / "cage_mesh_and_basis.blend"
-
-SEND2UE_FACE_SETTINGS = RESOURCES_FOLDER / 'send2ue' / "meta-human_dna.json"
-
-SEND2UE_EXTENSION = RESOURCES_FOLDER / 'send2ue' / "meta_human_dna_extension.py"
 
 ALTERNATE_TEXTURE_FILE_EXTENSIONS = [
     ".tga",

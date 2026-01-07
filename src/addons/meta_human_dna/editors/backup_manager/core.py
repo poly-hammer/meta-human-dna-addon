@@ -1,3 +1,4 @@
+import bpy
 import shutil
 import logging
 import tempfile
@@ -5,11 +6,10 @@ from pathlib import Path
 from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING
-
-import bpy
+from ...constants import ToolInfo
 
 if TYPE_CHECKING:
-    from ..rig_instance import RigInstance
+    from ...rig_instance import RigInstance
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,6 @@ def get_backup_folder() -> Path:
 
 def _get_addon_preferences():
     """Get the addon preferences."""
-    from ..constants import ToolInfo
     addon = bpy.context.preferences.addons.get(ToolInfo.NAME) # type: ignore
     if addon:
         return addon.preferences
@@ -74,10 +73,10 @@ def create_backup(
     description: str | None = None
 ) -> str | None:
     """
-    Create a backup of the DNA files for the given rig logic instance.
+    Create a backup of the DNA files for the given rig instance.
     
     Args:
-        instance: The RigLogicInstance to backup DNA files for.
+        instance: The RigInstance to backup DNA files for.
         backup_type: The type of backup (what triggered it).
         description: Optional custom description for the backup.
     

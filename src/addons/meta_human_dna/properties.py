@@ -4,11 +4,7 @@ from .ui import callbacks
 from .constants import ToolInfo, NUMBER_OF_HEAD_LODS
 from .rig_instance import (
     RigInstance, 
-    ShapeKeyData, 
-    RBFPoseData, 
-    RBFDriverData, 
-    RBFDrivenData, 
-    RBFSolverData, 
+    ShapeKeyData,
     OutputData,
 )
 
@@ -141,7 +137,7 @@ class MetahumanDnaImportProperties(get_dna_import_property_group_base_class()):
         description='Whether to reuse or import a unique face board that drives the rig logic instead of a shared one. This is useful if you want to have multiple rigs in the same scene that drive different face meshes',
     ) # type: ignore
     include_body: bpy.props.BoolProperty(
-        default=False,
+        default=True,
         name='Include Body',
         description='If true, this will try to find a body.dna file in the same folder as this .dna file. If the body.dna file is found, it will be imported as well',
     ) # type: ignore
@@ -242,22 +238,30 @@ def register():
     # register the list data classes first, since the scene property groups depends on them
     bpy.utils.register_class(OutputData)
     bpy.utils.register_class(ShapeKeyData)
-    bpy.utils.register_class(RBFDriverData)
-    bpy.utils.register_class(RBFDrivenData)
-    bpy.utils.register_class(RBFPoseData)
-    bpy.utils.register_class(RBFSolverData)
+
+    # Note: All editors that add properties to RigInstance must be imported and
+    # registered and dynamically assigned to the RigInstance before it is registered.
     
-    # Register DnaBackupEntry BEFORE RigLogicInstance since RigLogicInstance depends on it
-    from .backup_manager import properties as backup_manager_properties
+    # ----------------- Backup Manager Properties -----------------
+    from .editors.backup_manager import properties as backup_manager_properties
     bpy.utils.register_class(backup_manager_properties.DnaBackupEntry)
-    
-    # Add the backup list property to RigLogicInstance BEFORE registering it
     RigInstance.__annotations__['dna_backup_list'] = bpy.props.CollectionProperty(
         type=backup_manager_properties.DnaBackupEntry
     )
     RigInstance.__annotations__['dna_backup_list_active_index'] = bpy.props.IntProperty()
+
+    # ----------------- Pose Editor Properties -----------------
+    from .editors.pose_editor import properties as pose_editor_properties
+    bpy.utils.register_class(pose_editor_properties.RBFDriverData)
+    bpy.utils.register_class(pose_editor_properties.RBFDrivenData)
+    bpy.utils.register_class(pose_editor_properties.RBFPoseData)
+    bpy.utils.register_class(pose_editor_properties.RBFSolverData)
+    RigInstance.__annotations__['rbf_solver_list'] = bpy.props.CollectionProperty(
+        type=pose_editor_properties.RBFSolverData
+    )
+    RigInstance.__annotations__['rbf_solver_list_active_index'] = bpy.props.IntProperty()
     
-    # Now register RigLogicInstance with the backup list properties included
+    # Now register RigLogicInstance
     bpy.utils.register_class(RigInstance)
     bpy.utils.register_class(BlendFileMetaHumanCollection)
 
@@ -301,26 +305,32 @@ def unregister():
     # unregister the list data classes
     bpy.utils.unregister_class(RigInstance)
     
-    # Remove dynamic backup list properties from RigLogicInstance annotations
-    if 'dna_backup_list' in RigInstance.__annotations__:
-        del RigInstance.__annotations__['dna_backup_list']
-    if 'dna_backup_list_active_index' in RigInstance.__annotations__:
-        del RigInstance.__annotations__['dna_backup_list_active_index']
-    
-    # Unregister DnaBackupEntry after RigLogicInstance (since RigLogicInstance depends on it)
-    from .backup_manager import properties as backup_properties
     try:
+        # ----------------- Pose Editor Properties -----------------
+        if 'rbf_solver_list' in RigInstance.__annotations__:
+            del RigInstance.__annotations__['rbf_solver_list']
+        if 'rbf_solver_list_active_index' in RigInstance.__annotations__:
+            del RigInstance.__annotations__['rbf_solver_list_active_index']
+        from .editors.pose_editor import properties as pose_editor_properties
+        bpy.utils.unregister_class(pose_editor_properties.RBFSolverData)
+        bpy.utils.unregister_class(pose_editor_properties.RBFPoseData)
+        bpy.utils.unregister_class(pose_editor_properties.RBFDrivenData)
+        bpy.utils.unregister_class(pose_editor_properties.RBFDriverData)
+        
+        # ----------------- Backup Manager Properties -----------------
+        if 'dna_backup_list' in RigInstance.__annotations__:
+            del RigInstance.__annotations__['dna_backup_list']
+        if 'dna_backup_list_active_index' in RigInstance.__annotations__:
+            del RigInstance.__annotations__['dna_backup_list_active_index']
+        from .editors.backup_manager import properties as backup_properties
         bpy.utils.unregister_class(backup_properties.DnaBackupEntry)
-    except RuntimeError:
-        pass  # Already unregistered
-    
-    bpy.utils.unregister_class(ShapeKeyData)
-    bpy.utils.unregister_class(RBFSolverData)
-    bpy.utils.unregister_class(RBFPoseData)
-    bpy.utils.unregister_class(RBFDrivenData)
-    bpy.utils.unregister_class(RBFDriverData)
-    bpy.utils.unregister_class(OutputData)
-    bpy.utils.unregister_class(BlendFileMetaHumanCollection)
+        
+        bpy.utils.unregister_class(ShapeKeyData)
+        bpy.utils.unregister_class(OutputData)
+        bpy.utils.unregister_class(BlendFileMetaHumanCollection)
+
+    except RuntimeError as error:
+        logger.debug(error)
 
     if hasattr(bpy.types.WindowManager, ToolInfo.NAME):
         del bpy.types.WindowManager.meta_human_dna # type: ignore

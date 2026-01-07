@@ -93,7 +93,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
         # if no rig_instance is provided, create a new one and supply the dna_file_path to it
         if not self.rig_instance and dna_file_path:
             name = self._get_name(name=name, dna_file_path=dna_file_path)
-            # find a rig logic instance with the same name and use it if it exists
+            # find a rig instance with the same name and use it if it exists
             for instance in self.scene_properties.rig_instance_list:
                 if instance.name == name:
                     self.rig_instance = instance
@@ -102,7 +102,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
             else:
                 self.rig_instance = self.scene_properties.rig_instance_list.add()
                 self.rig_instance.name = name
-                # set the active rig logic instance
+                # set the active rig instance
                 self.scene_properties.rig_instance_list_active_index = len(self.scene_properties.rig_instance_list) - 1
 
             if component_type == 'head':

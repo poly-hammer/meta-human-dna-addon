@@ -1,30 +1,79 @@
 import os
-import sys
 import bpy
 import bpy.utils.previews
 import logging
 
-from . import operators, properties, rig_instance, utilities, manual_map
-from .ui import menus, importer, view_3d, viewport_overlay, addon_preferences, callbacks
-from .backup_manager import ui as backup_manager_ui
-from .backup_manager import operators as backup_manager_operators
 
-logger = logging.getLogger(__name__)
+from . import constants, operators, properties, rig_instance, utilities, manual_map
+from .ui import menus, importer, view_3d, viewport_overlay, addon_preferences
+
+# Backup Manager
+from .editors.backup_manager import operators as backup_manager_operators
+from .editors.backup_manager import ui as backup_manager_ui
+# Pose Editor
+from .editors.pose_editor import operators as pose_editor_operators
+from .editors.pose_editor import ui as pose_editor_ui
+
+logger = logging.getLogger(constants.ToolInfo.NAME)
 
 bl_info = {
-    "name": "Meta-Human DNA",
+    "name": "MetaHuman DNA",
     "author": "Poly Hammer",
     "version": (0, 5, 4),
     "blender": (4, 5, 0),
-    "location": "File > Import > Metahuman DNA",
+    "location": "File > Import > MetaHuman DNA",
     "description": "Imports MetaHuman head and body components from a their DNA files, lets you customize them, then send them back to MetaHuman Creator.",
     "warning": "",
     "wiki_url": "https://docs.polyhammer.com/meta-human-dna-addon/",
     "category": "Rigging",
 }
 
+# Pose Editor
+pose_editor_operator_classes = [
+    pose_editor_operators.AddRBFSolver,
+    pose_editor_operators.RemoveRBFSolver,
+    pose_editor_operators.EvaluateRBFSolvers,
+    pose_editor_operators.EditRBFSolver,
+    pose_editor_operators.RevertRBFSolver,
+    pose_editor_operators.CommitRBFSolverChanges,
+    pose_editor_operators.AddRBFPose,
+    pose_editor_operators.DuplicateRBFPose,
+    pose_editor_operators.RemoveRBFPose,
+    pose_editor_operators.UpdateRBFPose,
+    pose_editor_operators.AddRBFDriver,
+    pose_editor_operators.RemoveRBFDriver,
+    pose_editor_operators.AddRBFDriven,
+    pose_editor_operators.RemoveRBFDriven,
+    pose_editor_operators.SelectAllRBFDriven,
+]
+pose_editor_ui_classes = [
+    pose_editor_ui.META_HUMAN_DNA_PT_pose_editor,
+    pose_editor_ui.META_HUMAN_DNA_PT_pose_editor_solver_settings_sub_panel,
+    pose_editor_ui.META_HUMAN_DNA_PT_pose_editor_poses_sub_panel,
+    pose_editor_ui.META_HUMAN_DNA_PT_pose_editor_drivers_sub_panel,
+    pose_editor_ui.META_HUMAN_DNA_PT_pose_editor_driven_sub_panel,
+    pose_editor_ui.META_HUMAN_DNA_PT_pose_editor_footer_sub_panel,
+    pose_editor_ui.META_HUMAN_DNA_UL_rbf_solvers,
+    pose_editor_ui.META_HUMAN_DNA_UL_rbf_poses,
+    pose_editor_ui.META_HUMAN_DNA_UL_rbf_drivers,
+    pose_editor_ui.META_HUMAN_DNA_UL_rbf_driven,
+]
+
+# Backup Manager
+backup_manager_operator_classes = [
+    backup_manager_operators.META_HUMAN_DNA_OT_restore_backup,
+    backup_manager_operators.META_HUMAN_DNA_OT_delete_backup,
+    backup_manager_operators.META_HUMAN_DNA_OT_open_backup_folder,
+    backup_manager_operators.META_HUMAN_DNA_OT_sync_backups,
+]
+backup_manager_ui_classes = [
+    backup_manager_ui.META_HUMAN_DNA_UL_dna_backups,
+    backup_manager_ui.META_HUMAN_DNA_PT_dna_backups,
+]
+
+# Main Addon
 classes = [
-    operators.ImportMetahumanDna,
+    operators.ImportMetaHumanDna,
     operators.DNA_FH_import_dna,
     operators.ConvertSelectedToDna,
     operators.AppendOrLinkMetaHuman,
@@ -43,27 +92,11 @@ classes = [
     operators.RevertBoneTransformsToDna,
     operators.ForceEvaluate,
     operators.SendToMetaHumanCreator,
-    operators.SendToUnreal,
     operators.ExportSelectedComponent,
     operators.GenerateMaterial,
     operators.SculptThisShapeKey,
     operators.EditThisShapeKey,
     operators.ReImportThisShapeKey,
-    operators.AddRBFSolver,
-    operators.RemoveRBFSolver,
-    operators.EvaluateRBFSolvers,
-    operators.EditRBFSolver,
-    operators.RevertRBFSolver,
-    operators.CommitRBFSolverChanges,
-    operators.AddRBFPose,
-    operators.DuplicateRBFPose,
-    operators.RemoveRBFPose,
-    operators.UpdateRBFPose,
-    operators.AddRBFDriver,
-    operators.RemoveRBFDriver,
-    operators.AddRBFDriven,
-    operators.RemoveRBFDriven,
-    operators.SelectAllRBFDriven,
     operators.DuplicateRigInstance,
     operators.AddRigLogicTextureNode,
     operators.MetaHumanDnaReportError,
@@ -72,6 +105,8 @@ classes = [
     operators.UILIST_RIG_INSTANCE_OT_entry_remove,
     operators.UILIST_ADDON_PREFERENCES_OT_extra_dna_entry_add,
     operators.UILIST_ADDON_PREFERENCES_OT_extra_dna_entry_remove,
+    *backup_manager_operator_classes,
+    *pose_editor_operator_classes,
     importer.META_HUMAN_DNA_FILE_DATA_PT_panel,
     importer.META_HUMAN_DNA_LODS_PT_panel,
     importer.META_HUMAN_DNA_EXTRAS_PT_panel,
@@ -82,36 +117,21 @@ classes = [
     view_3d.META_HUMAN_DNA_PT_rig_instance_head_sub_panel,
     view_3d.META_HUMAN_DNA_PT_rig_instance_body_sub_panel,
     view_3d.META_HUMAN_DNA_PT_rig_instance_footer_sub_panel,
-    view_3d.META_HUMAN_DNA_PT_shape_keys,
-    view_3d.META_HUMAN_DNA_UL_shape_keys,
-    view_3d.META_HUMAN_DNA_PT_pose_editor,
-    view_3d.META_HUMAN_DNA_PT_pose_editor_solver_settings_sub_panel,
-    view_3d.META_HUMAN_DNA_PT_pose_editor_poses_sub_panel,
-    view_3d.META_HUMAN_DNA_PT_pose_editor_drivers_sub_panel,
-    view_3d.META_HUMAN_DNA_PT_pose_editor_driven_sub_panel,
-    view_3d.META_HUMAN_DNA_PT_pose_editor_footer_sub_panel,
-    view_3d.META_HUMAN_DNA_UL_rbf_solvers,
-    view_3d.META_HUMAN_DNA_UL_rbf_poses,
-    view_3d.META_HUMAN_DNA_UL_rbf_drivers,
-    view_3d.META_HUMAN_DNA_UL_rbf_driven,
     view_3d.META_HUMAN_DNA_PT_utilities,
     view_3d.META_HUMAN_DNA_PT_mesh_utilities_sub_panel,
     view_3d.META_HUMAN_DNA_PT_armature_utilities_sub_panel,
     view_3d.META_HUMAN_DNA_PT_animation_utilities_sub_panel,
     # view_3d.META_HUMAN_DNA_PT_materials_utilities_sub_panel,
     view_3d.META_HUMAN_DNA_PT_utilities_sub_panel,
+    *pose_editor_ui_classes,
+    view_3d.META_HUMAN_DNA_PT_shape_keys,
+    view_3d.META_HUMAN_DNA_UL_shape_keys,
+    *backup_manager_ui_classes,
     view_3d.META_HUMAN_DNA_UL_output_items,
     view_3d.META_HUMAN_DNA_UL_rig_instances,
     view_3d.META_HUMAN_DNA_UL_material_slot_to_instance_mapping,
     view_3d.META_HUMAN_DNA_PT_output_panel,
     view_3d.META_HUMAN_DNA_PT_output_buttons_sub_panel,
-    # DNA Backup Manager
-    backup_manager_operators.META_HUMAN_DNA_OT_restore_backup,
-    backup_manager_operators.META_HUMAN_DNA_OT_delete_backup,
-    backup_manager_operators.META_HUMAN_DNA_OT_open_backup_folder,
-    backup_manager_operators.META_HUMAN_DNA_OT_sync_backups,
-    backup_manager_ui.META_HUMAN_DNA_UL_dna_backups,
-    backup_manager_ui.META_HUMAN_DNA_PT_dna_backups,
 ]
 
 app_handlers = {
@@ -159,16 +179,8 @@ def register():
     utilities.init_sentry()
 
     # add event handlers
-    bpy.app.handlers.load_pre.append(app_handlers['load_pre'])
-    bpy.app.handlers.load_post.append(app_handlers['load_post'])
-    bpy.app.handlers.undo_pre.append(app_handlers['undo_pre'])
-    bpy.app.handlers.undo_post.append(app_handlers['undo_post'])
-    bpy.app.handlers.redo_pre.append(app_handlers['redo_pre'])
-    bpy.app.handlers.redo_post.append(app_handlers['redo_post'])
-    bpy.app.handlers.render_init.append(app_handlers['render_init'])
-    bpy.app.handlers.render_complete.append(app_handlers['render_complete'])
-    bpy.app.handlers.render_cancel.append(app_handlers['render_cancel'])
-    bpy.app.handlers.save_post.append(app_handlers['save_post'])
+    for handler_name, handler_function in app_handlers.items():
+        getattr(bpy.app.handlers, handler_name).append(handler_function)
 
 
 def unregister():
@@ -177,30 +189,14 @@ def unregister():
     """
     utilities.teardown_scene()
 
-    # remove event handlers
     if not os.environ.get('META_HUMAN_DNA_DEV'):
         rig_instance.stop_listening()
 
-    if app_handlers['undo_pre'] in bpy.app.handlers.undo_pre:
-        bpy.app.handlers.undo_pre.remove(app_handlers['undo_pre'])
-    if app_handlers['undo_post'] in bpy.app.handlers.undo_post:
-        bpy.app.handlers.undo_post.remove(app_handlers['undo_post'])
-    if app_handlers['redo_pre'] in bpy.app.handlers.redo_pre:
-        bpy.app.handlers.redo_pre.remove(app_handlers['redo_pre'])
-    if app_handlers['redo_post'] in bpy.app.handlers.redo_post:
-        bpy.app.handlers.redo_post.remove(app_handlers['redo_post'])
-    if app_handlers['load_pre'] in bpy.app.handlers.load_pre:
-        bpy.app.handlers.load_pre.remove(app_handlers['load_pre'])
-    if app_handlers['load_post'] in bpy.app.handlers.load_post:
-        bpy.app.handlers.load_post.remove(app_handlers['load_post'])
-    if app_handlers['render_init'] in bpy.app.handlers.render_init:
-        bpy.app.handlers.render_init.remove(app_handlers['render_init'])
-    if app_handlers['render_complete'] in bpy.app.handlers.render_complete:
-        bpy.app.handlers.render_complete.remove(app_handlers['render_complete'])
-    if app_handlers['render_cancel'] in bpy.app.handlers.render_cancel:
-        bpy.app.handlers.render_cancel.remove(app_handlers['render_cancel'])
-    if app_handlers['save_post'] in bpy.app.handlers.save_post:
-        bpy.app.handlers.save_post.remove(app_handlers['save_post'])
+    # remove event handlers
+    for handler_name, handler_function in app_handlers.items():
+        handler_list = getattr(bpy.app.handlers, handler_name)
+        if handler_function in handler_list:
+            handler_list.remove(handler_function)
 
     try:
         # unregister the manual map

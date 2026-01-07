@@ -12,9 +12,7 @@ from ..constants import (
     BODY_MAPS,
     POSES_FOLDER,
     NUMBER_OF_HEAD_LODS,
-    MATERIAL_SLOT_TO_MATERIAL_INSTANCE_DEFAULTS,
     HEAD_TO_BODY_LOD_MAPPING,
-    SEND2UE_FACE_SETTINGS,
     BASE_DNA_FOLDER,
     BODY_HIGH_LEVEL_TOPOLOGY_GROUPS,
     RBF_SOLVER_POSTFIX,
@@ -43,7 +41,7 @@ def get_bake_end_frame(self) -> int:
     
 def get_active_rig_instance() -> 'RigInstance | None':
     """
-    Gets the active rig logic instance.
+    Gets the active rig instance.
     """
     if not hasattr(bpy.context.scene, ToolInfo.NAME):
         return None
@@ -75,13 +73,6 @@ def get_body_texture_logic_node(material: bpy.types.Material) -> bpy.types.Shade
 
 def get_active_material_preview(self) -> int:
     return self.get('active_material_preview', 0)
-
-def get_output_instance_items(self, context):
-    enum_items = []
-    properties = bpy.context.scene.meta_human_dna # type: ignore
-    for instance in properties.rig_instance_list:
-        enum_items.append((instance.name, instance.name, f'Face rig logic instance {instance.name}'))
-    return enum_items
 
 def get_face_pose_previews_items(self, context):
     from ..properties import preview_collections
@@ -224,27 +215,6 @@ def get_base_dna_folder(self, context):
                     )
                 )
     return enum_items
-
-def get_send2ue_settings_templates(self, context):
-    items = [
-        (
-            SEND2UE_FACE_SETTINGS.name, 
-            'Meta-Human DNA', 
-            'The Send to Unreal Settings template that will be used for exporting from blender and importing to unreal', 
-            'NONE', 
-            0
-        )
-    ]
-        
-    send2ue_properties = getattr(bpy.context.scene, 'send2ue', None) # type: ignore
-    if send2ue_properties:
-        from send2ue.core.settings import populate_settings_template_dropdown # type: ignore
-        for item in populate_settings_template_dropdown(self, context):
-            if item[0] != SEND2UE_FACE_SETTINGS.name:
-                items.append(
-                    (item[0], item[1], item[2], item[3], item[4]+1) # type: ignore
-                )
-    return items
 
 def get_active_lod(self) -> int:
     return self.get('active_lod', 0)
@@ -902,7 +872,7 @@ def draw_sphere(position, color, radius=0.001):
         radius=radius, 
         segments=segments
     )
-    rotation_matrix = Matrix.Rotation(math.radians(90), 4, 'X')
+    rotation_matrix = Matrix.Rotation(math.radians(90), 4, 'X') # type: ignore
     rotation_matrix.translation = position
     x_rotation_matrix = rotation_matrix.to_4x4()
     gpu.matrix.multiply_matrix(x_rotation_matrix)

@@ -7,7 +7,6 @@ import math
 import uuid
 import logging
 import subprocess
-import addon_utils
 from typing import Generator
 from pathlib import Path
 from mathutils import Vector
@@ -21,7 +20,6 @@ from ..constants import (
 from ..rig_instance import start_listening
 from ..constants import (
     SENTRY_DSN,
-    SEND2UE_EXTENSION,
     PACKAGES_FOLDER,
     NUMBER_OF_HEAD_LODS,
     INVALID_NAME_CHARACTERS_REGEX,
@@ -242,14 +240,14 @@ def init_sentry():
 
         def before_send(event: Event, hint: Hint) -> Event | None:
             # Filter based on module origin. We only want to send errors related 
-            # to the Meta-Human DNA addon and the send2ue addon.
+            # to the MetaHuman DNA addon.
             if event.get("exception") and event["exception"].get("values"): # type: ignore
                 exception = event["exception"]["values"][0] # type: ignore
                 if exception.get("stacktrace") and exception["stacktrace"].get("frames"):
                     # Check if the exception originated from one of the whitelisted modules
                     for frame in exception["stacktrace"]["frames"]:
                         module_name = frame.get("module")
-                        if module_name and (module_name.startswith(ToolInfo.NAME) or module_name.startswith('send2ue')):
+                        if module_name and module_name.startswith(ToolInfo.NAME):
                             break
                     else:
                         return None
@@ -287,49 +285,14 @@ def init_sentry():
     except Exception as error:
         logger.error(error)
 
-def send2ue_addon_is_valid() -> bool:
-    for module in addon_utils.modules():
-        if module.__name__ == 'send2ue':    
-            version = module.bl_info.get('version', (0,0,0))
-            if version[0] >= 2 and version[1] >= 6:
-                return True
-    return False
-
-def link_send2ue_extension():
-    addon = bpy.context.preferences.addons.get('send2ue') # type: ignore
-    send2ue_properties = getattr(bpy.context.scene, 'send2ue', None) # type: ignore
-    if addon and send2ue_properties and send2ue_addon_is_valid():
-        # check if the extension is already linked and skip the linking logic if it is
-        # this allows the user to manually link their own extension if they want. 
-        # It has to have the name 'meta_human_dna'.
-        if getattr(send2ue_properties.extensions, ToolInfo.NAME, None): # type: ignore
-            bpy.ops.send2ue.reload_extensions() # type: ignore
-            return
-
-        for extension_folder in addon.preferences.extension_folder_list: # type: ignore
-            if Path(extension_folder.folder_path) == SEND2UE_EXTENSION.parent:
-                break
-        else:
-            extension_folder = addon.preferences.extension_folder_list.add() # type: ignore
-            extension_folder.folder_path = str(SEND2UE_EXTENSION.parent)
-
-        bpy.ops.send2ue.reload_extensions() # type: ignore
-    else:
-        logger.warning(
-            'The send2ue addon is not installed. Please install it to use it to '
-            ' enable the Send to Unreal button in the Meta-Human DNA addon output panel.'
-        )
-
-
 def setup_scene(*args):
     scene_properties = getattr(bpy.context.scene, ToolInfo.NAME, object) # type: ignore
     
-    # initialize the rig logic instances
+    # initialize the rig instances
     for instance in getattr(scene_properties, 'rig_instance_list', []):
         instance.initialize()
 
     start_listening()
-    # link_send2ue_extension()
 
 def teardown_scene(*args):
     scene_properties = getattr(bpy.context.scene, ToolInfo.NAME, object) # type: ignore
@@ -381,7 +344,7 @@ def post_save(*args):
         return
     
     # Create a DNA backup
-    from ..backup_manager.core import create_backup, BackupType
+    from ..editors.backup_manager.core import create_backup, BackupType
     create_backup(instance, BackupType.BLENDER_FILE_SAVE)
 
 def create_empty(empty_name):

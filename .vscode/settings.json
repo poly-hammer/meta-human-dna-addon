@@ -46,7 +46,8 @@
         "**/scratches/*/**": true,
         "**/reports/*/**": true,
         "**/.fbx": true,
-        "${workspaceFolder}/tests/test_files": true
+        "${workspaceFolder}/tests/test_files/*/**": true,
+        "${workspaceFolder}/tests/extra_test_files/*/**": true
     },
     "files.exclude": {
         "**/__pycache__": true,
@@ -60,7 +61,8 @@
         "**/.ruff_cache": true,
         "**/.tox": true,
         "**/.fbx": true,
-        "${workspaceFolder}/tests/test_files": true
+        "${workspaceFolder}/tests/test_files/*/**": true,
+        "${workspaceFolder}/tests/extra_test_files/*/**": true
     },
     "terminal.integrated.env.windows": {
         "PYTHONPATH": "${workspaceFolder}/admin/packages;${workspaceFolder}/.venv/Lib/site-packages;${workspaceFolder}/src/addons",
@@ -138,11 +140,13 @@
         "Mkdocs",
         "mklink",
         "modifyitems",
+        "mypy",
         "Nasolabial",
         "NODETREE",
         "nopause",
         "outliner",
         "POLYHAMMER",
+        "propname",
         "pycache",
         "pydata",
         "Pylance",
@@ -151,6 +155,7 @@
         "PYTHONUNBUFFERED",
         "PYTHONWARNINGS",
         "RAYCAST",
+        "rbfb",
         "rbfs",
         "repr",
         "riglogic",
@@ -170,6 +175,7 @@
         "TOPBAR",
         "TOPO",
         "TRIA",
+        "TRIS",
         "tweaker",
         "UERBF",
         "UILIST",

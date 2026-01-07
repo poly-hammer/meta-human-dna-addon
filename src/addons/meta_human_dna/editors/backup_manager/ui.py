@@ -1,5 +1,10 @@
 import bpy
 
+def get_active_rig_instance():
+    # Avoid circular import
+    from ...ui.callbacks import get_active_rig_instance as _get_active_rig_instance
+    return _get_active_rig_instance()
+
 class META_HUMAN_DNA_UL_dna_backups(bpy.types.UIList):
     """UIList for displaying DNA backup entries."""
     
@@ -30,16 +35,14 @@ class META_HUMAN_DNA_PT_dna_backups(bpy.types.Panel):
     bl_idname = "META_HUMAN_DNA_PT_dna_backups"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = 'Meta-Human DNA'
+    bl_category = 'MetaHuman DNA'
     bl_options = {'DEFAULT_CLOSED'}
     
     @classmethod
     def poll(cls, context):
-        from ..ui.callbacks import get_active_rig_instance
         return get_active_rig_instance() is not None
     
     def draw(self, context):
-        from ..ui.callbacks import get_active_rig_instance
         
         layout = self.layout
         if not layout:

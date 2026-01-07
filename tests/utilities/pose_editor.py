@@ -27,7 +27,7 @@ from utilities.bones import (
 def set_body_pose(
         solver_name: str, 
         pose_name: str
-    ) -> tuple[Any, int, int]:
+    ) -> tuple[Any, int, int] | tuple[None, int, int]:
     instance = get_active_rig_instance()
     if instance:
         instance.editing_rbf_solver = True
@@ -39,6 +39,7 @@ def set_body_pose(
                     if pose.name == pose_name:
                         solver.poses_active_index = pose_index # type: ignore
                         return pose, solver_index, pose_index
+    return None, 0, 0
 
 
 def get_all_body_pose_names(exclude_fingers: bool = False) -> list[tuple[str, str]]:
@@ -132,7 +133,7 @@ def get_pose_differences(
     use_fbx_files = os.environ.get('META_HUMAN_DNA_ADDON_TESTS_UPDATE_BODY_JSON_POSES')
 
     if not instance:
-        pytest.fail('No active rig logic instance found.')
+        pytest.fail('No active rig instance found.')
         return
     
     if use_fbx_files:
@@ -206,6 +207,9 @@ def assert_body_pose(
     tolerance: float = 0.001
 ):
     instance = get_active_rig_instance()
+    if not instance:
+        pytest.fail('No active rig instance found.')
+        return
 
     differences = get_pose_differences(
         instance=instance,

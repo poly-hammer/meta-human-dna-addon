@@ -99,6 +99,10 @@ def set_bone_collection(
         theme: str | None = None,
         visible: bool = True
     ):
+    # Ensure rig_object has armature data
+    if not isinstance(rig_object.data, bpy.types.Armature):
+        return
+    
     # get or create a new bone collection
     collection = rig_object.data.collections.get(collection_name) # type: ignore
     if not collection:
@@ -193,7 +197,7 @@ def set_body_bone_collections(
         driven_bone_names: list[str]
     ):
     from .misc import dependencies_are_valid
-    if mesh_object and dependencies_are_valid():
+    if mesh_object and rig_object.pose and dependencies_are_valid():
         import meta_human_dna_core
 
         other_name_bones = []
@@ -288,10 +292,10 @@ def set_body_bone_collections(
 
 def reassign_to_body_bone_collections(
         rig_object: bpy.types.Object,
-        swing_bone_names: tuple[str] = (),
-        twist_bone_names: tuple[str] = (),
-        driver_bone_names: tuple[str] = (),
-        driven_bone_names: tuple[str] = ()
+        swing_bone_names: tuple[str, ...] = (),
+        twist_bone_names: tuple[str, ...] = (),
+        driver_bone_names: tuple[str, ...] = (),
+        driven_bone_names: tuple[str, ...] = ()
     ):
     items = (
         (BodyBoneCollection.DRIVERS, driver_bone_names, 'THEME09'),
@@ -300,6 +304,9 @@ def reassign_to_body_bone_collections(
         (BodyBoneCollection.SWINGS, swing_bone_names, 'THEME04')
     )
     for collection_name, bone_names, theme in items:
+        if (not rig_object.data or not rig_object.pose) or not isinstance(rig_object.data, bpy.types.Armature):
+            continue
+
         collection = rig_object.data.collections.get(collection_name)
         if not collection:
             continue
@@ -311,15 +318,16 @@ def reassign_to_body_bone_collections(
                     pose_bone = rig_object.pose.bones.get(bone_name)
                     if pose_bone:
                         other_collection.unassign(pose_bone)
-                        pose_bone.color.palette = 'DEFAULT'
+                        if pose_bone.color:
+                            pose_bone.color.palette = 'DEFAULT'
         
         # add bones to the correct collection
         for bone_name in bone_names:
             pose_bone = rig_object.pose.bones.get(bone_name)
             if pose_bone:
                 collection.assign(pose_bone)
-                if theme:
-                    pose_bone.color.palette = theme
+                if theme and pose_bone.color:
+                    pose_bone.color.palette = theme # type: ignore
 
 
 def get_meshes_using_armature(armature_object: bpy.types.Object) -> list[bpy.types.Object]:
@@ -341,7 +349,7 @@ def get_closet_vertex_to_bone(
         max_distance: float = 0.01
     ) -> bpy.types.MeshVertex | None:
     # get the bone applied position not the pose position
-    bone = pose_bone.id_data.data.bones[pose_bone.name]
+    bone = pose_bone.id_data.data.bones[pose_bone.name] # type: ignore
     position = mesh_object.matrix_world.inverted() @ bone.head_local
     vert = min(
         mesh_object.data.vertices,  # type: ignore
@@ -616,7 +624,7 @@ def get_bone_local_axes(pose_bone: bpy.types.PoseBone) -> tuple[Vector, Vector, 
         Tuple of (x_axis, y_axis, z_axis) as world-space vectors
     """
     # Get the bone's world matrix
-    world_matrix = pose_bone.id_data.matrix_world @ pose_bone.matrix
+    world_matrix = pose_bone.id_data.matrix_world @ pose_bone.matrix # type: ignore
     
     # Extract the rotation component (3x3 part of 4x4 matrix)
     # Each column represents a local axis in world space
@@ -670,7 +678,7 @@ def get_pose_bone_local_quaternion(pose_bone: bpy.types.PoseBone) -> Quaternion:
         parent_rest_local_matrix = pose_bone.parent.bone.matrix_local
         matrix_basis = pose_bone.bone.matrix_local.inverted() @ parent_rest_local_matrix @ parent_world_matrix.inverted() @ pose_bone.matrix
     else:
-        matrix_basis = pose_bone.bone.matrix_local.inverted() @ pose_bone.id_data.matrix_world.inverted() @ pose_bone.matrix
+        matrix_basis = pose_bone.bone.matrix_local.inverted() @ pose_bone.id_data.matrix_world.inverted() @ pose_bone.matrix # type: ignore
     
     # Extract and return the quaternion
     return matrix_basis.to_quaternion().normalized()

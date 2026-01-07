@@ -107,7 +107,7 @@ def test_rbf_pose_scale_factor_edit(
     when committing changes to the DNA file.
     """
     instance = get_active_rig_instance()
-    assert instance is not None, "No active rig logic instance found"
+    assert instance is not None, "No active rig instance found"
     assert instance.body_rig is not None, "No body rig found on instance"
 
     # Get the original scale factor from the JSON
@@ -191,7 +191,7 @@ def test_rbf_pose_name_edit(
     changes to the DNA file.
     """
     instance = get_active_rig_instance()
-    assert instance is not None, "No active rig logic instance found"
+    assert instance is not None, "No active rig instance found"
     assert instance.body_rig is not None, "No body rig found on instance"
 
     # Verify the original pose exists in the JSON
@@ -281,7 +281,7 @@ def test_rbf_driven_bone_location_edit(
     to reflect the bone transform changes made in Blender.
     """
     instance = get_active_rig_instance()
-    assert instance is not None, "No active rig logic instance found"
+    assert instance is not None, "No active rig instance found"
     assert instance.body_rig is not None, "No body rig found on instance"
 
     # Reset the pose to the default position
@@ -366,7 +366,7 @@ def test_rbf_pose_duplicate(
     data and that it is correctly persisted in the DNA file.
     """
     instance = get_active_rig_instance()
-    assert instance is not None, "No active rig logic instance found"
+    assert instance is not None, "No active rig instance found"
     assert instance.body_rig is not None, "No body rig found on instance"
 
     # Get the original pose count
