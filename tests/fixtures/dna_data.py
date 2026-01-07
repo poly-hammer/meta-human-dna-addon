@@ -1,13 +1,14 @@
 import pytest
+
 from constants import TEST_DNA_FOLDER
 
 
 @pytest.fixture(scope="session")
 def original_head_dna_json_data(temp_folder, dna_folder_name: str) -> dict:
-    from utilities.dna_data import get_dna_json_data
+    from utilities.dna_data import get_dna_json_data  # noqa: PLC0415
 
-    dna_file_path = TEST_DNA_FOLDER / dna_folder_name / 'head.dna'
-    json_file_path = temp_folder / dna_folder_name / 'head.json'
+    dna_file_path = TEST_DNA_FOLDER / dna_folder_name / "head.dna"
+    json_file_path = temp_folder / dna_folder_name / "head.json"
     return get_dna_json_data(dna_file_path, json_file_path)
 
 
@@ -17,9 +18,9 @@ def exported_head_dna_json_data(
     temp_folder,
     dna_folder_name: str
 ) -> dict:
-    from utilities.dna_data import get_dna_json_data
-    from meta_human_dna.utilities import get_active_head
-    from meta_human_dna.dna_io import DNAExporter
+    from meta_human_dna.dna_io import DNAExporter  # noqa: PLC0415
+    from meta_human_dna.utilities import get_active_head  # noqa: PLC0415
+    from utilities.dna_data import get_dna_json_data  # noqa: PLC0415
 
     head = get_active_head()
     export_folder = temp_folder / "export" / dna_folder_name
@@ -31,7 +32,7 @@ def exported_head_dna_json_data(
         head.rig_instance.output_folder_path = str(export_folder)
         DNAExporter(
             file_name="head.dna",
-            instance=head.rig_instance, 
+            instance=head.rig_instance,
             linear_modifier=head.linear_modifier
         ).run()
         return get_dna_json_data(dna_file_path, json_file_path)
@@ -45,9 +46,9 @@ def calibrated_head_dna_json_data(
     temp_folder,
     dna_folder_name: str
 ) -> dict:
-    from utilities.dna_data import get_dna_json_data
-    from meta_human_dna.utilities import get_active_head
-    from meta_human_dna.dna_io import DNACalibrator
+    from meta_human_dna.dna_io import DNACalibrator  # noqa: PLC0415
+    from meta_human_dna.utilities import get_active_head  # noqa: PLC0415
+    from utilities.dna_data import get_dna_json_data  # noqa: PLC0415
 
     head = get_active_head()
     calibrate_folder = temp_folder / "calibrate" / dna_folder_name
@@ -59,10 +60,10 @@ def calibrated_head_dna_json_data(
         head.rig_instance.output_folder_path = str(calibrate_folder)
         DNACalibrator(
             file_name="head.dna",
-            instance=head.rig_instance, 
+            instance=head.rig_instance,
             linear_modifier=head.linear_modifier
         ).run()
-        
+
         return get_dna_json_data(dna_file_path, json_file_path)
 
     return {}

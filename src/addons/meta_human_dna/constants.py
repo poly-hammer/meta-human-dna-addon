@@ -1,21 +1,26 @@
-import os
-import bpy
 import math
+import os
 import tempfile
+
 from pathlib import Path
-from mathutils import Vector, Euler
 from typing import Literal
+
+import bpy
+
+from mathutils import Euler, Vector
 
 
 IS_BLENDER_5 = bpy.app.version >= (5, 0, 0)
+
 
 class ToolInfo:
     NAME = "meta_human_dna"
     BUILD_TOOL_DOCUMENTATION = "https://docs.polyhammer.com/hammer-build-tool/setup/"
     METRICS_COLLECTION_AGREEMENT = "https://www.polyhammer.com/dpa"
 
+
 Axis = Literal["X", "Y", "Z"]
-ComponentType = Literal['head', 'body']
+ComponentType = Literal["head", "body"]
 
 FACE_BOARD_NAME = "face_gui"
 HEAD_MATERIAL_NAME = "head_shader"
@@ -39,7 +44,7 @@ SCALE_FACTOR = 100.0
 SHAPE_KEY_NAME_MAX_LENGTH = 63
 SHAPE_KEY_DELTA_THRESHOLD = 1e-6
 BONE_DELTA_THRESHOLD = 1e-3
-SHAPE_KEY_BASIS_NAME = 'Basis'
+SHAPE_KEY_BASIS_NAME = "Basis"
 BONE_TAIL_OFFSET = 1 / (SCALE_FACTOR * SCALE_FACTOR * 10)
 CUSTOM_BONE_SHAPE_SCALE = Vector([0.15] * 3)
 CUSTOM_BONE_SHAPE_NAME = "sphere_control"
@@ -67,11 +72,9 @@ HEAD_MESH_SHADER_MAPPING = {
     "eyeEdge_lod": "eyeEdge_shader",
     "cartilage_lod": "cartilage_shader",
 }
-BODY_MESH_SHADER_MAPPING = {
-    "body_lod": "body_shader"
-}
+BODY_MESH_SHADER_MAPPING = {"body_lod": "body_shader"}
 
-TEMP_FOLDER = Path(tempfile.gettempdir()) /  f"{ToolInfo.NAME}_addon"
+TEMP_FOLDER = Path(tempfile.gettempdir()) / f"{ToolInfo.NAME}_addon"
 RESOURCES_FOLDER = Path(os.path.dirname(__file__), "resources")
 BINDINGS_FOLDER = Path(os.path.dirname(__file__), "bindings")
 PACKAGES_FOLDER = RESOURCES_FOLDER / "packages"
@@ -100,15 +103,12 @@ MATERIALS_FILE_PATH = BLENDS_FOLDER / "materials.blend"
 
 FACE_BOARD_FILE_PATH = BLENDS_FOLDER / "face_board.blend"
 
-ALTERNATE_TEXTURE_FILE_EXTENSIONS = [
-    ".tga",
-    ".png"   
-]
+ALTERNATE_TEXTURE_FILE_EXTENSIONS = [".tga", ".png"]
 
 ALTERNATE_HEAD_TEXTURE_FILE_NAMES = {
     "head_color_map.tga": "Head_Basecolor",
     "head_normal_map.tga": "Head_Normal",
-    "head_cavity_map.tga": "Chest_Cavity", # TODO: This is a weird convention, but this seems to be what metahuman creator names it.
+    "head_cavity_map.tga": "Chest_Cavity",  # TODO: This is a weird convention, but this seems to be what metahuman creator names it.
     "head_cm1_color_map.tga": "Head_Basecolor_Animated_CM1",
     "head_cm2_color_map.tga": "Head_Basecolor_Animated_CM2",
     "head_cm3_color_map.tga": "Head_Basecolor_Animated_CM3",
@@ -135,7 +135,7 @@ LEGACY_ALTERNATE_HEAD_TEXTURE_FILE_NAMES = {
     "head_wm2_normal_map.tga": "FaceNormal_WM2",
     "head_wm3_normal_map.tga": "FaceNormal_WM3",
     "head_cavity_map.tga": "FaceCavity_MAIN",
-    "head_roughness_map.tga": "FaceRoughness_MAIN"
+    "head_roughness_map.tga": "FaceRoughness_MAIN",
 }
 
 HEAD_MAPS = {
@@ -147,18 +147,12 @@ HEAD_MAPS = {
     "Normal_WM1": "Head_Normal_Animated_WM1.png",
     "Normal_WM2": "Head_Normal_Animated_WM2.png",
     "Normal_WM3": "Head_Normal_Animated_WM3.png",
-    "Cavity_MAIN": "Head_Cavity.png"
+    "Cavity_MAIN": "Head_Cavity.png",
 }
 
-BODY_MAPS = {
-    "Color_MAIN": "Body_Basecolor.png",
-    "Normal_MAIN": "Body_Normal.png",
-    "Cavity_MAIN": "Body_Cavity.png"
-}
+BODY_MAPS = {"Color_MAIN": "Body_Basecolor.png", "Normal_MAIN": "Body_Normal.png", "Cavity_MAIN": "Body_Cavity.png"}
 
-UNREAL_EXPORTED_HEAD_MATERIAL_NAMES = [
-    'MI_HeadSynthesized_Baked'
-]
+UNREAL_EXPORTED_HEAD_MATERIAL_NAMES = ["MI_HeadSynthesized_Baked"]
 
 PLATFORM_NAMES = {
     "linux": "Linux",
@@ -168,103 +162,88 @@ PLATFORM_NAMES = {
 }
 
 FACE_GUI_EMPTIES = [
-    "GRP_C_eyesAim", 
-    "GRP_faceGUI", 
+    "GRP_C_eyesAim",
+    "GRP_faceGUI",
     "LOC_C_eyeDriver",
     "head_grp",
     "headRig_grp",
     "headGui_grp",
     "headRigging_grp",
-    "eyesSetup_grp"
+    "eyesSetup_grp",
 ]
 
 EYE_AIM_BONES = [
-    'LOC_R_eyeUIDriver',
-    'LOC_L_eyeUIDriver',
-    'LOC_C_eyeUIDriver',
-    'LOC_R_eyeDriver',
-    'LOC_L_eyeDriver',
-    'LOC_C_eyeDriver',
-    'LOC_R_eyeAimDriver',
-    'LOC_L_eyeAimDriver',
-    'LOC_R_eyeAimUp',
-    'LOC_L_eyeAimUp',
-    'GRP_convergenceGUI',
-    'GRP_L_eyeAim',
-    'GRP_R_eyeAim',
-    'FRM_convergenceGUI',
-    'FRM_convergenceSwitch',
-    'TEXT_convergence',
-    'CTRL_C_eyesAim',
-    'CTRL_L_eyeAim',
-    'CTRL_R_eyeAim',
-    'CTRL_convergenceSwitch'
+    "LOC_R_eyeUIDriver",
+    "LOC_L_eyeUIDriver",
+    "LOC_C_eyeUIDriver",
+    "LOC_R_eyeDriver",
+    "LOC_L_eyeDriver",
+    "LOC_C_eyeDriver",
+    "LOC_R_eyeAimDriver",
+    "LOC_L_eyeAimDriver",
+    "LOC_R_eyeAimUp",
+    "LOC_L_eyeAimUp",
+    "GRP_convergenceGUI",
+    "GRP_L_eyeAim",
+    "GRP_R_eyeAim",
+    "FRM_convergenceGUI",
+    "FRM_convergenceSwitch",
+    "TEXT_convergence",
+    "CTRL_C_eyesAim",
+    "CTRL_L_eyeAim",
+    "CTRL_R_eyeAim",
+    "CTRL_convergenceSwitch",
 ]
 
-FACE_BOARD_SWITCHES = [
-    'CTRL_rigLogicSwitch',
-    'CTRL_lookAtSwitch',
-    'CTRL_faceGUIfollowHead',
-    'CTRL_eyesAimFollowHead'
-]
+FACE_BOARD_SWITCHES = ["CTRL_rigLogicSwitch", "CTRL_lookAtSwitch", "CTRL_faceGUIfollowHead", "CTRL_eyesAimFollowHead"]
 
-BODY_HIGH_LEVEL_TOPOLOGY_GROUPS = [
-    "torso",
-    "arm_L",
-    "arm_R",
-    "hand_R",
-    "hand_L",
-    "leg_L",
-    "leg_R",
-    "foot_L",
-    "foot_R"
-]
+BODY_HIGH_LEVEL_TOPOLOGY_GROUPS = ["torso", "arm_L", "arm_R", "hand_R", "hand_L", "leg_L", "leg_R", "foot_L", "foot_R"]
 
-HEAD_TO_BODY_LOD_MAPPING = {
-    0: 0,
-    1: 0,
-    2: 1,
-    3: 1,
-    4: 2,
-    5: 2,
-    6: 3,
-    7: 3
-}
+HEAD_TO_BODY_LOD_MAPPING = {0: 0, 1: 0, 2: 1, 3: 1, 4: 2, 5: 2, 6: 3, 7: 3}
 
 # Set to Ada's height, but locations will be scaled proportionally to match spine_04 location from DNA file.
 # Also in Y-up coordinate system like the metahuman creator DNA files
 FIRST_BONE_Y_LOCATION = 107.86403
 
 EXTRA_BONES = [
-    ('root', {
-        'parent': None,
-        'location': Vector((0, 0, 0)),
-        'rotation': Euler((0, 0, 0), 'XYZ')
-    }),
-    ('pelvis', {
-        'parent': 'root',
-        'location': Vector((0.0, 0.8707, 0.0209)),
-        'rotation': Euler((math.radians(-90.0), math.radians(-2.053), math.radians(90.0)), 'XYZ')
-    }),
-    ('spine_01', {
-        'parent': 'pelvis',
-        'location': Vector((0.0, 0.8910, 0.0206)),
-        'rotation': Euler((math.radians(-90.0), math.radians(-13.003), math.radians(90.0)), 'XYZ')
-    }),
-    ('spine_02', {
-        'parent': 'spine_01',
-        'location': Vector((0.0, 0.9326, 0.0302)),
-        'rotation': Euler((math.radians(-90.0), math.radians(-5.68216), math.radians(90.0)), 'XYZ')
-    }),
-    ('spine_03', {
-        'parent': 'spine_02',
-        'location': Vector((0.0, 0.9998, 0.0369)),
-        'rotation': Euler((math.radians(-90.0), math.radians(3.82404), math.radians(90.0)), 'XYZ')
-    })
+    ("root", {"parent": None, "location": Vector((0, 0, 0)), "rotation": Euler((0, 0, 0), "XYZ")}),
+    (
+        "pelvis",
+        {
+            "parent": "root",
+            "location": Vector((0.0, 0.8707, 0.0209)),
+            "rotation": Euler((math.radians(-90.0), math.radians(-2.053), math.radians(90.0)), "XYZ"),
+        },
+    ),
+    (
+        "spine_01",
+        {
+            "parent": "pelvis",
+            "location": Vector((0.0, 0.8910, 0.0206)),
+            "rotation": Euler((math.radians(-90.0), math.radians(-13.003), math.radians(90.0)), "XYZ"),
+        },
+    ),
+    (
+        "spine_02",
+        {
+            "parent": "spine_01",
+            "location": Vector((0.0, 0.9326, 0.0302)),
+            "rotation": Euler((math.radians(-90.0), math.radians(-5.68216), math.radians(90.0)), "XYZ"),
+        },
+    ),
+    (
+        "spine_03",
+        {
+            "parent": "spine_02",
+            "location": Vector((0.0, 0.9998, 0.0369)),
+            "rotation": Euler((math.radians(-90.0), math.radians(3.82404), math.radians(90.0)), "XYZ"),
+        },
+    ),
 ]
 
+
 class BodyBoneCollection:
-    DRIVERS = 'Drivers'
-    DRIVEN = 'Driven'
-    TWISTS = 'Twists'
-    SWINGS = 'Swings'
+    DRIVERS = "Drivers"
+    DRIVEN = "Driven"
+    TWISTS = "Twists"
+    SWINGS = "Swings"

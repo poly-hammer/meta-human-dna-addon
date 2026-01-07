@@ -2,8 +2,8 @@ import bpy
 
 
 def dna_import_operator_menu_item(self, context):
-    self.layout.operator('meta_human_dna.import_dna', text='MetaHuman DNA (.dna)')
-    self.layout.operator('meta_human_dna.append_or_link_metahuman', text='MetaHuman Append/Link (.blend)')
+    self.layout.operator("meta_human_dna.import_dna", text="MetaHuman DNA (.dna)")
+    self.layout.operator("meta_human_dna.append_or_link_metahuman", text="MetaHuman Append/Link (.blend)")
 
 
 def add_dna_import_menu():
@@ -18,10 +18,8 @@ def remove_dna_import_menu():
 
 
 def rig_logic_texture_node_menu_item(self, context):
-    self.layout.operator(
-        'meta_human_dna.add_rig_logic_texture_node', 
-        text='Add Rig Logic Texture Node'
-    )
+    self.layout.operator("meta_human_dna.add_rig_logic_texture_node", text="Add Rig Logic Texture Node")
+
 
 def add_rig_logic_texture_node_menu():
     try:

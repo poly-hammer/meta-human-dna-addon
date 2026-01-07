@@ -1,18 +1,18 @@
+import logging
 import os
+
 import bpy
 import bpy.utils.previews
-import logging
 
-
-from . import constants, operators, properties, rig_instance, utilities, manual_map
-from .ui import menus, importer, view_3d, viewport_overlay, addon_preferences
+from . import constants, manual_map, operators, properties, rig_instance, utilities
 
 # Backup Manager
-from .editors.backup_manager import operators as backup_manager_operators
-from .editors.backup_manager import ui as backup_manager_ui
+from .editors.backup_manager import operators as backup_manager_operators, ui as backup_manager_ui
+
 # Pose Editor
-from .editors.pose_editor import operators as pose_editor_operators
-from .editors.pose_editor import ui as pose_editor_ui
+from .editors.pose_editor import operators as pose_editor_operators, ui as pose_editor_ui
+from .ui import addon_preferences, importer, menus, view_3d, viewport_overlay
+
 
 logger = logging.getLogger(constants.ToolInfo.NAME)
 
@@ -135,25 +135,26 @@ classes = [
 ]
 
 app_handlers = {
-    'load_pre': bpy.app.handlers.persistent(utilities.teardown_scene),
-    'load_post': bpy.app.handlers.persistent(utilities.setup_scene),
-    'undo_pre': bpy.app.handlers.persistent(utilities.pre_undo),
-    'undo_post': bpy.app.handlers.persistent(utilities.post_undo),
-    'redo_pre': bpy.app.handlers.persistent(utilities.pre_redo),
-    'redo_post': bpy.app.handlers.persistent(utilities.post_redo),
-    'render_init': bpy.app.handlers.persistent(utilities.pre_render),
-    'render_complete': bpy.app.handlers.persistent(utilities.post_render),
-    'render_cancel': bpy.app.handlers.persistent(utilities.post_render),
-    'save_post': bpy.app.handlers.persistent(utilities.post_save),
+    "load_pre": bpy.app.handlers.persistent(utilities.teardown_scene),
+    "load_post": bpy.app.handlers.persistent(utilities.setup_scene),
+    "undo_pre": bpy.app.handlers.persistent(utilities.pre_undo),
+    "undo_post": bpy.app.handlers.persistent(utilities.post_undo),
+    "redo_pre": bpy.app.handlers.persistent(utilities.pre_redo),
+    "redo_post": bpy.app.handlers.persistent(utilities.post_redo),
+    "render_init": bpy.app.handlers.persistent(utilities.pre_render),
+    "render_complete": bpy.app.handlers.persistent(utilities.post_render),
+    "render_cancel": bpy.app.handlers.persistent(utilities.post_render),
+    "save_post": bpy.app.handlers.persistent(utilities.post_save),
 }
+
 
 def register():
     """
     Registers the addon classes when the addon is enabled.
     """
-    if os.environ.get('META_HUMAN_DNA_DEV'):
+    if os.environ.get("META_HUMAN_DNA_DEV"):
         logging.basicConfig(level=logging.DEBUG)
-        
+
     try:
         # register the manual map
         bpy.utils.register_manual_map(manual_map.manual_map)
@@ -189,7 +190,7 @@ def unregister():
     """
     utilities.teardown_scene()
 
-    if not os.environ.get('META_HUMAN_DNA_DEV'):
+    if not os.environ.get("META_HUMAN_DNA_DEV"):
         rig_instance.stop_listening()
 
     # remove event handlers

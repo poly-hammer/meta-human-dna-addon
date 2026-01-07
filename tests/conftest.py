@@ -1,25 +1,26 @@
-import os
-import sys
 import math
+import os
 import platform
-
-ARCH = 'x64'
-if 'arm' in platform.processor().lower():
-    ARCH = 'arm64'
-if sys.platform == 'win32' and ARCH == 'x64':
-    ARCH = 'amd64'
-if sys.platform == 'linux' and ARCH == 'x64':
-    ARCH = 'x86_64'
+import sys
 
 
-OS_NAME = 'windows'
-if sys.platform == 'darwin':
-    OS_NAME = 'mac'
-elif sys.platform == 'linux':
-    OS_NAME = 'linux'
+ARCH = "x64"
+if "arm" in platform.processor().lower():
+    ARCH = "arm64"
+if sys.platform == "win32" and ARCH == "x64":
+    ARCH = "amd64"
+if sys.platform == "linux" and ARCH == "x64":
+    ARCH = "x86_64"
+
+
+OS_NAME = "windows"
+if sys.platform == "darwin":
+    OS_NAME = "mac"
+elif sys.platform == "linux":
+    OS_NAME = "linux"
 
 # Ensure that the riglogic module is not reloaded
-sys.path.append(os.path.join(os.getcwd(), os.pardir, 'meta-human-dna-bindings', OS_NAME, ARCH))
+sys.path.append(os.path.join(os.getcwd(), os.pardir, "meta-human-dna-bindings", OS_NAME, ARCH))
 if "riglogic" in sys.modules:
     riglogic = sys.modules["riglogic"]
 else:
@@ -27,23 +28,28 @@ else:
     sys.modules["riglogic"] = riglogic
 
 
-import pytest # noqa: E402
-import shutil # noqa: E402
-import bpy # import this to ensure that mathutils is available  # noqa: E402, F401
-from mathutils import Vector, Euler # noqa: E402
-from pathlib import Path # noqa: E402
-from constants import REPO_ROOT # noqa: E402
+import shutil  # noqa: E402
+
+from pathlib import Path  # noqa: E402
+
+import bpy  # import this to ensure that mathutils is available  # noqa: E402, F401
+import pytest  # noqa: E402
+
+from mathutils import Euler, Vector  # noqa: E402
+
+from constants import REPO_ROOT  # noqa: E402
+
 
 def pytest_configure():
     """
     Installs the bindings for the addon.
     """
 
-    bindings_source_folder = REPO_ROOT.parent / 'meta-human-dna-bindings'
-    core_source_folder = REPO_ROOT.parent / 'meta-human-dna-core'
-    bindings_destination_folder = REPO_ROOT / 'src' / 'addons' / 'meta_human_dna' / 'bindings'
+    bindings_source_folder = REPO_ROOT.parent / "meta-human-dna-bindings"
+    core_source_folder = REPO_ROOT.parent / "meta-human-dna-core"
+    bindings_destination_folder = REPO_ROOT / "src" / "addons" / "meta_human_dna" / "bindings"
 
-    
+
 
     bindings_specific_source_folder = bindings_source_folder / OS_NAME / ARCH
     bindings_specific_destination_folder = bindings_destination_folder / OS_NAME / ARCH
@@ -62,68 +68,66 @@ def pytest_configure():
             dst=bindings_specific_destination_folder,
             dirs_exist_ok=True
         )
-        
+
     # If running tests on the CI, copy core to the specific destination folder
-    core_destination_folder = bindings_specific_destination_folder / 'meta_human_dna_core'
-    if core_source_folder.exists() and not core_destination_folder.exists() and os.environ.get('RUNNING_CI'):
+    core_destination_folder = bindings_specific_destination_folder / "meta_human_dna_core"
+    if core_source_folder.exists() and not core_destination_folder.exists() and os.environ.get("RUNNING_CI"):
         shutil.copytree(
             src=core_source_folder,
             dst=core_destination_folder,
             dirs_exist_ok=True
-        )   
+        )
 
     # ensure the addon module is on the python path
-    sys.path.append(str(REPO_ROOT / 'src' / 'addons'))
-        
+    sys.path.append(str(REPO_ROOT / "src" / "addons"))
 
-from fixtures.addon import ( # noqa: E402, F401
-    addon, 
-    disable_auto_save
-)
-from fixtures.dna_data import ( # noqa: E402, F401
-    original_head_dna_json_data,
+
+from fixtures.addon import addon, disable_auto_save  # noqa: E402, F401
+from fixtures.dna_data import (  # noqa: E402, F401
+    calibrated_head_dna_json_data,
     exported_head_dna_json_data,
-    calibrated_head_dna_json_data
+    original_head_dna_json_data,
 )
 from fixtures.scene import (  # noqa: E402, F401
-    load_head_dna,
+    head_armature,
+    head_bmesh,
     load_body_dna,
     load_body_dna_for_pose_editing,
     load_body_dna_for_pose_roundtrip,
-    load_full_dna_for_animation,
-    load_mhc_conformed_topology_meshes,
     load_dna_for_rig_instance_ops,
+    load_full_dna_for_animation,
+    load_head_dna,
+    load_mhc_conformed_topology_meshes,
+    modify_head_scene,
     setup_reference_blend_file,
-    head_bmesh,
-    head_armature,
-    modify_head_scene
 )
 
-@pytest.fixture(scope='session')
+
+@pytest.fixture(scope="session")
 def addons() -> list:
     return [
-        ('meta_human_dna', Path(__file__).parent.parent / 'src')
+        ("meta_human_dna", Path(__file__).parent.parent / "src")
     ]
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def dna_folder_name() -> str:
-    return 'ada'
+    return "ada"
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def import_shape_keys() -> bool:
     return False
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def import_lods() -> list:
     return [
-        'lod0'
+        "lod0"
     ]
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def changed_head_bone_name() -> str:
-    return 'FACIAL_C_12IPV_Chin3' # has no children
+    return "FACIAL_C_12IPV_Chin3" # has no children
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def changed_head_bone_location() -> tuple[Vector, Vector]:
     # change bone location (blender value, dna value)
     return (
@@ -132,7 +136,7 @@ def changed_head_bone_location() -> tuple[Vector, Vector]:
         Vector((0.0671469, 0.643585, 11.8251)) # new dna value Y-up
     )
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def changed_head_bone_rotation() -> tuple[Euler, Euler]:
     # change rotation of bone (blender value, dna value)
     return (
@@ -144,15 +148,15 @@ def changed_head_bone_rotation() -> tuple[Euler, Euler]:
         Euler((60.0, 0.0, 0.0))
     )
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def changed_head_mesh_name() -> str:
-    return 'head_lod0_mesh'
+    return "head_lod0_mesh"
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def changed_head_vertex_index() -> int:
     return 11955
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def changed_head_vertex_location() -> tuple[Vector, Vector, Vector]:
     # change vertex location (blender value, dna value)
     # Moves vertex on the back of the head up 0.01 meters
@@ -162,31 +166,30 @@ def changed_head_vertex_location() -> tuple[Vector, Vector, Vector]:
         Vector((0.8358, 175.288, -5.9853077)), # new dna value Y-up
     )
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def changed_head_vertex_group_name() -> str:
-    return 'FACIAL_L_12IPV_NeckB7'
+    return "FACIAL_L_12IPV_NeckB7"
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def changed_head_vertex_group_vertex_index() -> int:
     return 11525
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def changed_head_vertex_group_weight() -> float:
     return 0.01
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def temp_folder():
-    temp_folder = Path(__file__).parent / 'temp'
+    temp_folder = Path(__file__).parent / "temp"
     if temp_folder.exists():
-        shutil.rmtree(temp_folder)  
+        shutil.rmtree(temp_folder)
 
     os.makedirs(temp_folder, exist_ok=True)
-    
+
     yield temp_folder
 
     # Cleanup the temp folder
-    if not os.environ.get('TESTS_KEEP_TEMP_FOLDER'):
-        if temp_folder.exists():
-            shutil.rmtree(temp_folder)
+    if not os.environ.get("TESTS_KEEP_TEMP_FOLDER") and temp_folder.exists():
+        shutil.rmtree(temp_folder)
 
 

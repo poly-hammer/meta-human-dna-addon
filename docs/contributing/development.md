@@ -3,6 +3,7 @@
 Contributions are welcome! Please create an issue to discuss significant work before starting. Open all PRs to the `dev` branch.
 
 ## Pull Request Process
+
 1. Fork the repository and create a branch matching the issue name.
 2. Add the feature/fix with accompanying unit tests.
 3. Run tests and ensure all pass.
@@ -22,6 +23,7 @@ Contributions are welcome! Please create an issue to discuss significant work be
 ## Setup
 
 ### Using uv (Recommended)
+
 ```bash
 # Install uv (if not installed)
 pip install uv
@@ -35,12 +37,14 @@ uv run pre-commit install --hook-type commit-msg
 ```
 
 ### Using VS Code
+
 1. Open the workspace - VS Code will prompt to install recommended extensions from `.vscode/extensions.json`
 2. Copy `.env.example` to `.env`
 3. Restart VS Code
 4. Run `> Python: Select Interpreter` and choose `.venv/Scripts/python.exe`
 
 ## Build Tasks
+
 Launch Blender/Unreal through VS Code build tasks (`CTRL+SHIFT+B`) to enable dev dependencies and debugging.
 
 ![1](../images/contributing/development/1.gif)
@@ -52,6 +56,7 @@ Launch Blender/Unreal through VS Code build tasks (`CTRL+SHIFT+B`) to enable dev
     Override executable paths via `.env`: `UNREAL_EXE_PATH`, `UNREAL_PROJECT`, `BLENDER_EXE_PATH`
 
 ## Launch Actions
+
 Use `Python Debugger: Attach` to connect to Blender after launching from build tasks.
 
 ![1](../images/contributing/development/2.png)
@@ -59,6 +64,7 @@ Use `Python Debugger: Attach` to connect to Blender after launching from build t
 ## Reloading Addon Code
 
 **Blender** (when launched from VS Code):
+
 ```python
 from poly_hammer_utils.helpers import reload_addon_source_code
 reload_addon_source_code(['meta_human_dna'])
@@ -73,6 +79,7 @@ All code is checked via pre-commit hooks and CI:
 - **Pyright**: Type checking (configured in `pyproject.toml`)
 
 Run checks manually:
+
 ```bash
 uv run pre-commit run --all-files
 uv run ruff check .

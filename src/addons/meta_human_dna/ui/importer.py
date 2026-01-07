@@ -1,33 +1,38 @@
 import os
-import bpy
-from bpy_extras.io_utils import ImportHelper # type: ignore
-from ..constants import NUMBER_OF_HEAD_LODS
-from ..dna_io import get_dna_reader
+
 from pathlib import Path
+
+import bpy
+
+from bpy_extras.io_utils import ImportHelper  # type: ignore
+
+from meta_human_dna.constants import NUMBER_OF_HEAD_LODS
+from meta_human_dna.dna_io import get_dna_reader
+
 
 class META_HUMAN_DNA_UL_append_link_items(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_prop_name):
         layout.separator(factor=0.1)
         layout.prop(item, "include", text="")
-        layout.label(text=item.name, icon='MESH_DATA')
+        layout.label(text=item.name, icon="MESH_DATA")
 
 
 class META_HUMAN_DNA_FILE_DATA_PT_panel(bpy.types.Panel):
-    bl_space_type = 'FILE_BROWSER'
-    bl_region_type = 'TOOL_PROPS'
+    bl_space_type = "FILE_BROWSER"
+    bl_region_type = "TOOL_PROPS"
     bl_label = "File Data"
     bl_parent_id = "FILE_PT_operator"
-    bl_options = {'HEADER_LAYOUT_EXPAND'}
+    bl_options = {"HEADER_LAYOUT_EXPAND"}
 
     @classmethod
     def poll(cls, context):
-        return context.space_data.active_operator.bl_idname == "META_HUMAN_DNA_OT_import_dna" # type: ignore
+        return context.space_data.active_operator.bl_idname == "META_HUMAN_DNA_OT_import_dna"  # type: ignore
 
     def draw(self, context):
         if not self.layout:
             return
-        
-        operator = context.space_data.active_operator # type: ignore
+
+        operator = context.space_data.active_operator  # type: ignore
         stem = Path(operator.filepath).stem.lower()
         layout = self.layout
         row = layout.row()
@@ -53,21 +58,21 @@ class META_HUMAN_DNA_FILE_DATA_PT_panel(bpy.types.Panel):
 
 
 class META_HUMAN_DNA_LODS_PT_panel(bpy.types.Panel):
-    bl_space_type = 'FILE_BROWSER'
-    bl_region_type = 'TOOL_PROPS'
+    bl_space_type = "FILE_BROWSER"
+    bl_region_type = "TOOL_PROPS"
     bl_label = "Lods"
     bl_parent_id = "FILE_PT_operator"
-    bl_options = {'HEADER_LAYOUT_EXPAND'}
+    bl_options = {"HEADER_LAYOUT_EXPAND"}
 
     @classmethod
     def poll(cls, context):
-        return context.space_data.active_operator.bl_idname == "META_HUMAN_DNA_OT_import_dna" # type: ignore
+        return context.space_data.active_operator.bl_idname == "META_HUMAN_DNA_OT_import_dna"  # type: ignore
 
     def draw(self, context):
         if not self.layout:
             return
-        
-        operator = context.space_data.active_operator # type: ignore
+
+        operator = context.space_data.active_operator  # type: ignore
         stem = Path(operator.filepath).stem.lower()
         layout = self.layout
         row = layout.row()
@@ -80,34 +85,35 @@ class META_HUMAN_DNA_LODS_PT_panel(bpy.types.Panel):
             row.prop(operator, f"import_lod{i}")
             row = layout.row()
 
+
 class META_HUMAN_DNA_EXTRAS_PT_panel(bpy.types.Panel):
-    bl_space_type = 'FILE_BROWSER'
-    bl_region_type = 'TOOL_PROPS'
+    bl_space_type = "FILE_BROWSER"
+    bl_region_type = "TOOL_PROPS"
     bl_label = "Extras"
     bl_parent_id = "FILE_PT_operator"
-    bl_options = {'HEADER_LAYOUT_EXPAND'}
+    bl_options = {"HEADER_LAYOUT_EXPAND"}
 
     @classmethod
     def poll(cls, context):
-        return context.space_data.active_operator.bl_idname == "META_HUMAN_DNA_OT_import_dna" # type: ignore
-    
+        return context.space_data.active_operator.bl_idname == "META_HUMAN_DNA_OT_import_dna"  # type: ignore
+
     def _get_path_error(self, folder_path: str) -> str:
         if not folder_path:
-            return ''
+            return ""
 
         if not os.path.exists(folder_path):
             return "Folder does not exist"
         if not os.path.isdir(folder_path):
             return "Path is not a folder"
-        return ''
+        return ""
 
     def draw(self, context):
         if not self.layout:
             return
-        
-        operator = context.space_data.active_operator # type: ignore
+
+        operator = context.space_data.active_operator  # type: ignore
         stem = Path(operator.filepath).stem.lower()
-        body_file = Path(operator.filepath).parent / 'body.dna'
+        body_file = Path(operator.filepath).parent / "body.dna"
         layout = self.layout
         if stem == "head":
             row = layout.row()
@@ -120,30 +126,30 @@ class META_HUMAN_DNA_EXTRAS_PT_panel(bpy.types.Panel):
         row.label(text="Alternate Maps Folder:")
         row = layout.row()
         path_error = self._get_path_error(operator.alternate_maps_folder)
-        
+
         if path_error:
             row.alert = True
-        
+
         row.prop(operator, "alternate_maps_folder", text="")
-        
+
         if path_error:
             row = layout.row()
             row.alert = True
-            row.label(text=path_error, icon='ERROR')
+            row.label(text=path_error, icon="ERROR")
 
 
 class META_HUMAN_DNA_FILE_INFO_PT_panel(bpy.types.Panel):
-    bl_space_type = 'FILE_BROWSER'
-    bl_region_type = 'TOOL_PROPS'
+    bl_space_type = "FILE_BROWSER"
+    bl_region_type = "TOOL_PROPS"
     bl_label = "DNA File Info"
     bl_parent_id = "FILE_PT_operator"
-    bl_options = {'DEFAULT_CLOSED'}
+    bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
     def poll(cls, context):
-        operator = context.space_data.active_operator # type: ignore
-        is_dna_importer = context.space_data.active_operator.bl_idname == "META_HUMAN_DNA_OT_import_dna" # type: ignore
-        if not hasattr(operator, 'filepath'):
+        operator = context.space_data.active_operator  # type: ignore
+        is_dna_importer = context.space_data.active_operator.bl_idname == "META_HUMAN_DNA_OT_import_dna"  # type: ignore
+        if not hasattr(operator, "filepath"):
             return False
 
         is_dna_file = operator.filepath.lower().endswith(".dna") and os.path.exists(operator.filepath)
@@ -152,24 +158,22 @@ class META_HUMAN_DNA_FILE_INFO_PT_panel(bpy.types.Panel):
     def draw(self, context):
         if not self.layout:
             return
-        
-        operator = context.space_data.active_operator # type: ignore
-        wm = bpy.context.window_manager.meta_human_dna.dna_info # type: ignore
+
+        operator = context.space_data.active_operator  # type: ignore
+        wm = bpy.context.window_manager.meta_human_dna.dna_info  # type: ignore
 
         if operator.filepath.lower().endswith(".dna") and os.path.exists(operator.filepath):
-            if not wm['_dna_reader'] or operator.filepath != wm['_previous_file_path']:
-                wm['_previous_file_path'] = operator.filepath
+            if not wm["_dna_reader"] or operator.filepath != wm["_previous_file_path"]:
+                wm["_previous_file_path"] = operator.filepath
                 reader = get_dna_reader(
-                    file_path=Path(operator.filepath),
-                    file_format='binary',
-                    data_layer='Descriptor'
+                    file_path=Path(operator.filepath), file_format="binary", data_layer="Descriptor"
                 )
                 if not reader:
                     return
-                
-                wm['_dna_reader'] = reader
-        
-            dna_reader = wm['_dna_reader']
+
+                wm["_dna_reader"] = reader
+
+            dna_reader = wm["_dna_reader"]
             row = self.layout.row()
             row.label(text="Name: ")
             row.label(text=str(dna_reader.getName()))
@@ -215,7 +219,8 @@ class ImportAsset(ImportHelper):
     """
     This class subclasses the import helper to define a custom file browser
     """
-    bl_options = {'UNDO', 'PRESET'}
+
+    bl_options = {"UNDO", "PRESET"}
 
     def draw(self, context):
         pass
@@ -224,16 +229,17 @@ class ImportAsset(ImportHelper):
     def settings_title(self) -> str:
         return ""
 
+
 class ImportAnimation(ImportAsset):
     def draw(self, context):
-        layout = self.layout # type: ignore
+        layout = self.layout  # type: ignore
         if not layout:
             return
-        
-        operator = context.space_data.active_operator # type: ignore
+
+        operator = context.space_data.active_operator  # type: ignore
         if not operator:
             return
-        
+
         row = layout.row()
         row.label(text=self.settings_title)
         row = layout.row()
@@ -245,22 +251,25 @@ class ImportAnimation(ImportAsset):
         row = layout.row()
         row.prop(operator, "prefix_component_name")
 
+
 class LinkAppendMetaHumanImportHelper(ImportHelper):
     """
     This class subclasses the import helper to define a custom file browser
     """
-    bl_options = {'UNDO'}
+
+    bl_options = {"UNDO"}
 
     def refresh_meta_human_list(self, operator):
-        self.meta_human_list.clear() # type: ignore
-        rig_instance_names = [i.name for i in bpy.context.scene.meta_human_dna.rig_instance_list] # type: ignore
+        self.meta_human_list.clear()  # type: ignore
+        rig_instance_names = [i.name for i in bpy.context.scene.meta_human_dna.rig_instance_list]  # type: ignore
 
-        with bpy.data.libraries.load(operator.filepath) as (data_from, data_to): # type: ignore
+        with bpy.data.libraries.load(operator.filepath) as (data_from, _data_to):  # type: ignore
             object_names = list(data_from.objects)
 
             for name in data_from.collections:
-                if (f"{name}_head_lod0_mesh" in object_names and f"{name}_head_rig" in object_names) or \
-                   (f"{name}_body_lod0_mesh" in object_names and f"{name}_body_rig" in object_names):
+                if (f"{name}_head_lod0_mesh" in object_names and f"{name}_head_rig" in object_names) or (
+                    f"{name}_body_lod0_mesh" in object_names and f"{name}_body_rig" in object_names
+                ):
                     item = operator.meta_human_list.add()
                     item.name = name
                     item.include = False
@@ -270,15 +279,15 @@ class LinkAppendMetaHumanImportHelper(ImportHelper):
                     else:
                         item.enabled = True
 
-        # save the current filepath to detect changes        
+        # save the current filepath to detect changes
         operator.previous_file_path = operator.filepath
 
     def draw(self, context):
-        layout = self.layout # type: ignore
+        layout = self.layout  # type: ignore
         if not layout:
             return
-        
-        operator = context.space_data.active_operator # type: ignore
+
+        operator = context.space_data.active_operator  # type: ignore
 
         row = layout.row()
         row.prop(operator, "operation_type", expand=True)
@@ -288,23 +297,23 @@ class LinkAppendMetaHumanImportHelper(ImportHelper):
             row.alert = True
             row.label(text="Select a .blend file to see MetaHuman(s)")
             return
-        
+
         if bpy.data.filepath == operator.filepath:
             row = layout.row()
             row.alert = True
             row.label(text="Select different .blend than current")
             return
-        
+
         file_path = Path(operator.filepath)
-        if not file_path.exists() or not file_path.is_file() or not file_path.suffix.lower() == '.blend':
+        if not file_path.exists() or not file_path.is_file() or file_path.suffix.lower() != ".blend":
             return
 
         row = layout.row()
         row.label(text=f"Choose MetaHuman(s) to {operator.operation_type.lower()}:")
 
         # only refresh the list if the selected file path has changed
-        if operator.previous_file_path != operator.filepath: # type: ignore
-            self.refresh_meta_human_list(operator) # type: ignore
+        if operator.previous_file_path != operator.filepath:  # type: ignore
+            self.refresh_meta_human_list(operator)  # type: ignore
 
         for item in operator.meta_human_list:
             row = layout.row()
@@ -313,7 +322,7 @@ class LinkAppendMetaHumanImportHelper(ImportHelper):
             if not item.enabled:
                 row.enabled = False
                 row.alert = True
-                icon = 'ERROR'
+                icon = "ERROR"
                 text = f"{item.name} (Exists in current scene)"
 
             row.prop(item, "include", text="")

@@ -1,14 +1,14 @@
-import bpy
 from pathlib import Path
-from ..properties import MetahumanDnaAddonProperties, ExtraDnaFolder
-from ..constants import ToolInfo
-from .. import __package__
+
+import bpy
+
+from meta_human_dna import __package__
+from meta_human_dna.constants import ToolInfo
+from meta_human_dna.properties import ExtraDnaFolder, MetahumanDnaAddonProperties
 
 
 class FOLDER_UL_extra_dna_path(bpy.types.UIList):
-    def draw_item(
-        self, context, layout, data, item, icon, active_data, active_prop_name
-    ):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_prop_name):
         row = layout.row()
         row.alert = False
         if item.folder_path and not Path(item.folder_path).exists():
@@ -22,22 +22,22 @@ class MetaHumanDnaPreferences(MetahumanDnaAddonProperties, bpy.types.AddonPrefer
     def draw(self, context):
         preferences = context.preferences.addons[ToolInfo.NAME].preferences
         layout = self.layout
-        
+
         # General Settings
         row = layout.row()
         row.prop(self, "metrics_collection", text="Allow Metrics Collection")
         row = layout.row()
         row.prop(self, "show_pose_editor_viewport_overlay", text="Show Pose Editor Viewport Overlay")
-        
+
         # DNA Backup Settings
         layout.separator()
         box = layout.box()
-        box.label(text="Backup Manager Settings:", icon='FILE_BACKUP')
+        box.label(text="Backup Manager Settings:", icon="FILE_BACKUP")
         row = box.row()
         row.prop(self, "enable_auto_dna_backups", text="Enable Auto DNA Backups")
         row.enabled = self.enable_auto_dna_backups
         row.prop(self, "max_dna_backups", text="Maximum Backups to Keep")
-        
+
         # Extra DNA Folder Paths
         layout.separator()
         row = layout.row()
@@ -55,9 +55,7 @@ class MetaHumanDnaPreferences(MetahumanDnaAddonProperties, bpy.types.AddonPrefer
         )
 
         col = row.column()
-        col.operator(
-            "meta_human_dna.addon_preferences_extra_dna_entry_add", text="", icon="ADD"
-        )
+        col.operator("meta_human_dna.addon_preferences_extra_dna_entry_add", text="", icon="ADD")
         row = col.row()
         row.enabled = len(preferences.extra_dna_folder_list) > 0
         row.operator(

@@ -1,10 +1,14 @@
 import sys
-import pytest
-import bpy
+
 from pathlib import Path
+
+import bpy
+import pytest
+
 from constants import ADDON_NAME
 
-@pytest.fixture(scope='session', autouse=True)
+
+@pytest.fixture(scope="session", autouse=True)
 def addon(addons: list[tuple[str, Path]]):
     for addon_name, scripts_folder in addons:
         script_directory = bpy.context.preferences.filepaths.script_directories.get(addon_name) # type: ignore
@@ -31,7 +35,7 @@ def addon(addons: list[tuple[str, Path]]):
     # Close Blender
     bpy.ops.wm.quit_blender()
 
-@pytest.fixture(scope='session', autouse=True)
+@pytest.fixture(scope="session", autouse=True)
 def disable_auto_save():
     # Disable auto DNA backups for tests to improve performance
     bpy.context.preferences.addons[ADDON_NAME].preferences.enable_auto_dna_backups = False # type: ignore

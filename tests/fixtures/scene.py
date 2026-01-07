@@ -1,14 +1,14 @@
-import os
 import shutil
-import bpy
-import bmesh
-import pytest
+
 from pathlib import Path
-from mathutils import Vector, Euler
-from constants import (
-    TEST_DNA_FOLDER,
-    TEST_FBX_FOLDER
-)
+
+import bmesh
+import bpy
+import pytest
+
+from mathutils import Euler, Vector
+
+from constants import TEST_DNA_FOLDER, TEST_FBX_FOLDER
 
 
 def load_dna(
@@ -28,10 +28,10 @@ def load_dna(
     lods_to_import = {}
     # Set all LODs to False by default
     for index in range(8):
-        lods_to_import[f'import_lod{index}'] = False
+        lods_to_import[f"import_lod{index}"] = False
     # Set the LODs to True that are in the import_lods list
     for lod_name in import_lods:
-        lods_to_import[f'import_{lod_name}'] = True
+        lods_to_import[f"import_{lod_name}"] = True
 
     bpy.ops.meta_human_dna.import_dna( # type: ignore
         filepath=str(file_path),
@@ -55,17 +55,17 @@ def _load_temp_body_dna(
     destination_file_path = temp_folder / dna_folder_name / file_name
 
     # copy the dna file to the temp folder so we don't modify the original
-    os.makedirs(destination_file_path.parent, exist_ok=True)
+    destination_file_path.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy(
-        src=TEST_DNA_FOLDER / dna_folder_name / file_name, 
+        src=TEST_DNA_FOLDER / dna_folder_name / file_name,
         dst=destination_file_path
     )
     # copy the export manifest as well (This is used for naming the imported instance)
     shutil.copy(
-        src=TEST_DNA_FOLDER / dna_folder_name / 'ExportManifest.json', 
-        dst=temp_folder / dna_folder_name / 'ExportManifest.json'
+        src=TEST_DNA_FOLDER / dna_folder_name / "ExportManifest.json",
+        dst=temp_folder / dna_folder_name / "ExportManifest.json"
     )
-    
+
     load_dna(
         file_path=destination_file_path,
         import_lods=import_lods,
@@ -74,15 +74,15 @@ def _load_temp_body_dna(
         include_body=False
     )
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def load_head_dna(
-    addon, 
-    dna_folder_name: str, 
+    addon,
+    dna_folder_name: str,
     import_shape_keys: bool,
     import_lods: list,
 ):
     load_dna(
-        file_path=TEST_DNA_FOLDER / dna_folder_name / 'head.dna',
+        file_path=TEST_DNA_FOLDER / dna_folder_name / "head.dna",
         import_lods=import_lods,
         import_shape_keys=import_shape_keys,
         import_face_board=True,
@@ -90,15 +90,15 @@ def load_head_dna(
     )
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def load_body_dna(
-    addon, 
-    dna_folder_name: str, 
+    addon,
+    dna_folder_name: str,
     import_shape_keys: bool,
     import_lods: list,
 ):
     load_dna(
-        file_path=TEST_DNA_FOLDER / dna_folder_name / 'body.dna',
+        file_path=TEST_DNA_FOLDER / dna_folder_name / "body.dna",
         import_lods=import_lods,
         import_shape_keys=import_shape_keys,
         import_face_board=False,
@@ -106,16 +106,16 @@ def load_body_dna(
     )
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def load_body_dna_for_pose_editing(
-    addon, 
+    addon,
     temp_folder,
-    dna_folder_name: str, 
+    dna_folder_name: str,
     import_shape_keys: bool,
     import_lods: list,
 ):
     _load_temp_body_dna(
-        file_name='body.dna',
+        file_name="body.dna",
         temp_folder=temp_folder,
         dna_folder_name=dna_folder_name,
         import_shape_keys=import_shape_keys,
@@ -123,16 +123,16 @@ def load_body_dna_for_pose_editing(
     )
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def load_body_dna_for_pose_roundtrip(
-    addon, 
+    addon,
     temp_folder,
-    dna_folder_name: str, 
+    dna_folder_name: str,
     import_shape_keys: bool,
     import_lods: list,
 ):
     _load_temp_body_dna(
-        file_name='body.dna',
+        file_name="body.dna",
         temp_folder=temp_folder,
         dna_folder_name=dna_folder_name,
         import_shape_keys=import_shape_keys,
@@ -140,7 +140,7 @@ def load_body_dna_for_pose_roundtrip(
     )
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def load_full_dna_for_animation(
     addon,
     temp_folder,
@@ -149,73 +149,75 @@ def load_full_dna_for_animation(
     import_lods: list,
 ):
     load_dna(
-        file_path=TEST_DNA_FOLDER / dna_folder_name / 'head.dna',
+        file_path=TEST_DNA_FOLDER / dna_folder_name / "head.dna",
         import_lods=import_lods,
         import_shape_keys=import_shape_keys,
         import_face_board=True,
         include_body=True
     )
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def load_dna_for_rig_instance_ops(
     addon
 ):
     load_dna(
-        file_path=TEST_DNA_FOLDER / 'ada' / 'head.dna',
-        import_lods=['lod0'],
+        file_path=TEST_DNA_FOLDER / "ada" / "head.dna",
+        import_lods=["lod0"],
         import_shape_keys=False,
         import_face_board=True,
         include_body=True
     )
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def load_mhc_conformed_topology_meshes(
     addon
 ):
     # open default scene
     bpy.ops.wm.read_homefile(app_template="")
     # import head and body wrapped meshes
-    for component in ['head', 'body']:
-        file_path = TEST_FBX_FOLDER / 'mhc_conformed_topology' / f'{component}.fbx'
+    for component in ["head", "body"]:
+        file_path = TEST_FBX_FOLDER / "mhc_conformed_topology" / f"{component}.fbx"
         bpy.ops.import_scene.fbx(filepath=str(file_path))
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def setup_reference_blend_file(
     addon,
     temp_folder
 ) -> Path:
     load_dna(
-        file_path=TEST_DNA_FOLDER / 'ada' / 'head.dna',
-        import_lods=['lod0'],
+        file_path=TEST_DNA_FOLDER / "ada" / "head.dna",
+        import_lods=["lod0"],
         import_shape_keys=False,
         import_face_board=True,
         include_body=True
     )
-    file_path = temp_folder / 'reference_blend_file.blend'
+    file_path = temp_folder / "reference_blend_file.blend"
     # Save the blend file
     bpy.ops.wm.save_as_mainfile(filepath=str(file_path))
 
     return file_path
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def head_bmesh(load_head_dna) -> bmesh.types.BMesh | None:
-    from meta_human_dna.utilities import get_active_head
     from meta_human_dna.dna_io.exporter import DNAExporter
+    from meta_human_dna.utilities import get_active_head
     head = get_active_head()
     if head and head.head_mesh_object:
         return DNAExporter.get_bmesh(head.head_mesh_object)
+    return None
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def head_armature(load_head_dna) -> bpy.types.Object | None:
     from meta_human_dna.utilities import get_active_head
     head = get_active_head()
     if head and head.head_rig_object:
         return head.head_rig_object
+    return None
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def modify_head_scene(
     load_head_dna,
     dna_folder_name: str,
@@ -230,11 +232,7 @@ def modify_head_scene(
     changed_head_vertex_group_weight: float,
     temp_folder
     ):
-    from utilities.modify import (
-        apply_bone_transform, 
-        apply_vertex_transform,
-        apply_vertex_group_weight
-    )
+    from utilities.modify import apply_bone_transform, apply_vertex_group_weight, apply_vertex_transform
 
     # Make some changes
     apply_vertex_transform(
@@ -245,7 +243,7 @@ def modify_head_scene(
     )
     apply_bone_transform(
         prefix=dna_folder_name,
-        component='head',
+        component="head",
         bone_name=changed_head_bone_name,
         location=changed_head_bone_location[0],
         rotation=changed_head_bone_rotation[0],
@@ -259,4 +257,4 @@ def modify_head_scene(
     )
 
     # Save the blend file
-    bpy.ops.wm.save_as_mainfile(filepath=str(temp_folder / f'{dna_folder_name}_head_modified.blend'))
+    bpy.ops.wm.save_as_mainfile(filepath=str(temp_folder / f"{dna_folder_name}_head_modified.blend"))

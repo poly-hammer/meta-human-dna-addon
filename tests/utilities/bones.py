@@ -1,13 +1,9 @@
 import bpy
+
 from mathutils import Vector
-from meta_human_dna.utilities import (
-    switch_to_pose_mode,
-    switch_to_object_mode,
-    deselect_all
-)
-from meta_human_dna.constants import (
-    EXTRA_BONES
-)
+
+from meta_human_dna.constants import EXTRA_BONES
+from meta_human_dna.utilities import deselect_all, switch_to_object_mode, switch_to_pose_mode
 
 
 def get_bone_differences(
@@ -55,7 +51,7 @@ def get_bone_differences(
 
             source_bone = source_rig.pose.bones[bone_name] # type: ignore
             target_bone = target_rig.pose.bones.get(bone_name) # type: ignore
-            
+
             if target_bone:
                 source_world_location = source_rig.matrix_world @ source_bone.head
                 target_world_location = target_rig.matrix_world @ target_bone.head
@@ -64,21 +60,21 @@ def get_bone_differences(
                 loc_diff = (source_world_location - target_world_location).length
                 if loc_diff >= tolerance:
                     differences.append((bone_name, loc_diff))
-    
+
     return differences, target_bone_locations
 
 def show_differences(
-        source_rig_name: str, 
-        target_rig_name: str, 
+        source_rig_name: str,
+        target_rig_name: str,
         differences: list[tuple[str, float]]
     ):
     # hide all bones
     source_rig = bpy.data.objects[source_rig_name]
-    source_rig.hide_set(False) 
+    source_rig.hide_set(False)
     for bone in source_rig.data.bones: # type: ignore
         bone.hide = True
     target_rig = bpy.data.objects[target_rig_name]
-    target_rig.hide_set(False) 
+    target_rig.hide_set(False)
     for bone in target_rig.data.bones: # type: ignore
         bone.hide = True
 
@@ -88,7 +84,7 @@ def show_differences(
     source_rig.select_set(True)
     target_rig.select_set(True)
     bpy.context.view_layer.objects.active = target_rig # type: ignore
-    bpy.ops.object.mode_set(mode='POSE')
+    bpy.ops.object.mode_set(mode="POSE")
 
     # show the bones with differences
     for bone_name, _ in differences:
