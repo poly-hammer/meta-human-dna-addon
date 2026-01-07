@@ -26,12 +26,12 @@ jobs:
       PYTHONUNBUFFERED: 1
       META_HUMAN_DNA_DEV: 1
       RUNNING_CI: 1
-    
-    steps:      
+
+    steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
         with:
-          path: 'meta-human-dna-addon'
+          path: "meta-human-dna-addon"
           lfs: true
           submodules: true
           token: ${{ secrets.GH_PAT }}
@@ -39,27 +39,32 @@ jobs:
       - name: Checkout meta-human-dna-bindings Repo
         uses: actions/checkout@v4
         with:
-          repository: 'poly-hammer/meta-human-dna-bindings'
-          path: 'meta-human-dna-bindings'
+          repository: "poly-hammer/meta-human-dna-bindings"
+          path: "meta-human-dna-bindings"
           token: ${{ secrets.GH_PAT }}
 
       - name: Checkout meta-human-dna-core Repo
         uses: actions/checkout@v4
         with:
-          repository: 'poly-hammer/meta-human-dna-core'
-          path: 'meta-human-dna-core'
+          repository: "poly-hammer/meta-human-dna-core"
+          path: "meta-human-dna-core"
           token: ${{ secrets.GH_PAT }}
 
-      - name: Set up Python ${{ inputs.python-version }} 
+      - name: Set up Python ${{ inputs.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ inputs.python-version }} 
+          python-version: ${{ inputs.python-version }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
 
       - name: Install Dependencies
         run: |
           cd meta-human-dna-addon
-          pip install --upgrade -r requirements.txt
-          pip install --upgrade bpy==${{ inputs.blender-version }}.*
+          uv sync
+          uv pip install --upgrade bpy==${{ inputs.blender-version }}.*
 
       - name: Run Tests Windows
         if: matrix.os == 'windows-latest'
@@ -90,7 +95,7 @@ jobs:
           require_tests: True
           require_passed_tests: True
           detailed_summary: True
-          report_paths: './meta-human-dna-addon/reports/pytest/*.xml'
+          report_paths: "./meta-human-dna-addon/reports/pytest/*.xml"
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5

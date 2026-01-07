@@ -1,0 +1,58 @@
+version: 2
+updates:
+  # Python dependencies in pyproject.toml
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      day: "monday"
+      time: "09:00"
+    target-branch: "dev"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    ignore:
+      # Ignore patch updates for stable packages
+      - dependency-name: "bpy"
+        update-types: ["version-update:semver-patch"]
+      # Keep specific versions pinned for compatibility
+      - dependency-name: "debugpy"
+        update-types: ["version-update:semver-major"]
+    groups:
+      # Group development tools together
+      dev-tools:
+        patterns:
+          - "pytest*"
+          - "ruff"
+          - "pre-commit"
+          - "mkdocs*"
+          - "genbadge*"
+      # Group testing dependencies
+      testing:
+        patterns:
+          - "pytest*"
+          - "coverage*"
+      # Group documentation dependencies
+      docs:
+        patterns:
+          - "mkdocs*"
+          - "markdown*"
+
+  # GitHub Actions workflow dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      day: "monday"
+      time: "09:00"
+    target-branch: "dev"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    groups:
+      # Group all GitHub Actions updates together
+      github-actions:
+        patterns:
+          - "*"

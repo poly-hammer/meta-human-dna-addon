@@ -1,76 +1,92 @@
 # Development
 
-Contributions are welcome and encouraged. Before performing a significant amount of work, please create a issue on the repo to discuss your idea first. Please open all PRs to our `dev` branch, thank you!
+Contributions are welcome! Please create an issue to discuss significant work before starting. Open all PRs to the `dev` branch.
 
 ## Pull Request Process
-1. Fork the repository.
-1. Create a branch in your fork that matches the name of the issue you're working on.
-1. Add the new feature or fix.
-1. Run the unit tests and ensure that none fail.
-1. Submit a pull request from your forked branch back to the `dev` branch of the repository.
-1. Include the updated documentation in the pull request.
-1. The pull request will be reviewed, then merged into `dev` if all tests pass, the changes will be pushed to the `main` branch and a new versioned build will be made.
+1. Fork the repository and create a branch matching the issue name.
+2. Add the feature/fix with accompanying unit tests.
+3. Run tests and ensure all pass.
+4. Submit PR to `dev` with updated documentation.
 
 !!! note
-  
-    Any new features require an accompanying unit test for it to be approved.
+    New features require accompanying unit tests to be approved.
 
-## Development Dependencies
+## Prerequisites
 
-* [VS Code](https://code.visualstudio.com/download) 
+- [VS Code](https://code.visualstudio.com/download) (recommended for pre-configured profiles)
+- [Python 3.11](https://www.python.org/downloads/release/python-3117/)
+- [uv](https://docs.astral.sh/uv/getting-started/installation/) (Python package manager)
+- [Git](https://git-scm.com/download/win) with Git LFS
+- [Blender 4.5+](https://www.blender.org/download/)
 
-    Alternatively, you can use another Python IDE, but development will be more streamlined in VS Code due to pre-configured profiles and launch settings. Additionally, `debugpy` is integrated into the environments when launching Blender from VS Code, facilitating debugging.
+## Setup
 
-* [Python 3.11](https://www.python.org/downloads/release/python-3117/)
-    
-    Grab the installer from the provided link.
+### Using uv (Recommended)
+```bash
+# Install uv (if not installed)
+pip install uv
 
-* [Git](https://git-scm.com/download/win) 
+# Create venv and install dependencies
+uv sync
 
-    Ensure that Git LFS is installed. The most recent Git installer typically includes Git LFS by default. When running the installer, opt for the default settings.
+# Install pre-commit hooks
+uv run pre-commit install
+uv run pre-commit install --hook-type commit-msg
+```
 
-* [Blender 4.2](https://www.blender.org/download/)
+### Using VS Code
+1. Open the workspace - VS Code will prompt to install recommended extensions from `.vscode/extensions.json`
+2. Copy `.env.example` to `.env`
+3. Restart VS Code
+4. Run `> Python: Select Interpreter` and choose `.venv/Scripts/python.exe`
 
-
-## VSCode
-The repo contains the tasks, launch actions, and settings for developing with vscode. To get setup do the following:
-
-### Setup
-1. Install the VSCode profile under `admin/profiles/dev.code-profile`. You can do this by typing `> Profile Import Profile` in the command pallette. This will give you all the vscode extensions you will need.
-1. Copy the example `.env.example` file and rename it to `.env`
-1. Close and re-open VSCode
-1. Type `> Python: Create Environment`, hit enter and chose `Venv` and choose your Python 3.11 installation, then check the box to install the `requirements.txt`
-1. Close and re-open your integrated terminal in vscode and ensure that you now have a `(.venv)` prefixing your shell. If you do, you are all setup and ready to go!
-
-### Build Tasks
-The VSCode project has build tasks for launching your apps. It is highly recommended that you launch blender and unreal through these, since they will ensure you have the dev dependencies in your python environment for reloading code and debugging. To do this move your cursor over the integrate terminal and press the hot keys `CTRL+SHIFT+B`. 
+## Build Tasks
+Launch Blender/Unreal through VS Code build tasks (`CTRL+SHIFT+B`) to enable dev dependencies and debugging.
 
 ![1](../images/contributing/development/1.gif)
 
 !!! note
-    If you choose yes to debug, the app will hang until you attach to it via debugpy in VSCode. (See Launch Actions)
+    Selecting "debug" will hang the app until you attach via debugpy in VS Code.
 
 !!! note
-    The launch scripts look for the unreal and blender executables in their default locations. You can override the exe paths by setting
-    the `UNREAL_EXE_PATH`, `UNREAL_PROJECT` and `BLENDER_EXE_PATH` variables in a `.env` file in the repo root.
+    Override executable paths via `.env`: `UNREAL_EXE_PATH`, `UNREAL_PROJECT`, `BLENDER_EXE_PATH`
 
-### Launch Actions
-Several launch actions have been created for debugging. Use the `Python Debugger: Attach` to attach to the blender after it has been launched from the build tasks and has logged that its waiting for the debugger to attach. There are also a few other debug configurations for the test cases as well.
+## Launch Actions
+Use `Python Debugger: Attach` to connect to Blender after launching from build tasks.
 
 ![1](../images/contributing/development/2.png)
 
-## Reloading the addon code
-If blender was launched from VS Code, then you should be able to run this snippet in the script editor to reload the addon code.
+## Reloading Addon Code
 
+**Blender** (when launched from VS Code):
 ```python
 from poly_hammer_utils.helpers import reload_addon_source_code
 reload_addon_source_code(['meta_human_dna'])
 ```
 
-In a similar way, when launching unreal from vscode, you can reload the supporting unreal utilities with:
+## Code Quality
 
-```python
-import meta_human_dna_utilities
-from poly_hammer_utils.helpers import deep_reload
-deep_reload(meta_human_dna_utilities)
+All code is checked via pre-commit hooks and CI:
+
+- **Ruff**: Linting and formatting (configured in `pyproject.toml`)
+- **CSpell**: Spell checking (configured in `cspell.json`)
+- **Pyright**: Type checking (configured in `pyproject.toml`)
+
+Run checks manually:
+```bash
+uv run pre-commit run --all-files
+uv run ruff check .
+uv run ruff format --check .
 ```
+
+## Type Stubs (Optional)
+
+For better IDE autocomplete with `bpy`, install type stubs into a **separate** virtual environment:
+
+```bash
+uv venv .stubs-venv
+uv pip install --python .stubs-venv/Scripts/python.exe -e ".[stubs]"
+```
+
+!!! warning
+    Do not install stubs into the main `.venv`—they conflict with the real `bpy` package.

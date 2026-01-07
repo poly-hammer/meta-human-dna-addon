@@ -5,15 +5,15 @@ on:
       - main
       - dev
     paths:
-      - 'src/**'
-      - 'tests/**'
-      - '.github/workflows/**.yaml'
-      - '!src/**/release_notes.md'
+      - "src/**"
+      - "tests/**"
+      - ".github/workflows/**.yaml"
+      - "!src/**/release_notes.md"
 
 jobs:
   test-blender-4-5:
     name: Blender 4.5 Tests
-    uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-tests.yaml@main
+    uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-tests.yaml@${{ github.head_ref || github.ref_name }}
     secrets: inherit
     with:
       python-version: "3.11"
@@ -21,7 +21,7 @@ jobs:
 
   test-blender-5-0:
     name: Blender 5.0 Tests
-    uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-tests.yaml@main
+    uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-tests.yaml@${{ github.head_ref || github.ref_name }}
     secrets: inherit
     with:
       python-version: "3.11"

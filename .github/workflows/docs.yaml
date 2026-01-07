@@ -4,32 +4,33 @@ on:
     branches:
       - main
     paths:
-      - 'docs/**'
-      - '!docs/images/badges/**'
+      - "docs/**"
+      - "!docs/images/badges/**"
 
 jobs:
   release:
     name: Docs
     runs-on: ubuntu-latest
-    steps:      
+    steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
 
       - name: Install Dependencies
-        run: |
-          pip install --upgrade -r requirements.txt
+        run: uv sync
 
       - name: Create Release
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
           GITHUB_REPO: ${{ github.repository }}
           DOCS_REPO: ${{ secrets.DOCS_REPO }}
-        run: |
-          python -m poly_hammer_utils.addon.release docs
-
-      
+        run: uv run python -m poly_hammer_utils.addon.release docs

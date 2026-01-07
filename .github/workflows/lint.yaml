@@ -1,0 +1,144 @@
+name: Lint & Static Analysis
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+    paths:
+      - "src/**"
+      - "tests/**"
+      - ".github/workflows/lint.yaml"
+      - "pyproject.toml"
+      - "cspell.json"
+      - ".pre-commit-config.yaml"
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - "src/**"
+      - "tests/**"
+      - ".github/workflows/lint.yaml"
+      - "pyproject.toml"
+      - "cspell.json"
+      - ".pre-commit-config.yaml"
+
+jobs:
+  lint:
+    name: Ruff Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: |
+          uv pip install --system ruff
+
+      - name: Ruff Lint Check
+        run: |
+          ruff check --output-format=github .
+
+      - name: Ruff Format Check
+        run: |
+          ruff format --check --diff .
+
+  spell-check:
+    name: CSpell Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install CSpell
+        run: npm install -g cspell@latest
+
+      - name: Run CSpell
+        run: |
+          cspell lint \
+            --no-progress \
+            --show-suggestions \
+            --show-context \
+            "src/**/*.py" \
+            "tests/**/*.py" \
+            "docs/**/*.md" \
+            "*.md" \
+            "*.toml" \
+            "*.yaml" \
+            "*.yml"
+
+  type-check:
+    name: Pyright Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Create stubs venv and install stubs
+        run: |
+          python -m venv .stubs-venv
+          .stubs-venv/bin/pip install fake-bpy-module-latest
+
+      - name: Install pyright
+        run: |
+          npm install -g pyright
+
+      - name: Run Pyright
+        run: |
+          pyright --outputjson > pyright-results.json || true
+          cat pyright-results.json
+
+      - name: Upload Pyright Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pyright-results
+          path: pyright-results.json
+          retention-days: 7
+
+  pre-commit:
+    name: Pre-commit Hooks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pre-commit
+        run: pip install pre-commit
+
+      - name: Run pre-commit
+        uses: pre-commit/action@v3.0.1
+        with:
+          extra_args: --all-files --show-diff-on-failure
+        env:
+          SKIP: no-commit-to-branch

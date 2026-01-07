@@ -18,7 +18,7 @@ def test_view_3d(panel_class):
 
 @pytest.mark.parametrize('operator_class', [
     operators.ForceEvaluate,
-    operators.ImportMetahumanDna,
+    operators.ImportMetaHumanDna,
 ])
 def test_operators(operator_class):
     assert operator_class.is_registered, f'Operator {operator_class.bl_idname} is not registered.'

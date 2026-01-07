@@ -1,0 +1,120 @@
+# =============================================================================
+# Blender Extension Manifest (Blender 4.2+)
+# https://docs.blender.org/manual/en/latest/advanced/extensions.html
+# =============================================================================
+
+schema_version = "1.0.0"
+
+# =============================================================================
+# Extension Identification
+# =============================================================================
+id = "meta_human_dna"
+name = "MetaHuman DNA"
+tagline = "Import, customize, and export MetaHuman DNA files with RigLogic support"
+version = "0.5.4"
+type = "add-on"
+
+# =============================================================================
+# Maintainer Information
+# =============================================================================
+maintainer = "Poly Hammer <info@polyhammer.com>"
+website = "https://polyhammer.com"
+
+# =============================================================================
+# Blender Compatibility
+# =============================================================================
+# Minimum Blender version required
+blender_version_min = "4.5.0"
+# Maximum Blender version supported (optional, leave unset for future compatibility)
+# blender_version_max = "5.0.0"
+
+# =============================================================================
+# License Information
+# =============================================================================
+license = ["SPDX:LicenseRef-Proprietary"]
+copyright = ["2024-2026 Poly Hammer"]
+
+# =============================================================================
+# Extension Description
+# =============================================================================
+description = """
+MetaHuman DNA is a industry grade Blender addon that provides comprehensive support
+for Epic Games' MetaHuman DNA file format.
+
+## Key Features
+
+- **DNA Import/Export**: Read and write MetaHuman DNA files (head and body)
+- **DNA Calibration**: Modify MetaHuman characters and export changes back to DNA format
+- **RigLogic Integration**: Real-time facial animation evaluation via the RigLogic library
+- **RBF Solvers**: Radial Basis Function solvers for body pose corrections
+- **Animation Support**: Import and body and face board animations
+
+## Supported Workflows
+
+- Import MetaHuman characters into Blender with full rig support
+- Customize character appearance and rig behavior
+- Export modifications back to DNA format
+- Send customized MetaHumans to MetaHuman Creator via DNA files
+- Import and work with facial animations
+- Customize RigLogic expressions and poses
+
+## Requirements
+
+- Blender 4.5 or newer
+- Platform-specific RigLogic bindings (available at polyhammer.com)
+- Sentry SDK for error reporting (bundled)
+
+For detailed documentation, visit: https://docs.polyhammer.com/meta-human-dna-addon/
+"""
+
+# =============================================================================
+# Categories and Tags
+# =============================================================================
+tags = ["Rigging", "Animation", "Import-Export", "3D View"]
+
+# =============================================================================
+# Platforms
+# =============================================================================
+# Platforms this extension supports
+# Leave empty for pure Python extensions
+platforms = ["windows-x64", "linux-x64", "macos-arm64"]
+
+# =============================================================================
+# Permissions
+# =============================================================================
+# File access for DNA import/export operations
+permissions = { files = "Import and export DNA files", network = "Error reporting via Sentry and license validation" }
+
+# =============================================================================
+# Wheels (Python Dependencies)
+# =============================================================================
+# Python packages required by this extension
+# These will be installed automatically when the extension is enabled
+wheels = [
+    # "./wheels/sentry_sdk-2.19.2-py3-none-any.whl",
+]
+
+# =============================================================================
+# Build Settings
+# =============================================================================
+[build]
+# Paths to exclude from the extension package
+paths_exclude_pattern = [
+    "__pycache__/",
+    "*.pyc",
+    "*.pyo",
+    ".git/",
+    ".gitignore",
+    ".gitattributes",
+    "*.blend1",
+    "*.blend2",
+    ".DS_Store",
+    "Thumbs.db",
+    "tests/",
+    "docs/",
+    ".ruff_cache/",
+    ".pytest_cache/",
+    ".mypy_cache/",
+    "*.md",
+    "requirements.txt",
+]
