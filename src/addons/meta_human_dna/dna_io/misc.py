@@ -84,7 +84,7 @@ def get_dna_reader(
 
 
 def get_dna_writer(file_path: Path, file_format: FileFormat = "binary") -> "riglogic.BinaryStreamWriter":
-    from .bindings import riglogic
+    from ..bindings import riglogic
 
     file_path = Path(file_path)
     os.makedirs(file_path.parent, exist_ok=True)

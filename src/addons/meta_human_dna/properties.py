@@ -1,13 +1,17 @@
+# standard library imports
 import logging
 
+# third party imports
 import bpy
 
+# local imports
 from .constants import NUMBER_OF_HEAD_LODS, ToolInfo
 from .rig_instance import (
     OutputData,
     RigInstance,
     ShapeKeyData,
 )
+from .typing import *  # noqa: F403
 from .ui import callbacks
 
 
@@ -16,7 +20,7 @@ logger = logging.getLogger(__name__)
 preview_collections = {}
 
 
-def get_dna_import_property_group_base_class():
+def get_dna_import_property_group_base_class() -> type:
     """
     Dynamically generates the number of LOD import properties
     """
@@ -40,19 +44,23 @@ def get_dna_import_property_group_base_class():
 class BlendFileMetaHumanCollection(bpy.types.PropertyGroup):
     include: bpy.props.BoolProperty(
         default=True,
-        description="Whether to include this MetaHuman data in the append or link operation. Note: you can not append or link rig instances that have the same name as another in the current scene. Names must be unique.",
+        description=(
+            "Whether to include this MetaHuman data in the append or link operation. Note: you can not "
+            "append or link rig instances that have the same name as another in the current scene. "
+            "Names must be unique"
+        ),
     )  # type: ignore
     name: bpy.props.StringProperty(
         default="",
         description="The name of the MetaHuman",
-    )  # type: ignore
-    enabled: bpy.props.BoolProperty(default=True)  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
+    enabled: bpy.props.BoolProperty(default=True)  # pyright: ignore[reportInvalidTypeForm]
 
 
 class ExtraDnaFolder(bpy.types.PropertyGroup):
     folder_path: bpy.props.StringProperty(
         default="", description="The folder location of the extension repo.", subtype="DIR_PATH"
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
 
 
 class MetahumanDnaAddonProperties:
@@ -64,19 +72,22 @@ class MetahumanDnaAddonProperties:
         name="Collect Metrics",
         default=False,
         description="This will send anonymous usage data to Poly Hammer to help improve the addon and help catch bugs",
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
 
     show_pose_editor_viewport_overlay: bpy.props.BoolProperty(
         name="Show Pose Editor Viewport Overlay",
         default=True,
         description="Display an overlay in the 3D viewport when the Pose Editor is in edit mode",
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
 
     enable_auto_dna_backups: bpy.props.BoolProperty(
         name="Enable Auto DNA Backups",
         default=True,
-        description="Automatically backup DNA files when saving the blend file, or committing edit mode changes from the Pose Editor or Expression Editor",
-    )  # type: ignore
+        description=(
+            "Automatically backup DNA files when saving the blend file, or committing edit mode changes "
+            "from the Pose Editor or Expression Editor"
+        ),
+    )  # pyright: ignore[reportInvalidTypeForm]
 
     max_dna_backups: bpy.props.IntProperty(
         name="Maximum Backups",
@@ -84,57 +95,70 @@ class MetahumanDnaAddonProperties:
         min=1,
         max=50,
         description="Maximum number of DNA backups to keep. Older backups will be automatically deleted",
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
 
-    next_metrics_consent_timestamp: bpy.props.FloatProperty(default=0.0)  # type: ignore
-    extra_dna_folder_list: bpy.props.CollectionProperty(type=ExtraDnaFolder)  # type: ignore
-    extra_dna_folder_list_active_index: bpy.props.IntProperty()  # type: ignore
+    next_metrics_consent_timestamp: bpy.props.FloatProperty(default=0.0)  # pyright: ignore[reportInvalidTypeForm]
+    extra_dna_folder_list: bpy.props.CollectionProperty(type=ExtraDnaFolder)  # pyright: ignore[reportInvalidTypeForm]
+    extra_dna_folder_list_active_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
 
 
 class MetahumanDnaImportProperties(get_dna_import_property_group_base_class()):
-    import_mesh: bpy.props.BoolProperty(default=True, name="Mesh", description="Whether to import the head meshes")  # type: ignore
+    import_mesh: bpy.props.BoolProperty(default=True, name="Mesh", description="Whether to import the head meshes")  # pyright: ignore[reportInvalidTypeForm]
     import_normals: bpy.props.BoolProperty(
         default=False, name="Normals", description="Whether to import custom split normals on the head meshes"
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     import_bones: bpy.props.BoolProperty(
         default=True, name="Bones", description="Whether to import the bones for the head"
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     import_shape_keys: bpy.props.BoolProperty(
         default=False,
         name="Shape Keys",
         description="Whether to import the shapes key for the head. You can also import these later",
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     import_vertex_groups: bpy.props.BoolProperty(
         default=True,
         name="Vertex Groups",
         description="Whether to import the vertex groups that skin the bones to the head mesh",
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     import_vertex_colors: bpy.props.BoolProperty(
         default=True,
         name="Vertex Colors",
-        description="Whether to import the vertex colors for the head mesh. Note this will first look for a vertex_colors.json in the same folder as the .dna file. Otherwise it will use the default vertex_colors.json in the addon resources",
-    )  # type: ignore
+        description=(
+            "Whether to import the vertex colors for the head mesh. Note this will first look "
+            "for a vertex_colors.json in the same folder as the .dna file. Otherwise it will use the "
+            "default vertex_colors.json in the addon resources"
+        ),
+    )  # pyright: ignore[reportInvalidTypeForm]
     import_materials: bpy.props.BoolProperty(
         default=True, name="Materials", description="Whether to import the materials for the head mesh"
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     import_face_board: bpy.props.BoolProperty(
         default=True, name="Face Board", description="Whether to import the face board that drives the rig logic"
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     reuse_face_board: bpy.props.BoolProperty(
         default=False,
         name="Reuse Face Board",
-        description="Whether to reuse or import a unique face board that drives the rig logic instead of a shared one. This is useful if you want to have multiple rigs in the same scene that drive different face meshes",
-    )  # type: ignore
+        description=(
+            "Whether to reuse or import a unique face board that drives the rig logic instead of a shared one. "
+            "This is useful if you want to have multiple rigs in the same scene that drive different face meshes"
+        ),
+    )  # pyright: ignore[reportInvalidTypeForm]
     include_body: bpy.props.BoolProperty(
         default=True,
         name="Include Body",
-        description="If true, this will try to find a body.dna file in the same folder as this .dna file. If the body.dna file is found, it will be imported as well",
-    )  # type: ignore
+        description=(
+            "If true, this will try to find a body.dna file in the same folder as this .dna file. "
+            "If the body.dna file is found, it will be imported as well"
+        ),
+    )  # pyright: ignore[reportInvalidTypeForm]
     alternate_maps_folder: bpy.props.StringProperty(
         default="",
         name="Maps Folder",
-        description='This can be set to an alternate folder location for the face wrinkle maps. If no folder is set, the importer looks for a "Maps" folder next to the .dna file',
-    )  # type: ignore
+        description=(
+            "This can be set to an alternate folder location for the face wrinkle maps. "
+            'If no folder is set, the importer looks for a "Maps" folder next to the .dna file'
+        ),
+    )  # pyright: ignore[reportInvalidTypeForm]
 
 
 class MetahumanWindowMangerProperties(bpy.types.PropertyGroup, MetahumanDnaImportProperties):
@@ -146,15 +170,17 @@ class MetahumanWindowMangerProperties(bpy.types.PropertyGroup, MetahumanDnaImpor
     errors = {}
     dna_info = {"_previous_file_path": None, "_dna_reader": None}
 
-    error_message: bpy.props.StringProperty(default="")  # type: ignore
-    progress: bpy.props.FloatProperty(default=1.0)  # type: ignore
-    progress_description: bpy.props.StringProperty(default="")  # type: ignore
-    progress_mesh_name: bpy.props.StringProperty(default="")  # type: ignore
-    evaluate_dependency_graph: bpy.props.BoolProperty(default=True)  # type: ignore
-    is_undoing: bpy.props.BoolProperty(default=False)  # type: ignore
+    error_message: bpy.props.StringProperty(default="")  # pyright: ignore[reportInvalidTypeForm]
+    progress: bpy.props.FloatProperty(default=1.0)  # pyright: ignore[reportInvalidTypeForm]
+    progress_description: bpy.props.StringProperty(default="")  # pyright: ignore[reportInvalidTypeForm]
+    progress_mesh_name: bpy.props.StringProperty(default="")  # pyright: ignore[reportInvalidTypeForm]
+    evaluate_dependency_graph: bpy.props.BoolProperty(default=True)  # pyright: ignore[reportInvalidTypeForm]
+    is_undoing: bpy.props.BoolProperty(default=False)  # pyright: ignore[reportInvalidTypeForm]
 
     face_pose_previews: bpy.props.EnumProperty(  # type: ignore
-        name="Face Poses", items=callbacks.get_face_pose_previews_items, update=callbacks.update_face_pose
+        name="Face Poses",
+        items=callbacks.get_face_pose_previews_items,  # type: ignore[arg-type]
+        update=callbacks.update_face_pose,  # type: ignore[arg-type]
     )
     current_component_type: bpy.props.EnumProperty(
         name="Component Type",
@@ -163,24 +189,31 @@ class MetahumanWindowMangerProperties(bpy.types.PropertyGroup, MetahumanDnaImpor
             ("head", "Head", "Set the head as the current component for utility operations"),
             ("body", "Body", "Set the body as the current component for utility operations"),
         ],
-        description="Choose what component to use when performing utility operations. This will determine what data is shown in the selection dropdowns as well",
-    )  # type: ignore
+        description=(
+            "Choose what component to use when performing utility operations. This will determine "
+            "what data is shown in the selection dropdowns as well"
+        ),
+    )  # pyright: ignore[reportInvalidTypeForm]
     base_dna: bpy.props.EnumProperty(
         name="Base DNA",
-        items=callbacks.get_base_dna_folder,
+        items=callbacks.get_base_dna_folder,  # type: ignore[arg-type]
         description="Choose the base DNA folder that will be used when converting the selected.",
         options={"ANIMATABLE"},
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     new_folder: bpy.props.StringProperty(
         name="Output Folder", default="", subtype="DIR_PATH", options={"PATH_SUPPORTS_BLEND_RELATIVE"}
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     maps_folder: bpy.props.StringProperty(
         default="",
         name="Maps Folder",
-        description="Optionally, this can be set to a folder location for the face wrinkle maps. Textures following the same naming convention as the metahuman source files will be found and set on the materials automatically.",
+        description=(
+            "Optionally, this can be set to a folder location for the face wrinkle maps. "
+            "Textures following the same naming convention as the metahuman source files will be found "
+            "and set on the materials automatically."
+        ),
         subtype="DIR_PATH",
         options={"PATH_SUPPORTS_BLEND_RELATIVE"},
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
 
 
 class MetahumanSceneProperties(bpy.types.PropertyGroup):
@@ -198,7 +231,7 @@ class MetahumanSceneProperties(bpy.types.PropertyGroup):
         default=False,
         set=callbacks.set_highlight_matching_active_bone,
         get=callbacks.get_highlight_matching_active_bone,
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     push_along_normal_distance: bpy.props.FloatProperty(
         name="Distance Along Normal",
         description="The distance to push the selected bone along the head mesh vertex normals",
@@ -206,10 +239,12 @@ class MetahumanSceneProperties(bpy.types.PropertyGroup):
         min=0.0,
         step=1,
         precision=5,
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     # --------------------- riglogic properties ------------------
-    rig_instance_list: bpy.props.CollectionProperty(type=RigInstance)  # type: ignore
-    rig_instance_list_active_index: bpy.props.IntProperty(update=callbacks.update_head_output_items)  # type: ignore
+    rig_instance_list: bpy.props.CollectionProperty(type=RigInstance)  # pyright: ignore[reportInvalidTypeForm]
+    rig_instance_list_active_index: bpy.props.IntProperty(
+        update=callbacks.update_head_output_items  # type: ignore[arg-type]
+    )  # pyright: ignore[reportInvalidTypeForm]
 
 
 def register():
@@ -251,20 +286,20 @@ def register():
 
     try:
         bpy.utils.register_class(MetahumanSceneProperties)
-        bpy.types.Scene.meta_human_dna = bpy.props.PointerProperty(type=MetahumanSceneProperties)  # type: ignore
+        bpy.types.Scene.meta_human_dna = bpy.props.PointerProperty(type=MetahumanSceneProperties)  # type: ignore[attr-defined]
     except ValueError as error:
         logger.debug(error)
 
     try:
         bpy.utils.register_class(MetahumanWindowMangerProperties)
-        bpy.types.WindowManager.meta_human_dna = bpy.props.PointerProperty(type=MetahumanWindowMangerProperties)  # type: ignore
+        bpy.types.WindowManager.meta_human_dna = bpy.props.PointerProperty(type=MetahumanWindowMangerProperties)  # type: ignore[attr-defined]
     except ValueError as error:
         logger.debug(error)
 
     # add the pose previews collection
     face_pose_previews_collection = bpy.utils.previews.new()
-    face_pose_previews_collection.face_pose_previews_root_folder = ""  # type: ignore
-    face_pose_previews_collection.face_pose_previews = ()  # type: ignore
+    face_pose_previews_collection.face_pose_previews_root_folder = ""  # type: ignore[attr-defined]
+    face_pose_previews_collection.face_pose_previews = ()  # type: ignore[attr-defined]
     preview_collections["face_poses"] = face_pose_previews_collection
 
 
@@ -321,7 +356,7 @@ def unregister():
         logger.debug(error)
 
     if hasattr(bpy.types.WindowManager, ToolInfo.NAME):
-        del bpy.types.WindowManager.meta_human_dna  # type: ignore
+        del bpy.types.WindowManager.meta_human_dna  # type: ignore[attr-defined]
 
     if hasattr(bpy.types.Scene, ToolInfo.NAME):
-        del bpy.types.Scene.meta_human_dna  # type: ignore
+        del bpy.types.Scene.meta_human_dna  # type: ignore[attr-defined]

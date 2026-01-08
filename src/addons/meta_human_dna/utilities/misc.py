@@ -1,3 +1,4 @@
+# standard library imports
 import json
 import logging
 import math
@@ -9,12 +10,14 @@ import uuid
 
 from collections.abc import Callable, Generator
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
+# third party imports
 import bpy
 
 from mathutils import Vector
 
+# local imports
 from ..constants import (
     DEFAULT_UV_TOLERANCE,
     EYE_AIM_BONES,
@@ -32,18 +35,15 @@ from ..constants import (
     ToolInfo,
 )
 from ..rig_instance import start_listening
+from ..typing import *  # noqa: F403
+from . import get_active_rig_instance
 
-
-if TYPE_CHECKING:
-    from ..components.body import MetaHumanComponentBody
-    from ..components.head import MetaHumanComponentHead
-    from ..rig_instance import RigInstance
 
 logger = logging.getLogger(__name__)
 
 
-def exclude_rig_instance_evaluation(func):
-    def wrapper(*args, **kwargs):
+def exclude_rig_instance_evaluation(func: Callable) -> Callable:
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False  # type: ignore
         result = func(*args, **kwargs)
         bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True  # type: ignore
@@ -52,7 +52,7 @@ def exclude_rig_instance_evaluation(func):
     return wrapper
 
 
-def get_current_context():
+def get_current_context() -> dict[str, Any]:
     object_contexts = {}
     for scene_object in bpy.context.scene.objects:  # type: ignore
         active_action_name = ""
@@ -80,7 +80,7 @@ def get_current_context():
     }
 
 
-def set_context(context):
+def set_context(context: dict[str, Any]) -> None:
     mode = context.get("mode", "OBJECT")
     active_object_name = context.get("active_object")
     object_contexts = context.get("objects")
@@ -118,8 +118,8 @@ def set_context(context):
     bpy.context.scene.cursor.location = context.get("cursor_location", Vector((0, 0, 0)))  # type: ignore
 
 
-def preserve_context(func):
-    def wrapper(*args, **kwargs):
+def preserve_context(func: Callable) -> Callable:
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False  # type: ignore
         context = get_current_context()
         result = func(*args, **kwargs)
@@ -135,7 +135,7 @@ def deselect_all():
         scene_object.select_set(False)
 
 
-def select_only(*scene_object):
+def select_only(*scene_object: bpy.types.Object):
     deselect_all()
     for _scene_object in scene_object:
         _scene_object.select_set(True)
@@ -147,18 +147,18 @@ def switch_to_object_mode():
         bpy.ops.object.mode_set(mode="OBJECT")
 
 
-def switch_to_edit_mode(*scene_object):
+def switch_to_edit_mode(*scene_object: bpy.types.Object):
     select_only(*scene_object)
     bpy.ops.object.mode_set(mode="EDIT")
 
 
-def switch_to_sculpt_mode(*scene_object):
+def switch_to_sculpt_mode(*scene_object: bpy.types.Object):
     select_only(*scene_object)
     switch_to_object_mode()
     bpy.ops.object.mode_set(mode="SCULPT")
 
 
-def switch_to_bone_edit_mode(*armature_object):
+def switch_to_bone_edit_mode(*armature_object: bpy.types.Object):
     # Switch to edit mode so we can get edit bone data
     if bpy.context.mode != "EDIT_ARMATURE":  # type: ignore
         select_only(*armature_object)
@@ -166,7 +166,7 @@ def switch_to_bone_edit_mode(*armature_object):
         bpy.ops.object.mode_set(mode="EDIT")
 
 
-def switch_to_pose_mode(*scene_object):
+def switch_to_pose_mode(*scene_object: bpy.types.Object):
     select_only(*scene_object)
     switch_to_object_mode()
     bpy.ops.object.mode_set(mode="POSE")
@@ -178,7 +178,13 @@ def apply_pose(rig_object: bpy.types.Object, selected: bool = False):
     bpy.ops.pose.armature_apply(selected=selected)
 
 
-def apply_transforms(scene_object, location=False, rotation=False, scale=False, recursive=False):
+def apply_transforms(
+    scene_object: bpy.types.Object,
+    location: bool = False,
+    rotation: bool = False,
+    scale: bool = False,
+    recursive: bool = False,
+) -> None:
     deselect_all()
     switch_to_object_mode()
     select_only(scene_object)
@@ -189,19 +195,13 @@ def apply_transforms(scene_object, location=False, rotation=False, scale=False, 
             apply_transforms(child_object, location=location, rotation=rotation, scale=scale, recursive=recursive)
 
 
-def walk_children(scene_object):
+def walk_children(scene_object: bpy.types.Object) -> Generator[bpy.types.Object, None, None]:
     yield scene_object
     for child in scene_object.children:
         yield from walk_children(child)
 
 
-def disable_select_on_non_controls(root="GRP_faceGUI"):
-    for scene_object in walk_children(bpy.data.objects.get(root)):
-        if scene_object and not scene_object.name.startswith("CTRL_"):
-            scene_object.hide_select = True
-
-
-def hide_empties(root="GRP_faceGUI"):
+def hide_empties():
     for scene_object in bpy.data.objects:
         if scene_object.name.startswith("GRP_"):
             scene_object.hide_viewport = True
@@ -290,7 +290,7 @@ def init_sentry():
         logger.error(error)
 
 
-def setup_scene(*args: Any) -> None:
+def setup_scene(*_: Any) -> None:
     scene_properties = getattr(bpy.context.scene, ToolInfo.NAME, object)  # type: ignore
 
     # initialize the rig instances
@@ -300,15 +300,15 @@ def setup_scene(*args: Any) -> None:
     start_listening()
 
 
-def teardown_scene(*args: Any) -> None:
+def teardown_scene(*_: Any) -> None:
     scene_properties = getattr(bpy.context.scene, ToolInfo.NAME, object)  # type: ignore
 
     for instance in getattr(scene_properties, "rig_instance_list", []):
         instance.destroy()
-    logging.info("De-allocated Rig Logic instances...")
+    logger.info("De-allocated Rig Logic instances...")
 
 
-def pre_undo(*args: Any) -> None:
+def pre_undo(*_: Any) -> None:
     # Only run the pre-undo logic if the current context is a 3D view area
     if (
         bpy.context.area
@@ -322,7 +322,7 @@ def pre_undo(*args: Any) -> None:
             instance.destroy()
 
 
-def post_undo(*args: Any) -> None:
+def post_undo(*_: Any) -> None:
     # Only run the post-undo logic if the current context is a 3D view area
     if (
         bpy.context.area
@@ -349,15 +349,13 @@ def post_render(*args: Any) -> None:
     post_undo(*args)
 
 
-def post_save(*args: Any) -> None:
-    from .ui.callbacks import get_active_rig_instance
-
+def post_save(*_: Any) -> None:
     instance = get_active_rig_instance()
     if not instance:
         return
 
     # Create a DNA backup
-    from .editors.backup_manager.core import BackupType, create_backup
+    from ..editors.backup_manager.core import BackupType, create_backup
 
     create_backup(instance, BackupType.BLENDER_FILE_SAVE)
 
@@ -409,10 +407,10 @@ def focus_on_selected():
 
 def get_head(name: str) -> "MetaHumanComponentHead | None":
     # avoid circular import
-    from .components.head import MetaHumanComponentHead # type: ignore
+    from ..components.head import MetaHumanComponentHead
 
-    properties = bpy.context.scene.meta_human_dna  # type: ignore
-    for instance in properties.rig_instance_list:
+    scene_properties: "MetahumanSceneProperties" = bpy.context.scene.meta_human_dna  # type: ignore[attr-defined]  # noqa: UP037
+    for instance in scene_properties.rig_instance_list:
         if instance.name == name:
             return MetaHumanComponentHead(rig_instance=instance, component_type="head")
 
@@ -422,10 +420,10 @@ def get_head(name: str) -> "MetaHumanComponentHead | None":
 
 def get_body(name: str) -> "MetaHumanComponentBody | None":
     # avoid circular import
-    from .components.body import MetaHumanComponentBody # type: ignore
+    from ..components.body import MetaHumanComponentBody  # type: ignore
 
-    properties = bpy.context.scene.meta_human_dna  # type: ignore
-    for instance in properties.rig_instance_list:
+    scene_properties: "MetahumanSceneProperties" = bpy.context.scene.meta_human_dna  # type: ignore[attr-defined]  # noqa: UP037
+    for instance in scene_properties.rig_instance_list:
         if instance.name == name:
             return MetaHumanComponentBody(rig_instance=instance, component_type="body")
 
@@ -552,7 +550,7 @@ def rename_rig_instance(instance: "RigInstance", old_name: str, new_name: str):
 
 
 def rename_as_lod0_meshes(mesh_objects: list[bpy.types.Object]):
-    from .ui.callbacks import get_active_rig_instance, update_head_output_items
+    from ..ui.callbacks import update_head_output_items
 
     instance = get_active_rig_instance()
     if instance:
@@ -565,7 +563,7 @@ def rename_as_lod0_meshes(mesh_objects: list[bpy.types.Object]):
 
         # re-populate the output items
         instance.output_head_item_list.clear()
-        update_head_output_items(None, bpy.context)
+        update_head_output_items(None, bpy.context) # type: ignore[arg-type]
 
 
 def report_error(title: str, message: str, fix: Callable | None = None, width: int = 500):
@@ -639,7 +637,7 @@ def reduce_close_floats(float_list: list[float], tolerance: float = DEFAULT_UV_T
     return reduced_list
 
 
-def shell(command: str, **kwargs) -> Generator[str, None, None]:
+def shell(command: str, **kwargs: Any) -> Generator[str, None, None]:
     """
     Runs the command is a fully qualified shell.
 
@@ -652,7 +650,7 @@ def shell(command: str, **kwargs) -> Generator[str, None, None]:
     Raises:
         OSError: The error cause by the shell.
     """
-    process = subprocess.Popen(
+    process = subprocess.Popen(  # noqa: S602
         command, shell=True, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, **kwargs
     )
 
@@ -707,22 +705,22 @@ def extract_rig_instance_data_from_blend_file(blend_file_path: Path) -> tuple[li
         pass
 
     if error_file.exists():
-        with open(error_file) as f:
+        with error_file.open() as f:
             error_message = f.read()
 
         try:
-            os.remove(error_file)
+            error_file.unlink()
         except OSError as error:
             logger.debug(error)
 
         return [], error_message
 
     if data_file.exists():
-        with open(data_file) as f:
+        with data_file.open() as f:
             extracted_data = json.load(f)
 
         try:
-            os.remove(data_file)
+            data_file.unlink()
         except OSError as error:
             logger.debug(error)
 
@@ -890,7 +888,7 @@ def position_face_board(
         position_eye_aim(head_rig_object, face_board_object)
 
 
-def collection_to_list(collection: bpy.types.Collection) -> list:
+def collection_to_list(collection: bpy.types.bpy_prop_collection) -> list:
     item_list = []
     for item in collection:
         data = {"__property_group__": item.__class__.__name__}

@@ -1,21 +1,22 @@
-import logging
+# standard library imports
+import logging  # noqa: I001
 import math
 
 from pathlib import Path
 from pprint import pformat
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
+# third party imports
 import bpy
 
 from mathutils import Euler, Matrix, Quaternion, Vector
 
+# local imports
 from . import utilities
 from .constants import FLOATING_POINT_PRECISION, IS_BLENDER_5, SCALE_FACTOR, SHAPE_KEY_NAME_MAX_LENGTH, ToolInfo
 from .ui import callbacks
+from .typing import *  # noqa: F403
 
-
-if TYPE_CHECKING:
-    from .bindings import riglogic
 
 MEMORY_RESOURCE_SIZE = 1024 * 1024 * 4  # 4MB
 MEMORY_RESOURCE_ALIGNMENT = 16
@@ -25,17 +26,20 @@ ATTR_COUNT_PER_EULER_JOINT = 9
 logger = logging.getLogger(__name__)
 
 
-def rig_instance_listener(scene: bpy.types.Scene, dependency_graph: bpy.types.Depsgraph, is_frame_change: bool = False):
-    if not hasattr(bpy.context.window_manager, ToolInfo.NAME):
+def rig_instance_listener(scene: "Scene", dependency_graph: bpy.types.Depsgraph, is_frame_change: bool = False):  # noqa: PLR0912
+    meta_human_dna_window_manager: "MetahumanWindowMangerProperties | None" = getattr(  # noqa: UP037
+        bpy.context.window_manager, ToolInfo.NAME, None
+    )
+    if not meta_human_dna_window_manager:
         return
 
     # this condition prevents constant evaluation
-    if not bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph:  # type: ignore
+    if not meta_human_dna_window_manager.evaluate_dependency_graph:
         return
 
     # this condition prevents evaluation after an undo operation
-    if bpy.context.window_manager.meta_human_dna.is_undoing:  # type: ignore
-        bpy.context.window_manager.meta_human_dna.is_undoing = False  # type: ignore
+    if meta_human_dna_window_manager.is_undoing:
+        meta_human_dna_window_manager.is_undoing = False
         return
 
     # track the minimal set of instances that need to be updated and their components
@@ -49,7 +53,7 @@ def rig_instance_listener(scene: bpy.types.Scene, dependency_graph: bpy.types.De
         if len(bpy.context.screen.areas) == 1 and bpy.context.screen.areas[0].type != "IMAGE_EDITOR":
             return
 
-        for instance in scene.meta_human_dna.rig_instance_list:  # type: ignore
+        for instance in scene.meta_human_dna.rig_instance_list:
             if instance.auto_evaluate:
                 if instance.auto_evaluate_head:
                     instance_updates.add((instance, "head"))
@@ -57,14 +61,14 @@ def rig_instance_listener(scene: bpy.types.Scene, dependency_graph: bpy.types.De
                     instance_updates.add((instance, "body"))
 
     # only evaluate if in pose mode or if animation is
-    if is_frame_change or bpy.context.mode == "POSE":  # type: ignore
+    if is_frame_change or bpy.context.mode == "POSE":
         for update in dependency_graph.updates:
             if not update.id:
                 continue
 
-            data_type = update.id.bl_rna.name  # type: ignore
+            data_type = update.id.bl_rna.name  # type: ignore[attr-defined]
             if data_type == "Action":
-                for instance in scene.meta_human_dna.rig_instance_list:  # type: ignore
+                for instance in scene.meta_human_dna.rig_instance_list:
                     # Check if the action is being used by the face board
                     if (
                         instance.auto_evaluate
@@ -91,47 +95,49 @@ def rig_instance_listener(scene: bpy.types.Scene, dependency_graph: bpy.types.De
                         and instance.control_rig.animation_data.action
                         and instance.control_rig.animation_data.action.name == update.id.name
                     ):
-                        # heads have rbf driven bones that move based on neck quaternions, so if head rig is present, evaluate all
+                        # heads have rbf driven bones that move based on neck quaternions, so if head rig is present,
+                        # evaluate all
                         if instance.head_rig and instance.auto_evaluate_head and instance.evaluate_rbfs:
                             instance_updates.add((instance, "all"))
                         else:
                             instance_updates.add((instance, "body"))
 
-            elif data_type == "Armature":
-                if update.is_updated_transform:
-                    for instance in scene.meta_human_dna.rig_instance_list:  # type: ignore
-                        armature_name = update.id.name
+            elif data_type == "Armature" and update.is_updated_transform:
+                for instance in scene.meta_human_dna.rig_instance_list:
+                    armature_name = update.id.name
 
-                        # Check if the armature is the face board
-                        if (
-                            instance.auto_evaluate
-                            and instance.auto_evaluate_head
-                            and instance.face_board
-                            and instance.face_board.data
-                            and instance.face_board.data.name == armature_name
-                        ):
-                            instance_updates.add((instance, "head"))
-                        # Check if the armature is the body rig
-                        elif (
-                            instance.auto_evaluate
-                            and instance.auto_evaluate_body
-                            and instance.body_rig
-                            and instance.body_rig.data
-                            and instance.body_rig.data.name == armature_name
-                        ) or (
-                            instance.auto_evaluate
-                            and instance.auto_evaluate_body
-                            and instance.control_rig
-                            and instance.control_rig.data
-                            and instance.control_rig.data.name == armature_name
-                        ):
-                            # heads have rbf driven bones that move based on neck quaternions, so if head rig is present, evaluate all
-                            if instance.head_rig and instance.auto_evaluate_head and instance.evaluate_rbfs:
-                                instance_updates.add((instance, "all"))
-                            else:
-                                instance_updates.add((instance, "body"))
+                    # Check if the armature is the face board
+                    if (
+                        instance.auto_evaluate
+                        and instance.auto_evaluate_head
+                        and instance.face_board
+                        and instance.face_board.data
+                        and instance.face_board.data.name == armature_name
+                    ):
+                        instance_updates.add((instance, "head"))
+                    # Check if the armature is the body rig
+                    elif (
+                        instance.auto_evaluate
+                        and instance.auto_evaluate_body
+                        and instance.body_rig
+                        and instance.body_rig.data
+                        and instance.body_rig.data.name == armature_name
+                    ) or (
+                        instance.auto_evaluate
+                        and instance.auto_evaluate_body
+                        and instance.control_rig
+                        and instance.control_rig.data
+                        and instance.control_rig.data.name == armature_name
+                    ):
+                        # heads have rbf driven bones that move based on neck quaternions, so if head rig
+                        # is present, evaluate all
+                        if instance.head_rig and instance.auto_evaluate_head and instance.evaluate_rbfs:
+                            instance_updates.add((instance, "all"))
+                        else:
+                            instance_updates.add((instance, "body"))
 
-    # reduce redundant updates if 'all' components are being updated anyway, no need to update head/body again separately
+    # reduce redundant updates if 'all' components are being updated anyway, no need to
+    # update head/body again separately
     final_instance_updates = set()
     for instance, component in instance_updates:
         if (instance, "all") in instance_updates:
@@ -144,8 +150,8 @@ def rig_instance_listener(scene: bpy.types.Scene, dependency_graph: bpy.types.De
         instance.evaluate(component=component, dependency_graph=dependency_graph)
 
 
-def frame_change_handler(*args):
-    rig_instance_listener(*args, is_frame_change=True)
+def frame_change_handler(scene: "Scene", dependency_graph: bpy.types.Depsgraph):
+    rig_instance_listener(scene, dependency_graph, is_frame_change=True)
 
 
 def stop_listening():
@@ -160,183 +166,170 @@ def stop_listening():
 
 def start_listening():
     stop_listening()
-    logging.info("Listening for Rig Logic...")
-    callbacks.update_head_output_items(None, bpy.context)
-    bpy.app.handlers.depsgraph_update_post.append(rig_instance_listener)  # type: ignore
-    bpy.app.handlers.frame_change_post.append(frame_change_handler)  # type: ignore
+    logger.info("Listening for Rig Logic...")
+    context: "Context" = bpy.context  # pyright: ignore[reportAssignmentType]  # noqa: UP037
+    callbacks.update_head_output_items(None, context)
+    bpy.app.handlers.depsgraph_update_post.append(rig_instance_listener)  # type: ignore[call-arg]
+    bpy.app.handlers.frame_change_post.append(frame_change_handler)  # type: ignore[call-arg]
 
 
 class OutputData(bpy.types.PropertyGroup):
-    include: bpy.props.BoolProperty(
-        default=True,
-        description="Whether to include this data in the output",
-    )  # type: ignore
-    name: bpy.props.StringProperty(
-        default="",
-        description="The name of the shape key",
-    )  # type: ignore
+    include: bpy.props.BoolProperty(default=True, description="Whether to include this data in the output")  # pyright: ignore[reportInvalidTypeForm]
+    name: bpy.props.StringProperty(default="", description="The name of the shape key")  # pyright: ignore[reportInvalidTypeForm]
     scene_object: bpy.props.PointerProperty(
-        type=bpy.types.Object,  # type: ignore
+        type=bpy.types.Object,
         description=(
             "A object that is associated with the dna data. This automatically "
             "gets set based on what is linked in the Rig Instance data"
         ),
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     image_object: bpy.props.PointerProperty(
-        type=bpy.types.Image,  # type: ignore
+        type=bpy.types.Image,
         description=(
             "A object that is associated with the dna data. This automatically "
             "gets set based on what is linked in the Rig Instance data"
         ),
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     relative_file_path: bpy.props.StringProperty(
-        default="",
-        description="The relative file path from the output folder",
-    )  # type: ignore
-    editable_name: bpy.props.BoolProperty(
-        default=True,
-        description="Whether to include this data in the output",
-    )  # type: ignore
+        default="", description="The relative file path from the output folder"
+    )  # pyright: ignore[reportInvalidTypeForm]
+    editable_name: bpy.props.BoolProperty(default=True, description="Whether to include this data in the output")  # pyright: ignore[reportInvalidTypeForm]
 
 
 class ShapeKeyData(bpy.types.PropertyGroup):
-    name: bpy.props.StringProperty(
-        default="",
-        description="The name of the shape key",
-    )  # type: ignore
+    name: bpy.props.StringProperty(default="", description="The name of the shape key")  # pyright: ignore[reportInvalidTypeForm]
     value: bpy.props.FloatProperty(
         default=0.0,
         description="The value of the shape key",
         get=callbacks.get_shape_key_value,  # this makes the value read-only
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
 
 
 class RigInstance(bpy.types.PropertyGroup):
-    # Dynamically assigned editor properties (see properties.py register() function)
-    # These are added at runtime but typed here for static analysis
-    if TYPE_CHECKING:
-        dna_backup_list: bpy.types.CollectionProperty
-        dna_backup_list_active_index: int
-        rbf_solver_list: bpy.types.CollectionProperty
-        rbf_solver_list_active_index: int
-
     name: bpy.props.StringProperty(
         default="my_metahuman",
-        description="The name associated with this Rig Instance. This is also the unique identifier for all data associated with the MetaHuman",
-        update=callbacks.update_instance_name,
-    )  # type: ignore
+        description=(
+            "The name associated with this Rig Instance. This is also the unique identifier "
+            "for all data associated with the MetaHuman"
+        ),
+        update=callbacks.update_instance_name,  # type: ignore[call-arg]
+    )  # pyright: ignore[reportInvalidTypeForm]
     auto_evaluate: bpy.props.BoolProperty(
         default=True,
         name="Auto Evaluate",
         description="Whether to automatically evaluate this rig instance when the scene is updated",
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     auto_evaluate_head: bpy.props.BoolProperty(
         default=True,
         name="Auto Evaluate Head",
-        description="Whether to automatically evaluate the head components on this rig instance when the scene is updated",
-    )  # type: ignore
+        description=(
+            "Whether to automatically evaluate the head components on this rig instance when the scene is updated"
+        ),
+    )  # pyright: ignore[reportInvalidTypeForm]
     auto_evaluate_body: bpy.props.BoolProperty(
         default=True,
         name="Auto Evaluate Body",
-        description="Whether to automatically evaluate the body components on this rig instance when the scene is updated",
-    )  # type: ignore
+        description=(
+            "Whether to automatically evaluate the body components on this rig instance when the scene is updated"
+        ),
+    )  # pyright: ignore[reportInvalidTypeForm]
     evaluate_bones: bpy.props.BoolProperty(
         default=True,
         name="Evaluate Bones",
         description="Whether to evaluate bone positions based on the face board controls",
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     evaluate_shape_keys: bpy.props.BoolProperty(
         default=True,
         name="Evaluate Shape Keys",
         description="Whether to evaluate shape keys based on the face board controls",
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     evaluate_texture_masks: bpy.props.BoolProperty(
         default=True,
         name="Evaluate Texture Masks",
         description="Whether to evaluate texture masks based on the face board controls",
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     evaluate_rbfs: bpy.props.BoolProperty(
         default=True,
         name="Evaluate RBFs",
         description="Whether to evaluate RBFs based on the driver bones quaternion rotations",
-        update=callbacks.update_evaluate_rbfs_value,
-    )  # type: ignore
+        update=callbacks.update_evaluate_rbfs_value,  # type: ignore[call-arg]
+    )  # pyright: ignore[reportInvalidTypeForm]
     face_board: bpy.props.PointerProperty(
-        type=bpy.types.Object,  # type: ignore
+        type=bpy.types.Object,
         name="Face Board",
         description="The face board that rig logic reads control positions from",
-        poll=callbacks.poll_face_boards,  # type: ignore
-    )  # type: ignore
+        poll=callbacks.poll_face_boards,
+    )  # pyright: ignore[reportInvalidTypeForm]
     control_rig: bpy.props.PointerProperty(
-        type=bpy.types.Object,  # type: ignore
+        type=bpy.types.Object,
         name="Control Rig",
         description="The control rig that drives the body rig",
-        poll=callbacks.poll_control_rig,  # type: ignore
-    )  # type: ignore
+        poll=callbacks.poll_control_rig,
+    )  # pyright: ignore[reportInvalidTypeForm]
     head_dna_file_path: bpy.props.StringProperty(
         name="Head DNA File",
         description="The path to the head DNA file that rig logic reads from when evaluating the face board controls",
         subtype="FILE_PATH",
         options={"PATH_SUPPORTS_BLEND_RELATIVE"},
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     head_mesh: bpy.props.PointerProperty(
-        type=bpy.types.Object,  # type: ignore
+        type=bpy.types.Object,
         name="Head Mesh",
         description="The head mesh with the shape keys that rig logic will evaluate",
-        poll=callbacks.poll_head_mesh,  # type: ignore
-        update=callbacks.update_head_output_items,
-    )  # type: ignore
+        poll=callbacks.poll_head_mesh,
+        update=callbacks.update_head_output_items,  # type: ignore[call-arg]
+    )  # pyright: ignore[reportInvalidTypeForm]
     head_rig: bpy.props.PointerProperty(
-        type=bpy.types.Object,  # type: ignore
+        type=bpy.types.Object,
         name="Head Rig",
         description="The armature object that rig logic will evaluate",
-        poll=callbacks.poll_head_rig,  # type: ignore
-        update=callbacks.update_head_output_items,
-    )  # type: ignore
+        poll=callbacks.poll_head_rig,
+        update=callbacks.update_head_output_items,  # type: ignore[call-arg]
+    )  # pyright: ignore[reportInvalidTypeForm]
     head_material: bpy.props.PointerProperty(
-        type=bpy.types.Material,  # type: ignore
+        type=bpy.types.Material,
         name="Head Material",
         description="The head material that has a node with wrinkle map sliders that rig logic will evaluate",
-        poll=callbacks.poll_head_materials,  # type: ignore
-        update=callbacks.update_head_output_items,
-    )  # type: ignore
+        poll=callbacks.poll_head_materials,
+        update=callbacks.update_head_output_items,  # type: ignore[call-arg]
+    )  # pyright: ignore[reportInvalidTypeForm]
     body_dna_file_path: bpy.props.StringProperty(
         name="Body DNA File",
         description="The path to the body DNA file",
         subtype="FILE_PATH",
         options={"PATH_SUPPORTS_BLEND_RELATIVE"},
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     body_mesh: bpy.props.PointerProperty(
-        type=bpy.types.Object,  # type: ignore
+        type=bpy.types.Object,
         name="Body Mesh",
         description="The body mesh",
-        poll=callbacks.poll_body_mesh,  # type: ignore
-        update=callbacks.update_body_output_items,
-    )  # type: ignore
+        poll=callbacks.poll_body_mesh,
+        update=callbacks.update_body_output_items,  # type: ignore[call-arg]
+    )  # pyright: ignore[reportInvalidTypeForm]
     body_rig: bpy.props.PointerProperty(
-        type=bpy.types.Object,  # type: ignore
+        type=bpy.types.Object,
         name="Body Rig",
         description="The armature object for the body that RBF will evaluate",
-        poll=callbacks.poll_body_rig,  # type: ignore
-        update=callbacks.update_body_output_items,
-    )  # type: ignore
+        poll=callbacks.poll_body_rig,
+        update=callbacks.update_body_output_items,  # type: ignore[call-arg]
+    )  # pyright: ignore[reportInvalidTypeForm]
     body_material: bpy.props.PointerProperty(
-        type=bpy.types.Material,  # type: ignore
+        type=bpy.types.Material,
         name="Body Material",
         description="The body material",
-        poll=callbacks.poll_body_materials,  # type: ignore
-        update=callbacks.update_body_output_items,
-    )  # type: ignore
+        poll=callbacks.poll_body_materials,
+        update=callbacks.update_body_output_items,  # type: ignore[call-arg]
+    )  # pyright: ignore[reportInvalidTypeForm]
 
     # ----- View Options Properties -----
     active_lod: bpy.props.EnumProperty(
         name="Active LOD",
-        items=callbacks.get_head_mesh_lod_items,
+        items=callbacks.get_head_mesh_lod_items,  # type: ignore[call-arg]
         description="Choose what Level of Detail should be displayed from the face",
         options={"ANIMATABLE"},
         set=callbacks.set_active_lod,
         get=callbacks.get_active_lod,
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     active_material_preview: bpy.props.EnumProperty(
         name="Material Color",
         items=[
@@ -349,35 +342,35 @@ class RigInstance(bpy.types.PropertyGroup):
         default="combined",
         set=callbacks.set_active_material_preview,
         get=callbacks.get_active_material_preview,
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     show_face_board: bpy.props.BoolProperty(
         name="Show Face Board",
         default=False,
         description="Whether to show or hide the face board that belongs to this MetaHuman instance in the 3D view",
         set=callbacks.set_show_face_board,
         get=callbacks.get_show_face_board,
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     show_control_rig: bpy.props.BoolProperty(
         name="Show Control Rig",
         default=False,
         description="Whether to show or hide the control rig that belongs to this MetaHuman instance in the 3D view",
         set=callbacks.set_show_control_rig,
         get=callbacks.get_show_control_rig,
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     show_head_bones: bpy.props.BoolProperty(
         name="Show Head Bones",
         default=False,
         description="Whether to show or hide the head bones that belong to this MetaHuman instance in the 3D view",
         set=callbacks.set_show_head_bones,
         get=callbacks.get_show_head_bones,
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     show_body_bones: bpy.props.BoolProperty(
         name="Show Body Bones",
         default=False,
         description="Whether to show or hide the body bones that belong to this MetaHuman instance in the 3D view",
         set=callbacks.set_show_body_bones,
         get=callbacks.get_show_body_bones,
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
 
     # --------------------- Mesh Utilities Properties ------------------
     mesh_topology_selection_mode: bpy.props.EnumProperty(
@@ -388,43 +381,55 @@ class RigInstance(bpy.types.PropertyGroup):
             ("isolate", "Isolate", "Isolates the chosen topology group by de-selecting everything else"),
         ],
         description="Choose what selection mode to use when selecting the head topology groups",
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     head_mesh_topology_groups: bpy.props.EnumProperty(
         name="Topology Groups",
-        items=callbacks.get_head_mesh_topology_groups,
+        items=callbacks.get_head_mesh_topology_groups,  # type: ignore[call-arg]
         description="Select the bone group to display in the 3D view",
         options={"ANIMATABLE"},
-        update=callbacks.update_head_topology_selection,
-    )  # type: ignore
+        update=callbacks.update_head_topology_selection,  # type: ignore[call-arg]
+    )  # pyright: ignore[reportInvalidTypeForm]
     head_shrink_wrap_target: bpy.props.PointerProperty(
-        type=bpy.types.Object,  # type: ignore
+        type=bpy.types.Object,
         name="Material",
-        description="The head mesh that the shrink wrap modifier will target. This is the mesh that you will wrap the head topology to",
-        poll=callbacks.poll_shrink_wrap_target,  # type: ignore
-    )  # type: ignore
+        description=(
+            "The head mesh that the shrink wrap modifier will target. This is the mesh that you will wrap "
+            "the head topology to"
+        ),
+        poll=callbacks.poll_shrink_wrap_target,
+    )  # pyright: ignore[reportInvalidTypeForm]
     body_mesh_topology_groups: bpy.props.EnumProperty(
         name="Topology Groups",
-        items=callbacks.get_body_mesh_topology_groups,
+        items=callbacks.get_body_mesh_topology_groups,  # type: ignore[call-arg]
         description="Select the bone group to display in the 3D view",
         options={"ANIMATABLE"},
-        update=callbacks.update_body_topology_selection,
-    )  # type: ignore
+        update=callbacks.update_body_topology_selection,  # type: ignore[call-arg]
+    )  # pyright: ignore[reportInvalidTypeForm]
     body_shrink_wrap_target: bpy.props.PointerProperty(
-        type=bpy.types.Object,  # type: ignore
+        type=bpy.types.Object,
         name="Material",
-        description="The body mesh that the shrink wrap modifier will target. This is the mesh that you will wrap the body topology to",
-        poll=callbacks.poll_shrink_wrap_target,  # type: ignore
-    )  # type: ignore
+        description=(
+            "The body mesh that the shrink wrap modifier will target. This is the mesh that you will wrap "
+            "the body topology to"
+        ),
+        poll=callbacks.poll_shrink_wrap_target,
+    )  # pyright: ignore[reportInvalidTypeForm]
     body_show_only_high_level_topology_groups: bpy.props.BoolProperty(
         name="Show Only High Level Topology Groups",
-        description="Use this to only show the high level topology groups in the topology group selection dropdown. This is useful for when you have a lot of topology groups and want to focus on the high level ones",
+        description=(
+            "Use this to only show the high level topology groups in the topology group selection dropdown. "
+            "This is useful for when you have a lot of topology groups and want to focus on the high level ones"
+        ),
         default=False,
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     body_reset_rbf_pose_on_change: bpy.props.BoolProperty(
         name="Reset RBF Pose on Change",
-        description="If enabled, resets the rig to its rest pose before when changing the active RBF pose from one pose to another. This isolates the pose changes to only the selected pose",
+        description=(
+            "If enabled, resets the rig to its rest pose before when changing the active RBF pose from one "
+            "pose to another. This isolates the pose changes to only the selected pose"
+        ),
         default=True,
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
 
     # --------------------- Armature Utilities Properties ------------------
     rig_bone_group_selection_mode: bpy.props.EnumProperty(
@@ -435,64 +440,71 @@ class RigInstance(bpy.types.PropertyGroup):
             ("isolate", "Isolate", "Isolates the chosen bone group by de-selecting everything else"),
         ],
         description="Choose what selection mode to use when selecting the head topology groups",
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     head_rig_bone_groups: bpy.props.EnumProperty(
         name="Bone Groups",
-        items=callbacks.get_head_rig_bone_groups,
+        items=callbacks.get_head_rig_bone_groups,  # type: ignore[call-arg]
         description="Select the bone group to display in the 3D view",
         options={"ANIMATABLE"},
-        update=callbacks.update_head_rig_bone_group_selection,
-    )  # type: ignore
+        update=callbacks.update_head_rig_bone_group_selection,  # type: ignore[call-arg]
+    )  # pyright: ignore[reportInvalidTypeForm]
     body_rig_bone_groups: bpy.props.EnumProperty(
         name="Bone Groups",
-        items=callbacks.get_body_rig_bone_groups,
+        items=callbacks.get_body_rig_bone_groups,  # type: ignore[call-arg]
         description="Select the bone group to display in the 3D view",
         options={"ANIMATABLE"},
-        update=callbacks.update_body_rig_bone_group_selection,
-    )  # type: ignore
+        update=callbacks.update_body_rig_bone_group_selection,  # type: ignore[call-arg]
+    )  # pyright: ignore[reportInvalidTypeForm]
     list_surface_bone_groups: bpy.props.BoolProperty(
         name="List Surface Bones",
         default=False,
         description="Whether to also show the surface bone groups in the bone group selection dropdown",
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     head_to_body_constraint_influence: bpy.props.FloatProperty(
         name="Constrain Head to Body",
         default=0.0,
         description="The influence of the head to body constraint",
-        update=callbacks.update_head_to_body_constraint_influence,
+        update=callbacks.update_head_to_body_constraint_influence,  # type: ignore[call-arg]
         min=0.0,
         max=1.0,
         subtype="FACTOR",
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
 
     # ----- Shape Keys Properties -----
     active_shape_key_mesh_name: bpy.props.EnumProperty(
         name="Active Shape Key Mesh",
         description="This determines which mesh object's shape keys value are being displayed in the shape key list",
         options={"ANIMATABLE"},
-        items=callbacks.get_active_shape_key_mesh_names,
-    )  # type: ignore
+        items=callbacks.get_active_shape_key_mesh_names,  # type: ignore[call-arg]
+    )  # pyright: ignore[reportInvalidTypeForm]
     solo_shape_key: bpy.props.BoolProperty(
         name="Solo Shape Key",
-        description="If this is enabled, every time you sculpt/edit a shape key, it will set all other shape keys to 0 and the selected shape key to 1",
+        description=(
+            "If this is enabled, every time you sculpt/edit a shape key, it will set all other shape keys to "
+            "0 and the selected shape key to 1"
+        ),
         default=False,
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     generate_neutral_shapes: bpy.props.BoolProperty(
         name="Generate Neutral Shapes",
-        description="Use this to generate neutral shape keys that match the names in the DNA file. This is useful when you can't import the deltas because vert ids are not the same, or you just want to use neutral shapes as a starting point",
+        description=(
+            "Use this to generate neutral shape keys that match the names in the DNA file. This is useful "
+            "when you can't import the deltas because vert ids are not the same, or you just want to use neutral "
+            "shapes as a starting point"
+        ),
         default=False,
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
 
     # ----- Output Properties -----
     output_run_validations: bpy.props.BoolProperty(
         name="Validate", description="Whether to run validations before exporting", default=True
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     output_folder_path: bpy.props.StringProperty(
         name="Output Folder",
         description="The root folder where the output files will be saved",
         subtype="DIR_PATH",
         options={"PATH_SUPPORTS_BLEND_RELATIVE"},
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     output_method: bpy.props.EnumProperty(
         name="DNA Output Method",
         description="The output method to use when creating the dna file",
@@ -501,29 +513,35 @@ class RigInstance(bpy.types.PropertyGroup):
             (
                 "calibrate",
                 "Calibrate",
-                "Uses the original dna file and calibrates the included bones and mesh changes into a new dna file. Use this method if your vert indices and bone names are the same as the original DNA. This is the recommended method",
+                (
+                    "Uses the original dna file and calibrates the included bones and mesh changes into a new dna"
+                    " file. Use this method if your vert indices and bone names are the same as the original DNA."
+                    " This is the recommended method"
+                ),
                 "NONE",
                 0,
             ),
             (
                 "overwrite",
                 "Overwrite",
-                "(Experimental, and not fully functional yet) Uses the original dna file and overwrites the dna data based on the current mesh and armature data in the scene. Use this method if your vert indices and bone names are different from the original DNA. Only use this method when calibration method is not possible",
+                (
+                    "(Experimental, and not fully functional yet) Uses the original dna file and overwrites the"
+                    " dna data based on the current mesh and armature data in the scene. Use this method if your "
+                    "vert indices and bone names are different from the original DNA. Only use this method when "
+                    "calibration method is not possible"
+                ),
                 "ERROR",
                 1,
             ),
         ],
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     output_component: bpy.props.EnumProperty(
         name="DNA Output Component",
         description="Which component to output use when creating the dna file",
         default="head",
-        items=[
-            ("head", "Head", "The head component of the DNA"),
-            ("body", "Body", "The body component of the DNA"),
-        ],
-        update=callbacks.update_output_component,
-    )  # type: ignore
+        items=[("head", "Head", "The head component of the DNA"), ("body", "Body", "The body component of the DNA")],
+        update=callbacks.update_output_component,  # type: ignore[call-arg]
+    )  # pyright: ignore[reportInvalidTypeForm]
     output_format: bpy.props.EnumProperty(
         name="File Format",
         description="The file format to use when output the dna file. Either binary or json",
@@ -532,36 +550,45 @@ class RigInstance(bpy.types.PropertyGroup):
             (
                 "json",
                 "JSON",
-                "Writes the dna file in a human readable json format. Use this method if you want to manually edit the dna file",
+                (
+                    "Writes the dna file in a human readable json format. Use this method if you want to manually "
+                    "edit the dna file"
+                ),
             ),
             (
                 "binary",
                 "Binary",
-                "Writes the dna file in a binary format. Use this method if you want to use the dna file with the rig logic system",
+                (
+                    "Writes the dna file in a binary format. Use this method if you want to use the dna file with the"
+                    " rig logic system"
+                ),
             ),
         ],
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     output_align_head_and_body: bpy.props.BoolProperty(
         name="Align Head and Body",
-        description="Whether to align the overlapping head and body bones, as well as, aligning the vertices in the edge loop around the neck during the calibration process",
+        description=(
+            "Whether to align the overlapping head and body bones, as well as, aligning the vertices "
+            "in the edge loop around the neck during the calibration process"
+        ),
         default=True,
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
 
     # ----- Internal Properties -----
-    old_name: bpy.props.StringProperty(default="")  # type: ignore
-    shape_key_list: bpy.props.CollectionProperty(type=ShapeKeyData)  # type: ignore
-    shape_key_list_active_index: bpy.props.IntProperty()  # type: ignore
+    old_name: bpy.props.StringProperty(default="")  # pyright: ignore[reportInvalidTypeForm]
+    shape_key_list: bpy.props.CollectionProperty(type=ShapeKeyData)  # pyright: ignore[reportInvalidTypeForm]
+    shape_key_list_active_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
 
-    output_head_item_list: bpy.props.CollectionProperty(type=OutputData)  # type: ignore
-    output_head_item_active_index: bpy.props.IntProperty()  # type: ignore
-    output_body_item_list: bpy.props.CollectionProperty(type=OutputData)  # type: ignore
-    output_body_item_active_index: bpy.props.IntProperty()  # type: ignore
-    calibrate_bones: bpy.props.BoolProperty(default=True)  # type: ignore
-    calibrate_meshes: bpy.props.BoolProperty(default=True)  # type: ignore
-    calibrate_shape_keys: bpy.props.BoolProperty(default=True)  # type: ignore
+    output_head_item_list: bpy.props.CollectionProperty(type=OutputData)  # pyright: ignore[reportInvalidTypeForm]
+    output_head_item_active_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
+    output_body_item_list: bpy.props.CollectionProperty(type=OutputData)  # pyright: ignore[reportInvalidTypeForm]
+    output_body_item_active_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
+    calibrate_bones: bpy.props.BoolProperty(default=True)  # pyright: ignore[reportInvalidTypeForm]
+    calibrate_meshes: bpy.props.BoolProperty(default=True)  # pyright: ignore[reportInvalidTypeForm]
+    calibrate_shape_keys: bpy.props.BoolProperty(default=True)  # pyright: ignore[reportInvalidTypeForm]
 
     # rbf editor
-    editing_rbf_solver: bpy.props.BoolProperty(default=False)  # type: ignore
+    editing_rbf_solver: bpy.props.BoolProperty(default=False)  # pyright: ignore[reportInvalidTypeForm]
 
     # this holds the rig logic references
     data = {}
@@ -572,7 +599,6 @@ class RigInstance(bpy.types.PropertyGroup):
         shape_key = self.data.get(f"{self.name}_shape_key", {}).get(mesh_index)
         try:
             if shape_key:
-                shape_key.name
                 return shape_key
         except ReferenceError:
             return None
@@ -632,7 +658,8 @@ class RigInstance(bpy.types.PropertyGroup):
         if not dna_file_path.is_file():
             if not logged_warning:
                 logger.warning(
-                    f'The Head DNA file path "{dna_file_path}" is not a file. The Rig Instance {self.name} will not be initialized.'
+                    f'The Head DNA file path "{dna_file_path}" is not a file. The Rig Instance {self.name} '
+                    "will not be initialized."
                 )
                 self.data[f"{self.name}_logged_head_validation_warning"] = True
             return False
@@ -640,7 +667,8 @@ class RigInstance(bpy.types.PropertyGroup):
         if not dna_file_path.exists():
             if not logged_warning:
                 logger.warning(
-                    f'The Head DNA file path "{dna_file_path}" does not exist. The Rig Instance {self.name} will not be initialized.'
+                    f'The Head DNA file path "{dna_file_path}" does not exist. The Rig Instance {self.name} '
+                    "will not be initialized."
                 )
                 self.data[f"{self.name}_logged_head_validation_warning"] = True
             return False
@@ -666,7 +694,8 @@ class RigInstance(bpy.types.PropertyGroup):
         if not dna_file_path.is_file():
             if not logged_warning:
                 logger.warning(
-                    f'The Body DNA file path "{dna_file_path}" is not a file. The Rig Instance {self.name} will not be initialized.'
+                    f'The Body DNA file path "{dna_file_path}" is not a file. The Rig Instance {self.name}'
+                    " will not be initialized."
                 )
                 self.data[f"{self.name}_logged_body_validation_warning"] = True
             return False
@@ -674,7 +703,8 @@ class RigInstance(bpy.types.PropertyGroup):
         if not dna_file_path.exists():
             if not logged_warning:
                 logger.warning(
-                    f'The Body DNA file path "{dna_file_path}" does not exist. The Rig Instance {self.name} will not be initialized.'
+                    f'The Body DNA file path "{dna_file_path}" does not exist. The Rig Instance {self.name} '
+                    "will not be initialized."
                 )
                 self.data[f"{self.name}_logged_body_validation_warning"] = True
             return False
@@ -717,7 +747,7 @@ class RigInstance(bpy.types.PropertyGroup):
                 mesh_index_lookup[mesh_index] = mesh_object
 
         self.data[f"{self.name}_head_mesh_index_lookup"] = mesh_index_lookup
-        return self.data[f"{self.name}_head_mesh_index_lookup"]  # type: ignore
+        return self.data[f"{self.name}_head_mesh_index_lookup"]
 
     @property
     def head_channel_name_to_index_lookup(self) -> dict[str, int]:
@@ -736,7 +766,7 @@ class RigInstance(bpy.types.PropertyGroup):
                 channel_name_to_index_lookup[f"{mesh_name}__{shape_key_name}"] = channel_index
 
         self.data[f"{self.name}_head_channel_name_to_index_lookup"] = channel_name_to_index_lookup
-        return self.data[f"{self.name}_head_channel_name_to_index_lookup"]  # type: ignore
+        return self.data[f"{self.name}_head_channel_name_to_index_lookup"]
 
     @property
     def head_channel_index_to_mesh_index_lookup(self) -> dict[int, int]:
@@ -765,7 +795,7 @@ class RigInstance(bpy.types.PropertyGroup):
 
     @property
     def head_dna_reader(self) -> "riglogic.BinaryStreamReader":
-        return self.data.get(f"{self.name}_head_dna_reader")  # type: ignore
+        return self.data.get(f"{self.name}_head_dna_reader")
 
     @property
     def body_manager(self) -> "riglogic.RigLogic":
@@ -777,7 +807,7 @@ class RigInstance(bpy.types.PropertyGroup):
 
     @property
     def body_dna_reader(self) -> "riglogic.BinaryStreamReader":
-        return self.data.get(f"{self.name}_body_dna_reader")  # type: ignore
+        return self.data.get(f"{self.name}_body_dna_reader")
 
     @property
     def head_shape_key_blocks(self) -> dict[int, list[bpy.types.ShapeKey]]:
@@ -820,7 +850,8 @@ class RigInstance(bpy.types.PropertyGroup):
             if failed_to_cache_count > 0:
                 logger.warning(
                     f"Rig Instance {self.name} did not cache {failed_to_cache_count} shape key blocks, "
-                    "because they are not in the scene. However they are in the DNA file. Import all shape keys to cache them."
+                    "because they are not in the scene. However they are in the DNA file. Import all shape "
+                    "keys to cache them."
                 )
 
             self.data[f"{self.name}_head_shape_key_blocks"] = shape_key_blocks
@@ -1016,14 +1047,14 @@ class RigInstance(bpy.types.PropertyGroup):
         )
 
         # calling theses properties will cache their values
-        self.head_texture_masks_node
-        self.head_mesh_index_lookup
-        self.head_channel_name_to_index_lookup
-        self.head_channel_index_to_mesh_index_lookup
-        self.head_shape_key_blocks
-        self.head_driven_bone_names
-        self.head_driver_bone_names
-        self.head_rest_pose
+        self.head_texture_masks_node  # noqa: B018
+        self.head_mesh_index_lookup  # noqa: B018
+        self.head_channel_name_to_index_lookup  # noqa: B018
+        self.head_channel_index_to_mesh_index_lookup  # noqa: B018
+        self.head_shape_key_blocks  # noqa: B018
+        self.head_driven_bone_names  # noqa: B018
+        self.head_driver_bone_names  # noqa: B018
+        self.head_rest_pose  # noqa: B018
 
         self.data[f"{self.name}_head_initialized"] = True
 
@@ -1075,11 +1106,11 @@ class RigInstance(bpy.types.PropertyGroup):
             self.update_body_rbf_solver_list()
 
         # calling theses properties will cache their values
-        self.body_rest_pose
-        self.body_twist_bone_names
-        self.body_swing_bone_names
-        self.body_driven_bone_names
-        self.body_driver_bone_names
+        self.body_rest_pose  # noqa: B018
+        self.body_twist_bone_names  # noqa: B018
+        self.body_swing_bone_names  # noqa: B018
+        self.body_driven_bone_names  # noqa: B018
+        self.body_driver_bone_names  # noqa: B018
 
         self.data[f"{self.name}_body_initialized"] = True
 
@@ -1093,7 +1124,7 @@ class RigInstance(bpy.types.PropertyGroup):
         self.data[f"{self.name}_head_initialized"] = False
         self.data[f"{self.name}_body_initialized"] = False
 
-    def update_head_switch_values(self):
+    def update_head_switch_values(self):  # noqa: PLR0912
         if not self.face_board:
             return
 
@@ -1255,7 +1286,7 @@ class RigInstance(bpy.types.PropertyGroup):
             )
             self.data[f"{self.name}_head_logged_missing_raw_controls"] = True
 
-    def update_head_gui_control_values(self, override_values: dict[str, dict[str, float]] | None = None):
+    def update_head_gui_control_values(self, override_values: dict[str, dict[str, float]] | None = None):  # noqa: PLR0912
         # skip if the face board is not set
         if not self.face_board or not self.head_dna_reader:
             return
@@ -1273,8 +1304,8 @@ class RigInstance(bpy.types.PropertyGroup):
             control_name, axis = full_name.split(".")
             axis = axis.rsplit("t", -1)[-1].lower()
             if self.face_board:
-                # override the values can be provided to update values based on them vs current face board bone locations
-                # This can be used for baking the values to an action
+                # Override values can be provided to update values based on them vs current face board
+                # bone locations. This can be used for baking the values to an action.
                 if override_values:
                     value = override_values.get(control_name, {}).get(axis)
                     if value is not None:
@@ -1283,7 +1314,8 @@ class RigInstance(bpy.types.PropertyGroup):
                     pose_bone = self.face_board.pose.bones.get(control_name)
                     if pose_bone:
                         value = getattr(pose_bone.location, axis)
-                        # special case for the eye controls, if the center eye control is above 0, use that value instead
+                        # special case for the eye controls, if the center eye control is above 0,
+                        # use that value instead
                         if control_name in ["CTRL_L_eye", "CTRL_R_eye"]:
                             center_value = eye_aim_override_values.get(control_name, {}).get(axis)
                             if center_value is not None:
@@ -1304,7 +1336,8 @@ class RigInstance(bpy.types.PropertyGroup):
             )
             logger.warning(f"You are not listening to {len(missing_gui_controls)} GUI controls")
             logger.warning(
-                "This is most likely due to the DNA file being an older version then what the face board currently supports."
+                "This is most likely due to the DNA file being an older version then what "
+                "the face board currently supports."
             )
             logger.warning(
                 "Using a new .dna file created from the latest version of MetaHuman Creator will probably resolve this."
@@ -1418,7 +1451,7 @@ class RigInstance(bpy.types.PropertyGroup):
 
             mask_slider = head_texture_masks_node.inputs.get(slider_name)
             if mask_slider:
-                mask_slider.default_value = value  # type: ignore
+                mask_slider.default_value = value  # type: ignore[attr-defined]
                 texture_mask_values.append((slider_name, value))
             else:
                 logger.warning(
@@ -1554,12 +1587,6 @@ class RigInstance(bpy.types.PropertyGroup):
             self.head_manager.calculate(self.head_instance)
 
         self.update_head_bone_transforms()
-
-    def reset_raw_control_values(self):
-        bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False  # type: ignore
-        self.reset_body_raw_control_values()
-        self.reset_head_raw_control_values()
-        bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True  # type: ignore
 
     def update_body_raw_control_values(self, override_values: dict[str, dict[str, float]] | None = None):
         # skip if the body rig is not set
@@ -1700,10 +1727,11 @@ class RigInstance(bpy.types.PropertyGroup):
     def evaluate(
         self, component: Literal["head", "body", "all"] = "all", dependency_graph: bpy.types.Depsgraph | None = None
     ):
+        window_manager_properties: "MetahumanWindowMangerProperties" = bpy.context.window_manager.meta_human_dna  # type: ignore[attr-defined]  # noqa: UP037
         # this condition prevents constant evaluation
-        if bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph:  # type: ignore
+        if window_manager_properties.evaluate_dependency_graph:
             # turn off the dependency graph evaluation so we can update the controls without triggering an update
-            bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False  # type: ignore
+            window_manager_properties.evaluate_dependency_graph = False
 
             if not self.head_initialized:
                 self.head_initialize()
@@ -1736,4 +1764,4 @@ class RigInstance(bpy.types.PropertyGroup):
                     self.update_head_texture_masks()
 
             # turn on the dependency graph evaluation back on
-            bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True  # type: ignore
+            window_manager_properties.evaluate_dependency_graph = True

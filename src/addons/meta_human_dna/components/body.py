@@ -96,7 +96,7 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
 
     @preserve_context
     def convert(self, mesh_object: bpy.types.Object, constrain: bool = True):
-        from .bindings import meta_human_dna_core
+        from ..bindings import meta_human_dna_core
 
         if self.body_mesh_object and self.body_rig_object:
             target_height = utilities.get_bounding_box_height(mesh_object)
@@ -203,7 +203,7 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
                 for bone in self.rig_instance.body_rig.data.bones:  # type: ignore
                     bone.select = False
 
-            from .bindings import meta_human_dna_core
+            from ..bindings import meta_human_dna_core
 
             for bone_name in meta_human_dna_core.BODY_BONE_SELECTION_GROUPS.get(
                 self.rig_instance.body_rig_bone_groups, []

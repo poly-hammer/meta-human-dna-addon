@@ -281,7 +281,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
                 for bone in self.rig_instance.head_rig.data.bones:  # type: ignore
                     bone.select = False
 
-            from .bindings import meta_human_dna_core
+            from ..bindings import meta_human_dna_core
 
             for bone_name in meta_human_dna_core.HEAD_BONE_SELECTION_GROUPS.get(
                 self.rig_instance.head_rig_bone_groups, []

@@ -167,7 +167,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
             return Path(bpy.path.abspath(self.rig_instance.head_dna_file_path))
         if self._component_type == "body":
             return Path(bpy.path.abspath(self.rig_instance.body_dna_file_path))
-        return None # type: ignore
+        return None  # type: ignore
 
     @property
     def face_board_object(self) -> bpy.types.Object | None:
@@ -404,11 +404,11 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
             to_index = min(active_index, len(my_list) - 1)
             self.scene_properties.rig_instance_list_active_index = to_index  # type: ignore
 
-    def import_materials(self):
+    def import_materials(self) -> list[bpy.types.Material] | None:  # noqa: PLR0912
         if self.dna_import_properties and not self.dna_import_properties.import_materials:
             return None
 
-        from .ui import callbacks
+        from ..ui import callbacks
 
         sep = "\\"
         if sys.platform != "win32":

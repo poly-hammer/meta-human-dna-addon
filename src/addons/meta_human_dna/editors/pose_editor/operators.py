@@ -1,36 +1,59 @@
+# standard library imports
 import logging
+import math
 
 from pathlib import Path
 
+# third-party imports
 import bpy
 
+# local imports
 from ... import utilities
 from ...constants import RBF_SOLVER_POSTFIX
 from ...dna_io import get_dna_reader, get_dna_writer
+
+# type checking imports
+from ...typing import *  # noqa: F403
 
 
 logger = logging.getLogger(__name__)
 
 
-def get_active_rig_instance():
+def get_active_rig_instance() -> "RigInstance | None":
     # Avoid circular import
     from ...ui.callbacks import get_active_rig_instance as _get_active_rig_instance
 
     return _get_active_rig_instance()
 
 
-def get_new_pose_name(self) -> str:
-    # Avoid circular import
-    from ...ui.callbacks import get_new_pose_name as _get_new_pose_name
+def get_new_pose_name(self: "AddRBFPose") -> str:
+    value = self.get("new_pose_name")
+    if value is None:
+        instance = get_active_rig_instance()
+        if instance:
+            solver = instance.rbf_solver_list[instance.rbf_solver_list_active_index]
+            driver_bone_name = solver.name.replace(RBF_SOLVER_POSTFIX, "")
+            driver_bone = instance.body_rig.pose.bones.get(driver_bone_name)
+            if driver_bone:
+                name = driver_bone.name
+                rotation_euler = driver_bone.rotation_quaternion.to_euler("XYZ")
+                x = round(math.degrees(rotation_euler.x))
+                y = round(math.degrees(rotation_euler.y))
+                z = round(math.degrees(rotation_euler.z))
 
-    return _get_new_pose_name(self)
+                if x != 0:
+                    name += f"_x_{x}"
+                if y != 0:
+                    name += f"_y_{y}"
+                if z != 0:
+                    name += f"_z_{z}"
+                return name
+        return ""
+    return value
 
 
-def set_new_pose_name(self, value: str):
-    # Avoid circular import
-    from ...ui.callbacks import set_new_pose_name as _set_new_pose_name
-
-    _set_new_pose_name(self, value)
+def set_new_pose_name(self: "AddRBFPose", value: str):
+    self["new_pose_name"] = value
 
 
 class RBFEditorOperatorBase(bpy.types.Operator):
@@ -39,10 +62,10 @@ class RBFEditorOperatorBase(bpy.types.Operator):
     driver_index: bpy.props.IntProperty(default=0)  # type: ignore
     driven_index: bpy.props.IntProperty(default=0)  # type: ignore
 
-    def validate(self, context, instance) -> tuple[bool, str]:
+    def validate(self, context: "Context", instance: "RigInstance") -> tuple[bool, str]:
         return True, ""
 
-    def execute(self, context):
+    def execute(self, context: "Context") -> set[str]:
         instance = get_active_rig_instance()
         if instance and instance.body_rig:
             result, message = self.validate(context, instance)
@@ -54,7 +77,7 @@ class RBFEditorOperatorBase(bpy.types.Operator):
 
         return {"FINISHED"}
 
-    def run(self, instance):
+    def run(self, instance: "RigInstance"):
         pass
 
 
@@ -64,7 +87,7 @@ class AddRBFSolver(RBFEditorOperatorBase):
     bl_idname = "meta_human_dna.add_rbf_solver"
     bl_label = "Add RBF Solver"
 
-    def run(self, instance):
+    def run(self, instance: "RigInstance"):
         pass
 
 
@@ -74,7 +97,7 @@ class RemoveRBFSolver(RBFEditorOperatorBase):
     bl_idname = "meta_human_dna.remove_rbf_solver"
     bl_label = "Remove RBF Solver"
 
-    def run(self, instance):
+    def run(self, instance: "RigInstance"):
         pass
 
 
@@ -84,7 +107,7 @@ class EvaluateRBFSolvers(RBFEditorOperatorBase):
     bl_idname = "meta_human_dna.evaluate_rbf_solvers"
     bl_label = "Evaluate RBF Solvers"
 
-    def run(self, instance):
+    def run(self, instance: "RigInstance"):
         instance.evaluate(component="body")
 
 
@@ -94,7 +117,7 @@ class RevertRBFSolver(RBFEditorOperatorBase):
     bl_idname = "meta_human_dna.revert_rbf_solver"
     bl_label = "Revert RBF Solver"
 
-    def run(self, instance):
+    def run(self, instance: "RigInstance"):
         utilities.reset_pose(instance.body_rig)
 
         instance.editing_rbf_solver = False
@@ -103,20 +126,20 @@ class RevertRBFSolver(RBFEditorOperatorBase):
 
 
 class EditRBFSolver(RBFEditorOperatorBase):
-    """Switch to Editing mode for the selected RBF solver. Changes will not take effect until committed to the .dna file."""
+    """Switch to Editing mode for the selected RBF solver. Changes will not take effect until committed to the .dna file."""  # noqa: E501
 
     bl_idname = "meta_human_dna.edit_rbf_solver"
     bl_label = "Edit RBF Solver"
 
     @classmethod
-    def poll(cls, context) -> bool:
+    def poll(cls, context: "Context") -> bool:  # noqa: ARG003
         instance = get_active_rig_instance()
         if not instance or not instance.body_rig:
             return False
 
         return bool(not instance.editing_rbf_solver)
 
-    def run(self, instance):
+    def run(self, instance: "RigInstance"):
         instance.editing_rbf_solver = True
         instance.auto_evaluate_body = False
         instance.body_rig.hide_set(False)
@@ -130,14 +153,14 @@ class CommitRBFSolverChanges(RBFEditorOperatorBase):
     bl_label = "Commit RBF Solver Changes"
 
     @classmethod
-    def poll(cls, context) -> bool:
+    def poll(cls, context: "Context") -> bool:  # noqa: ARG003
         instance = get_active_rig_instance()
         if instance is None:
             return False
 
         return bool(instance.editing_rbf_solver)
 
-    def validate(self, context, instance) -> tuple[bool, str]:
+    def validate(self, context: "Context", instance: "RigInstance") -> tuple[bool, str]:
         if not utilities.dependencies_are_valid():
             return False, "Dependencies are not valid. Ensure the core dependencies are installed."
 
@@ -150,7 +173,7 @@ class CommitRBFSolverChanges(RBFEditorOperatorBase):
 
         return True, ""
 
-    def run(self, instance):
+    def run(self, instance: "RigInstance"):
         # Create a backup before committing edit mode changes
         from ..backup_manager.core import BackupType, create_backup
 
@@ -177,7 +200,13 @@ class CommitRBFSolverChanges(RBFEditorOperatorBase):
 
 
 class RBFPoseOperatorBase(RBFEditorOperatorBase):
-    def add_pose(self, instance, pose_name: str, driven_bones: list[bpy.types.PoseBone], from_pose=None):
+    def add_pose(
+        self,
+        instance: "RigInstance",
+        pose_name: str,
+        driven_bones: list[bpy.types.PoseBone],
+        from_pose: "RBFPoseData | None" = None,
+    ) -> "RBFPoseData | None":
         solver = instance.rbf_solver_list[self.solver_index]
         new_pose_index = len(solver.poses)
         pose = solver.poses.add()
@@ -220,7 +249,7 @@ class AddRBFPose(RBFPoseOperatorBase):
         default="default", description="The name of the new RBF Pose", get=get_new_pose_name, set=set_new_pose_name
     )  # type: ignore
 
-    def validate(self, context, instance) -> tuple[bool, str]:
+    def validate(self, context: "Context", instance: "RigInstance") -> tuple[bool, str]:
         if not context.selected_pose_bones:
             return False, "No pose bones selected. Please select at least one driver bone in pose mode."
 
@@ -253,12 +282,15 @@ class AddRBFPose(RBFPoseOperatorBase):
         if not instance.body_rig.pose.bones.get(driver_name_name):
             return (
                 False,
-                f'The driver bone "{driver_name_name}" for the solver "{solver.name}" is not found in the armature. Please ensure the bone exists.',
+                (
+                    f'The driver bone "{driver_name_name}" for the solver "{solver.name}" is not found in the '
+                    "armature. Please ensure the bone exists."
+                ),
             )
 
         return True, ""
 
-    def run(self, instance):
+    def run(self, instance: "RigInstance"):
         solver = instance.rbf_solver_list[instance.rbf_solver_list_active_index]
         new_pose_index = len(solver.poses)
         self.add_pose(
@@ -267,10 +299,10 @@ class AddRBFPose(RBFPoseOperatorBase):
             driven_bones=bpy.context.selected_pose_bones.copy(),  # type: ignore
         )
 
-    def invoke(self, context, event):
+    def invoke(self, context: "Context", event: bpy.types.Event) -> set[str]:
         return context.window_manager.invoke_props_dialog(self, width=200)  # type: ignore
 
-    def draw(self, context):
+    def draw(self, context: "Context"):
         if not self.layout:
             return
 
@@ -286,7 +318,7 @@ class AddRBFPose(RBFPoseOperatorBase):
             row.label(text=pose_bone.name, icon="BONE_DATA")
 
     @classmethod
-    def poll(cls, context):
+    def poll(cls, context: "Context") -> bool:
         return bool(context.selected_pose_bones)
 
 
@@ -296,7 +328,7 @@ class DuplicateRBFPose(RBFPoseOperatorBase):
     bl_idname = "meta_human_dna.duplicate_rbf_pose"
     bl_label = "Duplicate RBF Pose"
 
-    def run(self, instance):
+    def run(self, instance: "RigInstance"):
         solver = instance.rbf_solver_list[self.solver_index]
         pose = solver.poses[self.pose_index]
 
@@ -328,7 +360,7 @@ class UpdateRBFPose(RBFEditorOperatorBase):
     bl_idname = "meta_human_dna.update_rbf_pose"
     bl_label = "Update RBF Pose"
 
-    def run(self, instance):
+    def run(self, instance: "RigInstance"):
         # ensure the body is initialized
         if not instance.body_initialized:
             instance.body_initialize(update_rbf_solver_list=False)
@@ -370,7 +402,7 @@ class RemoveRBFPose(RBFEditorOperatorBase):
     bl_idname = "meta_human_dna.remove_rbf_pose"
     bl_label = "Remove RBF Pose"
 
-    def run(self, instance):
+    def run(self, instance: "RigInstance"):
         solver = instance.rbf_solver_list[instance.rbf_solver_list_active_index]
         solver.poses.remove(solver.poses_active_index)
         to_index = min(solver.poses_active_index, len(solver.poses) - 1)
@@ -383,7 +415,7 @@ class AddRBFDriver(RBFEditorOperatorBase):
     bl_idname = "meta_human_dna.add_rbf_driver"
     bl_label = "Add RBF Driver"
 
-    def run(self, instance):
+    def run(self, instance: "RigInstance"):
         pass
 
 
@@ -393,7 +425,7 @@ class RemoveRBFDriver(RBFEditorOperatorBase):
     bl_idname = "meta_human_dna.remove_rbf_driver"
     bl_label = "Remove RBF Driver"
 
-    def run(self, instance):
+    def run(self, instance: "RigInstance"):
         pass
 
 
@@ -404,17 +436,17 @@ class AddRBFDriven(RBFEditorOperatorBase):
     bl_label = "Add RBF Driven Bone"
 
     @classmethod
-    def poll(cls, context) -> bool:
+    def poll(cls, context: "Context") -> bool:
         instance = get_active_rig_instance()
         return bool(instance and instance.body_rig and context.selected_pose_bones)
 
-    def validate(self, context, instance) -> tuple[bool, str]:
+    def validate(self, context: "Context", instance: "RigInstance") -> tuple[bool, str]:
         if not context.selected_pose_bones:
             return False, "No pose bones selected. Please select at least one driven bone in pose mode."
 
         return True, ""
 
-    def run(self, instance):
+    def run(self, instance: "RigInstance"):
         solver = instance.rbf_solver_list[self.solver_index]
         pose = solver.poses[self.pose_index]
 
@@ -437,7 +469,7 @@ class RemoveRBFDriven(RBFEditorOperatorBase):
     bl_idname = "meta_human_dna.remove_rbf_driven"
     bl_label = "Remove RBF Driven Bone"
 
-    def run(self, instance):
+    def run(self, instance: "RigInstance"):
         pass
 
 
@@ -447,7 +479,7 @@ class SelectAllRBFDriven(RBFEditorOperatorBase):
     bl_idname = "meta_human_dna.select_all_rbf_driven_for_pose"
     bl_label = "Select All RBF Driven Bones for Pose"
 
-    def run(self, instance):
+    def run(self, instance: "RigInstance"):
         solver = instance.rbf_solver_list[self.solver_index]
         pose = solver.poses[self.pose_index]
 

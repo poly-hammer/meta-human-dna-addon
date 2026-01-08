@@ -76,8 +76,8 @@
     "[python]": {
         "editor.defaultFormatter": "charliermarsh.ruff",
         "editor.codeActionsOnSave": {
-            "source.fixAll.ruff": "explicit",
-            "source.organizeImports.ruff": "explicit"
+            "source.fixAll.ruff": "always",
+            "source.organizeImports.ruff": "always"
         }
     },
     // =========================================================================
@@ -85,6 +85,8 @@
     // All linting/formatting rules are read from pyproject.toml [tool.ruff]
     // =========================================================================
     "ruff.configurationPreference": "filesystemFirst",
+    "ruff.fixAll": true,
+    "ruff.organizeImports": true,
     // =========================================================================
     // Terminal Environment Variables
     // =========================================================================
@@ -110,6 +112,12 @@
     "cSpell.import": [
         "${workspaceFolder}/cspell.json"
     ],
+    // =========================================================================
+    // Even Better TOML Settings
+    // =========================================================================
+    "evenBetterToml.schema.associations": {
+        "**/pyproject.toml": false
+    },
     // =========================================================================
     // Jupyter Settings
     // =========================================================================

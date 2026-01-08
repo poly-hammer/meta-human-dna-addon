@@ -1,16 +1,19 @@
+# standard library imports
 import logging
 import math
 import os
 
+from collections.abc import Iterable
 from pathlib import Path
-from typing import TYPE_CHECKING
 
+# third party imports
 import bpy
 import gpu
 
 from gpu_extras.presets import draw_circle_2d
-from mathutils import Euler, Matrix, Quaternion, Vector
+from mathutils import Color, Euler, Matrix, Quaternion, Vector
 
+# local imports
 from ..constants import (
     BASE_DNA_FOLDER,
     BODY_HIGH_LEVEL_TOPOLOGY_GROUPS,
@@ -20,28 +23,38 @@ from ..constants import (
     IS_BLENDER_5,
     NUMBER_OF_HEAD_LODS,
     POSES_FOLDER,
-    RBF_SOLVER_POSTFIX,
     ToolInfo,
 )
-
-
-if TYPE_CHECKING:
-    from ..rig_instance import RigInstance
+from ..typing import *  # noqa: F403
 
 
 logger = logging.getLogger(__name__)
 
 
-def get_bake_start_frame(self) -> int:
+def get_active_head() -> "MetaHumanComponentHead | None":
+    # Avoid circular import
+    from ..utilities import get_active_head as _get_active_head
+
+    return _get_active_head()
+
+
+def get_active_body() -> "MetaHumanComponentBody | None":
+    # Avoid circular import
+    from ..utilities import get_active_body as _get_active_body
+
+    return _get_active_body()
+
+
+def get_bake_start_frame(self: "BakeAnimationBase") -> int:
     try:
-        return self.get("bake_start_frame", bpy.context.scene.frame_start)  # type: ignore
+        return self.get("bake_start_frame", bpy.context.scene.frame_start if bpy.context.scene else 1)
     except AttributeError:
         return self.get("bake_start_frame", 1)
 
 
-def get_bake_end_frame(self) -> int:
+def get_bake_end_frame(self: "BakeAnimationBase") -> int:
     try:
-        return self.get("bake_end_frame", bpy.context.scene.frame_end)  # type: ignore
+        return self.get("bake_end_frame", bpy.context.scene.frame_end if bpy.context.scene else 250)
     except AttributeError:
         return self.get("bake_end_frame", 250)
 
@@ -50,13 +63,13 @@ def get_active_rig_instance() -> "RigInstance | None":
     """
     Gets the active rig instance.
     """
+    scene_properties: "MetahumanSceneProperties" = bpy.context.scene.meta_human_dna  # type: ignore  # noqa: UP037
     if not hasattr(bpy.context.scene, ToolInfo.NAME):
         return None
 
-    properties = bpy.context.scene.meta_human_dna  # type: ignore
-    if len(properties.rig_instance_list) > 0:
-        index = properties.rig_instance_list_active_index
-        return properties.rig_instance_list[index]
+    if len(scene_properties.rig_instance_list) > 0:
+        index = scene_properties.rig_instance_list_active_index
+        return scene_properties.rig_instance_list[index]
     return None
 
 
@@ -64,11 +77,10 @@ def get_head_texture_logic_node(material: bpy.types.Material) -> bpy.types.Shade
     if not material or not material.node_tree:
         return None
     for node in material.node_tree.nodes:
-        if node.type == "GROUP":
-            # Check if this is the right group node by checking one input name
-            # We don't check all to avoid performance issues
-            if node.inputs.get("wm1.head_wm1_jawOpen_msk"):
-                return node  # type: ignore
+        # Check if this is the right group node by checking one input name
+        # We don't check all to avoid performance issues
+        if node.type == "GROUP" and node.inputs.get("wm1.head_wm1_jawOpen_msk"):
+            return node  # type: ignore[return-value]
     return None
 
 
@@ -76,20 +88,24 @@ def get_body_texture_logic_node(material: bpy.types.Material) -> bpy.types.Shade
     if not material or not material.node_tree:
         return None
     for node in material.node_tree.nodes:
-        if node.type == "GROUP":
-            # Check if this is the right group node by checking one input name
-            # We don't check all to avoid performance issues
-            if node.inputs.get("Color_MAIN") and node.inputs.get("Normal_MAIN") and node.inputs.get("Cavity_MAIN"):
-                return node  # type: ignore
+        # Check if this is the right group node by checking one input name
+        # We don't check all to avoid performance issues
+        if (
+            node.type == "GROUP"
+            and node.inputs.get("Color_MAIN")
+            and node.inputs.get("Normal_MAIN")
+            and node.inputs.get("Cavity_MAIN")
+        ):
+            return node  # type: ignore[return-value]
     return None
 
 
-def get_active_material_preview(self) -> int:
+def get_active_material_preview(self: "RigInstance") -> int:
     return self.get("active_material_preview", 0)
 
 
-def get_face_pose_previews_items(self, context):
-    from .properties import preview_collections
+def get_face_pose_previews_items(self: "RigInstance", context: "Context") -> Iterable[tuple[str, str, str, int, int]]:  # noqa: ARG001
+    from ..properties import preview_collections
 
     enum_items = []
 
@@ -131,26 +147,26 @@ def get_face_pose_previews_items(self, context):
     return preview_collection.face_pose_previews
 
 
-def get_head_mesh_topology_groups(self, context):
-    enum_items = []
+def get_head_mesh_topology_groups(self: "RigInstance", context: "Context") -> list[tuple[str, str, str]]:  # noqa: ARG001
+    enum_items: list[tuple[str, str, str]] = []
     instance = get_active_rig_instance()
     if instance and instance.head_mesh:
-        for group_name in instance.head_mesh.vertex_groups:
-            if group_name.startswith("TOPO_GROUP_"):
-                enum_items.append(
-                    (
-                        group_name,
-                        " ".join([i.capitalize() for i in group_name.replace("TOPO_GROUP_", "").split("_")]),
-                        f"Select vertices assigned to {group_name} on the active head mesh",
-                    )
-                )
+        enum_items.extend(
+            (
+                group_name,
+                " ".join([i.capitalize() for i in group_name.replace("TOPO_GROUP_", "").split("_")]),
+                f"Select vertices assigned to {group_name} on the active head mesh",
+            )
+            for group_name in instance.head_mesh.vertex_groups
+            if group_name.startswith("TOPO_GROUP_")
+        )
 
     # Sort the enum items alphabetically by their first index (the group name)
     enum_items.sort(key=lambda x: x[0])
     return enum_items
 
 
-def get_body_mesh_topology_groups(self, context):
+def get_body_mesh_topology_groups(self: "RigInstance", context: "Context") -> list[tuple[str, str, str]]:  # noqa: ARG001
     enum_items = []
     instance = get_active_rig_instance()
     if instance and instance.body_mesh:
@@ -172,101 +188,97 @@ def get_body_mesh_topology_groups(self, context):
     return enum_items
 
 
-def get_head_rig_bone_groups(self, context):
-    enum_items = []
-    from .bindings import meta_human_dna_core
+def get_head_rig_bone_groups(self: "RigInstance", context: "Context") -> list[tuple[str, str, str]]:
+    from ..bindings import meta_human_dna_core
 
-    for group_name in meta_human_dna_core.HEAD_BONE_SELECTION_GROUPS:
-        enum_items.append(
-            (
-                group_name,
-                " ".join([i.capitalize() for i in group_name.split("_")]),
-                f"Select bones in the group {group_name} on the head rig",
-            )
+    enum_items = [
+        (
+            group_name,
+            " ".join([i.capitalize() for i in group_name.split("_")]),
+            f"Select bones in the group {group_name} on the head rig",
         )
+        for group_name in meta_human_dna_core.HEAD_BONE_SELECTION_GROUPS
+    ]
     instance = get_active_rig_instance()
     if instance and instance.head_mesh and instance.list_surface_bone_groups:
-        for item in get_head_mesh_topology_groups(self, context):
-            _item = list(item)
-            _item[1] = f"(Surface) {item[1]}"
-            enum_items.append(tuple(_item))
+        enum_items.extend(
+            (item[0], f"(Surface) {item[1]}", item[2]) for item in get_head_mesh_topology_groups(self, context)
+        )
     return enum_items
 
 
-def get_body_rig_bone_groups(self, context):
-    enum_items = []
-    from .bindings import meta_human_dna_core
+def get_body_rig_bone_groups(self: "RigInstance", context: "Context") -> list[tuple[str, str, str]]:  # noqa: ARG001
+    from ..bindings import meta_human_dna_core
 
-    for group_name in meta_human_dna_core.BODY_BONE_SELECTION_GROUPS:
-        enum_items.append(
-            (
-                group_name,
-                " ".join([i.capitalize() for i in group_name.split("_")]),
-                f"Select bones in the group {group_name} on the body rig",
-            )
+    enum_items = [
+        (
+            group_name,
+            " ".join([i.capitalize() for i in group_name.split("_")]),
+            f"Select bones in the group {group_name} on the body rig",
         )
+        for group_name in meta_human_dna_core.BODY_BONE_SELECTION_GROUPS
+    ]
 
     # TODO: Maybe add surface bone groups here as well
     return enum_items
 
 
-def get_base_dna_folder(self, context):
-    enum_items = []
+def get_base_dna_folder(self: "MetahumanWindowMangerProperties", context: "Context") -> list[tuple[str, str, str]]:  # noqa: ARG001
     # get all the dna files in the addon's dna folder
-    for folder in BASE_DNA_FOLDER.iterdir():
-        if not folder.is_file() and any(f.suffix == ".dna" for f in folder.iterdir()):
-            enum_items.append(
-                (
-                    str(folder.absolute()),
-                    " ".join([i.capitalize() for i in folder.stem.split("_")]),
-                    f"Use the {folder.name} folder and its base DNA component files to convert the selected mesh",
-                )
-            )
+    enum_items = [
+        (
+            str(folder.absolute()),
+            " ".join([i.capitalize() for i in folder.stem.split("_")]),
+            f"Use the {folder.name} folder and its base DNA component files to convert the selected mesh",
+        )
+        for folder in BASE_DNA_FOLDER.iterdir()
+        if not folder.is_file() and any(f.suffix == ".dna" for f in folder.iterdir())
+    ]
 
     # get all the dna files in the extra dna folders
     extra_dna_folder_list = context.preferences.addons[ToolInfo.NAME].preferences.extra_dna_folder_list
-    for item in extra_dna_folder_list:
-        for file in Path(item.folder_path).iterdir():
-            if file.is_file() and file.suffix == ".dna":
-                enum_items.append(
-                    (
-                        str(file.absolute()),
-                        " ".join([i.capitalize() for i in file.stem.split("_")]),
-                        f"Use the {file.name} file as the base DNA to convert the selected mesh",
-                    )
-                )
+    enum_items.extend(
+        (
+            str(file.absolute()),
+            " ".join([i.capitalize() for i in file.stem.split("_")]),
+            f"Use the {file.name} file as the base DNA to convert the selected mesh",
+        )
+        for item in extra_dna_folder_list
+        for file in Path(item.folder_path).iterdir()
+        if file.is_file() and file.suffix == ".dna"
+    )
     return enum_items
 
 
-def get_active_lod(self) -> int:
+def get_active_lod(self: "RigInstance") -> int:
     return self.get("active_lod", 0)
 
 
-def get_show_head_bones(self) -> bool:
+def get_show_head_bones(self: "RigInstance") -> bool:
     if self.head_rig:
-        return not self.head_rig.hide_get()  # type: ignore
+        return not self.head_rig.hide_get()
     return False
 
 
-def get_show_face_board(self) -> bool:
+def get_show_face_board(self: "RigInstance") -> bool:
     if self.face_board:
-        return not self.face_board.hide_get()  # type: ignore
+        return not self.face_board.hide_get()
     return False
 
 
-def get_show_control_rig(self) -> bool:
+def get_show_control_rig(self: "RigInstance") -> bool:
     if self.control_rig:
-        return not self.control_rig.hide_get()  # type: ignore
+        return not self.control_rig.hide_get()
     return False
 
 
-def get_show_body_bones(self) -> bool:
+def get_show_body_bones(self: "RigInstance") -> bool:
     if self.body_rig:
-        return not self.body_rig.hide_get()  # type: ignore
+        return not self.body_rig.hide_get()
     return False
 
 
-def get_shape_key_value(self) -> float:
+def get_shape_key_value(self: "RigInstance") -> float:
     instance = get_active_rig_instance()
     if instance:
         channel_index = instance.head_channel_name_to_index_lookup.get(self.name)
@@ -283,12 +295,17 @@ def get_shape_key_value(self) -> float:
     return 0.0
 
 
-def get_active_shape_key_mesh_names(self, context):
+def get_active_shape_key_mesh_names(self: "RigInstance", context: "Context") -> list[tuple[str, str, str, str, int]]:  # noqa: ARG001
     items = []
     if self.head_mesh_index_lookup:
         enum_index = 0
         for mesh_object in self.head_mesh_index_lookup.values():
-            if mesh_object.data.shape_keys and len(mesh_object.data.shape_keys.key_blocks) > 0:
+            if (
+                mesh_object.type == "MESH"
+                and isinstance(mesh_object.data, bpy.types.Mesh)
+                and mesh_object.data.shape_keys
+                and len(mesh_object.data.shape_keys.key_blocks) > 0
+            ):
                 items.append(
                     (
                         mesh_object.name,
@@ -312,7 +329,7 @@ def get_active_shape_key_mesh_names(self, context):
     return items
 
 
-def set_highlight_matching_active_bone(self, value):
+def set_highlight_matching_active_bone(self: "MetahumanSceneProperties", value: bool):
     gpu_draw_handler = self.context.pop("gpu_draw_highlight_matching_active_bone_handler", None)
     if gpu_draw_handler:
         bpy.types.SpaceView3D.draw_handler_remove(gpu_draw_handler, "WINDOW")
@@ -320,10 +337,11 @@ def set_highlight_matching_active_bone(self, value):
     if value:
 
         def draw():
-            if bpy.context.mode == "POSE":  # type: ignore
-                pose_bone = bpy.context.active_pose_bone  # type: ignore
+            if bpy.context.mode == "POSE":
+                pose_bone = bpy.context.active_pose_bone
                 if pose_bone:
-                    for instance in bpy.context.scene.meta_human_dna.rig_instance_list:  # type: ignore
+                    scene_properties: "MetahumanSceneProperties" = bpy.context.scene.meta_human_dna  # type: ignore  # noqa: UP037
+                    for instance in scene_properties.rig_instance_list:
                         if (
                             instance
                             and instance.head_rig
@@ -334,7 +352,7 @@ def set_highlight_matching_active_bone(self, value):
                                 world_location = (
                                     instance.head_rig.matrix_world @ source_pose_bone.matrix.to_translation()
                                 )
-                                draw_sphere(position=world_location, color=(1, 0, 1, 1), radius=0.001)
+                                draw_sphere(position=Vector(world_location), color=Color((1, 0, 1, 1)), radius=0.001)
                         if (
                             instance
                             and instance.body_rig
@@ -345,29 +363,32 @@ def set_highlight_matching_active_bone(self, value):
                                 world_location = (
                                     instance.body_rig.matrix_world @ source_pose_bone.matrix.to_translation()
                                 )
-                                draw_sphere(position=world_location, color=(1, 0, 1, 1), radius=0.001)
+                                draw_sphere(position=Vector(world_location), color=Color((1, 0, 1, 1)), radius=0.001)
 
-        gpu_draw_handler = bpy.types.SpaceView3D.draw_handler_add(draw, (), "WINDOW", "POST_VIEW")  # type: ignore
+        gpu_draw_handler = bpy.types.SpaceView3D.draw_handler_add(draw, (), "WINDOW", "POST_VIEW")
         self.context["gpu_draw_highlight_matching_active_bone_handler"] = gpu_draw_handler
 
     self["highlight_matching_active_bone"] = value
 
 
-def get_highlight_matching_active_bone(self):
+def get_highlight_matching_active_bone(self: "MetahumanSceneProperties") -> bool:
     return self.get("highlight_matching_active_bone", False)
 
 
-def set_bake_start_frame(self, value):
+def set_bake_start_frame(self: "BakeAnimationBase", value: int):
     self["bake_start_frame"] = value
 
 
-def set_bake_end_frame(self, value):
+def set_bake_end_frame(self: "BakeAnimationBase", value: int):
     self["bake_end_frame"] = value
 
 
-def set_active_lod(self, value):
+def set_active_lod(self: "RigInstance", value: int):
     self["active_lod"] = value
-    for scene_object in bpy.context.scene.objects:  # type: ignore
+    if not bpy.context.scene:
+        return
+
+    for scene_object in bpy.context.scene.objects:
         if scene_object.name.startswith(self.name) and scene_object.type == "MESH":
             ignored_names = [
                 f"{self.name}_eyeshell_lod{value}_mesh",
@@ -387,31 +408,31 @@ def set_active_lod(self, value):
         body_lod_object.hide_set(False)
 
 
-def set_show_head_bones(self, value):
+def set_show_head_bones(self: "RigInstance", value: bool):
     if self.head_rig:
         self.head_rig.hide_set(not value)
 
 
-def set_show_face_board(self, value):
+def set_show_face_board(self: "RigInstance", value: bool):
     if self.face_board:
         self.face_board.hide_set(not value)
 
 
-def set_show_control_rig(self, value):
+def set_show_control_rig(self: "RigInstance", value: bool):
     if self.control_rig:
         self.control_rig.hide_set(not value)
 
 
-def set_show_body_bones(self, value):
+def set_show_body_bones(self: "RigInstance", value: bool):
     if self.body_rig:
         self.body_rig.hide_set(not value)
 
 
-def set_copied_rig_instance_name(self, value):
+def set_copied_rig_instance_name(self: "DuplicateRigInstance", value: str):
     self["copied_rig_instance_name"] = value
 
 
-def get_copied_rig_instance_name(self):
+def get_copied_rig_instance_name(self: "DuplicateRigInstance") -> str:
     value = self.get("copied_rig_instance_name")
     if value is None:
         instance = get_active_rig_instance()
@@ -423,50 +444,7 @@ def get_copied_rig_instance_name(self):
     return value
 
 
-def set_unreal_content_folder(self, value):
-    self["unreal_content_folder"] = value
-
-
-def get_new_pose_name(self):
-    value = self.get("new_pose_name")
-    if value is None:
-        instance = get_active_rig_instance()
-        if instance:
-            solver = instance.rbf_solver_list[instance.rbf_solver_list_active_index]
-            driver_bone_name = solver.name.replace(RBF_SOLVER_POSTFIX, "")
-            driver_bone = instance.body_rig.pose.bones.get(driver_bone_name)
-            if driver_bone:
-                name = driver_bone.name
-                rotation_euler = driver_bone.rotation_quaternion.to_euler("XYZ")
-                x = round(math.degrees(rotation_euler.x))
-                y = round(math.degrees(rotation_euler.y))
-                z = round(math.degrees(rotation_euler.z))
-
-                if x != 0:
-                    name += f"_x_{x}"
-                if y != 0:
-                    name += f"_y_{y}"
-                if z != 0:
-                    name += f"_z_{z}"
-                return name
-        return ""
-    return value
-
-
-def set_new_pose_name(self, value):
-    self["new_pose_name"] = value
-
-
-def get_unreal_content_folder(self):
-    value = self.get("unreal_content_folder")
-    if value is None:
-        instance = get_active_rig_instance()
-        if instance:
-            return f"/Game/MetaHumans/{instance.name}/Face"
-    return value
-
-
-def set_active_material_preview(self, value):
+def set_active_material_preview(self: "RigInstance", value: int):
     self["active_material_preview"] = value
     input_name = "Factor"
 
@@ -479,104 +457,99 @@ def set_active_material_preview(self, value):
 
         # combined
         if value == 0:
-            node_group.node_tree.nodes["show_color_or_other"].inputs[input_name].default_value = 0  # type: ignore
-            node_group.node_tree.nodes["show_mask_or_normal"].inputs[input_name].default_value = 0  # type: ignore
-            node_group.node_tree.nodes["show_color_or_topology"].inputs[input_name].default_value = 0  # type: ignore
+            node_group.node_tree.nodes["show_color_or_other"].inputs[input_name].default_value = 0  # type: ignore[attr-defined]
+            node_group.node_tree.nodes["show_mask_or_normal"].inputs[input_name].default_value = 0  # type: ignore[attr-defined]
+            node_group.node_tree.nodes["show_color_or_topology"].inputs[input_name].default_value = 0  # type: ignore[attr-defined]
         # masks
         elif value == 1:
-            node_group.node_tree.nodes["show_color_or_other"].inputs[input_name].default_value = 1  # type: ignore
-            node_group.node_tree.nodes["show_mask_or_normal"].inputs[input_name].default_value = 1  # type: ignore
-            node_group.node_tree.nodes["show_color_or_topology"].inputs[input_name].default_value = 0  # type: ignore
+            node_group.node_tree.nodes["show_color_or_other"].inputs[input_name].default_value = 1  # type: ignore[attr-defined]
+            node_group.node_tree.nodes["show_mask_or_normal"].inputs[input_name].default_value = 1  # type: ignore[attr-defined]
+            node_group.node_tree.nodes["show_color_or_topology"].inputs[input_name].default_value = 0  # type: ignore[attr-defined]
         # normals
         elif value == 2:
-            node_group.node_tree.nodes["show_color_or_other"].inputs[input_name].default_value = 1  # type: ignore
-            node_group.node_tree.nodes["show_mask_or_normal"].inputs[input_name].default_value = 0  # type: ignore
-            node_group.node_tree.nodes["show_color_or_topology"].inputs[input_name].default_value = 0  # type: ignore
+            node_group.node_tree.nodes["show_color_or_other"].inputs[input_name].default_value = 1  # type: ignore[attr-defined]
+            node_group.node_tree.nodes["show_mask_or_normal"].inputs[input_name].default_value = 0  # type: ignore[attr-defined]
+            node_group.node_tree.nodes["show_color_or_topology"].inputs[input_name].default_value = 0  # type: ignore[attr-defined]
 
         # topology
         elif value == 3:
-            node_group.node_tree.nodes["show_color_or_other"].inputs[input_name].default_value = 0  # type: ignore
-            node_group.node_tree.nodes["show_mask_or_normal"].inputs[input_name].default_value = 0  # type: ignore
-            node_group.node_tree.nodes["show_color_or_topology"].inputs[input_name].default_value = 1  # type: ignore
+            node_group.node_tree.nodes["show_color_or_other"].inputs[input_name].default_value = 0  # type: ignore[attr-defined]
+            node_group.node_tree.nodes["show_mask_or_normal"].inputs[input_name].default_value = 0  # type: ignore[attr-defined]
+            node_group.node_tree.nodes["show_color_or_topology"].inputs[input_name].default_value = 1  # type: ignore[attr-defined]
 
 
-def poll_head_rig_bone_selection(cls, context):
-    instance = get_active_rig_instance()
-    return (
-        context.mode == "POSE"  # type: ignore
-        and context.selected_pose_bones  # type: ignore
-        and instance.head_rig == context.active_object  # type: ignore
-    )
+def poll_head_rig_bone_selection(self: "RigInstance", context: "Context") -> bool:
+    return context.mode == "POSE" and bool(context.selected_pose_bones) and self.head_rig == context.active_object
 
 
-def poll_head_materials(self, material: bpy.types.Material) -> bool:
+def poll_head_materials(self: "RigInstance", material: bpy.types.Material) -> bool:  # noqa: ARG001
     node = get_head_texture_logic_node(material)
     return bool(node)
 
 
-def poll_body_materials(self, material: bpy.types.Material) -> bool:
+def poll_body_materials(self: "RigInstance", material: bpy.types.Material) -> bool:  # noqa: ARG001
     node = get_body_texture_logic_node(material)
     return bool(node)
 
 
-def poll_face_boards(self, scene_object: bpy.types.Object) -> bool:
-    if scene_object.type == "ARMATURE":
-        # Check if this is the right armature by checking one bone name
-        if scene_object.pose.bones.get("CTRL_rigLogic"):  # type: ignore
-            return True
-    return False
+def poll_face_boards(self: "RigInstance", scene_object: bpy.types.Object) -> bool:  # noqa: ARG001
+    # Check if this is the right armature by checking one bone name
+    return (
+        scene_object.type == "ARMATURE"
+        and scene_object.pose is not None
+        and bool(scene_object.pose.bones.get("CTRL_rigLogic"))
+    )
 
 
-def poll_head_rig(self, scene_object: bpy.types.Object) -> bool:
-    if scene_object.type == "ARMATURE":
-        # This check will filter out the face boards
-        if not scene_object.pose.bones.get("CTRL_rigLogic"):  # type: ignore
-            return True
-    return False
+def poll_head_rig(self: "RigInstance", scene_object: bpy.types.Object) -> bool:  # noqa: ARG001
+    return (
+        scene_object.type == "ARMATURE"
+        and scene_object.pose is not None
+        and not scene_object.pose.bones.get("CTRL_rigLogic")
+    )
 
 
-def poll_body_rig(self, scene_object: bpy.types.Object) -> bool:
-    if scene_object.type == "ARMATURE":
-        # This check will filter out the face boards
-        if not scene_object.pose.bones.get("CTRL_rigLogic"):  # type: ignore
-            return True
-    return False
+def poll_body_rig(self: "RigInstance", scene_object: bpy.types.Object) -> bool:  # noqa: ARG001
+    return (
+        scene_object.type == "ARMATURE"
+        and scene_object.pose is not None
+        and not scene_object.pose.bones.get("CTRL_rigLogic")
+    )
 
 
-def poll_control_rig(self, scene_object: bpy.types.Object) -> bool:
-    if scene_object.type == "ARMATURE":
-        # This check will filter out the face boards
-        if not scene_object.pose.bones.get("CTRL_rigLogic"):  # type: ignore
-            return True
-    return False
+def poll_control_rig(self: "RigInstance", scene_object: bpy.types.Object) -> bool:  # noqa: ARG001
+    # This check will filter out the face boards
+    return (
+        scene_object.type == "ARMATURE"
+        and scene_object.pose is not None
+        and not scene_object.pose.bones.get("CTRL_rigLogic")
+    )
 
 
-def poll_head_mesh(self, scene_object: bpy.types.Object) -> bool:
-    if scene_object.type == "MESH" and scene_object.name in bpy.context.scene.objects:  # type: ignore
-        return True
-    return False
+def poll_head_mesh(self: "RigInstance", scene_object: bpy.types.Object) -> bool:  # noqa: ARG001
+    return scene_object.type == "MESH" and scene_object.name in bpy.data.objects
 
 
-def poll_body_mesh(self, scene_object: bpy.types.Object) -> bool:
-    if scene_object.type == "MESH" and scene_object.name in bpy.context.scene.objects:  # type: ignore
-        return True
-    return False
+def poll_body_mesh(self: "RigInstance", scene_object: bpy.types.Object) -> bool:  # noqa: ARG001
+    return scene_object.type == "MESH" and scene_object.name in bpy.data.objects
 
 
-def poll_shrink_wrap_target(self, scene_object: bpy.types.Object) -> bool:
-    if scene_object.type == "MESH" and scene_object in bpy.context.scene.objects.values():  # type: ignore
-        if scene_object not in [self.head_mesh, self.body_mesh]:
-            return True
-    return False
+def poll_shrink_wrap_target(self: "RigInstance", scene_object: bpy.types.Object) -> bool:
+    return (
+        scene_object.type == "MESH"
+        and bpy.context.scene is not None
+        and scene_object in bpy.context.scene.objects.values()
+        and scene_object not in [self.head_mesh, self.body_mesh]
+    )
 
 
-def update_body_rbf_driven_active_index(self, context):
+def update_body_rbf_driven_active_index(self: "RBFPoseData", context: "Context"):  # noqa: ARG001
     instance = get_active_rig_instance()
 
     if not instance or not instance.body_rig:
         return
 
-    from .utilities import switch_to_pose_mode
+    from ..utilities import switch_to_pose_mode
 
     driven = self.driven[self.driven_active_index]
     instance.body_rig.hide_set(False)
@@ -595,8 +568,8 @@ def update_body_rbf_driven_active_index(self, context):
             pose_bone.bone.select = False
 
 
-def update_body_rbf_poses_active_index(self, context):
-    from .utilities import dependencies_are_valid
+def update_body_rbf_poses_active_index(self: "RBFSolverData", context: "Context"):  # noqa: ARG001
+    from ..utilities import dependencies_are_valid
 
     if not dependencies_are_valid():
         return
@@ -702,44 +675,39 @@ def update_body_rbf_poses_active_index(self, context):
                 pose_bone.rotation_euler = Euler(driven.euler_rotation, "XYZ")
 
 
-def update_evaluate_rbfs_value(self, context):
-    self.reset_raw_control_values()
+def update_evaluate_rbfs_value(self: "RigInstance", context: "Context"):
+    context.window_manager.meta_human_dna.evaluate_dependency_graph = False
+    self.reset_body_raw_control_values()
+    self.reset_head_raw_control_values()
+    context.window_manager.meta_human_dna.evaluate_dependency_graph = True
 
 
-def update_head_topology_selection(self, context):
-    from .utilities import get_active_head
-
+def update_head_topology_selection(self: "RigInstance", context: "Context"):  # noqa: ARG001
     head = get_active_head()
     if head:
         head.select_vertex_group()
 
 
-def update_body_topology_selection(self, context):
-    from .utilities import get_active_body
-
+def update_body_topology_selection(self: "RigInstance", context: "Context"):  # noqa: ARG001
     body = get_active_body()
     if body:
         body.select_vertex_group()
 
 
-def update_head_rig_bone_group_selection(self, context):
-    from .utilities import get_active_head
-
+def update_head_rig_bone_group_selection(self: "RigInstance", context: "Context"):  # noqa: ARG001
     head = get_active_head()
     if head:
         head.select_bone_group()
 
 
-def update_body_rig_bone_group_selection(self, context):
-    from .utilities import get_active_body
-
+def update_body_rig_bone_group_selection(self: "RigInstance", context: "Context"):  # noqa: ARG001
     body = get_active_body()
     if body:
         body.select_bone_group()
 
 
-def update_face_pose(self, context):
-    from .utilities import get_head
+def update_face_pose(self: "RigInstance", context: "Context"):  # noqa: ARG001
+    from ..utilities import get_head
 
     active_instance = get_active_rig_instance()
     if not active_instance:
@@ -753,9 +721,7 @@ def update_face_pose(self, context):
                 head.set_face_pose()
 
 
-def update_head_to_body_constraint_influence(self, context):
-    from .utilities import get_active_head
-
+def update_head_to_body_constraint_influence(self: "RigInstance", context: "Context"):  # noqa: ARG001
     head = get_active_head()
     if head:
         head.set_head_to_body_constraint_influence(self.head_to_body_constraint_influence)
@@ -768,7 +734,7 @@ def get_head_mesh_output_items(instance: "RigInstance") -> list[bpy.types.Object
     for scene_object in bpy.data.objects:
         if scene_object.type == "MESH":
             for modifier in scene_object.modifiers:
-                if modifier.type == "ARMATURE" and modifier.object == instance.head_rig:  # type: ignore
+                if modifier.type == "ARMATURE" and getattr(modifier, "object", None) == instance.head_rig:
                     mesh_objects.append(scene_object)
                     break
 
@@ -782,7 +748,7 @@ def get_body_mesh_output_items(instance: "RigInstance") -> list[bpy.types.Object
     for scene_object in bpy.data.objects:
         if scene_object.type == "MESH":
             for modifier in scene_object.modifiers:
-                if modifier.type == "ARMATURE" and modifier.object == instance.body_rig:  # type: ignore
+                if modifier.type == "ARMATURE" and getattr(modifier, "object", None) == instance.body_rig:
                     mesh_objects.append(scene_object)
                     break
 
@@ -799,7 +765,7 @@ def get_head_image_output_items(instance: "RigInstance") -> list[tuple[bpy.types
                 if node_input and node_input.links:
                     image_node = node_input.links[0].from_node
                     if image_node and image_node.type == "TEX_IMAGE":
-                        image_nodes.append((image_node.image, file_name))  # type: ignore
+                        image_nodes.append((image_node.image, file_name))
     return image_nodes
 
 
@@ -813,11 +779,11 @@ def get_body_image_output_items(instance: "RigInstance") -> list[tuple[bpy.types
                 if node_input and node_input.links:
                     image_node = node_input.links[0].from_node
                     if image_node and image_node.type == "TEX_IMAGE":
-                        image_nodes.append((image_node.image, file_name))  # type: ignore
+                        image_nodes.append((image_node.image, file_name))  # type: ignore[attr-defined]
     return image_nodes
 
 
-def update_instance_name(self, context):
+def update_instance_name(self: "RigInstance", context: "Context"):
     existing_names = [instance.name for instance in context.scene.meta_human_dna.rig_instance_list]
     if existing_names.count(self.name) > 1:
         self.name = self.old_name
@@ -825,17 +791,17 @@ def update_instance_name(self, context):
         return
 
     if self.old_name != self.name:
-        from .utilities import rename_rig_instance
+        from ..utilities import rename_rig_instance
 
         rename_rig_instance(instance=self, old_name=self.old_name, new_name=self.name)
         self.old_name = self.name
 
 
-def update_body_output_items(self, context):
-    if not hasattr(bpy.context.scene, ToolInfo.NAME):
+def update_body_output_items(self: "RigInstance", context: "Context"):  # noqa: ARG001, PLR0912
+    if not hasattr(context.scene, ToolInfo.NAME):
         return
 
-    for instance in bpy.context.scene.meta_human_dna.rig_instance_list:  # type: ignore
+    for instance in context.scene.meta_human_dna.rig_instance_list:
         if instance and instance.body_mesh and instance.body_rig:
             # update the output items for the scene objects
             for scene_object in [*get_body_mesh_output_items(instance), instance.body_rig]:
@@ -868,16 +834,16 @@ def update_body_output_items(self, context):
 
             # remove any output items that do not have a scene object or image object
             for item in instance.output_body_item_list:
-                if not item.scene_object and not item.image_object:  # type: ignore
+                if not item.scene_object and not item.image_object:
                     index = instance.output_body_item_list.find(item.name)
                     instance.output_body_item_list.remove(index)
 
 
-def update_head_output_items(self, context):
-    if not hasattr(bpy.context.scene, ToolInfo.NAME):
+def update_head_output_items(self: "RigInstance | None", context: "Context"):  # noqa: ARG001, PLR0912
+    if not hasattr(context.scene, ToolInfo.NAME):
         return
 
-    for instance in context.scene.meta_human_dna.rig_instance_list:  # type: ignore
+    for instance in context.scene.meta_human_dna.rig_instance_list:
         if instance and instance.head_mesh and instance.head_rig:
             # update the output items for the scene objects
             for scene_object in [*get_head_mesh_output_items(instance), instance.head_rig]:
@@ -910,17 +876,17 @@ def update_head_output_items(self, context):
 
             # remove any output items that do not have a scene object or image object
             for item in instance.output_head_item_list:
-                if not item.scene_object and not item.image_object:  # type: ignore
+                if not item.scene_object and not item.image_object:
                     index = instance.output_head_item_list.find(item.name)
                     instance.output_head_item_list.remove(index)
 
 
-def update_output_component(self, context):
+def update_output_component(self: "RigInstance", context: "Context"):
     update_head_output_items(self, context)
     update_body_output_items(self, context)
 
 
-def get_head_mesh_lod_items(self, context):
+def get_head_mesh_lod_items(self: "RigInstance", context: "Context") -> list[tuple[str, str, str]]:  # noqa: ARG001
     items = []
 
     try:
@@ -941,16 +907,16 @@ def get_head_mesh_lod_items(self, context):
     return items
 
 
-def draw_sphere(position, color, radius=0.001):
+def draw_sphere(position: Vector, color: Color, radius: float = 0.001):
     segments = 16
-    draw_circle_2d(position=position, color=color, radius=radius, segments=segments)
-    rotation_matrix = Matrix.Rotation(math.radians(90), 4, "X")  # type: ignore
+    draw_circle_2d(position=position[:], color=color[:], radius=radius, segments=segments)
+    rotation_matrix = Matrix.Rotation(math.radians(90), 4, "X")  # type: ignore[call-arg]
     rotation_matrix.translation = position
     x_rotation_matrix = rotation_matrix.to_4x4()
     gpu.matrix.multiply_matrix(x_rotation_matrix)
     draw_circle_2d(
-        position=Vector((0, 0, 0)),  # type: ignore
-        color=color,
+        position=(0, 0, 0),
+        color=color[:],
         radius=radius,
         segments=segments,
     )
@@ -959,8 +925,8 @@ def draw_sphere(position, color, radius=0.001):
     z_rotation_matrix = rotation_matrix.to_4x4()
     gpu.matrix.multiply_matrix(z_rotation_matrix)
     draw_circle_2d(
-        position=Vector((0, 0, 0)),  # type: ignore
-        color=color,
+        position=(0, 0, 0),
+        color=color[:],
         radius=radius,
         segments=segments,
     )

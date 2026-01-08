@@ -6,9 +6,9 @@ readme = "README.md"
 license = { text = "Proprietary" }
 requires-python = ">=3.11"
 authors = [
-    { name = "Poly Hammer" }
+    { name = "Poly Hammer" },
 ]
-keywords = ["blender", "metahuman", "dna", "riglogic", "animation", "3d"]
+keywords = [ "blender", "metahuman", "dna", "riglogic", "animation", "3d" ]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Plugins",
@@ -52,11 +52,11 @@ stubs = [
 ]
 
 [build-system]
-requires = ["hatchling"]
+requires = [ "hatchling" ]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/addons/meta_human_dna"]
+packages = [ "src/addons/meta_human_dna" ]
 
 # =============================================================================
 # UV Configuration
@@ -111,49 +111,49 @@ exclude = [
 ]
 
 # Include source directories
-src = ["src/addons", "tests"]
+src = [ "src/addons", "tests" ]
 
 [tool.ruff.lint]
 # Enable rule sets - comprehensive linting
 select = [
-    "E",      # pycodestyle errors
-    "W",      # pycodestyle warnings
-    "F",      # Pyflakes
-    "I",      # isort
-    "B",      # flake8-bugbear
-    "C4",     # flake8-comprehensions
-    "UP",     # pyupgrade
-    "ARG",    # flake8-unused-arguments
-    "SIM",    # flake8-simplify
-    "TCH",    # flake8-type-checking
-    "PTH",    # flake8-use-pathlib
-    "ERA",    # eradicate (commented-out code)
-    "PL",     # Pylint
-    "RUF",    # Ruff-specific rules
-    "N",      # pep8-naming
-    "ANN",    # flake8-annotations
-    "S",      # flake8-bandit (security)
-    "A",      # flake8-builtins
-    "COM",    # flake8-commas
-    "DTZ",    # flake8-datetimez
-    "T10",    # flake8-debugger
-    "EXE",    # flake8-executable
-    "ISC",    # flake8-implicit-str-concat
-    "ICN",    # flake8-import-conventions
-    "LOG",    # flake8-logging
-    "G",      # flake8-logging-format
-    "PIE",    # flake8-pie
-    "PYI",    # flake8-pyi
-    "Q",      # flake8-quotes
-    "RSE",    # flake8-raise
-    "RET",    # flake8-return
-    "SLF",    # flake8-self
-    "SLOT",   # flake8-slots
-    "TID",    # flake8-tidy-imports
-    "INT",    # flake8-gettext
-    "FLY",    # flynt
-    "PERF",   # Perflint
-    "FURB",   # refurb
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # Pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "UP",   # pyupgrade
+    "ARG",  # flake8-unused-arguments
+    "SIM",  # flake8-simplify
+    "TCH",  # flake8-type-checking
+    "PTH",  # flake8-use-pathlib
+    "ERA",  # eradicate (commented-out code)
+    "PL",   # Pylint
+    "RUF",  # Ruff-specific rules
+    "N",    # pep8-naming
+    "ANN",  # flake8-annotations
+    "S",    # flake8-bandit (security)
+    "A",    # flake8-builtins
+    "COM",  # flake8-commas
+    "DTZ",  # flake8-datetimez
+    "T10",  # flake8-debugger
+    "EXE",  # flake8-executable
+    "ISC",  # flake8-implicit-str-concat
+    "ICN",  # flake8-import-conventions
+    "LOG",  # flake8-logging
+    "G",    # flake8-logging-format
+    "PIE",  # flake8-pie
+    "PYI",  # flake8-pyi
+    "Q",    # flake8-quotes
+    "RSE",  # flake8-raise
+    "RET",  # flake8-return
+    "SLF",  # flake8-self
+    "SLOT", # flake8-slots
+    "TID",  # flake8-tidy-imports
+    "INT",  # flake8-gettext
+    "FLY",  # flynt
+    "PERF", # Perflint
+    "FURB", # refurb
 ]
 
 # Rules to ignore
@@ -186,11 +186,12 @@ ignore = [
     "G004",    # Logging statement uses f-string (allow f-strings in logging)
     "TID252",  # Prefer absolute imports over relative imports from parent modules (disabled for Blender addons)
     "PLC0415", # Import should be at the top-level of a file (disabled for conditional imports)
+    "F405",  # name may be undefined from star import
 ]
 
 # Allow autofix for all enabled rules when `--fix` is provided
-fixable = ["ALL"]
-unfixable = []
+fixable = [ "ALL" ]
+unfixable = [  ]
 
 # Allow unused variables when underscore-prefixed
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
@@ -207,20 +208,20 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 ]
 # __init__.py files often have unused imports
 "**/__init__.py" = [
-    "F401",    # Allow unused imports
-    "F403",    # Allow star imports
+    "F401", # Allow unused imports
+    "F403", # Allow star imports
 ]
 # Operators may have unused context argument
 "**/operators.py" = [
-    "ARG001",  # Unused function argument (context)
-    "ARG002",  # Unused method argument (context)
+    "ARG001", # Unused function argument (context)
+    "ARG002", # Unused method argument (context)
 ]
 
 [tool.ruff.lint.isort]
 # isort configuration (replaces standalone isort)
-known-first-party = ["meta_human_dna"]
-known-third-party = ["bpy", "bmesh", "mathutils", "riglogic"]
-section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+known-first-party = [ "meta_human_dna" ]
+known-third-party = [ "bpy", "bmesh", "mathutils", "riglogic" ]
+section-order = [ "future", "standard-library", "third-party", "first-party", "local-folder" ]
 combine-as-imports = true
 force-single-line = false
 lines-after-imports = 2
@@ -234,7 +235,7 @@ suppress-none-returning = true
 
 [tool.ruff.lint.flake8-bugbear]
 # Allow default arguments like [], {}, set()
-extend-immutable-calls = ["bpy.props.StringProperty", "bpy.props.BoolProperty", "bpy.props.IntProperty", "bpy.props.FloatProperty", "bpy.props.EnumProperty", "bpy.props.CollectionProperty", "bpy.props.PointerProperty", "bpy.props.FloatVectorProperty", "bpy.props.IntVectorProperty"]
+extend-immutable-calls = [ "bpy.props.StringProperty", "bpy.props.BoolProperty", "bpy.props.IntProperty", "bpy.props.FloatProperty", "bpy.props.EnumProperty", "bpy.props.CollectionProperty", "bpy.props.PointerProperty", "bpy.props.FloatVectorProperty", "bpy.props.IntVectorProperty" ]
 
 [tool.ruff.lint.pylint]
 max-args = 10
@@ -244,12 +245,12 @@ max-statements = 60
 
 [tool.ruff.lint.pep8-naming]
 # Allow Blender's mixedCase conventions
-classmethod-decorators = ["classmethod"]
-staticmethod-decorators = ["staticmethod"]
+classmethod-decorators = [ "classmethod" ]
+staticmethod-decorators = [ "staticmethod" ]
 
 [tool.ruff.lint.flake8-tidy-imports]
 # Enforce relative imports within the addon for better portability
-ban-relative-imports = "parents"  # Allow relative imports from same/child modules, ban from parents
+ban-relative-imports = "parents" # Allow relative imports from same/child modules, ban from parents
 
 [tool.ruff.format]
 # Formatting configuration (replaces Black)
@@ -270,23 +271,24 @@ addopts = [
     "-vv",
     "--junitxml=reports/pytest/results.xml",
     "--ignore-glob=scratches/**",
-    "-o", "junit_family=legacy",
+    "-o",
+    "junit_family=legacy",
 ]
 log_cli = true
 log_level = "DEBUG"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
 ]
-filterwarnings = []
-pythonpath = ["tests", "src/addons"]
-testpaths = ["tests"]
-env_files = [".env"]
+filterwarnings = [  ]
+pythonpath = [ "tests", "src/addons" ]
+testpaths = [ "tests" ]
+env_files = [ ".env" ]
 
 # =============================================================================
 # Coverage Configuration
 # =============================================================================
 [tool.coverage.run]
-source = ["src/addons/meta_human_dna"]
+source = [ "src/addons/meta_human_dna" ]
 omit = [
     "src/addons/meta_human_dna/resources/*",
     "src/addons/meta_human_dna/bindings/*",
@@ -329,8 +331,9 @@ pythonPlatform = "All"
 typeCheckingMode = "basic"
 
 # Source roots
-include = ["src/addons", "tests"]
+include = [ "src/addons", "tests" ]
 exclude = [
+    "**/.*",
     "**/__pycache__",
     "**/node_modules",
     ".venv",
@@ -400,6 +403,6 @@ exclude_dirs = [
     "reports",
 ]
 skips = [
-    "B101",  # assert_used (needed for tests)
-    "B104",  # hardcoded_bind_all_interfaces
+    "B101", # assert_used (needed for tests)
+    "B104", # hardcoded_bind_all_interfaces
 ]

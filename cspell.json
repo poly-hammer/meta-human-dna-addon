@@ -103,6 +103,7 @@
         "Mkdocs",
         "mklink",
         "modifyitems",
+        "msk",
         "mypy",
         "Nasolabial",
         "NODETREE",
@@ -287,7 +288,8 @@
                 "RSE",
                 "SLF",
                 "FURB",
-                "rgx"
+                "rgx",
+                "dsn"
             ]
         },
         {

@@ -534,7 +534,7 @@ def bake_face_board_to_action(
     masks: bool = True,
     shape_keys: bool = True,
 ):
-    from .ui.callbacks import get_head_texture_logic_node
+    from ..ui.callbacks import get_head_texture_logic_node
 
     if instance:
         if channel_types is None:

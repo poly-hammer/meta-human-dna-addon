@@ -130,7 +130,7 @@ def set_bone_collection(
 
 
 def set_head_bone_collections(mesh_object: bpy.types.Object, rig_object: bpy.types.Object):
-    from .bindings import meta_human_dna_core
+    from ..bindings import meta_human_dna_core
 
     if mesh_object:
         weighted_leaf_bones = []
@@ -502,7 +502,7 @@ def get_topology_group_surface_bones(
     vertex_group_name: str,
     dna_reader: "riglogic.BinaryStreamReader",
 ) -> list[bpy.types.Bone]:
-    from .bindings import meta_human_dna_core
+    from ..bindings import meta_human_dna_core
 
     bones = []
     vertex_indices = get_vertex_group_vertices(mesh_object, vertex_group_name)
@@ -518,7 +518,7 @@ def get_topology_group_surface_bones(
 
 def get_mouth_bone_names(armature_object: bpy.types.Object) -> list[str]:
     bones = []
-    from .bindings import meta_human_dna_core
+    from ..bindings import meta_human_dna_core
 
     for bone_name in [meta_human_dna_core.TEETH_UPPER_BONE, meta_human_dna_core.TEETH_LOWER_BONE]:
         bone = armature_object.data.bones.get(bone_name)  # type: ignore
@@ -541,13 +541,13 @@ def get_mouth_bone_names(armature_object: bpy.types.Object) -> list[str]:
 
 
 def get_eye_bones_names(side: Literal["l", "r"]) -> list[str]:
-    from .bindings import meta_human_dna_core
+    from ..bindings import meta_human_dna_core
 
     return meta_human_dna_core.EYE_BALL_L_BONES if side == "l" else meta_human_dna_core.EYE_BALL_R_BONES
 
 
 def get_ignored_bones_names(armature_object: bpy.types.Object) -> list[str]:
-    from .bindings import meta_human_dna_core
+    from ..bindings import meta_human_dna_core
 
     mouth_bone_names = get_mouth_bone_names(armature_object)
     return mouth_bone_names + meta_human_dna_core.EYE_BALL_L_BONES + meta_human_dna_core.EYE_BALL_R_BONES
@@ -563,7 +563,7 @@ def auto_fit_bones(
 ):
     import meta_human_dna_core
 
-    from .dna_io import DNAExporter
+    from ..dna_io import DNAExporter
 
     bmesh_object = DNAExporter.get_bmesh(mesh_object, rotation=0)
     vertex_indices, vertex_positions = DNAExporter.get_mesh_vertex_positions(bmesh_object)
