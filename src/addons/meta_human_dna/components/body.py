@@ -7,11 +7,10 @@ import bpy
 
 from mathutils import Vector
 
-from meta_human_dna import utilities
-from meta_human_dna.constants import BODY_TOPOLOGY_VERTEX_GROUPS_FILE_PATH, TOPO_GROUP_PREFIX
-from meta_human_dna.dna_io import DNAExporter
-from meta_human_dna.utilities import exclude_rig_instance_evaluation, preserve_context
-
+from .. import utilities
+from ..constants import BODY_TOPOLOGY_VERTEX_GROUPS_FILE_PATH, TOPO_GROUP_PREFIX
+from ..dna_io import DNAExporter
+from ..utilities import exclude_rig_instance_evaluation, preserve_context
 from .base import MetaHumanComponentBase
 
 
@@ -97,7 +96,7 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
 
     @preserve_context
     def convert(self, mesh_object: bpy.types.Object, constrain: bool = True):
-        from meta_human_dna.bindings import meta_human_dna_core
+        from .bindings import meta_human_dna_core
 
         if self.body_mesh_object and self.body_rig_object:
             target_height = utilities.get_bounding_box_height(mesh_object)
@@ -204,7 +203,7 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
                 for bone in self.rig_instance.body_rig.data.bones:  # type: ignore
                     bone.select = False
 
-            from meta_human_dna.bindings import meta_human_dna_core
+            from .bindings import meta_human_dna_core
 
             for bone_name in meta_human_dna_core.BODY_BONE_SELECTION_GROUPS.get(
                 self.rig_instance.body_rig_bone_groups, []

@@ -11,7 +11,7 @@ import bpy
 from bpy_extras.bmesh_utils import bmesh_linked_uv_islands
 from mathutils import Matrix, Vector
 
-from meta_human_dna.constants import (
+from ..constants import (
     HEAD_TO_BODY_EDGE_LOOP_FILE_PATH,
     HEAD_TO_BODY_LOD_MAPPING,
     LOD_REGEX,
@@ -19,7 +19,6 @@ from meta_human_dna.constants import (
     SHAPE_KEY_BASIS_NAME,
     Axis,
 )
-
 from .misc import exclude_rig_instance_evaluation, preserve_context, switch_to_edit_mode, switch_to_object_mode
 
 
@@ -47,7 +46,6 @@ def initialize_basis_shape_key(mesh_object: bpy.types.Object) -> bpy.types.Key:
 
     # create the basis shape key
     shape_key_block = mesh_object.shape_key_add(name=SHAPE_KEY_BASIS_NAME)
-    # mesh_object.data.shape_keys.use_relative = False
     shape_key = shape_key_block.id_data
 
     # set the shape key name to the mesh object name
@@ -111,9 +109,7 @@ def get_middle_vertices(mesh_object: bpy.types.Object) -> list[int]:
     bmesh_data.from_mesh(mesh_data)  # type: ignore
 
     bmesh_data.verts.ensure_lookup_table()
-    for vert in bmesh_data.verts:
-        if 0.001 > vert.co.x > -0.001:
-            verts.append(vert.index)
+    verts = [vert.index for vert in bmesh_data.verts if 0.001 > vert.co.x > -0.001]
 
     bmesh_data.free()
 
@@ -370,7 +366,7 @@ def get_bounding_box_height(scene_object: bpy.types.Object) -> float:
     return height
 
 
-def find_closest_vertex(vertices, position):
+def find_closest_vertex(vertices: list, position: Vector) -> object:
     return min(vertices, key=lambda vert: (position - vert).length_squared)
 
 
@@ -472,8 +468,7 @@ def save_topology_vertex_groups(mesh_object: bpy.types.Object, file_path: Path):
                 ]
             ]
 
-    with open(file_path, "w") as file:
-        json.dump(vertex_groups, file)
+    file_path.write_text(json.dumps(vertex_groups), encoding="utf-8")
 
 
 def save_head_to_body_edge_loop():
@@ -482,8 +477,7 @@ def save_head_to_body_edge_loop():
 
     file_path = HEAD_TO_BODY_EDGE_LOOP_FILE_PATH
     if file_path.exists():
-        with open(file_path) as file:
-            data = json.load(file)
+        data = json.loads(file_path.read_text(encoding="utf-8"))
     else:
         data = {}
 
@@ -512,16 +506,15 @@ def save_head_to_body_edge_loop():
 
         # map the head LOD vertices to the body LOD vertices
         data[head_lod_index] = {
-            head_vert[0]: body_vert[0] for head_vert, body_vert in zip(head_selected_verts, body_selected_verts, strict=False)
+            head_vert[0]: body_vert[0]
+            for head_vert, body_vert in zip(head_selected_verts, body_selected_verts, strict=False)
         }
 
-    with open(file_path, "w") as file:
-        json.dump(data, file, indent=4)
+    file_path.write_text(json.dumps(data, indent=4), encoding="utf-8")
 
 
 def get_head_to_body_edge_loop_mapping() -> dict[str, dict[int, int]]:
-    with open(HEAD_TO_BODY_EDGE_LOOP_FILE_PATH) as file:
-        return json.load(file)
+    return json.loads(HEAD_TO_BODY_EDGE_LOOP_FILE_PATH.read_text(encoding="utf-8"))
 
 
 def get_vertex_group_vertices(

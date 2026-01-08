@@ -11,13 +11,12 @@ import bpy
 
 from mathutils import Matrix, Vector
 
-from meta_human_dna import utilities
-from meta_human_dna.bindings import riglogic
-from meta_human_dna.constants import EXTRA_BONES, SCALE_FACTOR, TOPO_GROUP_PREFIX, ComponentType
-from meta_human_dna.exceptions import InvalidComponentTypeError
-from meta_human_dna.rig_instance import RigInstance
-from meta_human_dna.utilities import preserve_context
-
+from .. import utilities
+from ..bindings import riglogic
+from ..constants import EXTRA_BONES, SCALE_FACTOR, TOPO_GROUP_PREFIX, ComponentType
+from ..exceptions import InvalidComponentTypeError
+from ..rig_instance import RigInstance
+from ..utilities import preserve_context
 from .misc import get_dna_reader, get_dna_writer
 
 

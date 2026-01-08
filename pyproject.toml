@@ -170,6 +170,7 @@ ignore = [
     "TCH002",  # Move third-party import into type-checking block
     "TCH003",  # Move standard library import into type-checking block
     "ARG002",  # Unused method argument (common in Blender operators)
+    "N801",    # Invalid class name (allow Blender UI conventions like FOLDER_UL_, PANEL_PT_, etc.)
     "N802",    # Function name should be lowercase (Blender uses mixed case)
     "N803",    # Argument name should be lowercase (Blender properties)
     "N806",    # Variable should be lowercase (Blender API)
@@ -182,6 +183,9 @@ ignore = [
     "RET504",  # Unnecessary assignment before return
     "SIM108",  # Use ternary operator
     "B008",    # Do not perform function calls in argument defaults
+    "G004",    # Logging statement uses f-string (allow f-strings in logging)
+    "TID252",  # Prefer absolute imports over relative imports from parent modules (disabled for Blender addons)
+    "PLC0415", # Import should be at the top-level of a file (disabled for conditional imports)
 ]
 
 # Allow autofix for all enabled rules when `--fix` is provided
@@ -242,6 +246,10 @@ max-statements = 60
 # Allow Blender's mixedCase conventions
 classmethod-decorators = ["classmethod"]
 staticmethod-decorators = ["staticmethod"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+# Enforce relative imports within the addon for better portability
+ban-relative-imports = "parents"  # Allow relative imports from same/child modules, ban from parents
 
 [tool.ruff.format]
 # Formatting configuration (replaces Black)

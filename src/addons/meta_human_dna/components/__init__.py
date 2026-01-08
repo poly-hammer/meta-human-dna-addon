@@ -1,15 +1,14 @@
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from meta_human_dna.dna_io.misc import get_dna_component_type
-
+from ..dna_io.misc import get_dna_component_type
 from .body import MetaHumanComponentBody
 from .head import MetaHumanComponentHead
 
 
 if TYPE_CHECKING:
-    from meta_human_dna.properties import MetahumanDnaImportProperties
-    from meta_human_dna.rig_instance import RigInstance
+    from ..properties import MetahumanDnaImportProperties
+    from ..rig_instance import RigInstance
 
 
 def get_meta_human_component(

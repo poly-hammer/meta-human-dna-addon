@@ -2,9 +2,9 @@ from pathlib import Path
 
 import bpy
 
-from meta_human_dna import __package__
-from meta_human_dna.constants import ToolInfo
-from meta_human_dna.properties import ExtraDnaFolder, MetahumanDnaAddonProperties
+from .. import __package__ as package_name
+from ..constants import ToolInfo
+from ..properties import ExtraDnaFolder, MetahumanDnaAddonProperties
 
 
 class FOLDER_UL_extra_dna_path(bpy.types.UIList):
@@ -17,7 +17,7 @@ class FOLDER_UL_extra_dna_path(bpy.types.UIList):
 
 
 class MetaHumanDnaPreferences(MetahumanDnaAddonProperties, bpy.types.AddonPreferences):
-    bl_idname = str(__package__)
+    bl_idname = str(package_name)
 
     def draw(self, context):
         preferences = context.preferences.addons[ToolInfo.NAME].preferences

@@ -358,11 +358,9 @@ class UpdateRBFPose(RBFEditorOperatorBase):
                 utilities.set_driven_bone_data(instance=instance, pose=pose, driven=driven, pose_bone=driven_pose_bone)
             else:
                 logger.warning(
-
-                        f'Driven bone "{driven.name}" was not found in armature when '
-                        f'updating RBF Pose "{pose.name}". It will be deleted from '
-                        "the pose when this data is committed to the dna."
-
+                    f'Driven bone "{driven.name}" was not found in armature when '
+                    f'updating RBF Pose "{pose.name}". It will be deleted from '
+                    "the pose when this data is committed to the dna."
                 )
 
 

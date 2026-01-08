@@ -9,9 +9,9 @@ import bpy
 
 from mathutils import Euler, Matrix, Vector
 
-from meta_human_dna import utilities
-from meta_human_dna.bindings import riglogic
-from meta_human_dna.constants import (
+from .. import utilities
+from ..bindings import riglogic
+from ..constants import (
     CUSTOM_BONE_SHAPE_SCALE,
     EXTRA_BONES,
     FIRST_BONE_Y_LOCATION,
@@ -22,9 +22,8 @@ from meta_human_dna.constants import (
     UV_MAP_NAME,
     ComponentType,
 )
-from meta_human_dna.properties import MetahumanDnaImportProperties
-from meta_human_dna.rig_instance import RigInstance
-
+from ..properties import MetahumanDnaImportProperties
+from ..rig_instance import RigInstance
 from .misc import get_dna_reader
 
 

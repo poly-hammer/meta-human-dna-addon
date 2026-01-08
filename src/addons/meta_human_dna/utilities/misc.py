@@ -9,13 +9,13 @@ import uuid
 
 from collections.abc import Callable, Generator
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import bpy
 
 from mathutils import Vector
 
-from meta_human_dna.constants import (
+from ..constants import (
     DEFAULT_UV_TOLERANCE,
     EYE_AIM_BONES,
     FACE_BOARD_FILE_PATH,
@@ -31,13 +31,13 @@ from meta_human_dna.constants import (
     TEMP_FOLDER,
     ToolInfo,
 )
-from meta_human_dna.rig_instance import start_listening
+from ..rig_instance import start_listening
 
 
 if TYPE_CHECKING:
-    from meta_human_dna.components.body import MetaHumanComponentBody
-    from meta_human_dna.components.head import MetaHumanComponentHead
-    from meta_human_dna.rig_instance import RigInstance
+    from ..components.body import MetaHumanComponentBody
+    from ..components.head import MetaHumanComponentHead
+    from ..rig_instance import RigInstance
 
 logger = logging.getLogger(__name__)
 
@@ -207,12 +207,12 @@ def hide_empties(root="GRP_faceGUI"):
             scene_object.hide_viewport = True
 
 
-def set_hide_recursively(scene_object, value):
+def set_hide_recursively(scene_object: bpy.types.Object, value: bool) -> None:
     for child in walk_children(scene_object):
         child.hide_set(value)
 
 
-def set_viewport_shading(mode):
+def set_viewport_shading(mode: str) -> None:
     for area in bpy.context.screen.areas:  # type: ignore
         if area.ui_type == "VIEW_3D":
             for space in area.spaces:
@@ -241,7 +241,7 @@ def init_sentry():
 
         from sentry_sdk.types import Event, Hint
 
-        def before_send(event: Event, hint: Hint) -> Event | None:
+        def before_send(event: Event, hint: Hint) -> Event | None:  # noqa: ARG001
             # Filter based on module origin. We only want to send errors related
             # to the MetaHuman DNA addon.
             if event.get("exception") and event["exception"].get("values"):  # type: ignore
@@ -259,7 +259,7 @@ def init_sentry():
             if "tags" not in event:
                 event["tags"] = {}
 
-            from meta_human_dna import bl_info
+            from .. import bl_info
 
             event["tags"]["blender_version"] = bpy.app.version_string
             event["tags"]["blender_mode"] = bpy.context.mode  # type: ignore
@@ -290,7 +290,7 @@ def init_sentry():
         logger.error(error)
 
 
-def setup_scene(*args):
+def setup_scene(*args: Any) -> None:
     scene_properties = getattr(bpy.context.scene, ToolInfo.NAME, object)  # type: ignore
 
     # initialize the rig instances
@@ -300,7 +300,7 @@ def setup_scene(*args):
     start_listening()
 
 
-def teardown_scene(*args):
+def teardown_scene(*args: Any) -> None:
     scene_properties = getattr(bpy.context.scene, ToolInfo.NAME, object)  # type: ignore
 
     for instance in getattr(scene_properties, "rig_instance_list", []):
@@ -308,7 +308,7 @@ def teardown_scene(*args):
     logging.info("De-allocated Rig Logic instances...")
 
 
-def pre_undo(*args):
+def pre_undo(*args: Any) -> None:
     # Only run the pre-undo logic if the current context is a 3D view area
     if (
         bpy.context.area
@@ -322,7 +322,7 @@ def pre_undo(*args):
             instance.destroy()
 
 
-def post_undo(*args):
+def post_undo(*args: Any) -> None:
     # Only run the post-undo logic if the current context is a 3D view area
     if (
         bpy.context.area
@@ -333,36 +333,36 @@ def post_undo(*args):
         bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True  # type: ignore
 
 
-def pre_redo(*args):
+def pre_redo(*args: Any) -> None:
     pre_undo(*args)
 
 
-def post_redo(*args):
+def post_redo(*args: Any) -> None:
     post_undo(*args)
 
 
-def pre_render(*args):
+def pre_render(*args: Any) -> None:
     pre_undo(*args)
 
 
-def post_render(*args):
+def post_render(*args: Any) -> None:
     post_undo(*args)
 
 
-def post_save(*args):
-    from meta_human_dna.ui.callbacks import get_active_rig_instance
+def post_save(*args: Any) -> None:
+    from .ui.callbacks import get_active_rig_instance
 
     instance = get_active_rig_instance()
     if not instance:
         return
 
     # Create a DNA backup
-    from meta_human_dna.editors.backup_manager.core import BackupType, create_backup
+    from .editors.backup_manager.core import BackupType, create_backup
 
     create_backup(instance, BackupType.BLENDER_FILE_SAVE)
 
 
-def create_empty(empty_name):
+def create_empty(empty_name: str) -> bpy.types.Object:
     empty_object = bpy.data.objects.get(empty_name)
     if not empty_object:
         empty_object = bpy.data.objects.new(empty_name, object_data=None)
@@ -409,7 +409,7 @@ def focus_on_selected():
 
 def get_head(name: str) -> "MetaHumanComponentHead | None":
     # avoid circular import
-    from meta_human_dna.components.head import MetaHumanComponentHead
+    from .components.head import MetaHumanComponentHead # type: ignore
 
     properties = bpy.context.scene.meta_human_dna  # type: ignore
     for instance in properties.rig_instance_list:
@@ -422,7 +422,7 @@ def get_head(name: str) -> "MetaHumanComponentHead | None":
 
 def get_body(name: str) -> "MetaHumanComponentBody | None":
     # avoid circular import
-    from meta_human_dna.components.body import MetaHumanComponentBody
+    from .components.body import MetaHumanComponentBody # type: ignore
 
     properties = bpy.context.scene.meta_human_dna  # type: ignore
     for instance in properties.rig_instance_list:
@@ -552,7 +552,7 @@ def rename_rig_instance(instance: "RigInstance", old_name: str, new_name: str):
 
 
 def rename_as_lod0_meshes(mesh_objects: list[bpy.types.Object]):
-    from meta_human_dna.ui.callbacks import get_active_rig_instance, update_head_output_items
+    from .ui.callbacks import get_active_rig_instance, update_head_output_items
 
     instance = get_active_rig_instance()
     if instance:
@@ -693,9 +693,15 @@ def extract_rig_instance_data_from_blend_file(blend_file_path: Path) -> tuple[li
     addon_folder = Path(__file__).parent.parent.parent
 
     if sys.platform == "win32":
-        command = f'"{sys.executable}" "{script_file}" -- --data-file "{data_file}" --blend-file "{blend_file_path}" --addon-folder "{addon_folder}"'
+        command = (
+            f'"{sys.executable}" "{script_file}" -- --data-file "{data_file}" '
+            f'--blend-file "{blend_file_path}" --addon-folder "{addon_folder}"'
+        )
     else:
-        command = f"{sys.executable} {script_file.as_posix()} -- --data-file {data_file.as_posix()} --blend-file {blend_file_path.as_posix()} --addon-folder {addon_folder.as_posix()}"
+        command = (
+            f"{sys.executable} {script_file.as_posix()} -- --data-file {data_file.as_posix()} "
+            f"--blend-file {blend_file_path.as_posix()} --addon-folder {addon_folder.as_posix()}"
+        )
 
     for _line in shell(command=command):
         pass

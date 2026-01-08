@@ -9,16 +9,15 @@ import bpy
 
 from mathutils import Matrix, Vector
 
-from meta_human_dna import utilities
-from meta_human_dna.constants import (
+from .. import utilities
+from ..constants import (
     DEFAULT_HEAD_MESH_VERTEX_POSITION_COUNT,
     EXTRA_BONES,
     HEAD_TOPOLOGY_VERTEX_GROUPS_FILE_PATH,
     TOPO_GROUP_PREFIX,
 )
-from meta_human_dna.dna_io import DNAExporter, create_shape_key
-from meta_human_dna.utilities import exclude_rig_instance_evaluation, preserve_context
-
+from ..dna_io import DNAExporter, create_shape_key
+from ..utilities import exclude_rig_instance_evaluation, preserve_context
 from .base import MetaHumanComponentBase
 
 
@@ -154,7 +153,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
             if not self.dna_import_properties.reuse_face_board:
                 utilities.constrain_face_board_to_head(
                     face_board_object=face_board_object,
-                    head_rig_object=self.rig_instance.head_rig,
+                    head_rig_object=self.rig_instance.head_rig, # pyright: ignore[reportArgumentType]
                     body_rig_object=self.rig_instance.body_rig,
                     bone_name="CTRL_faceGUI",
                 )
@@ -169,7 +168,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
 
     @preserve_context
     def convert(self, mesh_object: bpy.types.Object, constrain: bool = True):
-        from meta_human_dna.bindings import meta_human_dna_core
+        from ..bindings import meta_human_dna_core
 
         if self.head_mesh_object and self.face_board_object and self.head_rig_object:
             target_center = utilities.get_bounding_box_center(mesh_object)
@@ -282,7 +281,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
                 for bone in self.rig_instance.head_rig.data.bones:  # type: ignore
                     bone.select = False
 
-            from meta_human_dna.bindings import meta_human_dna_core
+            from .bindings import meta_human_dna_core
 
             for bone_name in meta_human_dna_core.HEAD_BONE_SELECTION_GROUPS.get(
                 self.rig_instance.head_rig_bone_groups, []

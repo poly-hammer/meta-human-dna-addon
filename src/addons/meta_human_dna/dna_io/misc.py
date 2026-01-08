@@ -9,12 +9,12 @@ import bpy
 
 from mathutils import Matrix, Vector
 
-from meta_human_dna.constants import SHAPE_KEY_DELTA_THRESHOLD, ComponentType
-from meta_human_dna.utilities import exclude_rig_instance_evaluation, switch_to_object_mode, update_mesh
+from ..constants import SHAPE_KEY_DELTA_THRESHOLD, ComponentType
+from ..utilities import exclude_rig_instance_evaluation, switch_to_object_mode, update_mesh
 
 
 if TYPE_CHECKING:
-    from meta_human_dna.bindings import riglogic
+    from ..bindings import riglogic
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ def get_dna_reader(
     data_layer: DataLayer = "All",
     memory_resource: "riglogic.MemoryResource| None" = None,
 ) -> "riglogic.BinaryStreamReader":
-    from meta_human_dna.bindings import riglogic
+    from ..bindings import riglogic
 
     file_path = Path(file_path)
     if not file_path.exists():
@@ -47,7 +47,7 @@ def get_dna_reader(
 
     mode = riglogic.OpenMode.Binary
     # if file_format.lower() == 'json':
-    #     mode = riglogic.OpenMode.Text
+    #     mode = riglogic.OpenMode.Text  # noqa: ERA001
 
     stream = riglogic.FileStream.create(
         path=str(file_path), accessMode=riglogic.AccessMode.Read, openMode=mode, memRes=memory_resource
@@ -84,7 +84,7 @@ def get_dna_reader(
 
 
 def get_dna_writer(file_path: Path, file_format: FileFormat = "binary") -> "riglogic.BinaryStreamWriter":
-    from meta_human_dna.bindings import riglogic
+    from .bindings import riglogic
 
     file_path = Path(file_path)
     os.makedirs(file_path.parent, exist_ok=True)

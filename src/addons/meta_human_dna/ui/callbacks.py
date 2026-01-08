@@ -11,7 +11,7 @@ import gpu
 from gpu_extras.presets import draw_circle_2d
 from mathutils import Euler, Matrix, Quaternion, Vector
 
-from meta_human_dna.constants import (
+from ..constants import (
     BASE_DNA_FOLDER,
     BODY_HIGH_LEVEL_TOPOLOGY_GROUPS,
     BODY_MAPS,
@@ -26,7 +26,7 @@ from meta_human_dna.constants import (
 
 
 if TYPE_CHECKING:
-    from meta_human_dna.rig_instance import RigInstance
+    from ..rig_instance import RigInstance
 
 
 logger = logging.getLogger(__name__)
@@ -89,7 +89,7 @@ def get_active_material_preview(self) -> int:
 
 
 def get_face_pose_previews_items(self, context):
-    from meta_human_dna.properties import preview_collections
+    from .properties import preview_collections
 
     enum_items = []
 
@@ -174,7 +174,7 @@ def get_body_mesh_topology_groups(self, context):
 
 def get_head_rig_bone_groups(self, context):
     enum_items = []
-    from meta_human_dna.bindings import meta_human_dna_core
+    from .bindings import meta_human_dna_core
 
     for group_name in meta_human_dna_core.HEAD_BONE_SELECTION_GROUPS:
         enum_items.append(
@@ -195,7 +195,7 @@ def get_head_rig_bone_groups(self, context):
 
 def get_body_rig_bone_groups(self, context):
     enum_items = []
-    from meta_human_dna.bindings import meta_human_dna_core
+    from .bindings import meta_human_dna_core
 
     for group_name in meta_human_dna_core.BODY_BONE_SELECTION_GROUPS:
         enum_items.append(
@@ -576,7 +576,7 @@ def update_body_rbf_driven_active_index(self, context):
     if not instance or not instance.body_rig:
         return
 
-    from meta_human_dna.utilities import switch_to_pose_mode
+    from .utilities import switch_to_pose_mode
 
     driven = self.driven[self.driven_active_index]
     instance.body_rig.hide_set(False)
@@ -596,7 +596,7 @@ def update_body_rbf_driven_active_index(self, context):
 
 
 def update_body_rbf_poses_active_index(self, context):
-    from meta_human_dna.utilities import dependencies_are_valid
+    from .utilities import dependencies_are_valid
 
     if not dependencies_are_valid():
         return
@@ -707,7 +707,7 @@ def update_evaluate_rbfs_value(self, context):
 
 
 def update_head_topology_selection(self, context):
-    from meta_human_dna.utilities import get_active_head
+    from .utilities import get_active_head
 
     head = get_active_head()
     if head:
@@ -715,7 +715,7 @@ def update_head_topology_selection(self, context):
 
 
 def update_body_topology_selection(self, context):
-    from meta_human_dna.utilities import get_active_body
+    from .utilities import get_active_body
 
     body = get_active_body()
     if body:
@@ -723,7 +723,7 @@ def update_body_topology_selection(self, context):
 
 
 def update_head_rig_bone_group_selection(self, context):
-    from meta_human_dna.utilities import get_active_head
+    from .utilities import get_active_head
 
     head = get_active_head()
     if head:
@@ -731,7 +731,7 @@ def update_head_rig_bone_group_selection(self, context):
 
 
 def update_body_rig_bone_group_selection(self, context):
-    from meta_human_dna.utilities import get_active_body
+    from .utilities import get_active_body
 
     body = get_active_body()
     if body:
@@ -739,7 +739,7 @@ def update_body_rig_bone_group_selection(self, context):
 
 
 def update_face_pose(self, context):
-    from meta_human_dna.utilities import get_head
+    from .utilities import get_head
 
     active_instance = get_active_rig_instance()
     if not active_instance:
@@ -754,7 +754,7 @@ def update_face_pose(self, context):
 
 
 def update_head_to_body_constraint_influence(self, context):
-    from meta_human_dna.utilities import get_active_head
+    from .utilities import get_active_head
 
     head = get_active_head()
     if head:
@@ -825,7 +825,7 @@ def update_instance_name(self, context):
         return
 
     if self.old_name != self.name:
-        from meta_human_dna.utilities import rename_rig_instance
+        from .utilities import rename_rig_instance
 
         rename_rig_instance(instance=self, old_name=self.old_name, new_name=self.name)
         self.old_name = self.name

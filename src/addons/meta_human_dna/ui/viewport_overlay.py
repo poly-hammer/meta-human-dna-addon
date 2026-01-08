@@ -6,9 +6,11 @@ import gpu
 
 from gpu_extras.batch import batch_for_shader
 
+from ..constants import ToolInfo
+
 
 if TYPE_CHECKING:
-    from meta_human_dna.rig_instance import RigInstance
+    from ..rig_instance import RigInstance
 
 
 # Global storage for draw handler
@@ -100,8 +102,6 @@ def draw_pose_editor_overlay() -> None:
     in the 3D viewport indicating that the Pose Editor is in edit mode.
     Positioned in the lower left corner of the viewport.
     """
-    from meta_human_dna.constants import ToolInfo
-
     # Check if overlay is enabled in preferences
     preferences = bpy.context.preferences.addons.get(ToolInfo.NAME)  # type: ignore
     if preferences and not preferences.preferences.show_pose_editor_viewport_overlay:  # type: ignore

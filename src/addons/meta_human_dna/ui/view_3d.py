@@ -4,17 +4,17 @@ import bpy
 
 from bl_ui.generic_ui_list import draw_ui_list
 
-from meta_human_dna.constants import SHAPE_KEY_BASIS_NAME
+from ..constants import SHAPE_KEY_BASIS_NAME
 
 
 def dependencies_are_valid() -> bool:
     # Avoid circular import
-    from meta_human_dna.utilities import dependencies_are_valid as _dependencies_are_valid
+    from ..utilities import dependencies_are_valid as _dependencies_are_valid
 
     return _dependencies_are_valid()
 
 
-def valid_rig_instance_exists(context, ignore_face_board: bool = False) -> str:
+def valid_rig_instance_exists(context, ignore_face_board: bool = False) -> str:  # noqa: PLR0911
     properties = context.scene.meta_human_dna  # type: ignore
     if len(properties.rig_instance_list) > 0:
         active_index = properties.rig_instance_list_active_index
@@ -79,7 +79,9 @@ class ArmatureDependentPanel(bpy.types.Panel):
         instance = properties.rig_instance_list[active_index]
 
         current_component = context.window_manager.meta_human_dna.current_component_type  # type: ignore
-        return bool((current_component == "head" and instance.head_rig) or (current_component == "body" and instance.body_rig))
+        return bool(
+            (current_component == "head" and instance.head_rig) or (current_component == "body" and instance.body_rig)
+        )
 
 
 class MeshDependentPanel(bpy.types.Panel):
@@ -94,7 +96,9 @@ class MeshDependentPanel(bpy.types.Panel):
         instance = properties.rig_instance_list[active_index]
 
         current_component = context.window_manager.meta_human_dna.current_component_type  # type: ignore
-        return bool((current_component == "head" and instance.head_mesh) or (current_component == "body" and instance.body_mesh))
+        return bool(
+            (current_component == "head" and instance.head_mesh) or (current_component == "body" and instance.body_mesh)
+        )
 
 
 class META_HUMAN_DNA_UL_output_items(bpy.types.UIList):
@@ -300,10 +304,8 @@ class META_HUMAN_DNA_PT_mesh_utilities_sub_panel(MeshDependentPanel):
 
             # whether to enable the topology vertex group dropdowns
             enabled = bool(
-                (current_component_type == "head"
-                and instance.head_mesh)
-                or (current_component_type == "body"
-                and instance.body_mesh)
+                (current_component_type == "head" and instance.head_mesh)
+                or (current_component_type == "body" and instance.body_mesh)
             )
 
             box = self.layout.box()

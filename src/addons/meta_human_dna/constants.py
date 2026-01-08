@@ -1,5 +1,4 @@
 import math
-import os
 import tempfile
 
 from pathlib import Path
@@ -75,8 +74,8 @@ HEAD_MESH_SHADER_MAPPING = {
 BODY_MESH_SHADER_MAPPING = {"body_lod": "body_shader"}
 
 TEMP_FOLDER = Path(tempfile.gettempdir()) / f"{ToolInfo.NAME}_addon"
-RESOURCES_FOLDER = Path(os.path.dirname(__file__), "resources")
-BINDINGS_FOLDER = Path(os.path.dirname(__file__), "bindings")
+RESOURCES_FOLDER = Path(__file__).parent / "resources"
+BINDINGS_FOLDER = Path(__file__).parent / "bindings"
 PACKAGES_FOLDER = RESOURCES_FOLDER / "packages"
 POSES_FOLDER = RESOURCES_FOLDER / "poses"
 BLENDS_FOLDER = RESOURCES_FOLDER / "blends"

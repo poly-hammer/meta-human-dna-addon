@@ -5,7 +5,7 @@ from constants import TEST_DNA_FOLDER
 
 @pytest.fixture(scope="session")
 def original_head_dna_json_data(temp_folder, dna_folder_name: str) -> dict:
-    from utilities.dna_data import get_dna_json_data  # noqa: PLC0415
+    from utilities.dna_data import get_dna_json_data
 
     dna_file_path = TEST_DNA_FOLDER / dna_folder_name / "head.dna"
     json_file_path = temp_folder / dna_folder_name / "head.json"
@@ -18,9 +18,9 @@ def exported_head_dna_json_data(
     temp_folder,
     dna_folder_name: str
 ) -> dict:
-    from meta_human_dna.dna_io import DNAExporter  # noqa: PLC0415
-    from meta_human_dna.utilities import get_active_head  # noqa: PLC0415
-    from utilities.dna_data import get_dna_json_data  # noqa: PLC0415
+    from meta_human_dna.dna_io import DNAExporter
+    from meta_human_dna.utilities import get_active_head
+    from utilities.dna_data import get_dna_json_data
 
     head = get_active_head()
     export_folder = temp_folder / "export" / dna_folder_name
@@ -46,9 +46,9 @@ def calibrated_head_dna_json_data(
     temp_folder,
     dna_folder_name: str
 ) -> dict:
-    from meta_human_dna.dna_io import DNACalibrator  # noqa: PLC0415
-    from meta_human_dna.utilities import get_active_head  # noqa: PLC0415
-    from utilities.dna_data import get_dna_json_data  # noqa: PLC0415
+    from meta_human_dna.dna_io import DNACalibrator
+    from meta_human_dna.utilities import get_active_head
+    from utilities.dna_data import get_dna_json_data
 
     head = get_active_head()
     calibrate_folder = temp_folder / "calibrate" / dna_folder_name

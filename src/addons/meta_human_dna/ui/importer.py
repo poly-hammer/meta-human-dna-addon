@@ -6,8 +6,8 @@ import bpy
 
 from bpy_extras.io_utils import ImportHelper  # type: ignore
 
-from meta_human_dna.constants import NUMBER_OF_HEAD_LODS
-from meta_human_dna.dna_io import get_dna_reader
+from ..constants import NUMBER_OF_HEAD_LODS
+from ..dna_io import get_dna_reader
 
 
 class META_HUMAN_DNA_UL_append_link_items(bpy.types.UIList):

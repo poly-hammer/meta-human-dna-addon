@@ -27,7 +27,6 @@
         "*.json"
     ],
     "words": [
-        "FRM_",
         "abstractmethod",
         "addopts",
         "andymckay",
@@ -42,6 +41,7 @@
         "blendshapes",
         "bmesh",
         "BOUNDBOX",
+        "bpy",
         "BSDF",
         "bugbear",
         "builtins",
@@ -50,6 +50,7 @@
         "CHECKMARK",
         "childof",
         "classmethod",
+        "cls",
         "codecov",
         "colorspace",
         "commas",
@@ -66,8 +67,10 @@
         "depsgraph",
         "dnacalib",
         "docstring",
+        "dotenv",
         "editmode",
         "eevee",
+        "env",
         "eradicate",
         "Eyesack",
         "eyeshell",
@@ -77,6 +80,7 @@
         "fixable",
         "flynt",
         "forcelogflush",
+        "FRM_",
         "funcs",
         "genbadge",
         "gettext",
@@ -112,6 +116,7 @@
         "pybind",
         "pycache",
         "pydata",
+        "pyi",
         "Pylance",
         "pylint",
         "pyproject",
@@ -159,7 +164,9 @@
         "UVMAP",
         "venv",
         "verts",
-        "visemes"
+        "visemes",
+        "XYZ",
+        "ZYX"
     ],
     "dictionaries": [
         "python",
@@ -268,7 +275,19 @@
                 "typedef",
                 "utils",
                 "viewport",
-                "wireframe"
+                "wireframe",
+                "TCH",
+                "RUF",
+                "PLW",
+                "PLR",
+                "TID",
+                "DTZ",
+                "PTH",
+                "ICN",
+                "RSE",
+                "SLF",
+                "FURB",
+                "rgx"
             ]
         },
         {
@@ -306,6 +325,24 @@
                 "bussiness",
                 "seperation",
                 "mispell"
+            ]
+        },
+        {
+            "filename": "pyproject.toml",
+            "description": "pyproject.toml configuration - technical tool names and settings",
+            "words": [
+                "TCH",
+                "RUF",
+                "PLW",
+                "PLR",
+                "TID",
+                "DTZ",
+                "PTH",
+                "ICN",
+                "RSE",
+                "SLF",
+                "FURB",
+                "rgx"
             ]
         }
     ]

@@ -48,7 +48,9 @@ class META_HUMAN_DNA_PT_pose_editor(bpy.types.Panel):
 
         active_index = properties.rig_instance_list_active_index
         instance = properties.rig_instance_list[active_index]
-        return not (not instance.body_rig or not instance.body_dna_file_path or not Path(instance.body_dna_file_path).exists())
+        return not (
+            not instance.body_rig or not instance.body_dna_file_path or not Path(instance.body_dna_file_path).exists()
+        )
 
     def draw(self, context):
         if not self.layout:

@@ -5,7 +5,7 @@ import re
 import sys
 
 from abc import ABCMeta, abstractmethod
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -13,8 +13,8 @@ import bpy
 
 from mathutils import Matrix
 
-from meta_human_dna import utilities
-from meta_human_dna.constants import (
+from .. import utilities
+from ..constants import (
     ALTERNATE_HEAD_TEXTURE_FILE_NAMES,
     ALTERNATE_TEXTURE_FILE_EXTENSIONS,
     BODY_MATERIAL_NAME,
@@ -41,17 +41,17 @@ from meta_human_dna.constants import (
     ComponentType,
     ToolInfo,
 )
-from meta_human_dna.dna_io import DNAImporter, get_dna_reader
-from meta_human_dna.utilities import preserve_context
+from ..dna_io import DNAImporter, get_dna_reader
+from ..utilities import preserve_context
 
 
 if TYPE_CHECKING:
-    from meta_human_dna.properties import (
+    from ..properties import (
         MetahumanDnaImportProperties,
         MetahumanSceneProperties,
         MetahumanWindowMangerProperties,
     )
-    from meta_human_dna.rig_instance import RigInstance
+    from ..rig_instance import RigInstance
 
 
 logger = logging.getLogger(__name__)
@@ -162,12 +162,12 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
         return self.rig_instance.name
 
     @property
-    def dna_file_path(self) -> Path:  # type: ignore
+    def dna_file_path(self) -> Path:
         if self._component_type == "head":
             return Path(bpy.path.abspath(self.rig_instance.head_dna_file_path))
         if self._component_type == "body":
             return Path(bpy.path.abspath(self.rig_instance.body_dna_file_path))
-        return None
+        return None # type: ignore
 
     @property
     def face_board_object(self) -> bpy.types.Object | None:
@@ -408,7 +408,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
         if self.dna_import_properties and not self.dna_import_properties.import_materials:
             return None
 
-        from meta_human_dna.ui import callbacks
+        from .ui import callbacks
 
         sep = "\\"
         if sys.platform != "win32":
@@ -625,7 +625,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
         """
         Writes the export manifest to a JSON file like MetaHuman Creator does for a DCC export.
         """
-        from meta_human_dna import bl_info
+        from .. import bl_info
 
         file_path = Path(bpy.path.abspath(str(self.rig_instance.output_folder_path))) / "ExportManifest.json"
         with open(file_path, "w") as file:
@@ -635,7 +635,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
                     "exportBlenderAddonVersion": ".".join([str(i) for i in bl_info.get("version", [])]),
                     "exportPluginVersion": self.metadata.get("exportPluginVersion", "1.0.0"),
                     "exportEngineVersion": self.metadata.get("exportEngineVersion", "5.6.0-0+UE5"),
-                    "exportedAt": datetime.now().strftime("%Y.%m.%d-%H.%M.%S"),
+                    "exportedAt": datetime.now(tz=timezone.utc).strftime("%Y.%m.%d-%H.%M.%S"),
                 },
                 file,
                 indent=4,

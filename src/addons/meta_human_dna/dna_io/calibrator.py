@@ -7,16 +7,15 @@ import bpy
 
 from mathutils import Matrix, Vector
 
-from meta_human_dna import utilities
-from meta_human_dna.bindings import riglogic
-from meta_human_dna.constants import (
+from .. import utilities
+from ..bindings import riglogic
+from ..constants import (
     BONE_DELTA_THRESHOLD,
     HEAD_TO_BODY_LOD_MAPPING,
     SHAPE_KEY_BASIS_NAME,
     SHAPE_KEY_DELTA_THRESHOLD,
     SHAPE_KEY_NAME_MAX_LENGTH,
 )
-
 from .exporter import DNAExporter
 from .importer import DNAImporter
 
@@ -160,7 +159,8 @@ class DNACalibrator(DNAExporter, DNAImporter):
                 z_values = self._dna_reader.getVertexPositionZs(mesh_index)
 
                 for vertex_index in vertex_indices:
-                    # See if we can get the vertex position from the body mesh lookup first, so that we have an exact match
+                    # See if we can get the vertex position from the body mesh lookup first,
+                    # so that we have an exact match
                     vertex_position = body_mesh_lookup.get(int(vertex_index), Vector(vertex_positions[vertex_index]))
                     dna_vertex_position = Vector(
                         (x_values[vertex_index], y_values[vertex_index], z_values[vertex_index])
@@ -173,7 +173,8 @@ class DNACalibrator(DNAExporter, DNAImporter):
                         z_values[vertex_index] = vertex_position.z
 
                 self._dna_writer.setVertexPositions(
-                    meshIndex=mesh_index, positions=[[x, y, z] for x, y, z in zip(x_values, y_values, z_values, strict=False)]
+                    meshIndex=mesh_index,
+                    positions=[[x, y, z] for x, y, z in zip(x_values, y_values, z_values, strict=False)],
                 )
 
     def calibrate_shape_keys(self):

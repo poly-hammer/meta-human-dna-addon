@@ -2,7 +2,7 @@ import logging
 import os
 
 import bpy
-import bpy.utils.previews
+import bpy.utils.previews  # pyright: ignore[reportUnusedImport]
 
 from . import constants, manual_map, operators, properties, rig_instance, utilities
 
@@ -22,7 +22,10 @@ bl_info = {
     "version": (0, 5, 4),
     "blender": (4, 5, 0),
     "location": "File > Import > MetaHuman DNA",
-    "description": "Imports MetaHuman head and body components from a their DNA files, lets you customize them, then send them back to MetaHuman Creator.",
+    "description": (
+        "Imports MetaHuman head and body components from a their DNA files, "
+        "lets you customize them, then send them back to MetaHuman Creator."
+    ),
     "warning": "",
     "wiki_url": "https://docs.polyhammer.com/meta-human-dna-addon/",
     "category": "Rigging",

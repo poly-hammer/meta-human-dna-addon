@@ -1,20 +1,26 @@
 import logging
 import math
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import bmesh
 import bpy
 
 from mathutils import Euler, Matrix, Quaternion, Vector
 
-from meta_human_dna.constants import (
+from ..constants import (
     BONE_DELTA_THRESHOLD,
     CUSTOM_BONE_SHAPE_NAME,
     CUSTOM_BONE_SHAPE_SCALE,
     BodyBoneCollection,
     ComponentType,
 )
+
+
+if TYPE_CHECKING:
+    import riglogic
+    from .editors.pose_editor.properties import RBFDrivenData, RBFDriverData, RBFPoseData
+    from .rig_instance import RigInstance
 
 from .mesh import get_vertex_group_vertices, update_vertex_positions
 from .misc import (
@@ -41,7 +47,9 @@ def get_bone_rest_transformations(
     except ValueError as error:
         if bone.parent:
             logger.error(
-                f'Error getting bone rest transformation. Parent bone "{bone.parent.name}" {bone.parent.matrix_local} cannot be inverted.'
+                'Error getting bone rest transformation. Parent bone "%s" %s cannot be inverted.',
+                bone.parent.name,
+                bone.parent.matrix_local,
             )
         raise error
 
@@ -55,7 +63,7 @@ def get_bone_rest_transformations(
     return rest_location, rest_rotation, rest_scale, rest_to_parent_matrix  # type: ignore
 
 
-def get_bone_shape(name: str = CUSTOM_BONE_SHAPE_NAME):
+def get_bone_shape(name: str = CUSTOM_BONE_SHAPE_NAME) -> bpy.types.Object | None:
     rotations = [
         [90, 0, 0],
         [0, 90, 0],
@@ -122,7 +130,7 @@ def set_bone_collection(
 
 
 def set_head_bone_collections(mesh_object: bpy.types.Object, rig_object: bpy.types.Object):
-    from meta_human_dna.bindings import meta_human_dna_core
+    from .bindings import meta_human_dna_core
 
     if mesh_object:
         weighted_leaf_bones = []
@@ -353,7 +361,7 @@ def get_closet_vertex_to_bone(
     # only return the vertex if it is within the max distance
     if distance < max_distance:
         return vert
-    logger.warning(f'Vertex {vert.index} is too far from bone "{pose_bone.name}":\n{distance} > {max_distance}')
+    logger.warning('Vertex %d is too far from bone "%s":\\n%f > %f', vert.index, pose_bone.name, distance, max_distance)
     return None
 
 
@@ -404,7 +412,9 @@ def get_closet_vertex_indices_to_bones(
         if distance < max_distance:
             bone_to_vert_index[pose_bone.name] = vert.index
         else:
-            logger.warning(f'Vertex {vert.index} is too far from bone "{pose_bone.name}":\n{distance} > {max_distance}')
+            logger.warning(
+                'Vertex %d is too far from bone "%s":\\n%f > %f', vert.index, pose_bone.name, distance, max_distance
+            )
 
     bmesh_object.free()
 
@@ -430,7 +440,6 @@ def get_matching_vertex_index_location(
         vert_pairs=[("", vertex.index)],  # type: ignore
     )
 
-    # return target_mesh_object.matrix_world @ target_mesh_object.data.vertices[vertex.index].co   # type: ignore
     return target_mesh_object.matrix_world @ vertex_positions[0][-1]
 
 
@@ -488,9 +497,12 @@ def get_body_constraint_name(bone_name: str) -> str:
 
 
 def get_topology_group_surface_bones(
-    mesh_object: bpy.types.Object, armature_object: bpy.types.Object, vertex_group_name: str, dna_reader
+    mesh_object: bpy.types.Object,
+    armature_object: bpy.types.Object,
+    vertex_group_name: str,
+    dna_reader: "riglogic.BinaryStreamReader",
 ) -> list[bpy.types.Bone]:
-    from meta_human_dna.bindings import meta_human_dna_core
+    from .bindings import meta_human_dna_core
 
     bones = []
     vertex_indices = get_vertex_group_vertices(mesh_object, vertex_group_name)
@@ -506,7 +518,7 @@ def get_topology_group_surface_bones(
 
 def get_mouth_bone_names(armature_object: bpy.types.Object) -> list[str]:
     bones = []
-    from meta_human_dna.bindings import meta_human_dna_core
+    from .bindings import meta_human_dna_core
 
     for bone_name in [meta_human_dna_core.TEETH_UPPER_BONE, meta_human_dna_core.TEETH_LOWER_BONE]:
         bone = armature_object.data.bones.get(bone_name)  # type: ignore
@@ -529,13 +541,13 @@ def get_mouth_bone_names(armature_object: bpy.types.Object) -> list[str]:
 
 
 def get_eye_bones_names(side: Literal["l", "r"]) -> list[str]:
-    from meta_human_dna.bindings import meta_human_dna_core
+    from .bindings import meta_human_dna_core
 
     return meta_human_dna_core.EYE_BALL_L_BONES if side == "l" else meta_human_dna_core.EYE_BALL_R_BONES
 
 
 def get_ignored_bones_names(armature_object: bpy.types.Object) -> list[str]:
-    from meta_human_dna.bindings import meta_human_dna_core
+    from .bindings import meta_human_dna_core
 
     mouth_bone_names = get_mouth_bone_names(armature_object)
     return mouth_bone_names + meta_human_dna_core.EYE_BALL_L_BONES + meta_human_dna_core.EYE_BALL_R_BONES
@@ -545,13 +557,13 @@ def get_ignored_bones_names(armature_object: bpy.types.Object) -> list[str]:
 def auto_fit_bones(
     mesh_object: bpy.types.Object,
     armature_object: bpy.types.Object,
-    dna_reader,
+    dna_reader: "riglogic.BinaryStreamReader",
     component_type: ComponentType,
     only_selected: bool = False,
 ):
     import meta_human_dna_core
 
-    from meta_human_dna.dna_io import DNAExporter
+    from .dna_io import DNAExporter
 
     bmesh_object = DNAExporter.get_bmesh(mesh_object, rotation=0)
     vertex_indices, vertex_positions = DNAExporter.get_mesh_vertex_positions(bmesh_object)
@@ -683,14 +695,20 @@ def get_pose_bone_local_quaternion(pose_bone: bpy.types.PoseBone) -> Quaternion:
         )
     else:
         matrix_basis = (
-            pose_bone.bone.matrix_local.inverted() @ pose_bone.id_data.matrix_world.inverted() @ pose_bone.matrix
-        )  # type: ignore
+            pose_bone.bone.matrix_local.inverted() @ pose_bone.id_data.matrix_world.inverted() @ pose_bone.matrix # type: ignore
+        )
 
     # Extract and return the quaternion
     return matrix_basis.to_quaternion().normalized()
 
 
-def set_driven_bone_data(instance, pose, driven, pose_bone: bpy.types.PoseBone, new: bool = False):
+def set_driven_bone_data(
+    instance: "RigInstance",
+    pose: "RBFPoseData",
+    driven: "RBFDrivenData",
+    pose_bone: bpy.types.PoseBone,
+    new: bool = False,
+) -> None:
     if pose_bone:
         if not instance.body_initialized:
             instance.body_initialize(update_rbf_solver_list=False)
@@ -752,19 +770,30 @@ def set_driven_bone_data(instance, pose, driven, pose_bone: bpy.types.PoseBone, 
         if rotation_delta.length > BONE_DELTA_THRESHOLD or new:
             driven.euler_rotation = rotation[:]
             logger.info(
-                f'Updated RBF pose "{pose.name}" driven bone "{driven.name}" rotation to {driven.euler_rotation[:]}'
+                'Updated RBF pose "%s" driven bone "%s" rotation to %s',
+                pose.name,
+                driven.name,
+                driven.euler_rotation[:],
             )
         if location_delta.length > BONE_DELTA_THRESHOLD or new:
             driven.location = location[:]
-            logger.info(f'Updated RBF pose "{pose.name}" driven bone "{driven.name}" location to {driven.location[:]}')
+            logger.info(
+                'Updated RBF pose "%s" driven bone "%s" location to %s', pose.name, driven.name, driven.location[:]
+            )
 
         # only update if scale is not zero or equal to the scale factor, because only those are actual deltas
         if all(round(abs(i), 5) != 0.0 and pose.scale_factor != round(abs(i), 5) for i in scale_delta) or new:
             driven.scale = scale[:]
-            logger.info(f'Updated RBF pose "{pose.name}" driven bone "{driven.name}" scale to {driven.scale[:]}')
+            logger.info('Updated RBF pose "%s" driven bone "%s" scale to %s', pose.name, driven.name, driven.scale[:])
 
 
-def set_driver_bone_data(instance, pose, driver, pose_bone: bpy.types.PoseBone, new: bool = False):
+def set_driver_bone_data(
+    instance: "RigInstance",
+    pose: "RBFPoseData",
+    driver: "RBFDriverData",
+    pose_bone: bpy.types.PoseBone,
+    new: bool = False,
+) -> None:
     if pose_bone:
         if not instance.body_initialized:
             instance.body_initialize(update_rbf_solver_list=False)
@@ -779,7 +808,10 @@ def set_driver_bone_data(instance, pose, driver, pose_bone: bpy.types.PoseBone, 
             driver.euler_rotation = pose_bone.rotation_quaternion.to_euler("XYZ")[:]
             driver.quaternion_rotation = pose_bone.rotation_quaternion[:]
             logger.info(
-                f'Updated RBF pose "{pose.name}" driver bone "{driver.name}" rotation to {driver.quaternion_rotation[:]}'
+                'Updated RBF pose "%s" driver bone "%s" rotation to %s',
+                pose.name,
+                driver.name,
+                driver.quaternion_rotation[:],
             )
 
         # Find the joint index for this bone

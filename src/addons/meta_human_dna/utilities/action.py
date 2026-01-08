@@ -9,13 +9,12 @@ import bpy
 
 from mathutils import Quaternion
 
-from meta_human_dna.constants import EYE_AIM_BONES, FACE_BOARD_SWITCHES, IS_BLENDER_5, SCALE_FACTOR, Axis, ComponentType
-
+from ..constants import EYE_AIM_BONES, FACE_BOARD_SWITCHES, IS_BLENDER_5, SCALE_FACTOR, Axis, ComponentType
 from .misc import apply_transforms, switch_to_object_mode, switch_to_pose_mode
 
 
 if TYPE_CHECKING:
-    from meta_human_dna.rig_instance import RigInstance
+    from .rig_instance import RigInstance
 
 
 # blender 4.5 and 5.0 support
@@ -535,7 +534,7 @@ def bake_face_board_to_action(
     masks: bool = True,
     shape_keys: bool = True,
 ):
-    from meta_human_dna.ui.callbacks import get_head_texture_logic_node
+    from .ui.callbacks import get_head_texture_logic_node
 
     if instance:
         if channel_types is None:
@@ -614,17 +613,19 @@ def bake_face_board_to_action(
 
             # rename the newly created object action
             for _action in bpy.data.actions:
-                if (getattr(_action, "id_root", None) == "OBJECT" or (
-                    len(_action.slots) > 0 and _action.slots[0].target_id_type == "OBJECT"
-                )) and _action not in current_object_actions:
+                if (
+                    getattr(_action, "id_root", None) == "OBJECT"
+                    or (len(_action.slots) > 0 and _action.slots[0].target_id_type == "OBJECT")
+                ) and _action not in current_object_actions:
                     _action.name = action_name
                     break
 
             # rename the newly created node tree action
             for _action in bpy.data.actions:
-                if (getattr(_action, "id_root", None) == "NODETREE" or (
-                    len(_action.slots) > 0 and _action.slots[0].target_id_type == "NODETREE"
-                )) and _action not in current_node_tree_actions:
+                if (
+                    getattr(_action, "id_root", None) == "NODETREE"
+                    or (len(_action.slots) > 0 and _action.slots[0].target_id_type == "NODETREE")
+                ) and _action not in current_node_tree_actions:
                     _action.name = f"{action_name}_shader"
                     break
 
@@ -655,7 +656,6 @@ def bake_body_to_action(
     swing_bones: bool = True,
     other_bones: bool = True,
 ):
-
     if instance:
         if channel_types is None:
             channel_types = {"LOCATION", "ROTATION", "SCALE"}
@@ -763,16 +763,18 @@ def bake_body_to_action(
             else:
                 # rename the newly created object action
                 for _action in bpy.data.actions:
-                    if (getattr(_action, "id_root", None) == "OBJECT" or (
-                        len(_action.slots) > 0 and _action.slots[0].target_id_type == "OBJECT"
-                    )) and _action not in current_object_actions:
+                    if (
+                        getattr(_action, "id_root", None) == "OBJECT"
+                        or (len(_action.slots) > 0 and _action.slots[0].target_id_type == "OBJECT")
+                    ) and _action not in current_object_actions:
                         _action.name = action_name
                         break
 
             # rename the newly created node tree action
             for _action in bpy.data.actions:
-                if (getattr(_action, "id_root", None) == "NODETREE" or (
-                    len(_action.slots) > 0 and _action.slots[0].target_id_type == "NODETREE"
-                )) and _action not in current_node_tree_actions:
+                if (
+                    getattr(_action, "id_root", None) == "NODETREE"
+                    or (len(_action.slots) > 0 and _action.slots[0].target_id_type == "NODETREE")
+                ) and _action not in current_node_tree_actions:
                     _action.name = f"{action_name}_shader"
                     break
