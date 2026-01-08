@@ -1,14 +1,16 @@
 import bpy
 
+from ...typing import *  # noqa: F403
 
-def update_body_rbf_poses_active_index(self, context):
+
+def update_body_rbf_poses_active_index(self: "RBFSolverData", context: "Context"):
     # Avoid circular import
     from ...ui.callbacks import update_body_rbf_poses_active_index as _update_body_rbf_poses_active_index
 
     _update_body_rbf_poses_active_index(self, context)
 
 
-def update_body_rbf_driven_active_index(self, context):
+def update_body_rbf_driven_active_index(self: "RBFPoseData", context: "Context"):
     # Avoid circular import
     from ...ui.callbacks import update_body_rbf_driven_active_index as _update_body_rbf_driven_active_index
 
@@ -81,7 +83,7 @@ class RBFPoseData(bpy.types.PropertyGroup):
     drivers: bpy.props.CollectionProperty(type=RBFDriverData)  # type: ignore
     drivers_active_index: bpy.props.IntProperty()  # type: ignore
     # TODO: Implement blend shapes for RBF poses
-    # shape_key_data: bpy.props.CollectionProperty(type=ShapeKeyData) # type: ignore
+    # shape_key_data: bpy.props.CollectionProperty(type=ShapeKeyData) # type: ignore  # noqa: ERA001
 
 
 class RBFSolverData(bpy.types.PropertyGroup):
@@ -105,7 +107,7 @@ class RBFSolverData(bpy.types.PropertyGroup):
     distance_method: bpy.props.EnumProperty(
         items=[
             # TODO: Should we support Euclidean?
-            # ('Euclidean', 'Euclidean', 'Use the Euclidean distance method for the RBF solver'),
+            # ('Euclidean', 'Euclidean', 'Use the Euclidean distance method for the RBF solver'),  # noqa: ERA001
             ("Quaternion", "Quaternion", "Use the Quaternion distance method for the RBF solver"),
             ("SwingAngle", "Swing Angle", "Use the Swing Angle distance method for the RBF solver"),
             ("TwistAngle", "Twist Angle", "Use the Twist Angle distance method for the RBF solver"),

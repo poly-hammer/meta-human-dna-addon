@@ -1,13 +1,16 @@
+# standard library imports
 import logging
 import math
 
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
+# third party imports
 import bmesh
 import bpy
 
 from mathutils import Euler, Matrix, Quaternion, Vector
 
+# local imports
 from ..constants import (
     BONE_DELTA_THRESHOLD,
     CUSTOM_BONE_SHAPE_NAME,
@@ -15,13 +18,7 @@ from ..constants import (
     BodyBoneCollection,
     ComponentType,
 )
-
-
-if TYPE_CHECKING:
-    import riglogic
-    from .editors.pose_editor.properties import RBFDrivenData, RBFDriverData, RBFPoseData
-    from .rig_instance import RigInstance
-
+from ..typing import *  # noqa: F403
 from .mesh import get_vertex_group_vertices, update_vertex_positions
 from .misc import (
     exclude_rig_instance_evaluation,
@@ -60,7 +57,7 @@ def get_bone_rest_transformations(
     if rotation_mode == "XYZ":
         rest_rotation = rest_rotation.to_euler("XYZ")
 
-    return rest_location, rest_rotation, rest_scale, rest_to_parent_matrix  # type: ignore
+    return rest_location, rest_rotation, rest_scale, rest_to_parent_matrix  # type: ignore[return-value]
 
 
 def get_bone_shape(name: str = CUSTOM_BONE_SHAPE_NAME) -> bpy.types.Object | None:
@@ -82,20 +79,27 @@ def get_bone_shape(name: str = CUSTOM_BONE_SHAPE_NAME) -> bpy.types.Object | Non
                 scale=[1, 1, 1],
                 rotation=[math.radians(rotation[0]), math.radians(rotation[1]), math.radians(rotation[2])],
             )
-            new_objects.append(bpy.context.active_object)  # type: ignore
+            new_objects.append(bpy.context.active_object)
 
         for new_object in new_objects:
             new_object.select_set(True)
 
         bpy.ops.object.join()
-        bpy.context.active_object.name = name  # type: ignore
+        if bpy.context.active_object:
+            bpy.context.active_object.name = name
         sphere_control = bpy.data.objects.get(name)
-        sphere_control.use_fake_user = True  # type: ignore
+        if not sphere_control:
+            return None
+        sphere_control.use_fake_user = True
 
-    if sphere_control in bpy.context.collection.objects.values():  # type: ignore
-        bpy.context.collection.objects.unlink(sphere_control)  # type: ignore
+    if (
+        bpy.context.collection
+        and bpy.context.collection.objects
+        and sphere_control in bpy.context.collection.objects.values()
+    ):
+        bpy.context.collection.objects.unlink(sphere_control)
 
-    sphere_control.hide_viewport = True  # type: ignore
+    sphere_control.hide_viewport = True
     return sphere_control
 
 
@@ -107,39 +111,41 @@ def set_bone_collection(
     visible: bool = True,
 ):
     # Ensure rig_object has armature data
-    if not isinstance(rig_object.data, bpy.types.Armature):
+    if not isinstance(rig_object.data, bpy.types.Armature) or not rig_object.pose:
         return
 
     # get or create a new bone collection
-    collection = rig_object.data.collections.get(collection_name)  # type: ignore
+    collection = rig_object.data.collections.get(collection_name)
     if not collection:
-        collection = rig_object.data.collections.new(name=collection_name)  # type: ignore
+        collection = rig_object.data.collections.new(name=collection_name)
 
-    collection.is_visible = visible  # type: ignore
+    collection.is_visible = visible
 
     for bone_name in bone_names:
-        bone = rig_object.data.bones.get(bone_name)  # type: ignore
-        if bone and theme:
-            bone.color.palette = theme  # type: ignore
+        bone = rig_object.data.bones.get(bone_name)
+        if bone and theme and bone.color:
+            bone.color.palette = theme # type: ignore[value-assign]
 
-        pose_bone = rig_object.pose.bones.get(bone_name)  # type: ignore
+        pose_bone = rig_object.pose.bones.get(bone_name)
         if pose_bone:
             collection.assign(pose_bone)
-            if theme:
-                pose_bone.color.palette = theme  # type: ignore
+            if theme and pose_bone.color:
+                pose_bone.color.palette = theme # type: ignore[value-assign]
 
 
 def set_head_bone_collections(mesh_object: bpy.types.Object, rig_object: bpy.types.Object):
     from ..bindings import meta_human_dna_core
+    if not rig_object.pose:
+        return
 
     if mesh_object:
         weighted_leaf_bones = []
         weighted_non_leaf_bones = []
         weighted_bones = get_weighted_bone_names(mesh_object)
         for bone_name in weighted_bones:
-            pose_bone = rig_object.pose.bones.get(bone_name)  # type: ignore
+            pose_bone = rig_object.pose.bones.get(bone_name)
             if pose_bone:
-                if not pose_bone.children:  # type: ignore
+                if not pose_bone.children:
                     weighted_leaf_bones.append(bone_name)
                 else:
                     weighted_non_leaf_bones.append(bone_name)
@@ -159,7 +165,7 @@ def set_head_bone_collections(mesh_object: bpy.types.Object, rig_object: bpy.typ
 
         non_weighted_leaf_bones = []
         non_weighted_non_leaf_bones = []
-        for pose_bone in rig_object.pose.bones:  # type: ignore
+        for pose_bone in rig_object.pose.bones:
             if pose_bone.name not in weighted_bones:
                 if not pose_bone.children:
                     non_weighted_leaf_bones.append(pose_bone.name)
@@ -205,10 +211,11 @@ def set_body_bone_collections(
     if mesh_object and rig_object.pose and dependencies_are_valid():
         import meta_human_dna_core
 
-        other_name_bones = []
-        for pose_bone in rig_object.pose.bones:
-            if pose_bone.name not in swing_bone_names + twist_bone_names + driver_bone_names + driven_bone_names:
-                other_name_bones.append(pose_bone.name)
+        other_name_bones = [
+            pose_bone.name
+            for pose_bone in rig_object.pose.bones
+            if pose_bone.name not in swing_bone_names + twist_bone_names + driver_bone_names + driven_bone_names
+        ]
 
         set_bone_collection(
             rig_object=rig_object,
@@ -250,7 +257,7 @@ def set_body_bone_collections(
         twist_bones = []
         corrective_root_bones = []
         twist_corrective_bones = []
-        for pose_bone in rig_object.pose.bones:  # type: ignore
+        for pose_bone in rig_object.pose.bones:
             chunks = pose_bone.name.split("_")
             if "twist" in chunks:
                 twist_bones.append(pose_bone.name)
@@ -332,7 +339,7 @@ def reassign_to_body_bone_collections(
             if pose_bone:
                 collection.assign(pose_bone)
                 if theme and pose_bone.color:
-                    pose_bone.color.palette = theme  # type: ignore
+                    pose_bone.color.palette = theme # type: ignore[value-assign]
 
 
 def get_meshes_using_armature(armature_object: bpy.types.Object) -> list[bpy.types.Object]:
@@ -341,7 +348,7 @@ def get_meshes_using_armature(armature_object: bpy.types.Object) -> list[bpy.typ
     for mesh_object in bpy.data.objects:
         if mesh_object.type == "MESH":
             for modifier in mesh_object.modifiers:
-                if modifier.type == "ARMATURE" and modifier.object == armature_object:  # type: ignore
+                if modifier.type == "ARMATURE" and modifier.object == armature_object:  # type: ignore[attr-defined]
                     mesh_objects.append(mesh_object)
                     break
     return mesh_objects
@@ -351,17 +358,17 @@ def get_closet_vertex_to_bone(
     mesh_object: bpy.types.Object, pose_bone: bpy.types.PoseBone, max_distance: float = 0.01
 ) -> bpy.types.MeshVertex | None:
     # get the bone applied position not the pose position
-    bone = pose_bone.id_data.data.bones[pose_bone.name]  # type: ignore
+    bone = pose_bone.id_data.data.bones[pose_bone.name]  # type: ignore[attr-defined]
     position = mesh_object.matrix_world.inverted() @ bone.head_local
     vert = min(
-        mesh_object.data.vertices,  # type: ignore
+        mesh_object.data.vertices, # type: ignore[attr-defined]
         key=lambda vert: (position - vert.co).length_squared,
     )
     distance = (position - vert.co).length_squared
     # only return the vertex if it is within the max distance
     if distance < max_distance:
         return vert
-    logger.warning('Vertex %d is too far from bone "%s":\\n%f > %f', vert.index, pose_bone.name, distance, max_distance)
+    logger.warning(f'Vertex {vert.index} is too far from bone "{pose_bone.name}":\n{distance} > {max_distance}')
     return None
 
 
@@ -376,7 +383,7 @@ def get_ray_cast_normal(
 
 def get_vertex_positions(mesh_object: bpy.types.Object, bone_to_vert_index: dict[str, int]) -> dict[str, Vector]:
     positions = {}
-    depsgraph = bpy.context.evaluated_depsgraph_get()  # type: ignore
+    depsgraph = bpy.context.evaluated_depsgraph_get()
     bmesh_object = bmesh.new()
     bmesh_object.from_object(mesh_object, depsgraph)
     bmesh_object.verts.ensure_lookup_table()
@@ -396,7 +403,7 @@ def get_closet_vertex_indices_to_bones(
 
     # initialize the bmesh object to evaluate against the current depsgraph so
     # we get the correct vertex positions with taking into account modifiers
-    depsgraph = bpy.context.evaluated_depsgraph_get()  # type: ignore
+    depsgraph = bpy.context.evaluated_depsgraph_get()
     bmesh_object = bmesh.new()
     bmesh_object.from_object(mesh_object, depsgraph)
     bmesh_object.verts.ensure_lookup_table()
@@ -404,7 +411,7 @@ def get_closet_vertex_indices_to_bones(
     for pose_bone in pose_bones:
         position = pose_bone.matrix.translation
         vert = min(
-            bmesh_object.verts,  # type: ignore
+            bmesh_object.verts,
             key=lambda vert: (position - vert.co).length_squared,
         )
         # only return the vertex if it is within the max distance
@@ -421,28 +428,6 @@ def get_closet_vertex_indices_to_bones(
     return bone_to_vert_index
 
 
-def get_matching_vertex_index_location(
-    source_mesh_object: bpy.types.Object,
-    target_mesh_object: bpy.types.Object,
-    pose_bone: bpy.types.PoseBone,
-    max_distance: float = 0.01,
-) -> Vector | None:
-    """
-    Gets the location of the vertex on the target mesh that has the same index
-    as the source mesh.
-    """
-    vertex = get_closet_vertex_to_bone(source_mesh_object, pose_bone, max_distance)
-    if not vertex:
-        return None
-
-    vertex_positions = get_vertex_positions(
-        mesh_object=target_mesh_object,
-        vert_pairs=[("", vertex.index)],  # type: ignore
-    )
-
-    return target_mesh_object.matrix_world @ vertex_positions[0][-1]
-
-
 def get_weighted_bone_names(mesh_object: bpy.types.Object) -> list[str]:
     """
     Gets the names of the bones that are weighted to the given mesh.
@@ -450,7 +435,7 @@ def get_weighted_bone_names(mesh_object: bpy.types.Object) -> list[str]:
     weighted_bones = set()
 
     # Iterate over all vertices in the mesh
-    for vertex in mesh_object.data.vertices:  # type: ignore
+    for vertex in mesh_object.data.vertices: # type: ignore[attr-defined]
         for group in vertex.groups:
             # Get the vertex group (bone) name
             bone_name = mesh_object.vertex_groups[group.group].name
@@ -463,29 +448,29 @@ def get_weighted_bone_names(mesh_object: bpy.types.Object) -> list[str]:
 @exclude_rig_instance_evaluation
 def copy_armature(armature_object: bpy.types.Object, new_armature_name: str) -> bpy.types.Object:
     # remove the object if it already exists
-    armature_object_copy = bpy.data.objects.get(new_armature_name)  # type: ignore
+    armature_object_copy = bpy.data.objects.get(new_armature_name)
     if armature_object_copy:
         bpy.data.objects.remove(armature_object_copy)
 
     # remove the existing armature if it exists
     armature = bpy.data.meshes.get(new_armature_name)
     if armature:
-        bpy.data.armatures.remove(armature)  # type: ignore
+        bpy.data.armatures.remove(armature) # pyright: ignore[reportArgumentType]
 
     # copy the armature
-    armature_data = armature_object.data.copy()  # type: ignore
+    armature_data = armature_object.data.copy() # pyright: ignore[reportOptionalMemberAccess]
     armature_data.name = new_armature_name
     armature_object_copy = bpy.data.objects.get(new_armature_name)
     armature_object_copy = bpy.data.objects.new(name=new_armature_name, object_data=armature_data)
 
     # make sure the mesh is in the scene collection
-    if armature_object_copy not in bpy.context.scene.collection.objects.values():  # type: ignore
-        bpy.context.scene.collection.objects.link(armature_object_copy)  # type: ignore
+    if bpy.context.scene and armature_object_copy not in bpy.context.scene.collection.objects.values():
+        bpy.context.scene.collection.objects.link(armature_object_copy)
 
     # set custom bone shape
     bones_shape_object = get_bone_shape()
     switch_to_pose_mode(armature_object_copy)
-    for pose_bone in armature_object_copy.pose.bones:  # type: ignore
+    for pose_bone in armature_object_copy.pose.bones:  # type: ignore[attr-defined]
         pose_bone.custom_shape = bones_shape_object
         pose_bone.custom_shape_scale_xyz = CUSTOM_BONE_SHAPE_SCALE
 
@@ -509,8 +494,8 @@ def get_topology_group_surface_bones(
     vertex_to_bone_name = meta_human_dna_core.calculate_vertex_to_bone_name_mapping(dna_reader=dna_reader)
     for vertex_index in vertex_indices:
         bone_name = vertex_to_bone_name.get(vertex_index, None)
-        if bone_name:
-            bone = armature_object.data.bones.get(bone_name)  # type: ignore
+        if bone_name and armature_object.data and isinstance(armature_object.data, bpy.types.Armature):
+            bone = armature_object.data.bones.get(bone_name)
             if bone:
                 bones.append(bone)
     return bones
@@ -520,20 +505,22 @@ def get_mouth_bone_names(armature_object: bpy.types.Object) -> list[str]:
     bones = []
     from ..bindings import meta_human_dna_core
 
+    if not armature_object.data or not isinstance(armature_object.data, bpy.types.Armature):
+        return bones
+
     for bone_name in [meta_human_dna_core.TEETH_UPPER_BONE, meta_human_dna_core.TEETH_LOWER_BONE]:
-        bone = armature_object.data.bones.get(bone_name)  # type: ignore
+        bone = armature_object.data.bones.get(bone_name)
         if not bone:
             continue
         bones.append(bone.name)
-        for child in bone.children_recursive:
-            bones.append(child.name)
+        bones.extend([child.name for child in bone.children_recursive])
 
     for bone_name in (
         meta_human_dna_core.INTERNAL_LIP_BONES
         + meta_human_dna_core.JAW_BONES
         + [meta_human_dna_core.MOUTH_UPPER_BONE, meta_human_dna_core.MOUTH_LOWER_BONE]
     ):
-        bone = armature_object.data.bones.get(bone_name)  # type: ignore
+        bone = armature_object.data.bones.get(bone_name)
         if bone:
             bones.append(bone.name)
 
@@ -572,7 +559,7 @@ def auto_fit_bones(
 
     bone_names = []
     if only_selected:
-        bone_names = [bone.name for bone in bpy.context.selected_pose_bones]  # type: ignore
+        bone_names = [bone.name for bone in bpy.context.selected_pose_bones]
 
     switch_to_bone_edit_mode(armature_object)
     result = meta_human_dna_core.calculate_fitted_bone_positions(
@@ -587,16 +574,16 @@ def auto_fit_bones(
         component_type=component_type,
         parent_depth=1,
         factor=1.0,
-        only_bone_names=bone_names,  # type: ignore
+        only_bone_names=bone_names,
     )
-    if result:
+    if result and armature_object.data and isinstance(armature_object.data, bpy.types.Armature):
         for bone_name, (head, tail) in result["bone_positions"].items():
-            edit_bone = armature_object.data.edit_bones.get(bone_name)  # type: ignore
+            edit_bone = armature_object.data.edit_bones.get(bone_name)
             if edit_bone:
                 edit_bone.head = Vector(head)
                 edit_bone.tail = Vector(tail)
         for bone_name, delta in result["bone_deltas"]:
-            edit_bone = armature_object.data.edit_bones.get(bone_name)  # type: ignore
+            edit_bone = armature_object.data.edit_bones.get(bone_name)
             if edit_bone:
                 edit_bone.head += Vector(delta)
                 edit_bone.tail += Vector(delta)
@@ -612,16 +599,18 @@ def auto_fit_bones(
 
 @preserve_context
 def reset_pose(rig_object: bpy.types.Object):
+    if not rig_object.pose:
+        return
     # show the rig and switch to pose mode
-    rig_object.hide_set(False)  # type: ignore
+    rig_object.hide_set(False)
     switch_to_pose_mode(rig_object)
 
     # reset to rest pose
-    for pose_bone in rig_object.pose.bones:  # type: ignore
-        pose_bone.rotation_quaternion = Quaternion((1, 0, 0, 0))  # type: ignore
-        pose_bone.rotation_euler = Euler((0, 0, 0))  # type: ignore
-        pose_bone.location = Vector((0, 0, 0))  # type: ignore
-        pose_bone.scale = Vector((1, 1, 1))  # type: ignore
+    for pose_bone in rig_object.pose.bones:
+        pose_bone.rotation_quaternion = Quaternion((1, 0, 0, 0))
+        pose_bone.rotation_euler = Euler((0, 0, 0))
+        pose_bone.location = Vector((0, 0, 0))
+        pose_bone.scale = Vector((1, 1, 1))
 
 
 def get_bone_local_axes(pose_bone: bpy.types.PoseBone) -> tuple[Vector, Vector, Vector]:
@@ -635,7 +624,7 @@ def get_bone_local_axes(pose_bone: bpy.types.PoseBone) -> tuple[Vector, Vector, 
         Tuple of (x_axis, y_axis, z_axis) as world-space vectors
     """
     # Get the bone's world matrix
-    world_matrix = pose_bone.id_data.matrix_world @ pose_bone.matrix  # type: ignore
+    world_matrix = pose_bone.id_data.matrix_world @ pose_bone.matrix  # type: ignore[attr-defined]
 
     # Extract the rotation component (3x3 part of 4x4 matrix)
     # Each column represents a local axis in world space
@@ -695,7 +684,7 @@ def get_pose_bone_local_quaternion(pose_bone: bpy.types.PoseBone) -> Quaternion:
         )
     else:
         matrix_basis = (
-            pose_bone.bone.matrix_local.inverted() @ pose_bone.id_data.matrix_world.inverted() @ pose_bone.matrix # type: ignore
+            pose_bone.bone.matrix_local.inverted() @ pose_bone.id_data.matrix_world.inverted() @ pose_bone.matrix  # type: ignore[attr-defined]
         )
 
     # Extract and return the quaternion

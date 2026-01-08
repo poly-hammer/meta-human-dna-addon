@@ -1,10 +1,17 @@
+# standard library imports
+import logging
 import shutil
 
 from pathlib import Path
 
+# third party imports
 import bpy
 
+# local imports
 from .misc import exclude_rig_instance_evaluation
+
+
+logger = logging.getLogger(__name__)
 
 
 @exclude_rig_instance_evaluation
@@ -26,8 +33,9 @@ def copy_materials(
             if new_material.node_tree:
                 for node in new_material.node_tree.nodes:
                     if node.type == "TEX_IMAGE":
-                        new_image = node.image.copy()  # type: ignore
-                        new_image.name = f"{new_prefix}_{node.image.name}".replace(f"{old_prefix}_", "")  # type: ignore
+                        image = node.image # type: ignore[attr-defined]
+                        new_image = image.copy()
+                        new_image.name = f"{new_prefix}_{image.name}".replace(f"{old_prefix}_", "")
                         # copy the image files to the new folder
                         if new_image.filepath and not new_image.packed_file:
                             image_file_path = Path(bpy.path.abspath(new_image.filepath))
@@ -37,7 +45,7 @@ def copy_materials(
                                 shutil.copy(image_file_path, new_image_file_path)
                                 new_image.filepath = str(new_image_file_path)
                         # assign the new image to the node
-                        node.image = new_image  # type: ignore
+                        node.image = new_image # type: ignore[attr-defined]
     return first_new_mesh_material
 
 
@@ -45,8 +53,9 @@ def prefix_material_image_names(material: bpy.types.Material, prefix: str):
     if material.node_tree:
         for node in material.node_tree.nodes:
             if node.type == "TEX_IMAGE":
-                name = node.image.name.rstrip(".001")  # type: ignore
-                node.image.name = f"{prefix}_{name}"  # type: ignore
+                image = node.image# type: ignore[attr-defined]
+                name = image.name.removesuffix(".001")
+                image.name = f"{prefix}_{name}"
 
 
 def create_new_material(
@@ -54,11 +63,15 @@ def create_new_material(
 ) -> bpy.types.Material:
     material = bpy.data.materials.new(name=name)
     material.use_nodes = True
+    if not material.node_tree:
+        logger.error(f"Material {name} has no node tree.")
+        return material
+
     # Create a Principled BSDF shader node
-    for node in material.node_tree.nodes:  # type: ignore
+    for node in material.node_tree.nodes:
         if node.type == "BSDF_PRINCIPLED":
             if color:
-                node.inputs["Base Color"].default_value = color  # type: ignore
+                node.inputs["Base Color"].default_value = color  # type: ignore[attr-defined]
             if alpha is not None:
-                node.inputs["Alpha"].default_value = alpha  # type: ignore
+                node.inputs["Alpha"].default_value = alpha  # type: ignore[attr-defined]
     return material

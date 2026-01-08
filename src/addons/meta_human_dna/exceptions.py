@@ -4,7 +4,7 @@ from .constants import PLATFORM_NAMES, ComponentType
 
 
 class UnsupportedPlatformError(Exception):
-    def __init__(self, message=None):
+    def __init__(self, message: str | None = None) -> None:
         if not message:
             self.message = (
                 f'The platform "{sys.platform}" is not supported. Please check our '
@@ -19,7 +19,7 @@ class UnsupportedPlatformError(Exception):
 
 
 class UnsupportedPythonVersionError(Exception):
-    def __init__(self, message=None):
+    def __init__(self, message: str | None = None) -> None:
         platform_name = PLATFORM_NAMES.get(sys.platform, sys.platform)
         if not message:
             self.message = (
@@ -34,7 +34,7 @@ class UnsupportedPythonVersionError(Exception):
 
 
 class InvalidComponentTypeError(Exception):
-    def __init__(self, component_type):
+    def __init__(self, component_type: str) -> None:
         self.message = (
             f"Invalid component type: {component_type}. Must be "
             + " or ".join([f"'{i}'" for i in ComponentType.__args__])

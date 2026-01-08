@@ -61,6 +61,7 @@
         "Cython",
         "cythonize",
         "datetimez",
+        "DCC",
         "debugger",
         "debugpy",
         "defn",
@@ -70,10 +71,12 @@
         "dotenv",
         "editmode",
         "eevee",
+        "Entrys",
         "env",
         "eradicate",
         "Eyesack",
         "eyeshell",
+        "fbx",
         "fcurve",
         "fcurves",
         "filterwarnings",
@@ -163,6 +166,7 @@
         "upperarm",
         "uproject",
         "UVMAP",
+        "uvs",
         "venv",
         "verts",
         "visemes",
@@ -289,7 +293,11 @@
                 "SLF",
                 "FURB",
                 "rgx",
-                "dsn"
+                "dsn",
+                "pyc",
+                "pyo",
+                "whl",
+                "nla"
             ]
         },
         {

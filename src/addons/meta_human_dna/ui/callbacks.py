@@ -478,8 +478,11 @@ def set_active_material_preview(self: "RigInstance", value: int):
             node_group.node_tree.nodes["show_color_or_topology"].inputs[input_name].default_value = 1  # type: ignore[attr-defined]
 
 
-def poll_head_rig_bone_selection(self: "RigInstance", context: "Context") -> bool:
-    return context.mode == "POSE" and bool(context.selected_pose_bones) and self.head_rig == context.active_object
+def poll_head_rig_bone_selection(_: bpy.types.Operator, context: "Context") -> bool:
+    instance = get_active_rig_instance()
+    if not instance or not instance.head_rig:
+        return False
+    return context.mode == "POSE" and bool(context.selected_pose_bones) and instance.head_rig == context.active_object
 
 
 def poll_head_materials(self: "RigInstance", material: bpy.types.Material) -> bool:  # noqa: ARG001

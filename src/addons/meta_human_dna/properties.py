@@ -49,7 +49,7 @@ class BlendFileMetaHumanCollection(bpy.types.PropertyGroup):
             "append or link rig instances that have the same name as another in the current scene. "
             "Names must be unique"
         ),
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     name: bpy.props.StringProperty(
         default="",
         description="The name of the MetaHuman",
@@ -177,7 +177,7 @@ class MetahumanWindowMangerProperties(bpy.types.PropertyGroup, MetahumanDnaImpor
     evaluate_dependency_graph: bpy.props.BoolProperty(default=True)  # pyright: ignore[reportInvalidTypeForm]
     is_undoing: bpy.props.BoolProperty(default=False)  # pyright: ignore[reportInvalidTypeForm]
 
-    face_pose_previews: bpy.props.EnumProperty(  # type: ignore
+    face_pose_previews: bpy.props.EnumProperty(
         name="Face Poses",
         items=callbacks.get_face_pose_previews_items,  # type: ignore[arg-type]
         update=callbacks.update_face_pose,  # type: ignore[arg-type]

@@ -1,3 +1,4 @@
+# standard library imports
 import json
 import logging
 import math
@@ -5,12 +6,14 @@ import re
 
 from pathlib import Path
 
+# third party imports
 import bmesh
 import bpy
 
 from bpy_extras.bmesh_utils import bmesh_linked_uv_islands
 from mathutils import Matrix, Vector
 
+# local imports
 from ..constants import (
     HEAD_TO_BODY_EDGE_LOOP_FILE_PATH,
     HEAD_TO_BODY_LOD_MAPPING,
@@ -26,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 
 @exclude_rig_instance_evaluation
-def initialize_basis_shape_key(mesh_object: bpy.types.Object) -> bpy.types.Key:
+def initialize_basis_shape_key(mesh_object: bpy.types.Object) -> bpy.types.ID | None:
     """
     Get the shape key that has the mesh as its user. If the shape
     key does not exist, it will be created.
@@ -35,7 +38,7 @@ def initialize_basis_shape_key(mesh_object: bpy.types.Object) -> bpy.types.Key:
         mesh_object (bpy.types.Object): The mesh object.
 
     Returns:
-        bpy.types.Key: The shape key that has the mesh as its user.
+        bpy.types.ID: The shape key that has the mesh as its user.
     """
     if not mesh_object:
         logger.warning("Mesh object not found in scene that matches DNA. Skipping initialization of basis shape key.")
@@ -49,25 +52,32 @@ def initialize_basis_shape_key(mesh_object: bpy.types.Object) -> bpy.types.Key:
     shape_key = shape_key_block.id_data
 
     # set the shape key name to the mesh object name
-    shape_key.name = mesh_object.name
+    if shape_key:
+        shape_key.name = mesh_object.name
 
     return shape_key
 
 
 def update_mesh(mesh_object: bpy.types.Object):
-    depth = bpy.context.evaluated_depsgraph_get()  # type: ignore
+    depth = bpy.context.evaluated_depsgraph_get()
     depth.update()
     mesh_object.update_tag()
-    bpy.context.view_layer.update()  # type: ignore
-    mesh_object.data.update()  # type: ignore
+    if bpy.context.view_layer:
+        bpy.context.view_layer.update()
+    if mesh_object.data and isinstance(mesh_object.data, bpy.types.Mesh):
+        mesh_object.data.update()
 
 
 def delete_vertices_by_index(mesh_object: bpy.types.Object, vertex_indexes: list[int], inverse: bool = False):
+    if not isinstance(mesh_object.data, bpy.types.Mesh):
+        return
     # get the mesh data
     mesh_data = mesh_object.data
     # get the bmesh data
     bmesh_data = bmesh.new()
-    bmesh_data.from_mesh(mesh_data)  # type: ignore
+    if not isinstance(mesh_data, bpy.types.Mesh):
+        return
+    bmesh_data.from_mesh(mesh_data)
 
     bmesh_data.verts.ensure_lookup_table()
     # get the vertices to delete
@@ -79,7 +89,7 @@ def delete_vertices_by_index(mesh_object: bpy.types.Object, vertex_indexes: list
     # delete the vertices
     bmesh.ops.delete(bmesh_data, geom=vertices_to_delete, context="VERTS")
     # update the mesh data
-    bmesh_data.to_mesh(mesh_data)  # type: ignore
+    bmesh_data.to_mesh(mesh_data)
     # free the bmesh data
     bmesh_data.free()
 
@@ -87,27 +97,31 @@ def delete_vertices_by_index(mesh_object: bpy.types.Object, vertex_indexes: list
 def update_vertex_positions(
     mesh_object: bpy.types.Object, vertex_indices: list[int], offset: Vector = Vector((0, 0, 0))
 ):
+    if not isinstance(mesh_object.data, bpy.types.Mesh):
+        return
     # get the bmesh data
     bmesh_object = bmesh.new()
-    bmesh_object.from_mesh(mesh_object.data)  # type: ignore
+    bmesh_object.from_mesh(mesh_object.data)
 
     bmesh_object.verts.ensure_lookup_table()
     for vertex_index in vertex_indices:
         vert = bmesh_object.verts[vertex_index]
         vert.co += offset
 
-    bmesh_object.to_mesh(mesh_object.data)  # type: ignore
+    bmesh_object.to_mesh(mesh_object.data)
     bmesh_object.free()
 
 
 def get_middle_vertices(mesh_object: bpy.types.Object) -> list[int]:
     verts = []
+    if not isinstance(mesh_object.data, bpy.types.Mesh):
+        return verts
+
     # get the mesh data
     mesh_data = mesh_object.data
     # get the bmesh data
     bmesh_data = bmesh.new()
-    bmesh_data.from_mesh(mesh_data)  # type: ignore
-
+    bmesh_data.from_mesh(mesh_data)
     bmesh_data.verts.ensure_lookup_table()
     verts = [vert.index for vert in bmesh_data.verts if 0.001 > vert.co.x > -0.001]
 
@@ -117,28 +131,32 @@ def get_middle_vertices(mesh_object: bpy.types.Object) -> list[int]:
 
 
 def zero_x_on_middle_vertices(mesh_object: bpy.types.Object, threshold: float = 0.001):
+    if not isinstance(mesh_object.data, bpy.types.Mesh):
+        return
     # get the mesh data
     mesh_data = mesh_object.data
     # get the bmesh data
     bmesh_data = bmesh.new()
-    bmesh_data.from_mesh(mesh_data)  # type: ignore
-
+    bmesh_data.from_mesh(mesh_data)
     bmesh_data.verts.ensure_lookup_table()
     for vert in bmesh_data.verts:
         if threshold > vert.co.x > -threshold:
             vert.co.x = 0.0
 
-    bmesh_data.to_mesh(mesh_data)  # type: ignore
+    bmesh_data.to_mesh(mesh_data)
     # free the bmesh data
     bmesh_data.free()
 
 
 def set_vertex_selection(mesh_object: bpy.types.Object, vertex_indexes: list[int], add: bool = False):
+    if not isinstance(mesh_object.data, bpy.types.Mesh):
+        return
+
     switch_to_edit_mode(mesh_object)
     # get the mesh data
     mesh_data = mesh_object.data
     # get the bmesh data
-    bmesh_data = bmesh.from_edit_mesh(mesh_data)  # type: ignore
+    bmesh_data = bmesh.from_edit_mesh(mesh_data)
 
     for vert in bmesh_data.verts:
         if vert.index in vertex_indexes:
@@ -149,10 +167,12 @@ def set_vertex_selection(mesh_object: bpy.types.Object, vertex_indexes: list[int
     bmesh_data.select_mode |= {"VERT"}
     bmesh_data.select_flush_mode()
 
-    bmesh.update_edit_mesh(mesh_data)  # type: ignore
+    bmesh.update_edit_mesh(mesh_data)
 
 
 def select_vertex_group(mesh_object: bpy.types.Object, vertex_group_name: str, add: bool = False):
+    if not isinstance(mesh_object.data, bpy.types.Mesh):
+        return
     vertex_group = mesh_object.vertex_groups.get(vertex_group_name)
     if not vertex_group:
         return
@@ -161,7 +181,7 @@ def select_vertex_group(mesh_object: bpy.types.Object, vertex_group_name: str, a
     # get the mesh data
     mesh_data = mesh_object.data
     # get the bmesh data
-    bmesh_data = bmesh.from_edit_mesh(mesh_data)  # type: ignore
+    bmesh_data = bmesh.from_edit_mesh(mesh_data)
 
     bmesh_data.verts.layers.deform.verify()
     deform = bmesh_data.verts.layers.deform.active
@@ -178,7 +198,7 @@ def select_vertex_group(mesh_object: bpy.types.Object, vertex_group_name: str, a
     bmesh_data.select_mode |= {"VERT"}
     bmesh_data.select_flush_mode()
 
-    bmesh.update_edit_mesh(mesh_data)  # type: ignore
+    bmesh.update_edit_mesh(mesh_data)
 
 
 def get_shape_key_delta_vertices(
@@ -187,10 +207,13 @@ def get_shape_key_delta_vertices(
     basis_shape_key_name: str = SHAPE_KEY_BASIS_NAME,
     delta_threshold: float = 0.0001,
 ) -> list[int]:
+    if not isinstance(mesh_object.data, bpy.types.Mesh):
+        return []
+
     switch_to_object_mode()
 
     # Make this the active shape key and show only this shape key
-    shape_key_index = mesh_object.data.shape_keys.key_blocks.keys().index(shape_key_name)  # type: ignore
+    shape_key_index = mesh_object.data.shape_keys.key_blocks.keys().index(shape_key_name) # pyright: ignore[reportOptionalMemberAccess]
     mesh_object.show_only_shape_key = True
     mesh_object.active_shape_key_index = shape_key_index
     update_mesh(mesh_object)
@@ -198,12 +221,12 @@ def get_shape_key_delta_vertices(
     shape_key_bmesh = bmesh.new()
     shape_key_bmesh.from_object(
         mesh_object,
-        bpy.context.evaluated_depsgraph_get(),  # type: ignore
+        bpy.context.evaluated_depsgraph_get(),
         cage=True,
     )
 
     # Now do the same so we can extract the basis shape key
-    basis_shape_key_index = mesh_object.data.shape_keys.key_blocks.keys().index(basis_shape_key_name)  # type: ignore
+    basis_shape_key_index = mesh_object.data.shape_keys.key_blocks.keys().index(basis_shape_key_name)  # pyright: ignore[reportOptionalMemberAccess]
     mesh_object.show_only_shape_key = True
     mesh_object.active_shape_key_index = basis_shape_key_index
     update_mesh(mesh_object)
@@ -211,7 +234,7 @@ def get_shape_key_delta_vertices(
     basis_shape_key_bmesh = bmesh.new()
     basis_shape_key_bmesh.from_object(
         mesh_object,
-        bpy.context.evaluated_depsgraph_get(),  # type: ignore
+        bpy.context.evaluated_depsgraph_get(),
         cage=True,
     )
 
@@ -219,7 +242,7 @@ def get_shape_key_delta_vertices(
     basis_shape_key_bmesh.verts.ensure_lookup_table()
     for vert in shape_key_bmesh.verts:
         basis_vert = basis_shape_key_bmesh.verts[vert.index]
-        if (basis_vert.co - vert.co).length > delta_threshold:  # type: ignore
+        if (basis_vert.co - vert.co).length > delta_threshold:
             vertex_indices.append(vert.index)
 
     shape_key_bmesh.free()
@@ -250,7 +273,7 @@ def get_center_of_selected_vertices(mesh_object: bpy.types.Object) -> Vector:
     bpy.ops.object.mode_set(mode="OBJECT")
 
     # Get the selected vertices in world space
-    selected_vertices = [v.co for v in mesh_object.data.vertices if v.select]  # type: ignore
+    selected_vertices = [v.co for v in mesh_object.data.vertices if v.select] # type: ignore[attr-defined]
 
     if not selected_vertices:
         return Vector((0, 0, 0))
@@ -288,7 +311,7 @@ def get_center_of_vectors(vectors: list[Vector]) -> Vector:
 
 
 def rotate_vector_around_origin(vector: Vector, origin: Vector, degrees: float, axis: Axis) -> Vector:
-    rotation_matrix = Matrix.Rotation(math.radians(degrees), 4, axis.upper())
+    rotation_matrix = Matrix.Rotation(math.radians(degrees), 4, axis.upper())  # type: ignore[arg-type]
     # Translate the vector to the origin
     translated_vector = vector - origin
     # Apply the rotation matrix
@@ -300,7 +323,7 @@ def rotate_vector_around_origin(vector: Vector, origin: Vector, degrees: float, 
 def rotate_vectors_around_origin(vectors: list[Vector], origin: Vector, degrees: float, axis: Axis) -> list[Vector]:
     final_vectors = []
 
-    rotation_matrix = Matrix.Rotation(math.radians(degrees), 4, axis.upper())
+    rotation_matrix = Matrix.Rotation(math.radians(degrees), 4, axis.upper())  # type: ignore[arg-type]
 
     for vector in vectors:
         # Translate the vector to the origin
@@ -375,7 +398,7 @@ def copy_mesh(
     mesh_object: bpy.types.Object, new_mesh_name: str, modifiers: bool = False, materials: bool = False
 ) -> bpy.types.Object:
     # remove the object if it already exists
-    mesh_object_copy = bpy.data.objects.get(new_mesh_name)  # type: ignore
+    mesh_object_copy = bpy.data.objects.get(new_mesh_name)
     if mesh_object_copy:
         bpy.data.objects.remove(mesh_object_copy)
 
@@ -384,13 +407,13 @@ def copy_mesh(
     if mesh:
         bpy.data.meshes.remove(mesh)
 
-    mesh_data = mesh_object.data.copy()  # type: ignore
+    mesh_data = mesh_object.data.copy() # pyright: ignore[reportOptionalMemberAccess]
     mesh_data.name = new_mesh_name
     mesh_object_copy = bpy.data.objects.new(name=new_mesh_name, object_data=mesh_data)
 
     # make sure the mesh is in the scene collection
-    if mesh_object_copy not in bpy.context.scene.collection.objects.values():  # type: ignore
-        bpy.context.scene.collection.objects.link(mesh_object_copy)  # type: ignore
+    if bpy.context.scene and mesh_object_copy not in bpy.context.scene.collection.objects.values():
+        bpy.context.scene.collection.objects.link(mesh_object_copy)
 
     if modifiers:
         for modifier in mesh_object.modifiers:
@@ -402,7 +425,7 @@ def copy_mesh(
             mesh_object_copy.modifiers.remove(modifier)
 
     if not materials:
-        mesh_data.materials.clear()  # type: ignore
+        mesh_data.materials.clear()  # type: ignore[attr-defined]
 
     return mesh_object_copy
 
@@ -416,7 +439,7 @@ def split_mesh_along_uv_islands(bmesh_object: bmesh.types.BMesh) -> dict[int, in
 
     # get each uv island and it's loops
     for island_faces in bmesh_linked_uv_islands(bmesh_object, uv_layer):
-        island_loops = [loop for face in island_faces for loop in face.loops]  # type: ignore
+        island_loops = [loop for face in island_faces for loop in face.loops] # type: ignore[attr-defined]
         for loop in island_loops:
             # Select border loops on the island
             loops = (loop, loop.link_loop_radial_next)
@@ -461,9 +484,9 @@ def save_topology_vertex_groups(mesh_object: bpy.types.Object, file_path: Path):
         if vertex_group.name.startswith("TOPO_GROUP_"):
             vertex_groups[vertex_group.name] = [
                 vertex.index
-                for vertex in mesh_object.data.vertices
+                for vertex in mesh_object.data.vertices  # type: ignore[attr-defined]
                 if vertex_group.index
-                in [  # type: ignore
+                in [
                     group.group for group in vertex.groups
                 ]
             ]
@@ -495,10 +518,12 @@ def save_head_to_body_edge_loop():
         head_selected_verts = []
         body_selected_verts = []
         for selected_object in bpy.context.selected_objects:
+            if not isinstance(selected_object.data, bpy.types.Mesh):
+                continue
             if selected_object.name.endswith(head_lod_name):
-                head_selected_verts = [(v.index, v.co) for v in selected_object.data.vertices if v.select]  # type: ignore
+                head_selected_verts = [(v.index, v.co) for v in selected_object.data.vertices if v.select]
             elif selected_object.name.endswith(body_lod_name):
-                body_selected_verts = [(v.index, v.co) for v in selected_object.data.vertices if v.select]  # type: ignore
+                body_selected_verts = [(v.index, v.co) for v in selected_object.data.vertices if v.select]
 
         # sort the indexes so the closest vertex position matches the closest vertex in the other LOD
         head_selected_verts.sort(key=lambda x: x[1].length)
@@ -526,9 +551,9 @@ def get_vertex_group_vertices(
 
     return [
         vertex.index
-        for vertex in mesh_object.data.vertices
+        for vertex in mesh_object.data.vertices  # type: ignore[attr-defined]
         if vertex_group.index
-        in [  # type: ignore
+        in [
             group.group for group in vertex.groups
         ]
         and vertex_group.weight(vertex.index) >= weight_equal_or_above
@@ -538,7 +563,8 @@ def get_vertex_group_vertices(
 @preserve_context
 def auto_unwrap_uvs(mesh_objects: list[bpy.types.Object]):
     for mesh_object in mesh_objects:
-        bpy.context.view_layer.objects.active = mesh_object  # type: ignore
+        if bpy.context.view_layer:
+            bpy.context.view_layer.objects.active = mesh_object
         switch_to_edit_mode(mesh_object)
         bpy.ops.uv.unwrap(
             method="ANGLE_BASED", correct_aspect=True, fill_holes=True, margin_method="SCALED", margin=0.001
@@ -547,7 +573,7 @@ def auto_unwrap_uvs(mesh_objects: list[bpy.types.Object]):
 
 def get_uv_values(mesh_object: bpy.types.Object) -> tuple[list[float], list[float]]:
     bmesh_object = bmesh.new()
-    bmesh_object.from_mesh(mesh_object.data)  # type: ignore
+    bmesh_object.from_mesh(mesh_object.data)  # type: ignore[arg-type]
     bmesh_object.faces.ensure_lookup_table()
 
     uv_layer = bmesh_object.loops.layers.uv.active

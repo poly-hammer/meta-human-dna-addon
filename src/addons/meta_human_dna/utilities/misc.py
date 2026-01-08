@@ -44,9 +44,10 @@ logger = logging.getLogger(__name__)
 
 def exclude_rig_instance_evaluation(func: Callable) -> Callable:
     def wrapper(*args: Any, **kwargs: Any) -> Any:
-        bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False  # type: ignore
+        window_manager_properties: "MetahumanWindowMangerProperties" = bpy.context.window_manager.meta_human_dna  # type: ignore[attr-defined]  # noqa: UP037
+        window_manager_properties.evaluate_dependency_graph = False
         result = func(*args, **kwargs)
-        bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True  # type: ignore
+        window_manager_properties.evaluate_dependency_graph = True
         return result
 
     return wrapper
@@ -54,7 +55,9 @@ def exclude_rig_instance_evaluation(func: Callable) -> Callable:
 
 def get_current_context() -> dict[str, Any]:
     object_contexts = {}
-    for scene_object in bpy.context.scene.objects:  # type: ignore
+    if not bpy.context.scene:
+        return {}
+    for scene_object in bpy.context.scene.objects:
         active_action_name = ""
         if scene_object.animation_data and scene_object.animation_data.action:
             active_action_name = scene_object.animation_data.action.name
@@ -68,22 +71,22 @@ def get_current_context() -> dict[str, Any]:
         }
 
     active_object = None
-    if bpy.context.active_object:  # type: ignore
-        active_object = bpy.context.active_object.name  # type: ignore
+    if bpy.context.active_object:
+        active_object = bpy.context.active_object.name
 
     return {
         "mode": getattr(bpy.context, "mode", "OBJECT"),
         "objects": object_contexts,
         "active_object": active_object,
-        "current_frame": bpy.context.scene.frame_current,  # type: ignore
-        "cursor_location": bpy.context.scene.cursor.location,  # type: ignore
+        "current_frame": bpy.context.scene.frame_current,
+        "cursor_location": bpy.context.scene.cursor.location,
     }
 
 
 def set_context(context: dict[str, Any]) -> None:
     mode = context.get("mode", "OBJECT")
     active_object_name = context.get("active_object")
-    object_contexts = context.get("objects")
+    object_contexts = context.get("objects", {})
     for object_name, attributes in object_contexts.items():
         scene_object = bpy.data.objects.get(object_name)
         if scene_object:
@@ -98,11 +101,11 @@ def set_context(context: dict[str, Any]) -> None:
             scene_object.show_instancer_for_render = attributes.get("show_instancer_for_render", False)
 
     # set the active object
-    if active_object_name:
-        bpy.context.view_layer.objects.active = bpy.data.objects.get(active_object_name)  # type: ignore
+    if active_object_name and bpy.context.view_layer:
+        bpy.context.view_layer.objects.active = bpy.data.objects.get(active_object_name)
 
     # set the mode
-    if bpy.context.mode != mode:  # type: ignore
+    if bpy.context.mode != mode:
         # Note:
         # When the mode context is read in edit mode it can be 'EDIT_ARMATURE' or 'EDIT_MESH', even though you
         # are only able to set the context to 'EDIT' mode. Thus, if 'EDIT' was read from the mode context, the mode
@@ -111,19 +114,20 @@ def set_context(context: dict[str, Any]) -> None:
             mode = "EDIT"
         bpy.ops.object.mode_set(mode=mode)
 
-    # set the current frame
-    bpy.context.scene.frame_set(context.get("current_frame", 0))  # type: ignore
+    if bpy.context.scene:
+        # set the current frame
+        bpy.context.scene.frame_set(context.get("current_frame", 0))
 
-    # set the cursor location
-    bpy.context.scene.cursor.location = context.get("cursor_location", Vector((0, 0, 0)))  # type: ignore
-
+        # set the cursor location
+        bpy.context.scene.cursor.location = context.get("cursor_location", Vector((0, 0, 0)))
 
 def preserve_context(func: Callable) -> Callable:
     def wrapper(*args: Any, **kwargs: Any) -> Any:
-        bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False  # type: ignore
+        window_manager_properties: "MetahumanWindowMangerProperties" = bpy.context.window_manager.meta_human_dna  # type: ignore[attr-defined]  # noqa: UP037
+        window_manager_properties.evaluate_dependency_graph = False
         context = get_current_context()
         result = func(*args, **kwargs)
-        bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True  # type: ignore
+        window_manager_properties.evaluate_dependency_graph = True
         set_context(context)
         return result
 
@@ -139,11 +143,12 @@ def select_only(*scene_object: bpy.types.Object):
     deselect_all()
     for _scene_object in scene_object:
         _scene_object.select_set(True)
-        bpy.context.view_layer.objects.active = _scene_object  # type: ignore
+        if bpy.context.view_layer:
+            bpy.context.view_layer.objects.active = _scene_object
 
 
 def switch_to_object_mode():
-    if bpy.context.mode != "OBJECT":  # type: ignore
+    if bpy.context.mode != "OBJECT":
         bpy.ops.object.mode_set(mode="OBJECT")
 
 
@@ -160,9 +165,10 @@ def switch_to_sculpt_mode(*scene_object: bpy.types.Object):
 
 def switch_to_bone_edit_mode(*armature_object: bpy.types.Object):
     # Switch to edit mode so we can get edit bone data
-    if bpy.context.mode != "EDIT_ARMATURE":  # type: ignore
+    if bpy.context.mode != "EDIT_ARMATURE":
         select_only(*armature_object)
-        bpy.context.view_layer.objects.active = armature_object[0]  # type: ignore
+        if bpy.context.view_layer:
+            bpy.context.view_layer.objects.active = armature_object[0]
         bpy.ops.object.mode_set(mode="EDIT")
 
 
@@ -213,11 +219,14 @@ def set_hide_recursively(scene_object: bpy.types.Object, value: bool) -> None:
 
 
 def set_viewport_shading(mode: str) -> None:
-    for area in bpy.context.screen.areas:  # type: ignore
+    if not bpy.context.screen:
+        return
+
+    for area in bpy.context.screen.areas:
         if area.ui_type == "VIEW_3D":
             for space in area.spaces:
                 if hasattr(space, "shading"):
-                    space.shading.type = mode  # type: ignore
+                    space.shading.type = mode  # type: ignore[attr-defined]
 
 
 def init_sentry():
@@ -230,22 +239,24 @@ def init_sentry():
         return
 
     # Don't collect metrics if the user has disabled it
-    if not bpy.context.preferences.addons[ToolInfo.NAME].preferences.metrics_collection:  # type: ignore
+    addon_preferences: "MetahumanDnaAddonProperties" = bpy.context.preferences.addons[ToolInfo.NAME].preferences  # pyright: ignore[reportOptionalMemberAccess, reportAssignmentType] # noqa: UP037
+    if not addon_preferences.metrics_collection:
         return
 
     if PACKAGES_FOLDER not in [Path(path) for path in sys.path]:
         sys.path.append(str(PACKAGES_FOLDER))
 
     try:
-        import sentry_sdk  # type: ignore
+        import sentry_sdk
 
         from sentry_sdk.types import Event, Hint
 
         def before_send(event: Event, hint: Hint) -> Event | None:  # noqa: ARG001
             # Filter based on module origin. We only want to send errors related
             # to the MetaHuman DNA addon.
-            if event.get("exception") and event["exception"].get("values"):  # type: ignore
-                exception = event["exception"]["values"][0]  # type: ignore
+            exception = event.get("exception")
+            if exception and exception.get("values"):
+                exception = exception["values"][0]
                 if exception.get("stacktrace") and exception["stacktrace"].get("frames"):
                     # Check if the exception originated from one of the whitelisted modules
                     for frame in exception["stacktrace"]["frames"]:
@@ -262,7 +273,7 @@ def init_sentry():
             from .. import bl_info
 
             event["tags"]["blender_version"] = bpy.app.version_string
-            event["tags"]["blender_mode"] = bpy.context.mode  # type: ignore
+            event["tags"]["blender_mode"] = bpy.context.mode
             event["tags"]["addon_version"] = ".".join([str(i) for i in bl_info.get("version", [])])
             event["tags"]["platform"] = sys.platform
 
@@ -291,7 +302,7 @@ def init_sentry():
 
 
 def setup_scene(*_: Any) -> None:
-    scene_properties = getattr(bpy.context.scene, ToolInfo.NAME, object)  # type: ignore
+    scene_properties = getattr(bpy.context.scene, ToolInfo.NAME, object)
 
     # initialize the rig instances
     for instance in getattr(scene_properties, "rig_instance_list", []):
@@ -301,7 +312,7 @@ def setup_scene(*_: Any) -> None:
 
 
 def teardown_scene(*_: Any) -> None:
-    scene_properties = getattr(bpy.context.scene, ToolInfo.NAME, object)  # type: ignore
+    scene_properties = getattr(bpy.context.scene, ToolInfo.NAME, object)
 
     for instance in getattr(scene_properties, "rig_instance_list", []):
         instance.destroy()
@@ -309,28 +320,32 @@ def teardown_scene(*_: Any) -> None:
 
 
 def pre_undo(*_: Any) -> None:
+    context: "Context" = bpy.context  # type: ignore[attr-defined]  # noqa: UP037
+
     # Only run the pre-undo logic if the current context is a 3D view area
     if (
-        bpy.context.area
-        and bpy.context.area.type == "VIEW_3D"
-        and bpy.context.region
-        and bpy.context.region.type == "WINDOW"
+        context.area
+        and context.area.type == "VIEW_3D"
+        and context.region
+        and context.region.type == "WINDOW"
     ):
-        bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False  # type: ignore
-        bpy.context.window_manager.meta_human_dna.is_undoing = True  # type: ignore
-        for instance in bpy.context.scene.meta_human_dna.rig_instance_list:  # type: ignore
+        context.window_manager.meta_human_dna.evaluate_dependency_graph = False
+        context.window_manager.meta_human_dna.is_undoing = True
+        for instance in context.scene.meta_human_dna.rig_instance_list:
             instance.destroy()
 
 
 def post_undo(*_: Any) -> None:
+    context: "Context" = bpy.context  # type: ignore[attr-defined]  # noqa: UP037
+
     # Only run the post-undo logic if the current context is a 3D view area
     if (
-        bpy.context.area
-        and bpy.context.area.type == "VIEW_3D"
-        and bpy.context.region
-        and bpy.context.region.type == "WINDOW"
+        context.area
+        and context.area.type == "VIEW_3D"
+        and context.region
+        and context.region.type == "WINDOW"
     ):
-        bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True  # type: ignore
+        context.window_manager.meta_human_dna.evaluate_dependency_graph = True
 
 
 def pre_redo(*args: Any) -> None:
@@ -365,8 +380,8 @@ def create_empty(empty_name: str) -> bpy.types.Object:
     if not empty_object:
         empty_object = bpy.data.objects.new(empty_name, object_data=None)
 
-    if empty_object not in bpy.context.scene.collection.objects.values():  # type: ignore
-        bpy.context.scene.collection.objects.link(empty_object)  # type: ignore
+    if bpy.context.scene and empty_object not in bpy.context.scene.collection.objects.values():
+        bpy.context.scene.collection.objects.link(empty_object)
 
     return empty_object
 
@@ -380,11 +395,13 @@ def toggle_expand_in_outliner(state: int = 2):
         state (int, optional): 1 will expand all collections, 2 will
             collapse them. Defaults to 2.
     """
-    for area in bpy.context.screen.areas:  # type: ignore
+    if not bpy.context.screen:
+        return
+    for area in bpy.context.screen.areas:
         if area.type == "OUTLINER":
             for region in area.regions:
                 if region.type == "WINDOW":
-                    with bpy.context.temp_override(area=area, region=region):  # type: ignore
+                    with bpy.context.temp_override(area=area, region=region): # type: ignore[arg-type]
                         bpy.ops.outliner.show_hierarchy()
                         for _i in range(state):
                             bpy.ops.outliner.expanded_toggle()
@@ -395,13 +412,15 @@ def focus_on_selected():
     """
     Focuses any 3D view region on the current screen to the selected object.
     """
-    for window in bpy.context.window_manager.windows:  # type: ignore
+    if not bpy.context.screen or not bpy.context.window_manager:
+        return
+    for window in bpy.context.window_manager.windows:
         if window.screen:
-            for area in bpy.context.screen.areas:  # type: ignore
+            for area in bpy.context.screen.areas:
                 if area.type == "VIEW_3D":
                     for region in area.regions:
                         if region.type == "WINDOW":
-                            with bpy.context.temp_override(area=area, region=region):  # type: ignore
+                            with bpy.context.temp_override(area=area, region=region):  # type: ignore[arg-type]
                                 bpy.ops.view3d.view_selected()
 
 
@@ -420,7 +439,7 @@ def get_head(name: str) -> "MetaHumanComponentHead | None":
 
 def get_body(name: str) -> "MetaHumanComponentBody | None":
     # avoid circular import
-    from ..components.body import MetaHumanComponentBody  # type: ignore
+    from ..components.body import MetaHumanComponentBody
 
     scene_properties: "MetahumanSceneProperties" = bpy.context.scene.meta_human_dna  # type: ignore[attr-defined]  # noqa: UP037
     for instance in scene_properties.rig_instance_list:
@@ -435,10 +454,8 @@ def get_active_head() -> "MetaHumanComponentHead | None":
     """
     Gets the active head object.
     """
-    properties = bpy.context.scene.meta_human_dna  # type: ignore
-    if len(properties.rig_instance_list) > 0:
-        index = properties.rig_instance_list_active_index
-        instance = properties.rig_instance_list[index]
+    instance = get_active_rig_instance()
+    if instance:
         return get_head(instance.name)
     return None
 
@@ -447,19 +464,17 @@ def get_active_body() -> "MetaHumanComponentBody | None":
     """
     Gets the active body object.
     """
-    properties = bpy.context.scene.meta_human_dna  # type: ignore
-    if len(properties.rig_instance_list) > 0:
-        index = properties.rig_instance_list_active_index
-        instance = properties.rig_instance_list[index]
+    instance = get_active_rig_instance()
+    if instance:
         return get_body(instance.name)
     return None
 
 
 def move_to_collection(scene_objects: list[bpy.types.Object], collection_name: str, exclusively: bool = False):
     collection = bpy.data.collections.get(collection_name)
-    if not collection:
+    if not collection and bpy.context.scene:
         collection = bpy.data.collections.new(collection_name)
-        bpy.context.scene.collection.children.link(collection)  # type: ignore
+        bpy.context.scene.collection.children.link(collection)
 
     if exclusively:
         # unlink the objects from their current collections
@@ -469,8 +484,8 @@ def move_to_collection(scene_objects: list[bpy.types.Object], collection_name: s
 
     # link the objects to the new collection
     for scene_object in scene_objects:
-        if scene_object not in collection.objects.values():
-            collection.objects.link(scene_object)  # type: ignore
+        if collection and scene_object not in collection.objects.values():
+            collection.objects.link(scene_object)
 
 
 def set_origin_to_world_center(scene_object: bpy.types.Object):
@@ -484,12 +499,15 @@ def set_origin_to_world_center(scene_object: bpy.types.Object):
 
 
 def set_objects_origins(scene_objects: list[bpy.types.Object], location: Vector):
+    if not bpy.context.scene:
+        return
+
     switch_to_object_mode()
     # set the active object
     for scene_object in scene_objects:
         select_only(scene_object)
         # snap the cursor to the world center
-        bpy.context.scene.cursor.location = location  # type: ignore
+        bpy.context.scene.cursor.location = location
         # then move the origin to match the cursor
         bpy.ops.object.origin_set(type="ORIGIN_CURSOR", center="BOUNDS")
         apply_transforms(scene_object, location=True, rotation=True, scale=True)
@@ -580,13 +598,13 @@ def report_error(title: str, message: str, fix: Callable | None = None, width: i
 
         width (int, optional): The width of the modal. Defaults to 500.
     """
-    bpy.context.window_manager.meta_human_dna.errors[title] = {"fix": fix}  # type: ignore
-    bpy.ops.meta_human_dna.report_error(  # type: ignore
+    bpy.context.window_manager.meta_human_dna.errors[title] = {"fix": fix}  # type: ignore[attr-defined]
+    bpy.ops.meta_human_dna.report_error(  # type: ignore[attr-defined]
         "INVOKE_DEFAULT",
         title=title,
         message=message,
         width=width,
-    )  # type: ignore
+    )
 
 
 def import_head_texture_logic_node() -> bpy.types.NodeTree | None:
@@ -655,9 +673,10 @@ def shell(command: str, **kwargs: Any) -> Generator[str, None, None]:
     )
 
     output = []
-    for line in iter(process.stdout.readline, ""):  # type: ignore
-        output += [line.rstrip()]
-        yield line.rstrip()
+    if process.stdout:
+        for line in iter(process.stdout.readline, ""):
+            output += [line.rstrip()]
+            yield line.rstrip()
 
     process.wait()
 
@@ -666,10 +685,11 @@ def shell(command: str, **kwargs: Any) -> Generator[str, None, None]:
 
 
 def add_rig_instance(name: None | str = None) -> "RigInstance":
-    my_list = bpy.context.scene.meta_human_dna.rig_instance_list  # type: ignore
-    active_index = bpy.context.scene.meta_human_dna.rig_instance_list_active_index  # type: ignore
+    scene_properties: "MetahumanSceneProperties" = bpy.context.scene.meta_human_dna  # type: ignore[attr-defined]  # noqa: UP037
+    my_list = scene_properties.rig_instance_list
+    active_index = scene_properties.rig_instance_list_active_index
     to_index = min(len(my_list), active_index + 1)
-    instance = my_list.add()
+    instance: "RigInstance" = my_list.add()  # noqa: UP037
 
     if not name:
         instance.name = f"Untitled{len(my_list)}"
@@ -677,7 +697,7 @@ def add_rig_instance(name: None | str = None) -> "RigInstance":
         instance.name = name
 
     my_list.move(len(my_list) - 1, to_index)
-    bpy.context.scene.meta_human_dna.rig_instance_list_active_index = to_index  # type: ignore
+    scene_properties.rig_instance_list_active_index = to_index
     return instance
 
 
@@ -730,14 +750,16 @@ def extract_rig_instance_data_from_blend_file(blend_file_path: Path) -> tuple[li
 
 
 def duplicate_face_board(name: str) -> bpy.types.Object | None:
-    for instance in bpy.context.scene.meta_human_dna.rig_instance_list:  # type: ignore
+    scene_properties: "MetahumanSceneProperties" = bpy.context.scene.meta_human_dna  # type: ignore[attr-defined]  # noqa: UP037
+    for instance in scene_properties.rig_instance_list:
         if instance.face_board:
             # Duplicate the face board object
             face_board_duplicate = instance.face_board.copy()
             face_board_duplicate.name = f"{name}_{FACE_BOARD_NAME}"
             face_board_duplicate.data = instance.face_board.data.copy()
             face_board_duplicate.data.name = f"{name}_{FACE_BOARD_NAME}"
-            bpy.context.collection.objects.link(face_board_duplicate)  # type: ignore
+            if bpy.context.collection:
+                bpy.context.collection.objects.link(face_board_duplicate)
             return face_board_duplicate
     return None
 
@@ -746,26 +768,26 @@ def hide_face_board_widgets():
     # unlink from scene and make fake users so they are not deleted by garbage collection
     for empty_name in FACE_GUI_EMPTIES:
         empty = bpy.data.objects.get(empty_name)
-        if empty:
+        if empty and bpy.context.scene:
             for collection in [
                 bpy.data.collections.get("Collection"),
-                bpy.context.scene.collection,  # type: ignore
+                bpy.context.scene.collection,
             ]:
                 if not collection:
                     continue
 
                 for child in empty.children_recursive:
-                    if child in collection.objects.values():  # type: ignore
-                        collection.objects.unlink(child)  # type: ignore
+                    if child in collection.objects.values():
+                        collection.objects.unlink(child)
                     child.use_fake_user = True
 
-                if empty in collection.objects.values():  # type: ignore
-                    collection.objects.unlink(empty)  # type: ignore
+                if empty in collection.objects.values():
+                    collection.objects.unlink(empty)
                 empty.use_fake_user = True
 
 
 def purge_face_board_components():
-    with bpy.data.libraries.load(str(FACE_BOARD_FILE_PATH)) as (data_from, _data_to):  # type: ignore
+    with bpy.data.libraries.load(str(FACE_BOARD_FILE_PATH)) as (data_from, _data_to):  # type: ignore[arg-type]
         if data_from.objects:
             for name in data_from.objects:
                 scene_object = bpy.data.objects.get(name)
@@ -788,19 +810,20 @@ def import_face_board(name: str) -> bpy.types.Object | None:
     )
     face_board_object = bpy.data.objects[FACE_BOARD_NAME]
     # rename to be prefixed with a unique name
-    face_board_object.name = f"{name}_{FACE_BOARD_NAME}"  # type: ignore
+    face_board_object.name = f"{name}_{FACE_BOARD_NAME}"
 
     # hide all face board elements
     hide_face_board_widgets()
 
-    face_board_object.data.relation_line_position = "HEAD"  # type: ignore
+    if isinstance(face_board_object.data, bpy.types.Armature):
+        face_board_object.data.relation_line_position = "HEAD"
     return face_board_object
 
 
 def un_constrain_face_board_to_head(face_board_object: bpy.types.Object, bone_name: str) -> None:
-    if face_board_object:
+    if face_board_object and face_board_object.pose:
         switch_to_pose_mode(face_board_object)
-        pose_bone = face_board_object.pose.bones.get(bone_name)  # type: ignore
+        pose_bone = face_board_object.pose.bones.get(bone_name)
         if pose_bone:
             for constraint in pose_bone.constraints:
                 if constraint.type == "CHILD_OF":
@@ -813,9 +836,9 @@ def constrain_face_board_to_head(
     face_board_object: bpy.types.Object,
     bone_name: str,
 ) -> None:
-    if head_rig_object and face_board_object:
+    if head_rig_object and face_board_object and face_board_object.pose:
         switch_to_pose_mode(face_board_object)
-        pose_bone = face_board_object.pose.bones.get(bone_name)  # type: ignore
+        pose_bone = face_board_object.pose.bones.get(bone_name)
         if pose_bone:
             constraint = None
             for existing_constraint in pose_bone.constraints:
@@ -826,38 +849,39 @@ def constrain_face_board_to_head(
                 constraint = pose_bone.constraints.new(type="CHILD_OF")
 
             rig_object = body_rig_object or head_rig_object
-            constraint.target = rig_object  # type: ignore
-            constraint.subtarget = "head"  # type: ignore
+            constraint.target = rig_object  # type: ignore[attr-defined]
+            constraint.subtarget = "head"  # type: ignore[attr-defined]
             # Set the inverse matrix using the operator
-            with bpy.context.temp_override(active_object=face_board_object, active_pose_bone=pose_bone):  # type: ignore
+            with bpy.context.temp_override(active_object=face_board_object, active_pose_bone=pose_bone):  # type: ignore[arg-type]
                 bpy.ops.constraint.childof_set_inverse(constraint=constraint.name, owner="BONE")
 
 
 @preserve_context
 def position_eye_aim(head_rig_object: bpy.types.Object, face_board_object: bpy.types.Object) -> None:
-    if head_rig_object and face_board_object:
+    if head_rig_object and face_board_object and face_board_object.pose and head_rig_object.pose:
         un_constrain_face_board_to_head(face_board_object, bone_name="CTRL_C_eyesAim")
 
-        left_eye_bone = head_rig_object.pose.bones.get("FACIAL_L_Eye")  # type: ignore
-        right_eye_bone = head_rig_object.pose.bones.get("FACIAL_R_Eye")  # type: ignore
+        left_eye_bone = head_rig_object.pose.bones.get("FACIAL_L_Eye")
+        right_eye_bone = head_rig_object.pose.bones.get("FACIAL_R_Eye")
         if left_eye_bone and right_eye_bone:
             eye_center = head_rig_object.matrix_world.inverted() @ ((left_eye_bone.head + right_eye_bone.head) / 2)
             target_eye_aim_world_location = eye_center + Vector((0, -0.3, 0))
 
             switch_to_edit_mode(face_board_object)
-            eye_aim_center = face_board_object.data.edit_bones.get("CTRL_C_eyesAim")  # type: ignore
-            if eye_aim_center:
-                eye_aim_world_location = face_board_object.matrix_world.inverted() @ eye_aim_center.head
+            if isinstance(face_board_object.data, bpy.types.Armature):
+                eye_aim_center = face_board_object.data.edit_bones.get("CTRL_C_eyesAim")
+                if eye_aim_center:
+                    eye_aim_world_location = face_board_object.matrix_world.inverted() @ eye_aim_center.head
 
-                # calculate the offset between the current eye aim location and the target location
-                offset = eye_aim_world_location - target_eye_aim_world_location
+                    # calculate the offset between the current eye aim location and the target location
+                    offset = eye_aim_world_location - target_eye_aim_world_location
 
-                # move all eye aim bones by the offset
-                for bone_name in EYE_AIM_BONES:
-                    bone = face_board_object.data.edit_bones.get(bone_name)  # type: ignore
-                    if bone:
-                        bone.head -= offset
-                        bone.tail -= offset
+                    # move all eye aim bones by the offset
+                    for bone_name in EYE_AIM_BONES:
+                        bone = face_board_object.data.edit_bones.get(bone_name)
+                        if bone:
+                            bone.head -= offset
+                            bone.tail -= offset
 
 
 def position_face_board(
@@ -882,7 +906,7 @@ def position_face_board(
         face_board_object.location.x = x_value
 
         # apply the translation to the face gui object
-        apply_transforms(face_board_object, location=True)  # type: ignore
+        apply_transforms(face_board_object, location=True)
 
         # position the eye aim controls
         position_eye_aim(head_rig_object, face_board_object)

@@ -4,13 +4,15 @@ from typing import TYPE_CHECKING
 
 
 if TYPE_CHECKING:
-    import bpy.types
+    import bpy
+
+    from bpy.types import bpy_prop_collection, bpy_struct
 
     from .bindings import riglogic  # noqa: TC004
     from .components.body import MetaHumanComponentBody  # noqa: TC004
     from .components.head import MetaHumanComponentHead  # noqa: TC004
     from .editors.backup_manager.properties import DnaBackupEntry
-    from .editors.pose_editor.properties import RBFPoseData, RBFSolverData  # noqa: TC004
+    from .editors.pose_editor.properties import RBFDrivenData, RBFDriverData, RBFPoseData, RBFSolverData  # noqa: TC004
     from .operators import BakeAnimationBase, DuplicateRigInstance  # noqa: TC004
     from .properties import (
         ExtraDnaFolder,
@@ -21,15 +23,33 @@ if TYPE_CHECKING:
     from .rig_instance import RigInstance as _RigInstanceBase
 
     # =========================================================================
+    # Custom Collections
+    # =========================================================================
+    class ExtraDnaFolders(bpy_prop_collection[ExtraDnaFolder], bpy_struct):
+        def add(self) -> ExtraDnaFolder: ...
+        def move(self, src_index: int, dst_index: int) -> None: ...
+        def remove(self, index: int) -> None: ...
+
+    class DnaBackupEntrys(bpy_prop_collection[DnaBackupEntry], bpy_struct):
+        def add(self) -> DnaBackupEntry: ...
+        def move(self, src_index: int, dst_index: int) -> None: ...
+        def remove(self, index: int) -> None: ...
+
+    class RBFSolvers(bpy_prop_collection[RBFSolverData], bpy_struct):
+        def add(self) -> RBFSolverData: ...
+        def move(self, src_index: int, dst_index: int) -> None: ...
+        def remove(self, index: int) -> None: ...
+
+    # =========================================================================
     # Extended RigInstance with dynamically assigned editor properties
     # These are added at runtime in properties.py register() function
     # =========================================================================
     class RigInstance(_RigInstanceBase):
         """Extended RigInstance type with dynamically registered properties."""
 
-        dna_backup_list: bpy.types.bpy_prop_collection[DnaBackupEntry]
+        dna_backup_list: DnaBackupEntrys
         dna_backup_list_active_index: int
-        rbf_solver_list: bpy.types.bpy_prop_collection[RBFSolverData]
+        rbf_solver_list: RBFSolvers
         rbf_solver_list_active_index: int
 
     # =========================================================================
@@ -44,7 +64,7 @@ if TYPE_CHECKING:
         enable_auto_dna_backups: bool
         max_dna_backups: int
         next_metrics_consent_timestamp: float
-        extra_dna_folder_list: bpy.types.bpy_prop_collection[ExtraDnaFolder]
+        extra_dna_folder_list: ExtraDnaFolders
         extra_dna_folder_list_active_index: int
 
     class _MetaHumanAddon:
@@ -103,6 +123,8 @@ if TYPE_CHECKING:
         "MetahumanSceneProperties",
         "MetahumanWindowMangerProperties",
         "Preferences",
+        "RBFDrivenData",
+        "RBFDriverData",
         "RBFPoseData",
         "RBFSolverData",
         "RigInstance",

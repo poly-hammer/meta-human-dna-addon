@@ -1,20 +1,18 @@
+# standard library imports
 import json
 import logging
-import os
 
 from pathlib import Path
-from typing import TYPE_CHECKING
 
+# third party imports
 import bpy
 
 from mathutils import Quaternion
 
+# local imports
 from ..constants import EYE_AIM_BONES, FACE_BOARD_SWITCHES, IS_BLENDER_5, SCALE_FACTOR, Axis, ComponentType
+from ..typing import *  # noqa: F403
 from .misc import apply_transforms, switch_to_object_mode, switch_to_pose_mode
-
-
-if TYPE_CHECKING:
-    from .rig_instance import RigInstance
 
 
 # blender 4.5 and 5.0 support
@@ -65,13 +63,14 @@ def set_keys_on_bone(
     else:
         channel_bag = action
 
-    fcurve = channel_bag.fcurves.new(data_path=f'pose.bones["{bone_name}"].{data_path}', index=index)
-    # then add as many points as keyframes
-    fcurve.keyframe_points.add(len(keys))
-    # then set all its values
-    for (frame, value), keyframe_point in zip(keys, fcurve.keyframe_points, strict=False):
-        keyframe_point.co[0] = frame
-        keyframe_point.co[1] = value * scale_factor
+    if channel_bag:
+        fcurve = channel_bag.fcurves.new(data_path=f'pose.bones["{bone_name}"].{data_path}', index=index)
+        # then add as many points as keyframes
+        fcurve.keyframe_points.add(len(keys))
+        # then set all its values
+        for (frame, value), keyframe_point in zip(keys, fcurve.keyframe_points, strict=False):
+            keyframe_point.co[0] = frame
+            keyframe_point.co[1] = value * scale_factor
 
 
 def remove_object_scale_keyframes(actions: list[bpy.types.Action]):
@@ -80,10 +79,12 @@ def remove_object_scale_keyframes(actions: list[bpy.types.Action]):
             channel_bag = anim_utils.action_ensure_channelbag_for_slot(action, action.slots[0])
         else:
             channel_bag = action
-        # Collect fcurves to remove first to avoid modifying collection while iterating
-        fcurves_to_remove = [fcurve for fcurve in channel_bag.fcurves if fcurve and fcurve.data_path == "scale"]
-        for fcurve in fcurves_to_remove:
-            channel_bag.fcurves.remove(fcurve)
+
+        if channel_bag:
+            # Collect fcurves to remove first to avoid modifying collection while iterating
+            fcurves_to_remove = [fcurve for fcurve in channel_bag.fcurves if fcurve and fcurve.data_path == "scale"]
+            for fcurve in fcurves_to_remove:
+                channel_bag.fcurves.remove(fcurve)
 
 
 def scale_object_actions(
@@ -110,6 +111,9 @@ def scale_object_actions(
                     channel_bag = anim_utils.action_ensure_channelbag_for_slot(action, action.slots[0])
                 else:
                     channel_bag = action
+
+                if not channel_bag:
+                    continue
 
                 # iterate through the location curves
                 for fcurve in [fcurve for fcurve in channel_bag.fcurves if fcurve.data_path.endswith("location")]:
@@ -142,6 +146,9 @@ def convert_action_rotation_from_quaternion_to_euler(action: bpy.types.Action, b
     else:
         channel_bag = action
 
+    if not channel_bag:
+        return
+
     for fcurve in channel_bag.fcurves:
         # save the quaternion rotation curves by bone for later conversion
         if "rotation_quaternion" in fcurve.data_path:
@@ -168,7 +175,7 @@ def convert_action_rotation_from_quaternion_to_euler(action: bpy.types.Action, b
             euler_fcurves[i].keyframe_points.add(len(frames))
 
         # convert quaternion values to euler for each frame
-        for frame_idx, frame in enumerate(sorted(frames)):
+        for frame_index, frame in enumerate(sorted(frames)):
             quat_values = [1.0, 0.0, 0.0, 0.0]  # w, x, y, z
             for axis, fcurve in quat_curves.items():
                 quat_values[axis] = fcurve.evaluate(frame)
@@ -179,14 +186,14 @@ def convert_action_rotation_from_quaternion_to_euler(action: bpy.types.Action, b
 
             # set euler keyframe values
             for i, value in enumerate([euler.x, euler.y, euler.z]):
-                euler_fcurves[i].keyframe_points[frame_idx].co = (frame, value)
+                euler_fcurves[i].keyframe_points[frame_index].co = (frame, value)
 
         # remove original quaternion curves
         for fcurve in quat_curves.values():
             channel_bag.fcurves.remove(fcurve)
 
 
-def import_action_from_fbx(
+def import_action_from_fbx(  # noqa: PLR0912, PLR0915
     instance: "RigInstance",
     file_path: Path,
     component: ComponentType,
@@ -200,7 +207,7 @@ def import_action_from_fbx(
     file_path = Path(file_path)
 
     action_name = get_action_name(
-        instance=instance,  # type: ignore
+        instance=instance,
         action_name=file_path.stem,
         prefix_component_name=prefix_component_name,
         prefix_instance_name=prefix_instance_name,
@@ -220,11 +227,14 @@ def import_action_from_fbx(
     else:
         new_channel_bag = new_action
 
+    if not new_channel_bag or not bpy.context.scene:
+        return new_action
+
     # remember the current actions and objects
     current_actions = list(bpy.data.actions)
     current_objects = list(bpy.data.objects)
     # remember the current frame rate
-    current_frame_rate = bpy.context.scene.render.fps  # type: ignore
+    current_frame_rate = bpy.context.scene.render.fps
     # then import the fbx
     bpy.ops.import_scene.fbx(filepath=str(file_path))
 
@@ -235,14 +245,14 @@ def import_action_from_fbx(
     remove_object_scale_keyframes(actions=imported_actions)
 
     # get the frame rate of the imported fbx
-    imported_frame_rate = bpy.context.scene.render.fps  # type: ignore
+    imported_frame_rate = bpy.context.scene.render.fps
     # calculate the frame scale factor
     if match_frame_rate:
         frame_scale_factor = current_frame_rate / imported_frame_rate
     else:
         frame_scale_factor = 1.0
     # restore the original frame rate
-    bpy.context.scene.render.fps = current_frame_rate  # type: ignore
+    bpy.context.scene.render.fps = current_frame_rate
 
     # copy all the fcurves from the imported action to the new one
     for action in bpy.data.actions:
@@ -253,6 +263,9 @@ def import_action_from_fbx(
             channel_bag = anim_utils.action_ensure_channelbag_for_slot(action, action.slots[0])
         else:
             channel_bag = action
+
+        if not channel_bag:
+            continue
 
         for source_fcurve in channel_bag.fcurves:
             bone_name = None
@@ -266,8 +279,8 @@ def import_action_from_fbx(
                 bone_name = "root"
                 curve_name = source_fcurve.data_path
 
-            if bone_name and curve_name:
-                if not armature.pose.bones.get(bone_name):  # type: ignore
+            if bone_name and curve_name and armature.pose:
+                if not armature.pose.bones.get(bone_name):
                     logger.warning(f"Skipping fcurve for unknown bone: {bone_name}")
                     continue
 
@@ -294,10 +307,13 @@ def import_action_from_fbx(
     # assign the new action to as the current action of the armature
     if not armature.animation_data:
         armature.animation_data_create()
-    armature.animation_data.action = new_action  # type: ignore
+    if not armature.animation_data:
+        raise RuntimeError("Failed to create animation data for armature.")
+
+    armature.animation_data.action = new_action
     # assign the first action slot if there are any
     if new_action.slots:
-        armature.animation_data.action_slot = new_action.slots[0]  # type: ignore
+        armature.animation_data.action_slot = new_action.slots[0]
 
     # remove the imported actions
     for action in bpy.data.actions:
@@ -309,14 +325,15 @@ def import_action_from_fbx(
         if scene_object not in current_objects:
             bpy.data.objects.remove(scene_object, do_unlink=True)
 
-    # match the keyframe rotation modes to the armature bones (all rotation is imported as quaternion)
-    euler_bone_names = [b.name for b in armature.pose.bones if b.rotation_mode == "XYZ"]
-    convert_action_rotation_from_quaternion_to_euler(action=new_action, bone_names=euler_bone_names)
+    if armature.pose:
+        # match the keyframe rotation modes to the armature bones (all rotation is imported as quaternion)
+        euler_bone_names = [b.name for b in armature.pose.bones if b.rotation_mode == "XYZ"]
+        convert_action_rotation_from_quaternion_to_euler(action=new_action, bone_names=euler_bone_names)
 
     return new_action
 
 
-def import_face_board_action_from_fbx(
+def import_face_board_action_from_fbx(  # noqa: PLR0912
     instance: "RigInstance",
     file_path: Path,
     armature: bpy.types.Object,
@@ -326,13 +343,15 @@ def import_face_board_action_from_fbx(
     prefix_component_name: bool = True,
 ):
     file_path = Path(file_path)
+    if not bpy.context.scene:
+        return
 
     action_name = get_action_name(
-        instance=instance,  # type: ignore
+        instance=instance,
         action_name=file_path.stem,
         prefix_component_name=prefix_component_name,
         prefix_instance_name=prefix_instance_name,
-        component="face_board",
+        component="face_board",  # type: ignore[arg-type]
     )
 
     # remove the action if it already exists
@@ -354,18 +373,18 @@ def import_face_board_action_from_fbx(
     current_actions = list(bpy.data.actions)
     current_objects = list(bpy.data.objects)
     # remember the current frame rate
-    current_frame_rate = bpy.context.scene.render.fps  # type: ignore
+    current_frame_rate = bpy.context.scene.render.fps
     # then import the fbx
     bpy.ops.import_scene.fbx(filepath=str(file_path))
     # get the frame rate of the imported fbx
-    imported_frame_rate = bpy.context.scene.render.fps  # type: ignore
+    imported_frame_rate = bpy.context.scene.render.fps
     # calculate the frame scale factor
     if match_frame_rate:
         frame_scale_factor = current_frame_rate / imported_frame_rate
     else:
         frame_scale_factor = 1.0
     # restore the original frame rate
-    bpy.context.scene.render.fps = current_frame_rate  # type: ignore
+    bpy.context.scene.render.fps = current_frame_rate
 
     # copy all the fcurves from the imported action to the new one
     for action in bpy.data.actions:
@@ -383,6 +402,9 @@ def import_face_board_action_from_fbx(
             channel_bag = anim_utils.action_ensure_channelbag_for_slot(action, action.slots[0])
         else:
             channel_bag = action
+
+        if not channel_bag or not face_board_channel_bag:
+            continue
 
         for source_fcurve in channel_bag.fcurves:
             target_fcurve = face_board_channel_bag.fcurves.new(
@@ -414,22 +436,30 @@ def import_face_board_action_from_fbx(
     # assign the new action to the face board
     if not armature.animation_data:
         armature.animation_data_create()
-    armature.animation_data.action = face_board_action  # type: ignore
+    if not armature.animation_data:
+        raise RuntimeError("Failed to create animation data for armature.")
+
+    armature.animation_data.action = face_board_action
     # assign the first action slot if there are any
     if face_board_action.slots:
-        armature.animation_data.action_slot = face_board_action.slots[0]  # type: ignore
+        armature.animation_data.action_slot = face_board_action.slots[0]
 
 
-def import_face_board_action_from_json(file_path: Path, armature: bpy.types.Object):
+def import_face_board_action_from_json(file_path: Path, armature: bpy.types.Object):  # noqa: PLR0912
+    if not armature.pose:
+        return
+
     # create animation data if it does not exist
     if not armature.animation_data:
         armature.animation_data_create()
+    if not armature.animation_data:
+        raise RuntimeError("Failed to create animation data for armature.")
 
     # create action
-    action_name = os.path.basename(file_path).split(".")[0]
+    action_name = file_path.stem
     action = bpy.data.actions.get(action_name)
     if not action:
-        action = bpy.data.actions.new(action_name)  # type: ignore
+        action = bpy.data.actions.new(action_name)
 
     if anim_utils:
         if len(action.slots) == 0:
@@ -438,15 +468,16 @@ def import_face_board_action_from_json(file_path: Path, armature: bpy.types.Obje
     else:
         channel_bag = action
 
-    # delete all existing fcurves
-    for fcurve in channel_bag.fcurves:
-        channel_bag.fcurves.remove(fcurve)
+    if channel_bag:
+        # delete all existing fcurves
+        for fcurve in channel_bag.fcurves:
+            channel_bag.fcurves.remove(fcurve)
 
     # ensure all bones are using euler xyz rotation
-    for pose_bone in armature.pose.bones:  # type: ignore
+    for pose_bone in armature.pose.bones:
         pose_bone.rotation_mode = "XYZ"
 
-    with open(file_path) as file:
+    with file_path.open() as file:
         data = json.load(file)
         for curve_name, keys in data.items():
             bone_name = None
@@ -467,8 +498,7 @@ def import_face_board_action_from_json(file_path: Path, armature: bpy.types.Obje
             else:
                 logger.error(f"failed to parse args from curve {curve_name}")
 
-    armature.animation_data.action = action  # type: ignore
-
+    armature.animation_data.action = action
 
 def bake_control_curve_values_for_frame(
     instance: "RigInstance",
@@ -487,8 +517,10 @@ def bake_control_curve_values_for_frame(
     else:
         channel_bag = action
 
+    if not channel_bag:
+        return
+
     for fcurve in channel_bag.fcurves:
-        # type: ignore
         control_curve_name, transform = fcurve.data_path.split('"].')
         if transform == "location" and fcurve.array_index != 2:
             control_curve_name = control_curve_name.replace('pose.bones["', "")
@@ -505,7 +537,7 @@ def bake_control_curve_values_for_frame(
         if component == "head":
             for shape_key, value in instance.update_head_shape_keys():
                 shape_key.value = value
-                shape_key.keyframe_insert(data_path="value", frame=frame)
+                shape_key.keyframe_insert("value", frame=frame)
         elif component == "body":
             # TODO: implement body shape key baking
             pass
@@ -514,14 +546,14 @@ def bake_control_curve_values_for_frame(
     if texture_logic_node and masks:
         if component == "head":
             for slider_name, value in instance.update_head_texture_masks():
-                texture_logic_node.inputs[slider_name].default_value = value  # type: ignore
-                texture_logic_node.inputs[slider_name].keyframe_insert(data_path="default_value", frame=frame)
+                texture_logic_node.inputs[slider_name].default_value = value  # type: ignore[attr-defined]
+                texture_logic_node.inputs[slider_name].keyframe_insert("default_value", frame=frame)
         elif component == "body":
             # TODO: implement body texture mask baking
             pass
 
 
-def bake_face_board_to_action(
+def bake_face_board_to_action(  # noqa: PLR0912
     instance: "RigInstance",
     armature_object: bpy.types.Object,
     action_name: str,
@@ -542,30 +574,31 @@ def bake_face_board_to_action(
 
         if instance.face_board and instance.face_board.animation_data:
             action = instance.face_board.animation_data.action
-            if not action:
+            if not action or not armature_object.pose:
                 return
 
             instance.auto_evaluate_head = True
             switch_to_object_mode()
             armature_object.hide_set(False)
-            bpy.context.view_layer.objects.active = armature_object  # type: ignore
+            if bpy.context.view_layer:
+                bpy.context.view_layer.objects.active = armature_object
             switch_to_pose_mode(armature_object)
 
             # TODO: Do we want to provide more granular control over which bones to bake?
             # collect all bone names to be baked
-            baked_bone_names = [bone.name for bone in armature_object.data.bones]
+            baked_bone_names = [bone.name for bone in armature_object.data.bones] # type: ignore[attr-defined]
 
             # select all secondary bones that are effected by rig logic
-            for pose_bone in armature_object.pose.bones:  # type: ignore
+            for pose_bone in armature_object.pose.bones:
                 if pose_bone.name in baked_bone_names:
                     if IS_BLENDER_5:
-                        pose_bone.select = True
+                        pose_bone.select = True # pyright: ignore[reportAttributeAccessIssue]
                     else:
                         pose_bone.bone.select = True
                         pose_bone.bone.select_head = True
                         pose_bone.bone.select_tail = True
                 elif IS_BLENDER_5:
-                    pose_bone.select = False
+                    pose_bone.select = False # pyright: ignore[reportAttributeAccessIssue]
                 else:
                     pose_bone.bone.select = False
                     pose_bone.bone.select_head = False
@@ -596,9 +629,10 @@ def bake_face_board_to_action(
             )
             instance.auto_evaluate_head = False
 
-            bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False  # type: ignore
+            window_manager_properties: "MetahumanWindowMangerProperties" = bpy.context.window_manager.meta_human_dna # type: ignore[attr-defined]  # noqa: UP037
+            window_manager_properties.evaluate_dependency_graph = False
             texture_logic_node = get_head_texture_logic_node(instance.head_material)
-            for frame in range(start_frame, end_frame + 1):  # type: ignore
+            for frame in range(start_frame, end_frame + 1):
                 # modulo the step to only bake every nth frame
                 if frame % step == 0:
                     bake_control_curve_values_for_frame(
@@ -635,10 +669,10 @@ def bake_face_board_to_action(
                 instance.face_board.animation_data_clear()
                 bpy.data.actions.remove(old_action, do_unlink=True)
 
-            bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True  # type: ignore
+            window_manager_properties.evaluate_dependency_graph = True
 
 
-def bake_body_to_action(
+def bake_body_to_action(  # noqa: PLR0912
     instance: "RigInstance",
     armature_object: bpy.types.Object,
     action_name: str,
@@ -648,8 +682,8 @@ def bake_body_to_action(
     step: int = 1,
     clean_curves: bool = True,
     channel_types: set | None = None,
-    masks: bool = True,
-    shape_keys: bool = True,
+    masks: bool = True,  # noqa: ARG001
+    shape_keys: bool = True,  # noqa: ARG001
     driver_bones: bool = True,
     driven_bones: bool = True,
     twist_bones: bool = True,
@@ -660,7 +694,7 @@ def bake_body_to_action(
         if channel_types is None:
             channel_types = {"LOCATION", "ROTATION", "SCALE"}
 
-        if instance.body_rig and instance.body_rig.animation_data:
+        if instance.body_rig and instance.body_rig.animation_data and armature_object.pose:
             action = instance.body_rig.animation_data.action
             if not action:
                 return
@@ -668,7 +702,8 @@ def bake_body_to_action(
             instance.auto_evaluate_body = True
             switch_to_object_mode()
             armature_object.hide_set(False)
-            bpy.context.view_layer.objects.active = armature_object  # type: ignore
+            if bpy.context.view_layer:
+                bpy.context.view_layer.objects.active = armature_object
             switch_to_pose_mode(armature_object)
 
             # ensure the body is initialized
@@ -689,7 +724,7 @@ def bake_body_to_action(
                 # these are bones that are not any of the above
                 baked_bone_names += [
                     bone.name
-                    for bone in armature_object.data.bones
+                    for bone in armature_object.data.bones # type: ignore[attr-defined]
                     if bone.name
                     not in [
                         *instance.body_driver_bone_names,
@@ -700,16 +735,16 @@ def bake_body_to_action(
                 ]
 
             # select all secondary bones that are effected by rig logic
-            for pose_bone in armature_object.pose.bones:  # type: ignore
+            for pose_bone in armature_object.pose.bones:
                 if pose_bone.name in baked_bone_names:
                     if IS_BLENDER_5:
-                        pose_bone.select = True
+                        pose_bone.select = True # pyright: ignore[reportAttributeAccessIssue]
                     else:
                         pose_bone.bone.select = True
                         pose_bone.bone.select_head = True
                         pose_bone.bone.select_tail = True
                 elif IS_BLENDER_5:
-                    pose_bone.select = False
+                    pose_bone.select = False # pyright: ignore[reportAttributeAccessIssue]
                 else:
                     pose_bone.bone.select = False
                     pose_bone.bone.select_head = False
@@ -739,23 +774,6 @@ def bake_body_to_action(
                 channel_types=channel_types,
             )
             instance.auto_evaluate_body = False
-
-            # bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = False # type: ignore
-            # texture_logic_node = get_body_texture_logic_node(instance.body_material)
-            # for frame in range(start_frame, end_frame + 1): # type: ignore
-            #     # modulo the step to only bake every nth frame
-            #     if frame % step == 0:
-            #         bake_control_curve_values_for_frame(
-            #             instance=instance,
-            #             texture_logic_node=texture_logic_node,
-            #             action=action,
-            #             frame=frame,
-            #             shape_keys=shape_keys,
-            #             masks=masks,
-            #             component='body'
-            #         )
-
-            # bpy.context.window_manager.meta_human_dna.evaluate_dependency_graph = True # type: ignore
 
             # rename the newly created action
             if replace_action:

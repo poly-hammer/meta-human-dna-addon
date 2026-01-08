@@ -1,10 +1,14 @@
+# standard library imports
 from pathlib import Path
 
+# third party imports
 import bpy
 
 from bl_ui.generic_ui_list import draw_ui_list
 
+# local imports
 from ..constants import SHAPE_KEY_BASIS_NAME
+from ..typing import *  # noqa: F403
 
 
 def dependencies_are_valid() -> bool:
