@@ -166,21 +166,21 @@ def get_head_mesh_topology_groups(self: "RigInstance", context: "Context") -> li
     return enum_items
 
 
-def get_body_mesh_topology_groups(self: "RigInstance", context: "Context") -> list[tuple[str, str, str]]:  # noqa: ARG001
+def get_body_mesh_topology_groups(self: "RigInstance", _: "Context") -> list[tuple[str, str, str]]:
     enum_items = []
     instance = get_active_rig_instance()
     if instance and instance.body_mesh:
-        for group_name in instance.body_mesh.vertex_groups:
-            if group_name.startswith("TOPO_GROUP_"):
+        for group in instance.body_mesh.vertex_groups:
+            if group.name.startswith("TOPO_GROUP_"):
                 enum_item = (
-                    group_name,
-                    " ".join([i.capitalize() for i in group_name.replace("TOPO_GROUP_", "").split("_")]),
-                    f"Select vertices assigned to {group_name} on the active body mesh",
+                    group.name,
+                    " ".join([i.capitalize() for i in group.name.replace("TOPO_GROUP_", "").split("_")]),
+                    f"Select vertices assigned to {group.name} on the active body mesh",
                 )
                 if self.body_show_only_high_level_topology_groups:
-                    if any(group_name.endswith(high_level) for high_level in BODY_HIGH_LEVEL_TOPOLOGY_GROUPS):
+                    if any(group.name.endswith(high_level) for high_level in BODY_HIGH_LEVEL_TOPOLOGY_GROUPS):
                         enum_items.append(enum_item)
-                elif not any(group_name.endswith(high_level) for high_level in BODY_HIGH_LEVEL_TOPOLOGY_GROUPS):
+                elif not any(group.name.endswith(high_level) for high_level in BODY_HIGH_LEVEL_TOPOLOGY_GROUPS):
                     enum_items.append(enum_item)
 
     # Sort the enum items alphabetically by their first index (the group name)

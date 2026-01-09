@@ -70,7 +70,7 @@
         },
         {
             "label": "Ruff: Format",
-            "command": "uv run ruff format",
+            "command": "uv run ruff check --fix; uv run ruff format",
             "type": "shell",
             "group": {
                 "kind": "build"

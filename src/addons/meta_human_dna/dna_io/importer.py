@@ -524,12 +524,7 @@ class DNAImporter:
         return last_edit_bone
 
     def import_bones(self):
-        if (
-            not self.rig_object
-            or not self.rig_object.data
-            or not self.rig_object.pose
-            or not isinstance(self.rig_object.data, bpy.types.Armature)
-        ):
+        if not self.rig_object or not self.rig_object.data or not isinstance(self.rig_object.data, bpy.types.Armature):
             return
 
         x_locations = self._dna_reader.getNeutralJointTranslationXs()

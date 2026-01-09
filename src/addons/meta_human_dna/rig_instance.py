@@ -1720,7 +1720,7 @@ class RigInstance(bpy.types.PropertyGroup):
         try:
             from .editors.pose_editor.core import update_body_rbf_solver_list
 
-            update_body_rbf_solver_list(self)
+            update_body_rbf_solver_list(self)  # pyright: ignore[reportArgumentType]
         except ImportError:
             logger.debug("Could not import the pose editor module to update the body RBF solver list.")
 
