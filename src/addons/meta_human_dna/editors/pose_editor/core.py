@@ -1,17 +1,15 @@
+# standard library imports
 import logging
 
-from typing import TYPE_CHECKING
-
+# local imports
 from ... import utilities
+from ...typing import *  # noqa: F403
 
-
-if TYPE_CHECKING:
-    from ...rig_instance import RigInstance
 
 logger = logging.getLogger(__name__)
 
 
-def update_body_rbf_solver_list(self: "RigInstance"):
+def update_body_rbf_solver_list(self: "RigInstance"):  # noqa: PLR0912
     if not utilities.dependencies_are_valid():
         return
 

@@ -1,21 +1,23 @@
+# standard library imports
 import json
 import logging
 import math
-import os
 
 from collections.abc import Callable
 from pathlib import Path
 
+# third party imports
 import bmesh
 import bpy
 
 from mathutils import Matrix, Vector
 
+# local imports
 from .. import utilities
 from ..bindings import riglogic
 from ..constants import EXTRA_BONES, SCALE_FACTOR, TOPO_GROUP_PREFIX, ComponentType
 from ..exceptions import InvalidComponentTypeError
-from ..rig_instance import RigInstance
+from ..typing import *  # noqa: F403
 from ..utilities import preserve_context
 from .misc import get_dna_reader, get_dna_writer
 
@@ -26,7 +28,7 @@ logger = logging.getLogger(__name__)
 class DNAExporter:
     def __init__(
         self,
-        instance: RigInstance,
+        instance: "RigInstance",
         linear_modifier: float,
         meshes: bool = True,
         shape_keys: bool = True,
@@ -196,14 +198,14 @@ class DNAExporter:
     def get_bmesh(mesh_object: bpy.types.Object, rotation: float = -90) -> bmesh.types.BMesh:
         # create an empty BMesh and fill it in from the mesh data
         bmesh_object = bmesh.new()
-        bmesh_object.from_mesh(mesh=mesh_object.data)  # type: ignore
+        bmesh_object.from_mesh(mesh=mesh_object.data)  # type: ignore[arg-type]
 
         # Rotate the mesh so that it's Y-up before reading the vertex data
         bmesh.ops.rotate(
             bmesh_object,
             cent=Vector((0, 0, 0)),
-            matrix=Matrix.Rotation(math.radians(rotation), 4, "X"),
-            verts=bmesh_object.verts,  # type: ignore
+            matrix=Matrix.Rotation(math.radians(rotation), 4, "X"), # type: ignore[arg-type]
+            verts=list(bmesh_object.verts),
         )
         bmesh_object.verts.index_update()
         bmesh_object.verts.ensure_lookup_table()
@@ -214,7 +216,7 @@ class DNAExporter:
         bmesh_object.faces.ensure_lookup_table()
         return [
             (face.index, [vert.index for vert in face.verts])
-            for face in bmesh_object.faces  # type: ignore
+            for face in bmesh_object.faces
         ]
 
     @staticmethod
@@ -233,7 +235,7 @@ class DNAExporter:
         hierarchy_lookup = {}
 
         # Change the rotation of the bones since DNA expects Y-up
-        rotation_x = Matrix.Rotation(math.radians(-90), 4, "X")
+        rotation_x = Matrix.Rotation(math.radians(-90), 4, "X") # type: ignore[arg-type]
         global_matrix = rotation_x.to_4x4()
 
         # Switch to edit mode so we can get edit bone data
@@ -243,14 +245,14 @@ class DNAExporter:
 
         # Remove the extra bones from the list of bones
         ignored_bone_names = [i for i, _ in extra_bones]
-        edit_bones = [i for i in armature_object_evaluated.data.edit_bones if i.name not in ignored_bone_names]  # type: ignore
-        for index, edit_bone in enumerate(edit_bones):  # type: ignore
+        edit_bones = [i for i in armature_object_evaluated.data.edit_bones if i.name not in ignored_bone_names] # type: ignore[attr-defined]
+        for index, edit_bone in enumerate(edit_bones):
             if index == 0:
                 # get translation and rotation of the bone globally
                 translation, rotation, _ = (global_matrix @ edit_bone.matrix).decompose()
-            else:
+            elif edit_bone.parent:
                 # get translation and rotation of relative to it's parent
-                local_matrix = edit_bone.parent.matrix.inverted() @ edit_bone.matrix  # type: ignore
+                local_matrix = edit_bone.parent.matrix.inverted() @ edit_bone.matrix
                 translation, rotation, _ = local_matrix.decompose()
 
             indices.append(index)
@@ -289,7 +291,7 @@ class DNAExporter:
         if not duplicate_lookup:
             duplicate_lookup = {}
 
-        for vert in bmesh_object.verts:  # type: ignore
+        for vert in bmesh_object.verts:
             positions.append([vert.co.x * SCALE_FACTOR, vert.co.y * SCALE_FACTOR, vert.co.z * SCALE_FACTOR])
             # Get the original vertex index if the vertex is a duplicate, otherwise use the current index
             vertex_index = duplicate_lookup.get(vert.index, vert.index)
@@ -303,20 +305,22 @@ class DNAExporter:
         # TODO: Use split_normals from Mesh instead. Also check if these are stored as triangles?
         # https://docs.blender.org/api/current/bpy.types.MeshLoopTriangle.html
 
-        for vert in bmesh_object.verts:  # type: ignore
+        for vert in bmesh_object.verts:
             normals.append([vert.normal.x * SCALE_FACTOR, vert.normal.y * SCALE_FACTOR, vert.normal.z * SCALE_FACTOR])
             indices.append(vert.index)
         return indices, normals
 
     @staticmethod
     def get_mesh_vertex_groups(mesh_object: bpy.types.Object) -> dict[str, list[tuple[int, float]]]:
+        if not mesh_object.data or not isinstance(mesh_object.data, bpy.types.Mesh):
+            return {}
         # Create a lookup table for the vertex group names by their index
         vertex_group_lookup = {vertex_group.index: vertex_group.name for vertex_group in mesh_object.vertex_groups}
         # Initialize the vertex groups dictionary
         vertex_groups = {vertex_group.name: [] for vertex_group in mesh_object.vertex_groups}
 
         # Loop through the vertices and get the vertex group names and the vertex and weights
-        for vertex in mesh_object.data.vertices:  # type: ignore
+        for vertex in mesh_object.data.vertices:
             vertex_group_names = [vertex_group_lookup.get(group.group, "") for group in vertex.groups]
             for vertex_group_name in vertex_group_names:
                 # Skip the topology vertex groups
@@ -380,12 +384,17 @@ class DNAExporter:
         self._dna_writer.setVertexTextureCoordinates(meshIndex=mesh_index, textureCoordinates=uvs)
 
     def set_dna_vertex_groups(self, mesh_index: int, mesh_object: bpy.types.Object):
-        self._dna_writer.clearSkinWeights(meshIndex=mesh_index)
+        if not mesh_object.data or not isinstance(mesh_object.data, bpy.types.Mesh):
+            logger.warning(
+                f"Object '{mesh_object.name}' has no mesh data in the blender scene. "
+                "Skipping vertex group export..."
+            )
+            return
         # Create a lookup table for the vertex group names by their index
         vertex_group_lookup = {vertex_group.index: vertex_group.name for vertex_group in mesh_object.vertex_groups}
 
         # Loop through the vertices and get the vertex group names and the vertex and weights
-        for vertex in mesh_object.data.vertices:  # type: ignore
+        for vertex in mesh_object.data.vertices:
             vertex_group_names = [vertex_group_lookup.get(group.group, "") for group in vertex.groups]
             bone_indices = []
             weights = []
@@ -436,7 +445,7 @@ class DNAExporter:
 
         for image, file_name in self._images:
             new_image_path = self._target_dna_file.parent / "Maps" / file_name
-            os.makedirs(new_image_path.parent, exist_ok=True)
+            new_image_path.parent.mkdir(parents=True, exist_ok=True)
             if not image.packed_file and not image.filepath:
                 logger.warning(f"Image {image.name} is not packed or saved. Skipping export.")
                 continue
@@ -453,7 +462,7 @@ class DNAExporter:
     def save_vertex_colors(self):
         if self._include_vertex_colors:
             vertex_colors_file = self._target_dna_file.parent / f"{self._prefix}_vertex_colors.json"
-            with open(vertex_colors_file, "w") as f:
+            with vertex_colors_file.open("w") as f:
                 json.dump(self._vertex_color_data, f)
                 logger.info(f'Vertex colors exported successfully to: "{vertex_colors_file}"')
 
@@ -478,7 +487,7 @@ class DNAExporter:
         # init the lod indices
         # TODO: Currently can't change this without messing up the joint behavior.
         # Default dna has 8 lods
-        # self._dna_writer.setLODCount(len(self._export_lods.keys()))
+        # self._dna_writer.setLODCount(len(self._export_lods.keys()))  # noqa: ERA001
 
         bone_indices, bone_names, hierarchy, _is_leaf, translations, rotations = self.get_bone_transforms(
             armature_object=self._rig_object, extra_bones=self._extra_bones

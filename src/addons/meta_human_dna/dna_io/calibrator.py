@@ -1,12 +1,15 @@
+# standard library imports
 import logging
 import math
 
 from collections.abc import Callable
 
+# third party imports
 import bpy
 
 from mathutils import Matrix, Vector
 
+# local imports
 from .. import utilities
 from ..bindings import riglogic
 from ..constants import (
@@ -166,7 +169,8 @@ class DNACalibrator(DNAExporter, DNAImporter):
                         (x_values[vertex_index], y_values[vertex_index], z_values[vertex_index])
                     )
                     delta = vertex_position - dna_vertex_position
-                    # This ensures that we only modify the vertex positions that are different to avoid floating value drift
+                    # This ensures that we only modify the vertex positions that are different to
+                    # avoid floating value drift
                     if delta.length > 1e-6:
                         x_values[vertex_index] = vertex_position.x
                         y_values[vertex_index] = vertex_position.y
@@ -198,16 +202,22 @@ class DNACalibrator(DNAExporter, DNAImporter):
                     logger.error(f"Mesh object '{real_mesh_name}' not found for shape key calibration. Skipping...")
                     continue
 
-                if not mesh_object.data or not mesh_object.data.shape_keys:  # type: ignore
+                if (
+                    not mesh_object.data
+                    or not isinstance(mesh_object.data, bpy.types.Mesh)
+                    or not mesh_object.data.shape_keys
+                ):
                     logger.warning(
-                        f"Mesh object '{mesh_object.name}' has no shape key data in the blender scene. Skipping shape key calibration..."
+                        f"Mesh object '{mesh_object.name}' has no shape key data in the blender scene. "
+                        "Skipping shape key calibration..."
                     )
                     continue
 
-                shape_key_basis = mesh_object.data.shape_keys.key_blocks.get(SHAPE_KEY_BASIS_NAME)  # type: ignore
+                shape_key_basis = mesh_object.data.shape_keys.key_blocks.get(SHAPE_KEY_BASIS_NAME)
                 if not shape_key_basis:
                     raise RuntimeError(
-                        f"Shape key '{SHAPE_KEY_BASIS_NAME}' not found for mesh '{real_mesh_name}'. This is needed for calibration!"
+                        f"Shape key '{SHAPE_KEY_BASIS_NAME}' not found for mesh '{real_mesh_name}'. "
+                        "This is needed for calibration!"
                     )
 
                 # helps to track the largest delta count for the shape keys
@@ -219,7 +229,7 @@ class DNACalibrator(DNAExporter, DNAImporter):
                 bmesh_object.free()
 
                 # DNA is Y-up, Blender is Z-up, so we need to rotate the deltas
-                rotation_matrix = Matrix.Rotation(math.radians(-90), 4, "X")
+                rotation_matrix = Matrix.Rotation(math.radians(-90), 4, "X")  # type: ignore[arg-type]
 
                 for index in range(self._dna_reader.getBlendShapeTargetCount(mesh_index)):
                     channel_index = self._dna_reader.getBlendShapeChannelIndex(mesh_index, index)
@@ -229,10 +239,11 @@ class DNACalibrator(DNAExporter, DNAImporter):
                     if len(f"{mesh_name}__{shape_key_name}") > SHAPE_KEY_NAME_MAX_LENGTH:
                         continue
 
-                    shape_key_block = mesh_object.data.shape_keys.key_blocks.get(f"{mesh_name}__{shape_key_name}")  # type: ignore
+                    shape_key_block = mesh_object.data.shape_keys.key_blocks.get(f"{mesh_name}__{shape_key_name}")
                     if not shape_key_block:
                         logger.error(
-                            f"Shape key '{shape_key_name}' not found for mesh '{real_mesh_name}'. Skipping calibration..."
+                            f"Shape key '{shape_key_name}' not found for mesh '{real_mesh_name}'. "
+                            "Skipping calibration..."
                         )
                         continue
 
@@ -244,12 +255,13 @@ class DNACalibrator(DNAExporter, DNAImporter):
                         # get the positions of the points
                         # Get the delta between the current shape key and the basis (rest) shape key
                         new_delta = rotation_matrix @ (
-                            shape_key_block.data[vertex_index].co.copy() - shape_key_basis.data[vertex_index].co
-                        )  # type: ignore
+                            shape_key_block.data[vertex_index].co.copy() - shape_key_basis.data[vertex_index].co  # type: ignore[attr-defined]
+                        )
 
                         # Only modify the vertex positions that are different to avoid floating value drift
                         if new_delta.length > SHAPE_KEY_DELTA_THRESHOLD:
-                            # Apply the coordinate system conversion and linear modifier for the scene units to the delta
+                            # Apply the coordinate system conversion and linear modifier for the
+                            # scene units to the delta
                             converted_delta = new_delta / self._linear_modifier
                             dna_delta_vertex_indices.append(vertex_index)
                             dna_delta_values.append((converted_delta.x, converted_delta.y, converted_delta.z))
@@ -280,10 +292,12 @@ class DNACalibrator(DNAExporter, DNAImporter):
                         f"Mesh object '{real_mesh_name}' not found for vertex group calibration. Skipping..."
                     )
                     continue
-
-                # Read these from the DNA file and modify these arrays so that they match the skin weight indices match
-                # skin_weight_indices_values = self._dna_reader.getSkinWeightsJointIndices(mesh_index)
-                # skin_weight_values = self._dna_reader.getSkinWeightsValues(mesh_index)
+                if not mesh_object.data or not isinstance(mesh_object.data, bpy.types.Mesh):
+                    logger.warning(
+                        f"Object '{mesh_object.name}' has no mesh data in the blender scene. "
+                        "Skipping vertex group calibration..."
+                    )
+                    continue
 
                 self._dna_writer.clearSkinWeights(meshIndex=mesh_index)
                 # Create a lookup table for the vertex group names by their index
@@ -296,7 +310,7 @@ class DNACalibrator(DNAExporter, DNAImporter):
                 }
 
                 # Loop through the vertices and get the vertex group names and the vertex and weights
-                for vertex in mesh_object.data.vertices:  # type: ignore
+                for vertex in mesh_object.data.vertices:
                     vertex_group_names = [vertex_group_lookup.get(group.group, "") for group in vertex.groups]
                     bone_indices = []
                     weights = []
@@ -345,8 +359,8 @@ class DNACalibrator(DNAExporter, DNAImporter):
                 continue
 
             # First check for the matching body bone, and use that instead if it exists
-            bone_translation = body_translation_lookup.get(bone_name, Vector(bone_translation))
-            bone_rotation = body_rotation_lookup.get(bone_name, Vector(bone_rotation))
+            _bone_translation = body_translation_lookup.get(bone_name, Vector(bone_translation))
+            _bone_rotation = body_rotation_lookup.get(bone_name, Vector(bone_rotation))
 
             dna_bone_index = self._bone_index_lookup.get(bone_name)
             if dna_bone_index is not None:
@@ -361,13 +375,13 @@ class DNACalibrator(DNAExporter, DNAImporter):
                         )
                     ),
                 )
-                translation_delta = bone_translation - dna_bone_translation
+                translation_delta = _bone_translation - dna_bone_translation
 
                 # Only modify the bone translations that are different to avoid floating point value drift
                 if translation_delta.length > BONE_DELTA_THRESHOLD:
-                    dna_x_translations[dna_bone_index] = bone_translation[0]
-                    dna_y_translations[dna_bone_index] = bone_translation[1]
-                    dna_z_translations[dna_bone_index] = bone_translation[2]
+                    dna_x_translations[dna_bone_index] = _bone_translation[0]
+                    dna_y_translations[dna_bone_index] = _bone_translation[1]
+                    dna_z_translations[dna_bone_index] = _bone_translation[2]
 
                 # Get the DNA bone rotation from the body rotation lookup, and use that if it exists
                 dna_bone_rotation = dna_body_rotation_lookup.get(
@@ -380,16 +394,16 @@ class DNACalibrator(DNAExporter, DNAImporter):
                         )
                     ),
                 )
-                rotation_delta = bone_rotation - dna_bone_rotation
+                rotation_delta = _bone_rotation - dna_bone_rotation
 
                 # Only modify the bone rotations that are different to avoid floating point value drift
                 # Also, handle angle wrapping (e.g., 180 vs -180 degrees) issues
                 if BONE_DELTA_THRESHOLD < abs(rotation_delta.x) < 360:
-                    dna_x_rotations[dna_bone_index] = bone_rotation[0]
+                    dna_x_rotations[dna_bone_index] = _bone_rotation[0]
                 if BONE_DELTA_THRESHOLD < abs(rotation_delta.y) < 360:
-                    dna_y_rotations[dna_bone_index] = bone_rotation[1]
+                    dna_y_rotations[dna_bone_index] = _bone_rotation[1]
                 if BONE_DELTA_THRESHOLD < abs(rotation_delta.z) < 360:
-                    dna_z_rotations[dna_bone_index] = bone_rotation[2]
+                    dna_z_rotations[dna_bone_index] = _bone_rotation[2]
             else:
                 logger.warning(f'No DNA bone index found for bone "{bone_name}". Ignored from calibration...')
 

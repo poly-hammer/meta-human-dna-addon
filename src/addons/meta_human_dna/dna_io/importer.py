@@ -1,14 +1,17 @@
+# standard library imports
 import json
 import logging
 import math
 
 from pathlib import Path
 
+# third party imports
 import bmesh
 import bpy
 
 from mathutils import Euler, Matrix, Vector
 
+# local imports
 from .. import utilities
 from ..bindings import riglogic
 from ..constants import (
@@ -22,8 +25,7 @@ from ..constants import (
     UV_MAP_NAME,
     ComponentType,
 )
-from ..properties import MetahumanImportProperties
-from ..rig_instance import RigInstance
+from ..typing import *  # noqa: F403
 from .misc import get_dna_reader
 
 
@@ -33,8 +35,8 @@ logger = logging.getLogger(__name__)
 class DNAImporter:
     def __init__(
         self,
-        instance: RigInstance,
-        import_properties: MetahumanImportProperties,
+        instance: "RigInstance",
+        import_properties: "MetahumanImportProperties",
         linear_modifier: float,
         component_type: ComponentType = "head",
         create_extra_bones: bool = True,
@@ -75,28 +77,8 @@ class DNAImporter:
         self._default_vertex_color_layout = False
         self._component_type = component_type
 
-    def _get_lod_settings(self):
+    def _get_lod_settings(self) -> list[tuple[int, bool]]:
         return [(i, getattr(self._import_properties, f"import_lod{i}")) for i in range(NUMBER_OF_HEAD_LODS)]
-
-    def get_material(self, scene_object: bpy.types.Object, material_name: str):
-        name = f"{self._prefix}_{material_name}"
-
-        # Create the material if it does not exist
-        material = bpy.data.materials.get(name)
-        if not material:
-            material = bpy.data.materials.new(name=name)
-
-        # Assign the material to the object if it is not already assigned
-        materials = scene_object.data.materials  # type: ignore
-        if materials:
-            # Make sure the material is the first one in slots
-            index = materials.find(name)
-            if index != -1:
-                materials[0] = material
-            else:
-                materials.append(material)
-        else:
-            materials.append(material)
 
     def initialize_dna_data(self):
         for lod_index, should_import in self._get_lod_settings():
@@ -150,7 +132,7 @@ class DNAImporter:
                 vertex_colors_file = MESH_VERTEX_COLORS_FILE_PATH
                 self._default_vertex_color_layout = True
 
-            with open(vertex_colors_file) as file:
+            with vertex_colors_file.open() as file:
                 self._vertex_color_data = json.load(file)
 
         data = self._vertex_color_data[mesh_index]
@@ -227,13 +209,14 @@ class DNAImporter:
         mesh_object.shape_key_clear()
 
         # create the basis shape key
-        shape_key_block = mesh_object.shape_key_add(name=SHAPE_KEY_BASIS_NAME)
+        shape_key_block = mesh_object.shape_key_add(name=SHAPE_KEY_BASIS_NAME, from_mix=False)
         shape_key = shape_key_block.id_data
 
         # set the shape key name to the mesh object name
-        shape_key.name = mesh_object.name
+        if shape_key:
+            shape_key.name = mesh_object.name
 
-        return shape_key
+        return shape_key  # pyright: ignore[reportReturnType]
 
     def set_custom_bone_shape(self, pose_bone: bpy.types.PoseBone):
         if pose_bone.rotation_mode != "XYZ":
@@ -242,7 +225,13 @@ class DNAImporter:
         pose_bone.custom_shape_scale_xyz = CUSTOM_BONE_SHAPE_SCALE
 
     def set_vertex_groups(self, mesh_index: int, mesh_object: bpy.types.Object):
-        for vertex in mesh_object.data.vertices:  # type: ignore
+        if not mesh_object.data or not isinstance(mesh_object.data, bpy.types.Mesh):
+            logger.warning(
+                f"Object '{mesh_object.name}' has no mesh data in the blender scene. Skipping vertex group export..."
+            )
+            return
+
+        for vertex in mesh_object.data.vertices:
             vertex_bone_indices = self._dna_reader.getSkinWeightsJointIndices(mesh_index, vertex.index)
             vertex_weights = self._dna_reader.getSkinWeightsValues(mesh_index, vertex.index)
 
@@ -260,16 +249,14 @@ class DNAImporter:
         normal_indices = self._dna_reader.getVertexLayoutNormalIndices(mesh_index)
         mesh.normals_split_custom_set_from_vertices(
             [
-                Vector(
-                    (
-                        x_values[normal_indices[index]] * self._linear_modifier,
-                        y_values[normal_indices[index]] * self._linear_modifier,
-                        z_values[normal_indices[index]] * self._linear_modifier,
-                    )
-                ).normalized()
+                [
+                    x_values[normal_indices[index]] * self._linear_modifier,
+                    y_values[normal_indices[index]] * self._linear_modifier,
+                    z_values[normal_indices[index]] * self._linear_modifier,
+                ]
                 for index in self._index_to_vert
             ]
-        )  # type: ignore
+        )
 
     def set_mesh_vertex_positions(self, mesh_index: int, bmesh_object: bmesh.types.BMesh):
         x_values = self._dna_reader.getVertexPositionXs(mesh_index)
@@ -360,14 +347,14 @@ class DNAImporter:
                     loop[color_layer] = Vector(value)
 
         # Todo: Implement the custom vertex color layout from exported JSON file
-        # else:
+        # else:  # noqa: ERA001
         #     for face in bmesh_object.faces:
-        #         face_vert_indices = [v.index for v in face.verts]
-        #         dna_face_vert_indices = self._dna_reader.getFaceVertexLayoutIndices(mesh_index, face.index)
-        #         lookup = dict(zip(face_vert_indices, dna_face_vert_indices))
+        #         face_vert_indices = [v.index for v in face.verts]  # noqa: ERA001
+        #         dna_face_vert_indices = self._dna_reader.getFaceVertexLayoutIndices(mesh_index, face.index)  # noqa: E501, ERA001
+        #         lookup = dict(zip(face_vert_indices, dna_face_vert_indices))  # noqa: ERA001
         #         for loop in face.loops:
-        #             vertex_color_index = vertex_color_indices[lookup[loop.vert.index]]
-        #             loop[color_layer] = Vector(vertex_color_values[vertex_color_index])
+        #             vertex_color_index = vertex_color_indices[lookup[loop.vert.index]]  # noqa: ERA001
+        #             loop[color_layer] = Vector(vertex_color_values[vertex_color_index])  # noqa: ERA001
 
     def create_mesh_object(self, lod_index: int, mesh_name: str) -> bpy.types.Object:
         name = f"{self._prefix}_{mesh_name}"
@@ -387,8 +374,10 @@ class DNAImporter:
 
         # Link the mesh object to the scene
         utilities.deselect_all()
-        bpy.context.collection.objects.link(mesh_object)  # type: ignore
-        bpy.context.view_layer.objects.active = mesh_object  # type: ignore
+        if bpy.context.collection:
+            bpy.context.collection.objects.link(mesh_object)
+        if bpy.context.view_layer:
+            bpy.context.view_layer.objects.active = mesh_object
         mesh_object.select_set(True)
 
         # Initialize the UV map
@@ -429,7 +418,7 @@ class DNAImporter:
 
         # Rotate the mesh and apply to Z-up
         mesh_object.rotation_euler.x = math.radians(90)
-        utilities.apply_transforms(mesh_object, rotation=True)  # type: ignore
+        utilities.apply_transforms(mesh_object, rotation=True)
         return mesh_object
 
     def create_rig_object(self) -> bpy.types.Object | None:
@@ -445,11 +434,11 @@ class DNAImporter:
         if armature:
             bpy.data.armatures.remove(armature)
 
-        armature = bpy.data.armatures.new(name=name)  # type: ignore
-        rig_object = bpy.data.objects.new(name=name, object_data=armature)  # type: ignore
+        armature = bpy.data.armatures.new(name=name)
+        rig_object = bpy.data.objects.new(name=name, object_data=armature)
 
-        if not bpy.context.scene.collection.objects.get(name):  # type: ignore
-            bpy.context.scene.collection.objects.link(rig_object)  # type: ignore
+        if bpy.context.scene and not bpy.context.scene.collection.objects.get(name):
+            bpy.context.scene.collection.objects.link(rig_object)
 
         self.rig_object = rig_object
         return rig_object
@@ -482,16 +471,16 @@ class DNAImporter:
 
                 # The first bone is in object space
                 if index == 0:
-                    rotation_matrix = Matrix.Rotation(math.radians(90), 4, "X").to_4x4()
+                    rotation_matrix = Matrix.Rotation(math.radians(90), 4, "X").to_4x4()  # type: ignore[arg-type]
                     global_matrix = (
                         rotation_matrix @ Matrix.Translation(location)
                     ) @ euler_rotation.to_matrix().to_4x4()
 
                 # Otherwise they are in parent space
-                else:
+                elif self.rig_object and self.rig_object.data and isinstance(self.rig_object.data, bpy.types.Armature):
                     parent_index = self._dna_reader.getJointParentIndex(index)
                     parent_bone_name = self._dna_reader.getJointName(parent_index)
-                    parent_bone = self.rig_object.data.edit_bones[parent_bone_name]  # type: ignore
+                    parent_bone = self.rig_object.data.edit_bones[parent_bone_name]
                     # Calculate the global transformation matrix of the bone
                     local_matrix = Matrix.Translation(location) @ euler_rotation.to_matrix().to_4x4()
                     global_matrix = parent_bone.matrix @ local_matrix
@@ -515,21 +504,32 @@ class DNAImporter:
             for bone_name, bone_data in EXTRA_BONES:
                 location = bone_data["location"]
                 rotation = bone_data["rotation"]
+                if (
+                    not self.rig_object
+                    or not self.rig_object.data
+                    or not isinstance(self.rig_object.data, bpy.types.Armature)
+                ):
+                    continue
 
                 # Scale the location of the bones based on the height scale factor
                 location.y = location.y * round(height_scale_factor, 4)
 
-                extra_edit_bone = self.rig_object.data.edit_bones.new(bone_name)  # type: ignore
+                extra_edit_bone = self.rig_object.data.edit_bones.new(bone_name)
                 extra_edit_bone.length = self._linear_modifier
                 global_matrix = Matrix.Translation(location) @ rotation.to_matrix().to_4x4()
                 extra_edit_bone.matrix = global_matrix
-                extra_edit_bone.parent = self.rig_object.data.edit_bones.get(bone_data["parent"] or "")  # type: ignore
+                extra_edit_bone.parent = self.rig_object.data.edit_bones.get(bone_data["parent"] or "")
                 last_edit_bone = extra_edit_bone
 
         return last_edit_bone
 
     def import_bones(self):
-        if not self.rig_object:
+        if (
+            not self.rig_object
+            or not self.rig_object.data
+            or not self.rig_object.pose
+            or not isinstance(self.rig_object.data, bpy.types.Armature)
+        ):
             return
 
         x_locations = self._dna_reader.getNeutralJointTranslationXs()
@@ -543,8 +543,8 @@ class DNAImporter:
         utilities.switch_to_bone_edit_mode(self.rig_object)
 
         # remove all existing edit bones
-        for edit_bone in self.rig_object.data.edit_bones:  # type: ignore
-            self.rig_object.data.edit_bones.remove(edit_bone)  # type: ignore
+        for edit_bone in self.rig_object.data.edit_bones:
+            self.rig_object.data.edit_bones.remove(edit_bone)
 
         # Create the extra bones below the last bone in the DNA file
         extra_edit_bone = self.create_extra_bones()
@@ -568,7 +568,7 @@ class DNAImporter:
             )
 
             # Create the new edit bone
-            edit_bone = self.rig_object.data.edit_bones.new(name=bone_name)  # type: ignore
+            edit_bone = self.rig_object.data.edit_bones.new(name=bone_name)
 
             # The first bone is in object space
             if index == 0:
@@ -581,7 +581,7 @@ class DNAImporter:
             else:
                 parent_index = self._dna_reader.getJointParentIndex(index)
                 parent_bone_name = self._dna_reader.getJointName(parent_index)
-                parent_bone = self.rig_object.data.edit_bones[parent_bone_name]  # type: ignore
+                parent_bone = self.rig_object.data.edit_bones[parent_bone_name]
                 edit_bone.parent = parent_bone
                 edit_bone.length = self._linear_modifier
                 # Calculate the global transformation matrix of the bone
@@ -591,16 +591,16 @@ class DNAImporter:
 
         # Set the custom bone shapes
         utilities.switch_to_object_mode()
-        for pose_bone in self.rig_object.pose.bones:  # type: ignore
+        for pose_bone in self.rig_object.pose.bones:
             self.set_custom_bone_shape(pose_bone)
-        self.rig_object.data.relation_line_position = "HEAD"  # type: ignore
+        self.rig_object.data.relation_line_position = "HEAD"
 
         # Rotate the armature and apply to Z-up
         self.rig_object.rotation_euler.x = math.radians(90)
-        utilities.apply_transforms(self.rig_object, rotation=True)  # type: ignore
+        utilities.apply_transforms(self.rig_object, rotation=True)
 
     def setup_swing_bones(self):
-        if not self.rig_object:
+        if not self.rig_object or not self.rig_object.pose:
             return
 
         for swing_index in range(self._dna_reader.getSwingCount()):
@@ -624,7 +624,7 @@ class DNAImporter:
                     pose_bone["swing_axis"] = axis.name.lower()
 
     def setup_twist_bones(self):
-        if not self.rig_object:
+        if not self.rig_object or not self.rig_object.pose:
             return
 
         for twist_index in range(self._dna_reader.getTwistCount()):
@@ -649,10 +649,11 @@ class DNAImporter:
 
     def set_armature_modifier(self, mesh_object: bpy.types.Object):
         armature_modifier = mesh_object.modifiers.get("Armature")
-        if not armature_modifier:
+        if not armature_modifier or armature_modifier.type != "ARMATURE":
             armature_modifier = mesh_object.modifiers.new(name="Armature", type="ARMATURE")
 
-        armature_modifier.object = self.rig_object  # type: ignore
+        armature_modifier.object = self.rig_object # type: ignore[attr-defined]
+
 
     def run(self) -> tuple[bool, str]:
         errors = []

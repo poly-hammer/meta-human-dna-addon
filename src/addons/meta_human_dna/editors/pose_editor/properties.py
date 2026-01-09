@@ -18,10 +18,10 @@ def update_body_rbf_driven_active_index(self: "RBFPoseData", context: "Context")
 
 
 class RBFDriverData(bpy.types.PropertyGroup):
-    solver_index: bpy.props.IntProperty()  # type: ignore
-    pose_index: bpy.props.IntProperty()  # type: ignore
-    joint_index: bpy.props.IntProperty()  # type: ignore
-    name: bpy.props.StringProperty()  # type: ignore
+    solver_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
+    pose_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
+    joint_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
+    name: bpy.props.StringProperty()  # pyright: ignore[reportInvalidTypeForm]
     rotation_mode: bpy.props.EnumProperty(
         items=[
             ("QUATERNION", "Quaternion", "Use the Quaternion rotation mode"),
@@ -29,16 +29,16 @@ class RBFDriverData(bpy.types.PropertyGroup):
         ],
         default="QUATERNION",
         description="The rotation mode of the pose transformation",
-    )  # type: ignore
-    euler_rotation: bpy.props.FloatVectorProperty(default=(0.0, 0.0, 0.0), size=3)  # type: ignore
-    quaternion_rotation: bpy.props.FloatVectorProperty(default=(1.0, 0.0, 0.0, 0.0), size=4)  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
+    euler_rotation: bpy.props.FloatVectorProperty(default=(0.0, 0.0, 0.0), size=3)  # pyright: ignore[reportInvalidTypeForm]
+    quaternion_rotation: bpy.props.FloatVectorProperty(default=(1.0, 0.0, 0.0, 0.0), size=4)  # pyright: ignore[reportInvalidTypeForm]
 
 
 class RBFDrivenData(bpy.types.PropertyGroup):
-    pose_index: bpy.props.IntProperty()  # type: ignore
-    joint_group_index: bpy.props.IntProperty(default=-1)  # type: ignore
-    joint_index: bpy.props.IntProperty()  # type: ignore
-    name: bpy.props.StringProperty()  # type: ignore
+    pose_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
+    joint_group_index: bpy.props.IntProperty(default=-1)  # pyright: ignore[reportInvalidTypeForm]
+    joint_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
+    name: bpy.props.StringProperty()  # pyright: ignore[reportInvalidTypeForm]
     data_type: bpy.props.EnumProperty(
         items=[
             ("BONE", "Bone Transforms", "Drives the Bone Transforms"),
@@ -47,7 +47,7 @@ class RBFDrivenData(bpy.types.PropertyGroup):
         ],
         default="BONE",
         description="The type of driven data",
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     rotation_mode: bpy.props.EnumProperty(
         items=[
             ("QUATERNION", "Quaternion", "Use the Quaternion rotation mode"),
@@ -55,43 +55,42 @@ class RBFDrivenData(bpy.types.PropertyGroup):
         ],
         default="QUATERNION",
         description="The rotation mode of the pose transformation",
-    )  # type: ignore
-    location: bpy.props.FloatVectorProperty(default=(0.0, 0.0, 0.0), size=3)  # type: ignore
-    euler_rotation: bpy.props.FloatVectorProperty(default=(0.0, 0.0, 0.0), size=3)  # type: ignore
-    quaternion_rotation: bpy.props.FloatVectorProperty(default=(1.0, 0.0, 0.0, 0.0), size=4)  # type: ignore
-    scale: bpy.props.FloatVectorProperty(default=(0.0, 0.0, 0.0), size=3)  # type: ignore
-    scalar_value: bpy.props.FloatProperty(default=0.0, min=0.0, max=1.0)  # type: ignore
-
+    )  # pyright: ignore[reportInvalidTypeForm]
+    location: bpy.props.FloatVectorProperty(default=(0.0, 0.0, 0.0), size=3)  # pyright: ignore[reportInvalidTypeForm]
+    euler_rotation: bpy.props.FloatVectorProperty(default=(0.0, 0.0, 0.0), size=3)  # pyright: ignore[reportInvalidTypeForm]
+    quaternion_rotation: bpy.props.FloatVectorProperty(default=(1.0, 0.0, 0.0, 0.0), size=4)  # pyright: ignore[reportInvalidTypeForm]
+    scale: bpy.props.FloatVectorProperty(default=(0.0, 0.0, 0.0), size=3)  # pyright: ignore[reportInvalidTypeForm]
+    scalar_value: bpy.props.FloatProperty(default=0.0, min=0.0, max=1.0)  # pyright: ignore[reportInvalidTypeForm]
 
 class RBFPoseData(bpy.types.PropertyGroup):
-    solver_index: bpy.props.IntProperty()  # type: ignore
-    pose_index: bpy.props.IntProperty()  # type: ignore
-    joint_group_index: bpy.props.IntProperty(default=-1)  # type: ignore
+    solver_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
+    pose_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
+    joint_group_index: bpy.props.IntProperty(default=-1)  # pyright: ignore[reportInvalidTypeForm]
     name: bpy.props.StringProperty(
         default="",
         description="The name of the pose",
-    )  # type: ignore
-    scale_factor: bpy.props.FloatProperty(default=1.0, description="The scale factor of the pose", min=0.0)  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
+    scale_factor: bpy.props.FloatProperty(default=1.0, description="The scale factor of the pose", min=0.0)  # pyright: ignore[reportInvalidTypeForm]
     target_enable: bpy.props.BoolProperty(
         default=True,
         description="Whether the target is enabled",
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
 
-    driven: bpy.props.CollectionProperty(type=RBFDrivenData)  # type: ignore
-    driven_active_index: bpy.props.IntProperty(update=update_body_rbf_driven_active_index)  # type: ignore
+    driven: bpy.props.CollectionProperty(type=RBFDrivenData)  # pyright: ignore[reportInvalidTypeForm]
+    driven_active_index: bpy.props.IntProperty(update=update_body_rbf_driven_active_index)  # pyright: ignore[reportArgumentType, reportInvalidTypeForm]
 
-    drivers: bpy.props.CollectionProperty(type=RBFDriverData)  # type: ignore
-    drivers_active_index: bpy.props.IntProperty()  # type: ignore
+    drivers: bpy.props.CollectionProperty(type=RBFDriverData)  # pyright: ignore[reportInvalidTypeForm]
+    drivers_active_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
     # TODO: Implement blend shapes for RBF poses
-    # shape_key_data: bpy.props.CollectionProperty(type=ShapeKeyData) # type: ignore  # noqa: ERA001
+    # shape_key_data: bpy.props.CollectionProperty(type=ShapeKeyData) # noqa: ERA001
 
 
 class RBFSolverData(bpy.types.PropertyGroup):
-    solver_index: bpy.props.IntProperty()  # type: ignore
+    solver_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
     name: bpy.props.StringProperty(
         default="",
         description="The name of the RBF solver",
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     mode: bpy.props.EnumProperty(
         items=[
             ("Additive", "Additive", "Use the additive RBF solver mode"),
@@ -99,11 +98,11 @@ class RBFSolverData(bpy.types.PropertyGroup):
         ],
         default="Additive",
         description="The mode of the RBF solver",
-    )  # type: ignore
-    radius: bpy.props.FloatProperty(default=50.0, description="The radius of the RBF solver", min=0.0)  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
+    radius: bpy.props.FloatProperty(default=50.0, description="The radius of the RBF solver", min=0.0)  # pyright: ignore[reportInvalidTypeForm]
     weight_threshold: bpy.props.FloatProperty(
         default=0.001, description="The weight threshold of the RBF solver", min=0.0
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     distance_method: bpy.props.EnumProperty(
         items=[
             # TODO: Should we support Euclidean?
@@ -114,7 +113,7 @@ class RBFSolverData(bpy.types.PropertyGroup):
         ],
         default="TwistAngle",
         description="The distance method of the RBF solver",
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     normalize_method: bpy.props.EnumProperty(
         items=[
             (
@@ -130,7 +129,7 @@ class RBFSolverData(bpy.types.PropertyGroup):
         ],
         default="AlwaysNormalize",
         description="The normalization method of the RBF solver",
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     function_type: bpy.props.EnumProperty(
         items=[
             ("Gaussian", "Gaussian", "Use the Gaussian method for the function type of the RBF solver"),
@@ -141,7 +140,7 @@ class RBFSolverData(bpy.types.PropertyGroup):
         ],
         default="Gaussian",
         description="The function type of the RBF solver",
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     twist_axis: bpy.props.EnumProperty(
         items=[
             ("X", "X-Axis", "Use the X axis for twisting"),
@@ -150,12 +149,12 @@ class RBFSolverData(bpy.types.PropertyGroup):
         ],
         default="X",
         description="The axis around which to twists are calculated",
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
     automatic_radius: bpy.props.BoolProperty(
         default=False,
         name="Automatic Radius",
         description="Whether to automatically calculate the radius for the RBF solver",
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
 
-    poses: bpy.props.CollectionProperty(type=RBFPoseData)  # type: ignore
-    poses_active_index: bpy.props.IntProperty(update=update_body_rbf_poses_active_index)  # type: ignore
+    poses: bpy.props.CollectionProperty(type=RBFPoseData)  # pyright: ignore[reportInvalidTypeForm]
+    poses_active_index: bpy.props.IntProperty(update=update_body_rbf_poses_active_index)  # pyright: ignore[reportArgumentType, reportInvalidTypeForm]

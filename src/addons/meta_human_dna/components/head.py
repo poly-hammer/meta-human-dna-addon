@@ -423,9 +423,9 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
                 "mesh_object": mesh_object,
                 "reader": self.dna_reader,
                 "name": shape_key_name,
+                "prefix": f"{mesh_dna_name}__",
                 "is_neutral": self.rig_instance.generate_neutral_shapes,
                 "linear_modifier": self.linear_modifier,
-                "prefix": f"{mesh_dna_name}__",
             }
 
         for mesh_index in range(self.dna_reader.getMeshCount()):

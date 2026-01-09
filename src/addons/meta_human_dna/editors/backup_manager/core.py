@@ -1,3 +1,4 @@
+# standard library imports
 import logging
 import shutil
 import tempfile
@@ -5,15 +6,14 @@ import tempfile
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING
 
+# third party imports
 import bpy
 
+# local imports
 from ...constants import ToolInfo
+from ...typing import *  # noqa: F403
 
-
-if TYPE_CHECKING:
-    from ...rig_instance import RigInstance
 
 logger = logging.getLogger(__name__)
 
@@ -38,11 +38,13 @@ def get_backup_folder() -> Path:
     return backup_base
 
 
-def _get_addon_preferences():
+def _get_addon_preferences() -> "MetahumanAddonProperties | None":
     """Get the addon preferences."""
-    addon = bpy.context.preferences.addons.get(ToolInfo.NAME)  # type: ignore
+    if not bpy.context.preferences:
+        return None
+    addon = bpy.context.preferences.addons.get(ToolInfo.NAME)
     if addon:
-        return addon.preferences
+        return addon.preferences # pyright: ignore[reportReturnType]
     return None
 
 
@@ -55,8 +57,8 @@ def is_auto_backup_enabled() -> bool:
     """
     preferences = _get_addon_preferences()
     if preferences:
-        return getattr(preferences, "enable_auto_dna_backups", True)
-    return True
+        return preferences.enable_auto_dna_backups
+    return False
 
 
 def get_max_backups() -> int:
@@ -68,7 +70,7 @@ def get_max_backups() -> int:
     """
     preferences = _get_addon_preferences()
     if preferences:
-        return getattr(preferences, "max_dna_backups", 5)
+        return preferences.max_dna_backups
     return 5
 
 
@@ -89,7 +91,7 @@ def create_backup(instance: "RigInstance", backup_type: BackupType, description:
         return None
 
     # Generate unique backup ID using timestamp
-    timestamp = datetime.now()
+    timestamp = datetime.now().astimezone()
     backup_id = timestamp.strftime("%Y%m%d_%H%M%S")
 
     # Create instance-specific backup folder
@@ -138,7 +140,7 @@ def create_backup(instance: "RigInstance", backup_type: BackupType, description:
         metadata_path = backup_folder / "metadata.json"
         import json
 
-        with open(metadata_path, "w", encoding="utf-8") as f:
+        with metadata_path.open("w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=2)
 
         # Add to the instance's backup list in Blender
@@ -175,7 +177,7 @@ def _add_backup_to_list(
         backup_type: The type of backup.
         description: Optional description override.
     """
-    backup_list = instance.dna_backup_list  # type: ignore
+    backup_list = instance.dna_backup_list
 
     # Add new entry
     entry = backup_list.add()
@@ -187,7 +189,7 @@ def _add_backup_to_list(
     entry.folder_path = str(get_backup_folder() / instance.name / backup_id)
 
     # Set as active
-    instance.dna_backup_list_active_index = len(backup_list) - 1  # type: ignore
+    instance.dna_backup_list_active_index = len(backup_list) - 1
 
 
 def restore_backup(instance: "RigInstance", backup_id: str) -> bool:
@@ -211,7 +213,7 @@ def restore_backup(instance: "RigInstance", backup_id: str) -> bool:
     try:
         import json
 
-        with open(metadata_path, encoding="utf-8") as f:
+        with metadata_path.open(encoding="utf-8") as f:
             metadata = json.load(f)
 
         # Restore head DNA
@@ -231,7 +233,7 @@ def restore_backup(instance: "RigInstance", backup_id: str) -> bool:
                 logger.info(f"Restored body DNA: {body_backup} -> {dest}")
 
         logger.info(f"Successfully restored backup for {instance.name}: {backup_id}")
-        bpy.ops.meta_human_dna.force_evaluate()  # type: ignore
+        bpy.ops.meta_human_dna.force_evaluate()  # type: ignore[attr-defined]
         return True
 
     except Exception as e:
@@ -295,7 +297,7 @@ def cleanup_old_backups(instance: "RigInstance") -> None:
             delete_backup(instance, backup_id)
 
             # Also remove from the instance's backup list
-            backup_list = instance.dna_backup_list  # type: ignore
+            backup_list = instance.dna_backup_list
             for i, entry in enumerate(backup_list):
                 if entry.backup_id == backup_id:
                     backup_list.remove(i)
@@ -314,7 +316,7 @@ def sync_backup_list_with_disk(instance: "RigInstance") -> None:
     Args:
         instance: The RigLogicInstance whose backup list to sync.
     """
-    backup_list = instance.dna_backup_list  # type: ignore
+    backup_list = instance.dna_backup_list
     instance_backup_folder = get_backup_folder() / instance.name
 
     if not instance_backup_folder.exists():
@@ -344,7 +346,7 @@ def sync_backup_list_with_disk(instance: "RigInstance") -> None:
             metadata_path = backup_folder / "metadata.json"
             if metadata_path.exists():
                 try:
-                    with open(metadata_path, encoding="utf-8") as f:
+                    with metadata_path.open(encoding="utf-8") as f:
                         metadata = json.load(f)
 
                     entry = backup_list.add()

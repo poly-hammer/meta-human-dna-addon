@@ -1,14 +1,27 @@
+# standard library imports
 from pathlib import Path
 
+# third party imports
 import bpy
 
+# local imports
 from .. import __package__ as package_name
 from ..constants import ToolInfo
 from ..properties import ExtraDnaFolder, MetahumanAddonProperties
+from ..typing import *  # noqa: F403
 
 
 class FOLDER_UL_extra_dna_path(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_prop_name):
+    def draw_item(
+        self,
+        context: "Context",
+        layout: bpy.types.UILayout,
+        data: "MetaHumanDnaPreferences",
+        item: "ExtraDnaFolder",
+        icon: int | None,
+        active_data: "MetaHumanDnaPreferences",
+        active_prop_name: str,
+    ):
         row = layout.row()
         row.alert = False
         if item.folder_path and not Path(item.folder_path).exists():
@@ -19,7 +32,7 @@ class FOLDER_UL_extra_dna_path(bpy.types.UIList):
 class MetaHumanDnaPreferences(MetahumanAddonProperties, bpy.types.AddonPreferences):
     bl_idname = str(package_name)
 
-    def draw(self, context):
+    def draw(self, context: "Context"):
         preferences = context.preferences.addons[ToolInfo.NAME].preferences
         layout = self.layout
 

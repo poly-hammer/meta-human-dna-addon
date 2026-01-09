@@ -1,8 +1,4 @@
-from typing import TYPE_CHECKING
-
-
-if TYPE_CHECKING:
-    from ..rig_instance import RigInstance
+from ..typing import *
 
 
 def get_active_rig_instance() -> "RigInstance | None":

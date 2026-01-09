@@ -19,17 +19,10 @@ from ...typing import *  # noqa: F403
 logger = logging.getLogger(__name__)
 
 
-def get_active_rig_instance() -> "RigInstance | None":
-    # Avoid circular import
-    from ...ui.callbacks import get_active_rig_instance as _get_active_rig_instance
-
-    return _get_active_rig_instance()
-
-
 def get_new_pose_name(self: "AddRBFPose") -> str:
     value = self.get("new_pose_name")
     if value is None:
-        instance = get_active_rig_instance()
+        instance = utilities.get_active_rig_instance()
         if instance:
             solver = instance.rbf_solver_list[instance.rbf_solver_list_active_index]
             driver_bone_name = solver.name.replace(RBF_SOLVER_POSTFIX, "")
@@ -57,16 +50,16 @@ def set_new_pose_name(self: "AddRBFPose", value: str):
 
 
 class RBFEditorOperatorBase(bpy.types.Operator):
-    solver_index: bpy.props.IntProperty(default=0)  # type: ignore
-    pose_index: bpy.props.IntProperty(default=0)  # type: ignore
-    driver_index: bpy.props.IntProperty(default=0)  # type: ignore
-    driven_index: bpy.props.IntProperty(default=0)  # type: ignore
+    solver_index: bpy.props.IntProperty(default=0) # pyright: ignore[reportInvalidTypeForm]
+    pose_index: bpy.props.IntProperty(default=0)  # pyright: ignore[reportInvalidTypeForm]
+    driver_index: bpy.props.IntProperty(default=0)  # pyright: ignore[reportInvalidTypeForm]
+    driven_index: bpy.props.IntProperty(default=0)  # pyright: ignore[reportInvalidTypeForm]
 
     def validate(self, context: "Context", instance: "RigInstance") -> tuple[bool, str]:
         return True, ""
 
     def execute(self, context: "Context") -> set[str]:
-        instance = get_active_rig_instance()
+        instance = utilities.get_active_rig_instance()
         if instance and instance.body_rig:
             result, message = self.validate(context, instance)
             if not result:
@@ -122,7 +115,7 @@ class RevertRBFSolver(RBFEditorOperatorBase):
 
         instance.editing_rbf_solver = False
         instance.auto_evaluate_body = True
-        bpy.ops.meta_human_dna.force_evaluate()  # type: ignore
+        bpy.ops.meta_human_dna.force_evaluate()  # type: ignore[attr-defined]
 
 
 class EditRBFSolver(RBFEditorOperatorBase):
@@ -133,7 +126,7 @@ class EditRBFSolver(RBFEditorOperatorBase):
 
     @classmethod
     def poll(cls, context: "Context") -> bool:  # noqa: ARG003
-        instance = get_active_rig_instance()
+        instance = utilities.get_active_rig_instance()
         if not instance or not instance.body_rig:
             return False
 
@@ -143,7 +136,7 @@ class EditRBFSolver(RBFEditorOperatorBase):
         instance.editing_rbf_solver = True
         instance.auto_evaluate_body = False
         instance.body_rig.hide_set(False)
-        utilities.switch_to_pose_mode(instance.body_rig)  # type: ignore
+        utilities.switch_to_pose_mode(instance.body_rig)
 
 
 class CommitRBFSolverChanges(RBFEditorOperatorBase):
@@ -154,7 +147,7 @@ class CommitRBFSolverChanges(RBFEditorOperatorBase):
 
     @classmethod
     def poll(cls, context: "Context") -> bool:  # noqa: ARG003
-        instance = get_active_rig_instance()
+        instance = utilities.get_active_rig_instance()
         if instance is None:
             return False
 
@@ -234,7 +227,7 @@ class RBFPoseOperatorBase(RBFEditorOperatorBase):
             utilities.set_driven_bone_data(instance=instance, pose=pose, driven=driven, pose_bone=pose_bone, new=True)
 
         # set the active pose to the new pose
-        solver.poses_active_index = new_pose_index  # type: ignore
+        solver.poses_active_index = new_pose_index
 
         return pose
 
@@ -247,7 +240,7 @@ class AddRBFPose(RBFPoseOperatorBase):
 
     new_pose_name: bpy.props.StringProperty(
         default="default", description="The name of the new RBF Pose", get=get_new_pose_name, set=set_new_pose_name
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
 
     def validate(self, context: "Context", instance: "RigInstance") -> tuple[bool, str]:
         if not context.selected_pose_bones:
@@ -296,11 +289,11 @@ class AddRBFPose(RBFPoseOperatorBase):
         self.add_pose(
             instance=instance,
             pose_name=self.new_pose_name if self.new_pose_name else f"Pose{new_pose_index}",
-            driven_bones=bpy.context.selected_pose_bones.copy(),  # type: ignore
+            driven_bones=bpy.context.selected_pose_bones.copy(),
         )
 
     def invoke(self, context: "Context", event: bpy.types.Event) -> set[str]:
-        return context.window_manager.invoke_props_dialog(self, width=200)  # type: ignore
+        return context.window_manager.invoke_props_dialog(self, width=200)  # type: ignore[return-type]
 
     def draw(self, context: "Context"):
         if not self.layout:
@@ -406,7 +399,7 @@ class RemoveRBFPose(RBFEditorOperatorBase):
         solver = instance.rbf_solver_list[instance.rbf_solver_list_active_index]
         solver.poses.remove(solver.poses_active_index)
         to_index = min(solver.poses_active_index, len(solver.poses) - 1)
-        solver.poses_active_index = to_index  # type: ignore
+        solver.poses_active_index = to_index
 
 
 class AddRBFDriver(RBFEditorOperatorBase):
@@ -437,7 +430,7 @@ class AddRBFDriven(RBFEditorOperatorBase):
 
     @classmethod
     def poll(cls, context: "Context") -> bool:
-        instance = get_active_rig_instance()
+        instance = utilities.get_active_rig_instance()
         return bool(instance and instance.body_rig and context.selected_pose_bones)
 
     def validate(self, context: "Context", instance: "RigInstance") -> tuple[bool, str]:
@@ -450,7 +443,7 @@ class AddRBFDriven(RBFEditorOperatorBase):
         solver = instance.rbf_solver_list[self.solver_index]
         pose = solver.poses[self.pose_index]
 
-        selected_pose_bones = bpy.context.selected_pose_bones.copy()  # type: ignore
+        selected_pose_bones = bpy.context.selected_pose_bones.copy()
 
         for pose_bone in selected_pose_bones:
             if pose_bone.name not in [d.name for d in pose.driven]:
@@ -485,7 +478,7 @@ class SelectAllRBFDriven(RBFEditorOperatorBase):
 
         # switch to pose mode
         instance.body_rig.hide_set(False)
-        utilities.switch_to_pose_mode(instance.body_rig)  # type: ignore
+        utilities.switch_to_pose_mode(instance.body_rig)
 
         # select all driven bones for the pose
         driven_bone_names = [driven.name for driven in pose.driven]

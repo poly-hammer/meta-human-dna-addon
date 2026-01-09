@@ -158,17 +158,15 @@ select = [
 
 # Rules to ignore
 ignore = [
-    "ANN101",  # Missing type annotation for self
-    "ANN102",  # Missing type annotation for cls
     "ANN401",  # Dynamically typed expressions (Any) are disallowed
     "COM812",  # Trailing comma missing (conflicts with formatter)
     "ISC001",  # Implicit string concatenation (conflicts with formatter)
     "PLR0913", # Too many arguments in function definition
     "PLR2004", # Magic value used in comparison
     "S101",    # Use of assert detected (needed for tests)
-    "TCH001",  # Move import into type-checking block (can cause runtime issues)
-    "TCH002",  # Move third-party import into type-checking block
-    "TCH003",  # Move standard library import into type-checking block
+    "TC001",   # Move import into type-checking block (can cause runtime issues)
+    "TC002",   # Move third-party import into type-checking block
+    "TC003",   # Move standard library import into type-checking block
     "ARG002",  # Unused method argument (common in Blender operators)
     "N801",    # Invalid class name (allow Blender UI conventions like FOLDER_UL_, PANEL_PT_, etc.)
     "N802",    # Function name should be lowercase (Blender uses mixed case)

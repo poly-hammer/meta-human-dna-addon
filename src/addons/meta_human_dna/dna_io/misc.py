@@ -1,19 +1,20 @@
+# standard library imports
 import logging
 import math
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
+# third party imports
 import bpy
 
 from mathutils import Matrix, Vector
 
-from ..constants import SHAPE_KEY_DELTA_THRESHOLD, ComponentType
+# local imports
+from ..constants import SHAPE_KEY_BASIS_NAME, ComponentType
+from ..typing import *  # noqa: F403
 from ..utilities import exclude_rig_instance_evaluation, switch_to_object_mode, update_mesh
 
-
-if TYPE_CHECKING:
-    from ..bindings import riglogic
 
 logger = logging.getLogger(__name__)
 
@@ -133,13 +134,20 @@ def create_shape_key(
     prefix: str = "",
     is_neutral: bool = False,
     linear_modifier: float = 1.0,
-    delta_threshold: float = SHAPE_KEY_DELTA_THRESHOLD,
 ) -> bpy.types.ShapeKey | None:
     if not mesh_object:
         logger.error(f"Mesh object not found for shape key {name}. Skipping creation.")
         return None
+    if not mesh_object.data or not isinstance(mesh_object.data, bpy.types.Mesh):
+        logger.error(
+            f"Object '{mesh_object.name}' has no mesh data in the blender scene. Skipping shape key creation..."
+        )
+        return None
+    if not mesh_object.data.shape_keys:
+        mesh_object.shape_key_add(name=SHAPE_KEY_BASIS_NAME, from_mix=False)
 
-    bpy.context.window_manager.meta_human_dna.progress_mesh_name = mesh_object.name  # type: ignore
+    window_manager_properties: "MetahumanWindowMangerProperties" = bpy.context.window_manager.meta_human_dna  # type: ignore[attr-defined]  # noqa: UP037
+    window_manager_properties.progress_mesh_name = mesh_object.name
     # create the new key block on the shape key
     logger.info(f"Creating shape key {name}")
     shape_key_name = f"{prefix}{name}"
@@ -147,12 +155,12 @@ def create_shape_key(
     switch_to_object_mode()
 
     # Ensure no existing shape key influence is active before we create a new one
-    if mesh_object.data.shape_keys:  # type: ignore
-        for key_block in mesh_object.data.shape_keys.key_blocks:  # type: ignore
+    if mesh_object.data.shape_keys:
+        for key_block in mesh_object.data.shape_keys.key_blocks:
             key_block.value = 0.0
-        mesh_object.active_shape_key_index = 0  # type: ignore
+        mesh_object.active_shape_key_index = 0
 
-    shape_key = mesh_object.data.shape_keys.key_blocks.get(shape_key_name)  # type: ignore
+    shape_key = mesh_object.data.shape_keys.key_blocks.get(shape_key_name) # type: ignore[attr-defined]
     if shape_key:
         shape_key.lock_shape = False
         mesh_object.shape_key_remove(shape_key)
@@ -162,7 +170,7 @@ def create_shape_key(
     # Import the deltas if the shape key is not supposed to be neutral
     if not is_neutral:
         # DNA is Y-up, Blender is Z-up, so we need to rotate the deltas
-        rotation_matrix = Matrix.Rotation(math.radians(90), 4, "X") # type: ignore[arg-type]
+        rotation_matrix = Matrix.Rotation(math.radians(90), 4, "X")  # type: ignore[arg-type]
 
         delta_x_values = reader.getBlendShapeTargetDeltaXs(mesh_index, index)
         delta_y_values = reader.getBlendShapeTargetDeltaYs(mesh_index, index)
@@ -178,11 +186,12 @@ def create_shape_key(
                 rotated_delta = rotation_matrix @ delta
 
                 # set the positions of the shape key vertices
-                base_co = mesh_object.data.shape_keys.reference_key.data[vertex_index].co.copy()  # type: ignore
+                base_co = mesh_object.data.shape_keys.reference_key.data[vertex_index].co.copy() # type: ignore[attr-defined]
                 shape_key_block.data[vertex_index].co = base_co + rotated_delta
             except IndexError:
                 logger.warning(
-                    f'Vertex index {vertex_index} is missing for shape key "{name}". Was this deleted on the base mesh "{mesh_object.name}"?'
+                    f'Vertex index {vertex_index} is missing for shape key "{name}". Was this deleted '
+                    f'on the base mesh "{mesh_object.name}"?'
                 )
 
     shape_key_block.lock_shape = True

@@ -37,10 +37,10 @@ if bindings_path.exists():
     os.chdir(str(bindings_path))
 
 try:
-    riglogic = sys.modules.get("riglogic")
+    riglogic = sys.modules.get("riglogic") # type: ignore[assigned]
     if not riglogic:
         import riglogic
-    meta_human_dna_core = sys.modules.get("meta_human_dna_core")
+    meta_human_dna_core = sys.modules.get("meta_human_dna_core") # type: ignore[assigned]
     if not meta_human_dna_core:
         import meta_human_dna_core
 except ModuleNotFoundError:
@@ -58,8 +58,8 @@ except ModuleNotFoundError:
         __is_fake__ = True
         pass
 
-    sys.modules["riglogic"] = riglogic  # type: ignore
-    sys.modules["meta_human_dna_core"] = meta_human_dna_core  # type: ignore
+    sys.modules["riglogic"] = riglogic  # type: ignore[assigned]
+    sys.modules["meta_human_dna_core"] = meta_human_dna_core  # type: ignore[assigned]
 
 except ImportError as e:
     raise e

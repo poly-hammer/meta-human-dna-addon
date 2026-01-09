@@ -1,17 +1,24 @@
+# third party imports
 import bpy
 
-
-def get_active_rig_instance():
-    # Avoid circular import
-    from ...ui.callbacks import get_active_rig_instance as _get_active_rig_instance
-
-    return _get_active_rig_instance()
+# local imports
+from ...typing import *  # noqa: F403
+from ...utilities import get_active_rig_instance
 
 
 class META_HUMAN_DNA_UL_dna_backups(bpy.types.UIList):
     """UIList for displaying DNA backup entries."""
 
-    def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
+    def draw_item(
+        self,
+        context: "Context",
+        layout: bpy.types.UILayout,
+        data: "RigInstance",
+        item: "DnaBackupEntry",
+        icon: int | None,
+        active_data: "RigInstance",
+        active_propname: str,
+    ):
         if self.layout_type in {"DEFAULT", "COMPACT"}:
             row = layout.row(align=True)
             # Timestamp
@@ -34,10 +41,10 @@ class META_HUMAN_DNA_PT_dna_backups(bpy.types.Panel):
     bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
-    def poll(cls, context):
+    def poll(cls, _: "Context") -> bool:
         return get_active_rig_instance() is not None
 
-    def draw(self, context):
+    def draw(self, context: "Context"):
         layout = self.layout
         if not layout:
             return
@@ -59,7 +66,7 @@ class META_HUMAN_DNA_PT_dna_backups(bpy.types.Panel):
             "dna_backup_list",
             instance,
             "dna_backup_list_active_index",
-            rows=4 if len(instance.dna_backup_list) > 0 else 1,  # type: ignore
+            rows=4 if len(instance.dna_backup_list) > 0 else 1,
         )
 
         # Side buttons
@@ -68,15 +75,15 @@ class META_HUMAN_DNA_PT_dna_backups(bpy.types.Panel):
         col.operator("meta_human_dna.open_backup_folder", text="", icon="FILE_FOLDER")
 
         # Bottom buttons
-        if len(instance.dna_backup_list) > 0:  # type: ignore
+        if len(instance.dna_backup_list) > 0:
             row = layout.row(align=True)
             row.operator("meta_human_dna.restore_dna_backup", text="Restore", icon="LOOP_BACK")
             row.operator("meta_human_dna.delete_dna_backup", text="Delete", icon="TRASH")
 
             # Show selected backup details
-            active_index = instance.dna_backup_list_active_index  # type: ignore
-            if 0 <= active_index < len(instance.dna_backup_list):  # type: ignore
-                backup = instance.dna_backup_list[active_index]  # type: ignore
+            active_index = instance.dna_backup_list_active_index
+            if 0 <= active_index < len(instance.dna_backup_list):
+                backup = instance.dna_backup_list[active_index]
                 box = layout.box()
                 box.label(text=f"Type: {backup.backup_type}", icon="INFO")
         else:

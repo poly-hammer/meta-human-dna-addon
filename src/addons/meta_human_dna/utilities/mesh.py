@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 
 @exclude_rig_instance_evaluation
-def initialize_basis_shape_key(mesh_object: bpy.types.Object) -> bpy.types.ID | None:
+def initialize_basis_shape_key(mesh_object: bpy.types.Object) -> bpy.types.Key | None:
     """
     Get the shape key that has the mesh as its user. If the shape
     key does not exist, it will be created.
@@ -38,7 +38,7 @@ def initialize_basis_shape_key(mesh_object: bpy.types.Object) -> bpy.types.ID | 
         mesh_object (bpy.types.Object): The mesh object.
 
     Returns:
-        bpy.types.ID: The shape key that has the mesh as its user.
+        bpy.types.Key | None: The shape key that has the mesh as its user.
     """
     if not mesh_object:
         logger.warning("Mesh object not found in scene that matches DNA. Skipping initialization of basis shape key.")
@@ -55,7 +55,7 @@ def initialize_basis_shape_key(mesh_object: bpy.types.Object) -> bpy.types.ID | 
     if shape_key:
         shape_key.name = mesh_object.name
 
-    return shape_key
+    return shape_key # pyright: ignore[reportReturnType]
 
 
 def update_mesh(mesh_object: bpy.types.Object):

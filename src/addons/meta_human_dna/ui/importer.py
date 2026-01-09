@@ -107,7 +107,7 @@ class META_HUMAN_DNA_EXTRAS_PT_panel(bpy.types.Panel):
         if not self.layout:
             return
 
-        operator = context.space_data.active_operator  # type: ignore
+        operator = context.space_data.active_operator  # type: ignore[attr-defined]
         stem = Path(operator.filepath).stem.lower()
         body_file = Path(operator.filepath).parent / "body.dna"
         layout = self.layout
@@ -143,8 +143,8 @@ class META_HUMAN_DNA_FILE_INFO_PT_panel(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: "Context") -> bool:
-        operator = context.space_data.active_operator  # type: ignore
-        is_dna_importer = context.space_data.active_operator.bl_idname == "META_HUMAN_DNA_OT_import_dna"  # type: ignore
+        operator = context.space_data.active_operator  # type: ignore[attr-defined]
+        is_dna_importer = context.space_data.active_operator.bl_idname == "META_HUMAN_DNA_OT_import_dna"  # type: ignore[attr-defined]
         if not hasattr(operator, "filepath"):
             return False
 
@@ -155,8 +155,8 @@ class META_HUMAN_DNA_FILE_INFO_PT_panel(bpy.types.Panel):
         if not self.layout:
             return
 
-        operator = context.space_data.active_operator  # type: ignore
-        wm = bpy.context.window_manager.meta_human_dna.dna_info  # type: ignore
+        operator = context.space_data.active_operator  # type: ignore[attr-defined]
+        wm = context.window_manager.meta_human_dna.dna_info
 
         if operator.filepath.lower().endswith(".dna") and Path(operator.filepath).exists():
             if not wm["_dna_reader"] or operator.filepath != wm["_previous_file_path"]:
@@ -228,11 +228,11 @@ class ImportAsset(ImportHelper):
 
 class ImportAnimation(ImportAsset):
     def draw(self, context: "Context"):
-        layout = self.layout  # type: ignore
+        layout = getattr(self, "layout", None)
         if not layout:
             return
 
-        operator = context.space_data.active_operator  # type: ignore
+        operator = context.space_data.active_operator  # type: ignore[attr-defined]
         if not operator:
             return
 
@@ -309,8 +309,8 @@ class LinkAppendMetaHumanImportHelper(ImportHelper):
         row.label(text=f"Choose MetaHuman(s) to {operator.operation_type.lower()}:")
 
         # only refresh the list if the selected file path has changed
-        if operator.previous_file_path != operator.filepath:  # type: ignore
-            self.refresh_meta_human_list(operator)  # type: ignore
+        if operator.previous_file_path != operator.filepath:
+            self.refresh_meta_human_list(operator)
 
         for item in operator.meta_human_list:
             row = layout.row()
