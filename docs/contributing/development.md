@@ -33,7 +33,6 @@ uv sync
 
 # Install pre-commit hooks
 uv run pre-commit install
-uv run pre-commit install --hook-type commit-msg
 ```
 
 ### Using VS Code

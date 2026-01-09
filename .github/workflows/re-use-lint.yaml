@@ -1,27 +1,10 @@
-name: Lint & Static Analysis
+name: Re-Useable Lint & Static Analysis
 on:
-  pull_request:
-    branches:
-      - main
-      - dev
-    paths:
-      - "src/**"
-      - "tests/**"
-      - ".github/workflows/lint.yaml"
-      - "pyproject.toml"
-      - "cspell.json"
-      - ".pre-commit-config.yaml"
-  push:
-    branches:
-      - main
-      - dev
-    paths:
-      - "src/**"
-      - "tests/**"
-      - ".github/workflows/lint.yaml"
-      - "pyproject.toml"
-      - "cspell.json"
-      - ".pre-commit-config.yaml"
+  workflow_call:
+    inputs:
+      python-version:
+        required: true
+        type: string
 
 jobs:
   lint:
@@ -34,7 +17,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ inputs.python-version }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -70,17 +53,7 @@ jobs:
 
       - name: Run CSpell
         run: |
-          cspell lint \
-            --no-progress \
-            --show-suggestions \
-            --show-context \
-            "src/**/*.py" \
-            "tests/**/*.py" \
-            "docs/**/*.md" \
-            "*.md" \
-            "*.toml" \
-            "*.yaml" \
-            "*.yml"
+          cspell lint --no-progress --show-suggestions --show-context ./**/*
 
   type-check:
     name: Pyright Type Check
@@ -92,7 +65,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ inputs.python-version }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -131,7 +104,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ inputs.python-version }}
 
       - name: Install pre-commit
         run: pip install pre-commit

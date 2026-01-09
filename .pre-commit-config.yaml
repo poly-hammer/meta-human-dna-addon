@@ -96,15 +96,6 @@ repos:
         stages: [manual] # Run only in CI, not on pre-commit
 
   # =============================================================================
-  # TOML formatting
-  # =============================================================================
-  - repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
-    rev: v2.15.0
-    hooks:
-      - id: pretty-format-toml
-        args: [--autofix]
-
-  # =============================================================================
   # Markdown linting
   # =============================================================================
   - repo: https://github.com/igorshubovych/markdownlint-cli

@@ -1,6 +1,7 @@
 # Meta-Human DNA Addon
 
 [![Release](https://github.com/poly-hammer/meta-human-dna-addon/actions/workflows/release.yaml/badge.svg)](https://github.com/poly-hammer/meta-human-dna-addon/actions/workflows/release.yaml)
+[![codecov](https://codecov.io/gh/poly-hammer/meta-human-dna-addon/graph/badge.svg?token=322E36CVR4)](https://codecov.io/gh/poly-hammer/meta-human-dna-addon)
 
 Imports MetaHuman head and body components from a their DNA files, lets you customize them, then send them back to MetaHuman Creator. [Get Now](https://polyhammer.com/meta-human-dna-addon).
 

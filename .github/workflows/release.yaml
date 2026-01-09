@@ -9,16 +9,83 @@ on:
       - ".github/workflows/**"
 
 jobs:
-  tests:
-    name: Tests
+  lint:
+    name: Lint & Static Analysis
+    uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-lint.yaml@${{ github.head_ref || github.ref_name }}
+    secrets: inherit
+    with:
+      python-version: "3.11"
+
+  # Test with Blender 4.5
+  test-blender-4-5-ubuntu-latest:
+    needs: [lint]
+    name: Blender 4.5 Tests
     uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-tests.yaml@${{ github.head_ref || github.ref_name }}
     secrets: inherit
     with:
       python-version: "3.11"
       blender-version: "4.5"
+      runner-os: "ubuntu-latest"
+
+  test-blender-4-5-windows-latest:
+    needs: [lint]
+    name: Blender 4.5 Tests
+    uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-tests.yaml@${{ github.head_ref || github.ref_name }}
+    secrets: inherit
+    with:
+      python-version: "3.11"
+      blender-version: "4.5"
+      runner-os: "windows-latest"
+
+  test-blender-4-5-macos-latest:
+    needs: [lint]
+    name: Blender 4.5 Tests
+    uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-tests.yaml@${{ github.head_ref || github.ref_name }}
+    secrets: inherit
+    with:
+      python-version: "3.11"
+      blender-version: "4.5"
+      runner-os: "macos-latest"
+
+  # Test with Blender 5.0
+  test-blender-5-0-ubuntu-latest:
+    needs: [lint, test-blender-4-5-ubuntu-latest]
+    name: Blender 5.0 Tests
+    uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-tests.yaml@${{ github.head_ref || github.ref_name }}
+    secrets: inherit
+    with:
+      python-version: "3.11"
+      blender-version: "5.0"
+      runner-os: "ubuntu-latest"
+
+  test-blender-5-0-windows-latest:
+    needs: [lint, test-blender-4-5-windows-latest]
+    name: Blender 5.0 Tests
+    uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-tests.yaml@${{ github.head_ref || github.ref_name }}
+    secrets: inherit
+    with:
+      python-version: "3.11"
+      blender-version: "5.0"
+      runner-os: "windows-latest"
+
+  test-blender-5-0-macos-latest:
+    needs: [lint, test-blender-4-5-macos-latest]
+    name: Blender 5.0 Tests
+    uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-tests.yaml@${{ github.head_ref || github.ref_name }}
+    secrets: inherit
+    with:
+      python-version: "3.11"
+      blender-version: "5.0"
+      runner-os: "macos-latest"
 
   release:
-    needs: [tests]
+    needs:
+      [
+        lint,
+        test-blender-5-0-ubuntu-latest,
+        test-blender-5-0-windows-latest,
+        test-blender-5-0-macos-latest,
+      ]
     name: Release
     uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-release.yaml@${{ github.head_ref || github.ref_name }}
     secrets: inherit
