@@ -297,7 +297,9 @@
                 "pyc",
                 "pyo",
                 "whl",
-                "nla"
+                "nla",
+                "blf",
+                "_HLT"
             ]
         },
         {

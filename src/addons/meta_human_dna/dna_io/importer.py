@@ -22,7 +22,7 @@ from ..constants import (
     UV_MAP_NAME,
     ComponentType,
 )
-from ..properties import MetahumanDnaImportProperties
+from ..properties import MetahumanImportProperties
 from ..rig_instance import RigInstance
 from .misc import get_dna_reader
 
@@ -34,7 +34,7 @@ class DNAImporter:
     def __init__(
         self,
         instance: RigInstance,
-        import_properties: MetahumanDnaImportProperties,
+        import_properties: MetahumanImportProperties,
         linear_modifier: float,
         component_type: ComponentType = "head",
         create_extra_bones: bool = True,

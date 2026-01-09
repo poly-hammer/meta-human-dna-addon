@@ -16,11 +16,12 @@ if TYPE_CHECKING:
     from .operators import BakeAnimationBase, DuplicateRigInstance  # noqa: TC004
     from .properties import (
         ExtraDnaFolder,
-        MetahumanDnaAddonProperties,  # noqa: TC004
+        MetahumanAddonProperties,  # noqa: TC004
+        MetahumanImportProperties,  # noqa: TC004
         MetahumanSceneProperties,  # noqa: TC004
         MetahumanWindowMangerProperties,  # noqa: TC004
     )
-    from .rig_instance import RigInstance as _RigInstanceBase
+    from .rig_instance import OutputData, RigInstance as _RigInstanceBase, ShapeKeyData  # noqa: TC004
 
     # =========================================================================
     # Custom Collections
@@ -55,7 +56,7 @@ if TYPE_CHECKING:
     # =========================================================================
     # Addon Preferences Types
     # =========================================================================
-    class _MetaHumanAddonPreferences(MetahumanDnaAddonProperties, bpy.types.AddonPreferences):
+    class _MetaHumanAddonPreferences(MetahumanAddonProperties, bpy.types.AddonPreferences):
         """Typed addon preferences for MetaHuman DNA."""
 
         bl_idname: str
@@ -119,9 +120,11 @@ if TYPE_CHECKING:
         "DuplicateRigInstance",
         "MetaHumanComponentBody",
         "MetaHumanComponentHead",
-        "MetahumanDnaAddonProperties",
+        "MetahumanAddonProperties",
+        "MetahumanImportProperties",
         "MetahumanSceneProperties",
         "MetahumanWindowMangerProperties",
+        "OutputData",
         "Preferences",
         "RBFDrivenData",
         "RBFDriverData",
@@ -129,6 +132,7 @@ if TYPE_CHECKING:
         "RBFSolverData",
         "RigInstance",
         "Scene",
+        "ShapeKeyData",
         "WindowManager",
         "riglogic",
     ]

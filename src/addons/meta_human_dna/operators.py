@@ -26,7 +26,7 @@ from .constants import (
     ToolInfo,
 )
 from .dna_io import DNACalibrator, DNAExporter, get_dna_reader
-from .properties import BlendFileMetaHumanCollection, MetahumanDnaImportProperties
+from .properties import BlendFileMetaHumanCollection, MetahumanImportProperties
 from .typing import *  # noqa: F403
 from .ui import callbacks, importer
 
@@ -173,7 +173,7 @@ class AppendOrLinkMetaHuman(bpy.types.Operator, importer.LinkAppendMetaHumanImpo
             filepath=file_path,
             link=self.operation_type == "LINK",
             relative=self.relative_path,
-        ) as (data_from, data_to): # type: ignore[arg-type]
+        ) as (data_from, data_to):  # type: ignore[arg-type]
             # we only append/link the collections that the user has selected
             for item in self.meta_human_list:
                 if item.include:
@@ -664,7 +664,7 @@ class BakeComponentAnimation(BakeAnimationBase):
         return False
 
 
-class ImportMetaHumanDna(bpy.types.Operator, importer.ImportAsset, MetahumanDnaImportProperties):
+class ImportMetaHumanDna(bpy.types.Operator, importer.ImportAsset, MetahumanImportProperties):
     """Import a metahuman head from a DNA file"""
 
     bl_idname = "meta_human_dna.import_dna"
@@ -682,7 +682,7 @@ class ImportMetaHumanDna(bpy.types.Operator, importer.ImportAsset, MetahumanDnaI
         # we define the properties initially on the operator so has preset
         # transfer the settings from the operator onto the window properties, so they are globally accessible
         for key in self.__annotations__:
-            if hasattr(MetahumanDnaImportProperties, key):
+            if hasattr(MetahumanImportProperties, key):
                 value = getattr(self.properties, key)
                 setattr(window_manager_properties.meta_human_dna, key, value)
 
@@ -704,14 +704,14 @@ class ImportMetaHumanDna(bpy.types.Operator, importer.ImportAsset, MetahumanDnaI
         window_manager_properties.evaluate_dependency_graph = False
         component = get_meta_human_component(
             file_path=file_path,
-            properties=self.properties, # type: ignore[arg-type]
+            properties=self.properties,  # type: ignore[arg-type]
         )
         # if the component is a head, we import the body first if the user has selected the option
         body_file = file_path.parent / "body.dna"
         if self.properties.include_body and component.component_type == "head" and body_file.exists():
             body_component = get_meta_human_component(
                 file_path=body_file,
-                properties=self.properties, # type: ignore[arg-type]
+                properties=self.properties,  # type: ignore[arg-type]
                 rig_instance=component.rig_instance,
             )
             valid, message = body_component.ingest()
@@ -735,7 +735,7 @@ class ImportMetaHumanDna(bpy.types.Operator, importer.ImportAsset, MetahumanDnaI
         window_manager_properties.evaluate_dependency_graph = True
         bpy.ops.meta_human_dna.force_evaluate()  # type: ignore[attr-defined]
 
-        bpy.ops.meta_human_dna.metrics_collection_consent("INVOKE_DEFAULT") # type: ignore[attr-defined]
+        bpy.ops.meta_human_dna.metrics_collection_consent("INVOKE_DEFAULT")  # type: ignore[attr-defined]
 
         return {"FINISHED"}
 
@@ -763,7 +763,7 @@ class DNA_FH_import_dna(bpy.types.FileHandler):
         )
 
 
-class ConvertSelectedToDna(bpy.types.Operator, MetahumanDnaImportProperties):
+class ConvertSelectedToDna(bpy.types.Operator, MetahumanImportProperties):
     """Converts the selected mesh object to a valid mesh that matches the provided base DNA file"""
 
     bl_idname = "meta_human_dna.convert_selected_to_dna"
@@ -1200,7 +1200,7 @@ class SendToMetaHumanCreator(bpy.types.Operator):
 
             last_component = None
             for component in [head, body]:
-                dna_io_instance: DNAExporter = None # type: ignore[assignment]
+                dna_io_instance: DNAExporter = None  # type: ignore[assignment]
                 if instance.output_method == "calibrate":
                     dna_io_instance = DNACalibrator(
                         instance=instance,
@@ -1447,7 +1447,7 @@ class ShapeKeyOperatorBase(bpy.types.Operator):
             return False
 
         if self.shape_key_name == SHAPE_KEY_BASIS_NAME and mesh_object.data and mesh_object.type == "MESH":
-            shape_keys = mesh_object.data.shape_keys # pyright: ignore[reportAttributeAccessIssue]
+            shape_keys = mesh_object.data.shape_keys  # pyright: ignore[reportAttributeAccessIssue]
             if not shape_keys:
                 self.report({"ERROR"}, "The mesh object does not have shape keys")
                 return False
@@ -1919,7 +1919,7 @@ class AddRigLogicTextureNode(bpy.types.Operator):
     def get_active_material(cls, context: "Context") -> bpy.types.Material | None:
         space = context.space_data
         if space and space.type == "NODE_EDITOR":
-            node_tree = space.node_tree # type: ignore[attr-defined]
+            node_tree = space.node_tree  # type: ignore[attr-defined]
             for material in bpy.data.materials:
                 if material.node_tree == node_tree:
                     return material

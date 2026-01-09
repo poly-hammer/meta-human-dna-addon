@@ -1,3 +1,4 @@
+# standard library imports
 import json
 import logging
 import math
@@ -5,15 +6,18 @@ import queue
 
 from pathlib import Path
 
+# third party imports
 import bpy
 
 from mathutils import Matrix, Vector
 
+# local imports
 from .. import utilities
 from ..constants import (
     DEFAULT_HEAD_MESH_VERTEX_POSITION_COUNT,
     EXTRA_BONES,
     HEAD_TOPOLOGY_VERTEX_GROUPS_FILE_PATH,
+    IS_BLENDER_5,
     TOPO_GROUP_PREFIX,
 )
 from ..dna_io import DNAExporter, create_shape_key
@@ -62,7 +66,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
                 prefix_component_name=prefix_component_name,
             )
 
-    def ingest(self, align: bool = True, constrain: bool = True) -> tuple[bool, str]:
+    def ingest(self, align: bool = True, constrain: bool = True) -> tuple[bool, str]:  # noqa: PLR0912
         valid, message = self.dna_importer.run()
         self.rig_instance.head_rig = self.dna_importer.rig_object
 
@@ -90,13 +94,13 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
         self.rig_instance.head_rig = self.head_rig_object
         self.rig_instance.face_board = face_board_object
 
-        if self.head_rig_object and self.head_mesh_object:
+        if self.head_rig_object and self.head_mesh_object and self.head_rig_object.pose:
             utilities.set_head_bone_collections(
                 mesh_object=self.head_mesh_object,
                 rig_object=self.head_rig_object,
             )
 
-            if self.body_rig_object:
+            if self.body_rig_object and self.body_rig_object.pose:
                 # Add the additional driver bones from the head to the body rig,
                 # since they share these same bones for driving the neck rbfs
                 utilities.reassign_to_body_bone_collections(
@@ -109,8 +113,8 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
 
                 if align:
                     # Align the head rig with the body rig if it exists
-                    body_object_head_bone = self.body_rig_object.pose.bones.get("head")  # type: ignore
-                    head_object_head_bone = self.head_rig_object.pose.bones.get("head")  # type: ignore
+                    body_object_head_bone = self.body_rig_object.pose.bones.get("head")
+                    head_object_head_bone = self.head_rig_object.pose.bones.get("head")
                     if body_object_head_bone and head_object_head_bone:
                         # get the location offset between the body head bone and the head head bone
                         body_head_location = body_object_head_bone.matrix @ Vector((0, 0, 0))
@@ -120,7 +124,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
                         self.head_rig_object.location += delta
             # if this isn't the first rig, move it to the right of the last head mesh
             elif len(self.scene_properties.rig_instance_list) > 1:
-                last_instance = self.scene_properties.rig_instance_list[-2]  # type: ignore
+                last_instance = self.scene_properties.rig_instance_list[-2]
                 if last_instance.head_mesh:
                     self.head_rig_object.location.x = utilities.get_bounding_box_left_x(last_instance.head_mesh) - (
                         utilities.get_bounding_box_width(last_instance.head_mesh) / 2
@@ -139,21 +143,20 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
         utilities.toggle_expand_in_outliner()
 
         # switch to pose mode on the face gui object
-        if face_board_object:
-            bpy.context.view_layer.objects.active = face_board_object  # type: ignore
+        if face_board_object and bpy.context.view_layer:
+            bpy.context.view_layer.objects.active = face_board_object
             utilities.position_face_board(
-                head_mesh_object=self.head_mesh_object,  # type: ignore
-                head_rig_object=self.head_rig_object,  # type: ignore
+                head_mesh_object=self.head_mesh_object,
+                head_rig_object=self.head_rig_object,
                 face_board_object=face_board_object,
             )
             utilities.move_to_collection(scene_objects=[face_board_object], collection_name=self.name, exclusively=True)
-            utilities.switch_to_pose_mode(face_board_object)  # type: ignore
-
+            utilities.switch_to_pose_mode(face_board_object)
             # constrain the face board to the head rig if it was just created
             if not self.dna_import_properties.reuse_face_board:
                 utilities.constrain_face_board_to_head(
                     face_board_object=face_board_object,
-                    head_rig_object=self.rig_instance.head_rig, # pyright: ignore[reportArgumentType]
+                    head_rig_object=self.rig_instance.head_rig,
                     body_rig_object=self.rig_instance.body_rig,
                     bone_name="CTRL_faceGUI",
                 )
@@ -170,7 +173,12 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
     def convert(self, mesh_object: bpy.types.Object, constrain: bool = True):
         from ..bindings import meta_human_dna_core
 
-        if self.head_mesh_object and self.face_board_object and self.head_rig_object:
+        if (
+            self.head_mesh_object
+            and self.face_board_object
+            and self.head_rig_object
+            and isinstance(self.head_rig_object.data, bpy.types.Armature)
+        ):
             target_center = utilities.get_bounding_box_center(mesh_object)
             head_center = utilities.get_bounding_box_center(self.head_mesh_object)
             delta = target_center - head_center
@@ -180,27 +188,29 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
             self.face_board_object.location += delta
 
             # must be unhidden to switch to edit bone mode
-            self.head_rig_object.hide_set(False)  # type: ignore
+            self.head_rig_object.hide_set(False)
             utilities.switch_to_bone_edit_mode(self.head_rig_object)
             # adjust the root bone so the root bone is still at zero
-            root_bone = self.head_rig_object.data.edit_bones.get("root")  # type: ignore
+            root_bone = self.head_rig_object.data.edit_bones.get("root")
             if root_bone:
                 root_bone.head.z -= delta.z
                 root_bone.tail.z -= delta.z
 
             # adjust the head rig origin to zero
-            utilities.switch_to_object_mode()  # type: ignore
+            utilities.switch_to_object_mode()
             # select all the objects and set their origins to the 3d cursor
             utilities.deselect_all()
             for item in self.rig_instance.output_head_item_list:
                 if item.scene_object:
                     item.scene_object.hide_set(False)
                     item.scene_object.select_set(True)
-                    bpy.context.view_layer.objects.active = item.scene_object  # type: ignore
+                    if bpy.context.view_layer:
+                        bpy.context.view_layer.objects.active = item.scene_object
             self.face_board_object.select_set(True)
             self.head_rig_object.select_set(True)
 
-            bpy.context.scene.cursor.location = Vector((0, 0, 0))  # type: ignore
+            if bpy.context.scene:
+                bpy.context.scene.cursor.location = Vector((0, 0, 0))
             bpy.ops.object.origin_set(type="ORIGIN_CURSOR")
 
             from_bmesh_object = DNAExporter.get_bmesh(mesh_object=mesh_object, rotation=0)
@@ -221,8 +231,9 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
             to_bmesh_object.free()
 
             vertex_positions = meta_human_dna_core.calculate_dna_mesh_vertex_positions(from_data, to_data)
-            self.head_mesh_object.data.vertices.foreach_set("co", vertex_positions.ravel())  # type: ignore
-            self.head_mesh_object.data.update()  # type: ignore
+            if isinstance(self.head_mesh_object.data, bpy.types.Mesh):
+                self.head_mesh_object.data.vertices.foreach_set("co", vertex_positions.ravel()) # type: ignore[attr-defined]
+                self.head_mesh_object.data.update()
 
             utilities.auto_fit_bones(
                 armature_object=self.head_rig_object,
@@ -253,7 +264,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
             return
 
         if self.head_mesh_object:
-            with open(HEAD_TOPOLOGY_VERTEX_GROUPS_FILE_PATH) as file:
+            with HEAD_TOPOLOGY_VERTEX_GROUPS_FILE_PATH.open() as file:
                 data = json.load(file)
                 logger.info("Creating topology vertex groups...")
                 for vertex_group_name, vertex_indexes in data.items():
@@ -276,41 +287,51 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
 
     def select_bone_group(self):
         if self.rig_instance and self.rig_instance.head_rig:
+            self.rig_instance.head_rig.hide_set(False)
+            utilities.switch_to_pose_mode(self.rig_instance.head_rig)
+
             if self.rig_instance.rig_bone_group_selection_mode != "add":
                 # deselect all bones first
-                for bone in self.rig_instance.head_rig.data.bones:  # type: ignore
-                    bone.select = False
+                # Note: In Blender 5.0+, the select property moved from Bone to PoseBone
+                for pose_bone in self.rig_instance.head_rig.pose.bones:
+                    if IS_BLENDER_5:
+                        pose_bone.select = False
+                    else:
+                        pose_bone.bone.select = False
 
             from ..bindings import meta_human_dna_core
 
             for bone_name in meta_human_dna_core.HEAD_BONE_SELECTION_GROUPS.get(
                 self.rig_instance.head_rig_bone_groups, []
-            ):  # type: ignore
-                bone = self.rig_instance.head_rig.data.bones.get(bone_name)  # type: ignore
-                if bone:
-                    bone.select = True
+            ):
+                pose_bone = self.rig_instance.head_rig.pose.bones.get(bone_name)
+                if pose_bone:
+                    if IS_BLENDER_5:
+                        pose_bone.select = True
+                    else:
+                        pose_bone.bone.select = True
 
             if self.rig_instance.head_rig_bone_groups.startswith(TOPO_GROUP_PREFIX):
-                for bone in utilities.get_topology_group_surface_bones(
+                for pose_bone in utilities.get_topology_group_surface_bones(
                     mesh_object=self.rig_instance.head_mesh,
                     armature_object=self.rig_instance.head_rig,
                     vertex_group_name=self.rig_instance.head_rig_bone_groups,
                     dna_reader=self.dna_reader,
                 ):
-                    bone.select = True
-
-            self.rig_instance.head_rig.hide_set(False)
-            utilities.switch_to_pose_mode(self.rig_instance.head_rig)  # type: ignore
+                    if IS_BLENDER_5:
+                        pose_bone.select = True
+                    else:
+                        pose_bone.bone.select = True  # type: ignore[attr-defined]
 
     def set_face_pose(self):
         if self.rig_instance.face_board:
-            thumbnail_file = Path(bpy.context.window_manager.meta_human_dna.face_pose_previews)  # type: ignore
+            thumbnail_file = Path(self.window_manager_properties.face_pose_previews)
             json_file_path = thumbnail_file.parent / "pose.json"
             if json_file_path.exists():
                 logger.info(f"Applying face pose from {json_file_path}")
                 # dont evaluate while updating the face board transforms
                 self.window_manager_properties.evaluate_dependency_graph = False
-                with open(json_file_path) as file:
+                with json_file_path.open() as file:
                     data = json.load(file)
 
                     # clear the pose location for all the control bones
@@ -319,7 +340,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
                             pose_bone.location = Vector((0.0, 0.0, 0.0))
 
                     for bone_name, transform_data in data.items():
-                        pose_bone = self.rig_instance.face_board.pose.bones.get(bone_name)  # type: ignore
+                        pose_bone = self.rig_instance.face_board.pose.bones.get(bone_name)
                         if pose_bone:
                             pose_bone.location = Vector(transform_data["location"])
 
@@ -350,16 +371,16 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
 
     @preserve_context
     def revert_bone_transforms_to_dna(self):
-        if self.head_rig_object:
+        if self.head_rig_object and isinstance(self.head_rig_object.data, bpy.types.Armature):
             extra_bone_lookup = dict(EXTRA_BONES)
             # make sure the dna importer has the rig object set
             self.dna_importer.rig_object = self.head_rig_object
 
-            bone_names = [pose_bone.name for pose_bone in bpy.context.selected_pose_bones]  # type: ignore
+            bone_names = [pose_bone.name for pose_bone in bpy.context.selected_pose_bones]
             utilities.switch_to_bone_edit_mode(self.rig_instance.head_rig)
 
             for bone_name in bone_names:
-                edit_bone = self.head_rig_object.data.edit_bones[bone_name]  # type: ignore
+                edit_bone = self.head_rig_object.data.edit_bones[bone_name]
                 extra_bone = extra_bone_lookup.get(bone_name)
                 if bone_name == "root":
                     edit_bone.matrix = self.head_rig_object.matrix_world
@@ -371,7 +392,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
                     location.y = location.y * self.dna_importer.get_height_scale_factor()
                     global_matrix = Matrix.Translation(location) @ rotation.to_matrix().to_4x4()
                     # default values are stored in Y-up, so convert to Z-up
-                    edit_bone.matrix = Matrix.Rotation(math.radians(90), 4, "X").to_4x4() @ global_matrix  # type: ignore
+                    edit_bone.matrix = Matrix.Rotation(math.radians(90), 4, "X").to_4x4() @ global_matrix  # type: ignore[arg-type]
                 else:
                     bone_matrix = self.dna_importer.get_bone_matrix(bone_name=bone_name)
                     if bone_matrix:
@@ -384,14 +405,14 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
 
         commands = []
 
-        def get_initialize_kwargs(index: int, mesh_index: int):
+        def get_initialize_kwargs(_: int, mesh_index: int) -> dict:
             mesh_dna_name = self.dna_reader.getMeshName(mesh_index)
             mesh_object = bpy.data.objects.get(f"{self.name}_{mesh_dna_name}")
             return {
                 "mesh_object": mesh_object,
             }
 
-        def get_create_kwargs(index: int, mesh_index: int):
+        def get_create_kwargs(index: int, mesh_index: int) -> dict:
             channel_index = self.dna_reader.getBlendShapeChannelIndex(mesh_index, index)
             shape_key_name = self.dna_reader.getBlendShapeChannelName(channel_index)
             mesh_dna_name = self.dna_reader.getMeshName(mesh_index)

@@ -107,7 +107,8 @@ ALTERNATE_TEXTURE_FILE_EXTENSIONS = [".tga", ".png"]
 ALTERNATE_HEAD_TEXTURE_FILE_NAMES = {
     "head_color_map.tga": "Head_Basecolor",
     "head_normal_map.tga": "Head_Normal",
-    "head_cavity_map.tga": "Chest_Cavity",  # TODO: This is a weird convention, but this seems to be what metahuman creator names it.
+    # TODO: This is a weird convention, but this seems to be what metahuman creator names it.
+    "head_cavity_map.tga": "Chest_Cavity",
     "head_cm1_color_map.tga": "Head_Basecolor_Animated_CM1",
     "head_cm2_color_map.tga": "Head_Basecolor_Animated_CM2",
     "head_cm3_color_map.tga": "Head_Basecolor_Animated_CM3",

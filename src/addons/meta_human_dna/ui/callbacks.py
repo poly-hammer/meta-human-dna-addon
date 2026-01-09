@@ -153,12 +153,12 @@ def get_head_mesh_topology_groups(self: "RigInstance", context: "Context") -> li
     if instance and instance.head_mesh:
         enum_items.extend(
             (
-                group_name,
-                " ".join([i.capitalize() for i in group_name.replace("TOPO_GROUP_", "").split("_")]),
-                f"Select vertices assigned to {group_name} on the active head mesh",
+                group.name,
+                " ".join([i.capitalize() for i in group.name.replace("TOPO_GROUP_", "").split("_")]),
+                f"Select vertices assigned to {group.name} on the active head mesh",
             )
-            for group_name in instance.head_mesh.vertex_groups
-            if group_name.startswith("TOPO_GROUP_")
+            for group in instance.head_mesh.vertex_groups
+            if group.name.startswith("TOPO_GROUP_")
         )
 
     # Sort the enum items alphabetically by their first index (the group name)

@@ -1,3 +1,4 @@
+# standard library imports
 import json
 import logging
 import math
@@ -5,14 +6,16 @@ import re
 import sys
 
 from abc import ABCMeta, abstractmethod
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import Any
 
+# third party imports
 import bpy
 
 from mathutils import Matrix
 
+# local imports
 from .. import utilities
 from ..constants import (
     ALTERNATE_HEAD_TEXTURE_FILE_NAMES,
@@ -42,16 +45,8 @@ from ..constants import (
     ToolInfo,
 )
 from ..dna_io import DNAImporter, get_dna_reader
+from ..typing import *  # noqa: F403
 from ..utilities import preserve_context
-
-
-if TYPE_CHECKING:
-    from ..properties import (
-        MetahumanDnaImportProperties,
-        MetahumanSceneProperties,
-        MetahumanWindowMangerProperties,
-    )
-    from ..rig_instance import RigInstance
 
 
 logger = logging.getLogger(__name__)
@@ -63,7 +58,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
         name: str | None = None,
         rig_instance: "RigInstance | None" = None,
         dna_file_path: Path | None = None,
-        dna_import_properties: "MetahumanDnaImportProperties | None" = None,
+        dna_import_properties: "MetahumanImportProperties | None" = None,
         component_type: ComponentType = "head",
     ):
         # make sure dna file path is a Path object
@@ -87,11 +82,11 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
             elif rig_instance.body_dna_file_path:
                 self.asset_root_folder = Path(bpy.path.abspath(str(rig_instance.body_dna_file_path))).parent
 
-        self.rig_instance: RigInstance = rig_instance  # type: ignore
-        self.addon_properties = bpy.context.preferences.addons[ToolInfo.NAME].preferences  # type: ignore
-        self.window_manager_properties: MetahumanWindowMangerProperties = bpy.context.window_manager.meta_human_dna  # type: ignore
-        self.scene_properties: MetahumanSceneProperties = bpy.context.scene.meta_human_dna  # type: ignore
-        self.dna_import_properties: MetahumanDnaImportProperties = dna_import_properties  # type: ignore
+        self.rig_instance: "RigInstance" = rig_instance  # type: ignore[assignment]  # noqa: UP037
+        self.addon_properties: "MetahumanAddonProperties" = bpy.context.preferences.addons[ToolInfo.NAME].preferences  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]  # noqa: UP037
+        self.window_manager_properties: "MetahumanWindowMangerProperties" = bpy.context.window_manager.meta_human_dna  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue]  # noqa: UP037
+        self.scene_properties: "MetahumanSceneProperties" = bpy.context.scene.meta_human_dna  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue] # noqa: UP037
+        self.dna_import_properties: "MetahumanImportProperties" = dna_import_properties  # noqa: UP037
 
         # if no rig_instance is provided, create a new one and supply the dna_file_path to it
         if not self.rig_instance and dna_file_path:
@@ -133,7 +128,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
 
     @property
     def component_type(self) -> ComponentType:
-        return self._component_type  # type: ignore
+        return self._component_type  # type: ignore[return-value]
 
     @property
     def linear_modifier(self) -> float:
@@ -167,7 +162,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
             return Path(bpy.path.abspath(self.rig_instance.head_dna_file_path))
         if self._component_type == "body":
             return Path(bpy.path.abspath(self.rig_instance.body_dna_file_path))
-        return None  # type: ignore
+        return None  # type: ignore[return-value]
 
     @property
     def face_board_object(self) -> bpy.types.Object | None:
@@ -196,7 +191,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
 
         export_manifest = self.asset_root_folder / "ExportManifest.json"
         if export_manifest.exists():
-            with open(export_manifest) as file:
+            with export_manifest.open() as file:
                 try:
                     return json.load(file)
                 except json.JSONDecodeError:
@@ -224,7 +219,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
             name = re.sub(INVALID_NAME_CHARACTERS_REGEX, "_", name or dna_file_path.stem.strip())
         return self.metadata.get("metaHumanName", name)
 
-    def _get_lods_settings(self):
+    def _get_lods_settings(self) -> list[tuple[int, bool]]:
         return [(i, getattr(self.dna_import_properties, f"import_lod{i}")) for i in range(NUMBER_OF_HEAD_LODS)]
 
     def _organize_viewport(self):
@@ -251,15 +246,15 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
 
         # move the lod collections under the main asset collection
         asset_collection = bpy.data.collections.get(self.name)
-        if asset_collection:
+        if asset_collection and bpy.context.scene:
             for lod_index in range(NUMBER_OF_HEAD_LODS):
                 lod_collection = bpy.data.collections.get(f"{self.name}_lod{lod_index}")
                 # move the lod collection to the asset collection
                 if lod_collection and lod_collection not in asset_collection.children.values():
                     asset_collection.children.link(lod_collection)
                 # unlink the lod collection from the scene collection
-                if lod_collection in bpy.context.scene.collection.children.values():  # type: ignore
-                    bpy.context.scene.collection.children.unlink(lod_collection)  # type: ignore
+                if lod_collection in bpy.context.scene.collection.children.values():
+                    bpy.context.scene.collection.children.unlink(lod_collection)
 
     def _get_alternate_image_path(self, image_file: Path, mapping: dict) -> Path:
         # Check for alternate image file names
@@ -279,7 +274,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
                         return alternate_image_path
         return image_file
 
-    def _set_image_textures(self, materials: list[bpy.types.Material]):
+    def _set_image_textures(self, materials: list[bpy.types.Material]):  # noqa: PLR0912
         # set the combined mask image and topology image
         if self.component_type == "head":
             bpy.data.images[MASKS_TEXTURE].filepath = str(MASKS_TEXTURE_FILE_PATH)
@@ -291,10 +286,10 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
             if not material.node_tree:
                 continue
 
-            for node in material.node_tree.nodes:  # type: ignore
-                if node.type == "TEX_IMAGE" and node.image:  # type: ignore
+            for node in material.node_tree.nodes:
+                if node.type == "TEX_IMAGE" and node.image:  # type: ignore[attr-defined]
                     # get the image file name without the postfixes for duplicates i.e. .001
-                    image_file = node.image.name  # type: ignore
+                    image_file = node.image.name  # type: ignore[attr-defined]
                     if image_file.count(".") > 1:
                         image_file = image_file.rsplit(".", 1)[0]
 
@@ -311,7 +306,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
                         )
 
                     if new_image_path.exists():
-                        node.image = bpy.data.images.load(str(new_image_path))  # type: ignore
+                        node.image = bpy.data.images.load(str(new_image_path))  # type: ignore[attr-defined]
 
                     # Set the color space for color and normal textures, taking into account alternate
                     # color management workflows like ACES
@@ -319,18 +314,18 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
                     try:
                         if stem.endswith(("color_map", "color")) or "color_animated_" in stem:
                             try:
-                                node.image.colorspace_settings.name = "sRGB"  # type: ignore
+                                node.image.colorspace_settings.name = "sRGB" # type: ignore[attr-defined]
                             except TypeError:
-                                node.image.colorspace_settings.name = "sRGB - Display"  # type: ignore
+                                node.image.colorspace_settings.name = "sRGB - Display"  # type: ignore[attr-defined]
 
                         if stem.endswith(("normal_map", "normal")) or "normal_animated_" in stem:
                             try:
-                                node.image.colorspace_settings.name = "Non-Color"  # type: ignore
+                                node.image.colorspace_settings.name = "Non-Color"  # type: ignore[attr-defined]
                             except TypeError:
-                                node.image.colorspace_settings.name = "Raw"  # type: ignore
+                                node.image.colorspace_settings.name = "Raw" # type: ignore[attr-defined]
 
                     except Exception as error:
-                        logger.error(f"Failed to set colorspace for {node.image.name}: {error}")  # type: ignore
+                        logger.error(f"Failed to set colorspace for {node.image.name}: {error}")  # type: ignore[attr-defined]
 
         # remove any extra masks and topology images
         for image in bpy.data.images:
@@ -347,16 +342,16 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
         # set the masks and topology textures for all node groups
         for node_group in bpy.data.node_groups:
             for node in node_group.nodes:
-                if node.type == "TEX_IMAGE":  # type: ignore
+                if node.type == "TEX_IMAGE":
                     # set the masks and topology textures
                     if self.component_type == "head":
-                        if node.label == MASKS_TEXTURE:  # type: ignore
-                            node.image = bpy.data.images[MASKS_TEXTURE]  # type: ignore
-                        if node.label == HEAD_TOPOLOGY_TEXTURE:  # type: ignore
-                            node.image = bpy.data.images[HEAD_TOPOLOGY_TEXTURE]  # type: ignore
+                        if node.label == MASKS_TEXTURE:
+                            node.image = bpy.data.images[MASKS_TEXTURE]  # type: ignore[attr-defined]
+                        if node.label == HEAD_TOPOLOGY_TEXTURE:
+                            node.image = bpy.data.images[HEAD_TOPOLOGY_TEXTURE]  # type: ignore[attr-defined]
                     elif self.component_type == "body":
-                        if node.label == BODY_TOPOLOGY_TEXTURE:  # type: ignore
-                            node.image = bpy.data.images[BODY_TOPOLOGY_TEXTURE]  # type: ignore
+                        if node.label == BODY_TOPOLOGY_TEXTURE:
+                            node.image = bpy.data.images[BODY_TOPOLOGY_TEXTURE]  # type: ignore[attr-defined]
 
     def _purge_existing_materials(self):
         shader_mapping = HEAD_MESH_SHADER_MAPPING if self.component_type == "head" else BODY_MESH_SHADER_MAPPING
@@ -380,8 +375,8 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
                 bpy.data.images.remove(body_topology_image)
 
     def _mirror_bone_to(self, from_bone: bpy.types.PoseBone, to_bone_name: str) -> bpy.types.PoseBone | None:
-        if self.head_rig_object:
-            to_bone = self.head_rig_object.pose.bones.get(to_bone_name)  # type: ignore
+        if self.head_rig_object and self.head_rig_object.pose:
+            to_bone = self.head_rig_object.pose.bones.get(to_bone_name)
             location = from_bone.matrix.to_translation()
             location.x *= -1
             if to_bone:
@@ -402,7 +397,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
             active_index = self.scene_properties.rig_instance_list_active_index
             my_list.remove(active_index)
             to_index = min(active_index, len(my_list) - 1)
-            self.scene_properties.rig_instance_list_active_index = to_index  # type: ignore
+            self.scene_properties.rig_instance_list_active_index = to_index
 
     def import_materials(self) -> list[bpy.types.Material] | None:  # noqa: PLR0912
         if self.dna_import_properties and not self.dna_import_properties.import_materials:
@@ -418,8 +413,9 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
         materials = []
         directory_path = f"{MATERIALS_FILE_PATH}{sep}Material{sep}"
 
-        # Set the active collection to the scene collection. This ensures that the materials are appended to the scene collection
-        bpy.context.view_layer.active_layer_collection = bpy.context.view_layer.layer_collection  # type: ignore
+        # Set the active collection to the scene collection. This ensures that the materials are appended
+        # to the scene collection.
+        bpy.context.view_layer.active_layer_collection = bpy.context.view_layer.layer_collection  # pyright: ignore[reportOptionalMemberAccess]
 
         # remove existing matching materials for this face to avoid duplicates being imported
         self._purge_existing_materials()
@@ -464,28 +460,28 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
                             node.node_tree.name = f"{self.name}_{BODY_TEXTURE_LOGIC_NODE_NAME}"
 
                 # rename to match metahuman
-                material.name = f"{self.name}_{material_name}"  # type: ignore
+                material.name = f"{self.name}_{material_name}"
 
                 # set the uv maps on the material nodes
-                for node in material.node_tree.nodes:  # type: ignore
-                    if node.type == "UVMAP":
-                        node.uv_map = UV_MAP_NAME  # type: ignore
+                if material.node_tree:
+                    for node in material.node_tree.nodes:
+                        if node.type == "UVMAP":
+                            node.uv_map = UV_MAP_NAME  # type: ignore[attr-defined]
                 for node_group in bpy.data.node_groups:
                     if node_group.name.startswith("Mask"):
                         for node in node_group.nodes:
                             if node.type == "UVMAP":
-                                node.uv_map = UV_MAP_NAME  # type: ignore
+                                node.uv_map = UV_MAP_NAME  # type: ignore[attr-defined]
                     if node_group.name.lower().rsplit(".", 1)[0].endswith("_texture_logic"):
                         for node in node_group.nodes:
                             if node.type == "NORMAL_MAP":
-                                node.uv_map = UV_MAP_NAME  # type: ignore
-
+                                node.uv_map = UV_MAP_NAME  # type: ignore[attr-defined]
                 for mesh_object in bpy.data.objects:
                     if mesh_object.name.startswith(f"{self.name}_{key}"):
-                        if mesh_object.data.materials:  # type: ignore
-                            mesh_object.data.materials[0] = material  # type: ignore
+                        if mesh_object.data.materials: # type: ignore[attr-defined]
+                            mesh_object.data.materials[0] = material  # type: ignore[attr-defined]
                         else:
-                            mesh_object.data.materials.append(material)  # type: ignore
+                            mesh_object.data.materials.append(material)  # type: ignore[attr-defined]
 
             if material:
                 materials.append(material)
@@ -504,14 +500,17 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
     def validate_conversion(
         self, mesh_object: bpy.types.Object, tolerance: float = DEFAULT_UV_TOLERANCE
     ) -> tuple[bool, str]:
-        if not mesh_object.data:
+        if not mesh_object.data or not isinstance(mesh_object.data, bpy.types.Mesh):
             return False, f'The mesh "{mesh_object.name}" has no data! Please provide a valid mesh object.'
 
-        uv_layers = mesh_object.data.uv_layers  # type: ignore
-        if len(uv_layers) != 1:  # type: ignore
+        uv_layers = mesh_object.data.uv_layers
+        if len(uv_layers) != 1:
             return (
                 False,
-                f'The mesh "{mesh_object.name}" must have exactly one UV layer! Please ensure the mesh has a single UV map.',
+                (
+                    f'The mesh "{mesh_object.name}" must have exactly one UV layer! '
+                    "Please ensure the mesh has a single UV map."
+                ),
             )
 
         uv_layer = uv_layers.active
@@ -550,9 +549,9 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
             ignored_bone_names = utilities.get_ignored_bones_names(self.head_rig_object)
             selected_pose_bones = [
                 pose_bone
-                for pose_bone in bpy.context.selected_pose_bones  # type: ignore
+                for pose_bone in bpy.context.selected_pose_bones
                 if pose_bone.name not in ignored_bone_names
-            ]  # type: ignore
+            ]
 
             # Validate that the selected bones are all on the same side
             left_side_count = 0
@@ -597,12 +596,15 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
 
     @preserve_context
     def pre_convert_mesh_cleanup(self, mesh_object: bpy.types.Object) -> bpy.types.Object | None:
+        if not mesh_object.data or not isinstance(mesh_object.data, bpy.types.Mesh):
+            return None
+
         mesh_object_name = mesh_object.name
-        mesh_name = mesh_object.data.name  # type: ignore
+        mesh_name = mesh_object.data.name
         head_material_name = None
-        for material in mesh_object.data.materials:  # type: ignore
-            if material.name in UNREAL_EXPORTED_HEAD_MATERIAL_NAMES:  # type: ignore
-                head_material_name = material.name  # type: ignore
+        for material in mesh_object.data.materials:
+            if material and material.name in UNREAL_EXPORTED_HEAD_MATERIAL_NAMES:
+                head_material_name = material.name
 
         # separate the head mesh by material if it has the a unreal head material
         if head_material_name:
@@ -610,11 +612,11 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
             utilities.switch_to_edit_mode(mesh_object)
             bpy.ops.mesh.select_all(action="SELECT")
             bpy.ops.mesh.separate(type="MATERIAL")
-            for separated_mesh in bpy.context.selectable_objects:  # type: ignore
-                if head_material_name in [i.name for i in separated_mesh.data.materials]:  # type: ignore
+            for separated_mesh in bpy.context.selectable_objects:
+                if head_material_name in [i.name for i in separated_mesh.data.materials]:  # type: ignore[attr-defined]
                     new_mesh_object = separated_mesh
                     new_mesh_object.name = mesh_object_name
-                    new_mesh_object.data.name = mesh_name  # type: ignore
+                    new_mesh_object.data.name = mesh_name # type: ignore[attr-defined]
                 else:
                     bpy.data.objects.remove(separated_mesh, do_unlink=True)
             return new_mesh_object
@@ -628,14 +630,14 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
         from .. import bl_info
 
         file_path = Path(bpy.path.abspath(str(self.rig_instance.output_folder_path))) / "ExportManifest.json"
-        with open(file_path, "w") as file:
+        with file_path.open("w") as file:
             json.dump(
                 {
                     "metaHumanName": self.name,
                     "exportBlenderAddonVersion": ".".join([str(i) for i in bl_info.get("version", [])]),
                     "exportPluginVersion": self.metadata.get("exportPluginVersion", "1.0.0"),
                     "exportEngineVersion": self.metadata.get("exportEngineVersion", "5.6.0-0+UE5"),
-                    "exportedAt": datetime.now(tz=timezone.utc).strftime("%Y.%m.%d-%H.%M.%S"),
+                    "exportedAt": datetime.now(tz=UTC).strftime("%Y.%m.%d-%H.%M.%S"),
                 },
                 file,
                 indent=4,
@@ -647,7 +649,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
             logger.warning("Head rig or body rig not found. Cannot constrain head rig to body rig.")
             return
 
-        body_bone_names = [pose_bone.name for pose_bone in self.rig_instance.body_rig.pose.bones]  # type: ignore
+        body_bone_names = [pose_bone.name for pose_bone in self.rig_instance.body_rig.pose.bones]
 
         # add copy transforms constraint to the head rig
         for pose_bone in self.rig_instance.head_rig.pose.bones:
@@ -735,5 +737,5 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def import_action(self, file_path: Path, **kwargs):
+    def import_action(self, file_path: Path, **kwargs: Any) -> bpy.types.Action | None:
         pass

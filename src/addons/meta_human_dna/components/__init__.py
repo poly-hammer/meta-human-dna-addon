@@ -1,19 +1,16 @@
+# standard library imports
 from pathlib import Path
-from typing import TYPE_CHECKING
 
+# local imports
 from ..dna_io.misc import get_dna_component_type
+from ..typing import *
 from .body import MetaHumanComponentBody
 from .head import MetaHumanComponentHead
 
 
-if TYPE_CHECKING:
-    from ..properties import MetahumanDnaImportProperties
-    from ..rig_instance import RigInstance
-
-
 def get_meta_human_component(
     file_path: Path,
-    properties: "MetahumanDnaImportProperties",
+    properties: "MetahumanImportProperties",
     name: str | None = None,
     rig_instance: "RigInstance | None" = None,
 ) -> MetaHumanComponentHead | MetaHumanComponentBody:

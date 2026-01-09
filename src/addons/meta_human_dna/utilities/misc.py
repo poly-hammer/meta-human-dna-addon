@@ -121,6 +121,7 @@ def set_context(context: dict[str, Any]) -> None:
         # set the cursor location
         bpy.context.scene.cursor.location = context.get("cursor_location", Vector((0, 0, 0)))
 
+
 def preserve_context(func: Callable) -> Callable:
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         window_manager_properties: "MetahumanWindowMangerProperties" = bpy.context.window_manager.meta_human_dna  # type: ignore[attr-defined]  # noqa: UP037
@@ -239,7 +240,7 @@ def init_sentry():
         return
 
     # Don't collect metrics if the user has disabled it
-    addon_preferences: "MetahumanDnaAddonProperties" = bpy.context.preferences.addons[ToolInfo.NAME].preferences  # pyright: ignore[reportOptionalMemberAccess, reportAssignmentType] # noqa: UP037
+    addon_preferences: "MetahumanAddonProperties" = bpy.context.preferences.addons[ToolInfo.NAME].preferences  # pyright: ignore[reportOptionalMemberAccess, reportAssignmentType] # noqa: UP037
     if not addon_preferences.metrics_collection:
         return
 
@@ -323,12 +324,7 @@ def pre_undo(*_: Any) -> None:
     context: "Context" = bpy.context  # type: ignore[attr-defined]  # noqa: UP037
 
     # Only run the pre-undo logic if the current context is a 3D view area
-    if (
-        context.area
-        and context.area.type == "VIEW_3D"
-        and context.region
-        and context.region.type == "WINDOW"
-    ):
+    if context.area and context.area.type == "VIEW_3D" and context.region and context.region.type == "WINDOW":
         context.window_manager.meta_human_dna.evaluate_dependency_graph = False
         context.window_manager.meta_human_dna.is_undoing = True
         for instance in context.scene.meta_human_dna.rig_instance_list:
@@ -339,12 +335,7 @@ def post_undo(*_: Any) -> None:
     context: "Context" = bpy.context  # type: ignore[attr-defined]  # noqa: UP037
 
     # Only run the post-undo logic if the current context is a 3D view area
-    if (
-        context.area
-        and context.area.type == "VIEW_3D"
-        and context.region
-        and context.region.type == "WINDOW"
-    ):
+    if context.area and context.area.type == "VIEW_3D" and context.region and context.region.type == "WINDOW":
         context.window_manager.meta_human_dna.evaluate_dependency_graph = True
 
 
@@ -401,7 +392,7 @@ def toggle_expand_in_outliner(state: int = 2):
         if area.type == "OUTLINER":
             for region in area.regions:
                 if region.type == "WINDOW":
-                    with bpy.context.temp_override(area=area, region=region): # type: ignore[arg-type]
+                    with bpy.context.temp_override(area=area, region=region):  # type: ignore[arg-type]
                         bpy.ops.outliner.show_hierarchy()
                         for _i in range(state):
                             bpy.ops.outliner.expanded_toggle()
@@ -581,7 +572,7 @@ def rename_as_lod0_meshes(mesh_objects: list[bpy.types.Object]):
 
         # re-populate the output items
         instance.output_head_item_list.clear()
-        update_head_output_items(None, bpy.context) # type: ignore[arg-type]
+        update_head_output_items(None, bpy.context)  # type: ignore[arg-type]
 
 
 def report_error(title: str, message: str, fix: Callable | None = None, width: int = 500):
@@ -885,7 +876,9 @@ def position_eye_aim(head_rig_object: bpy.types.Object, face_board_object: bpy.t
 
 
 def position_face_board(
-    head_mesh_object: bpy.types.Object, head_rig_object: bpy.types.Object, face_board_object: bpy.types.Object
+    head_mesh_object: bpy.types.Object | None,
+    head_rig_object: bpy.types.Object | None,
+    face_board_object: bpy.types.Object,
 ) -> None:
     from .mesh import get_bounding_box_center, get_bounding_box_left_x, get_bounding_box_right_x
 

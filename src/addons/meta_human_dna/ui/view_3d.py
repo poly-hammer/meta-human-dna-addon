@@ -11,6 +11,13 @@ from ..constants import SHAPE_KEY_BASIS_NAME
 from ..typing import *  # noqa: F403
 
 
+def get_active_rig_instance() -> "RigInstance | None":
+    # Avoid circular import
+    from ..ui.callbacks import get_active_rig_instance as _get_active_rig_instance
+
+    return _get_active_rig_instance()
+
+
 def dependencies_are_valid() -> bool:
     # Avoid circular import
     from ..utilities import dependencies_are_valid as _dependencies_are_valid
@@ -18,11 +25,9 @@ def dependencies_are_valid() -> bool:
     return _dependencies_are_valid()
 
 
-def valid_rig_instance_exists(context, ignore_face_board: bool = False) -> str:  # noqa: PLR0911
-    properties = context.scene.meta_human_dna  # type: ignore
-    if len(properties.rig_instance_list) > 0:
-        active_index = properties.rig_instance_list_active_index
-        instance = properties.rig_instance_list[active_index]
+def valid_rig_instance_exists(_: "Context", ignore_face_board: bool = False) -> str:  # noqa: PLR0911
+    instance = get_active_rig_instance()
+    if instance:
         if not instance.face_board and not ignore_face_board:
             return f'"{instance.name}" Has No Face Board set.'
 
@@ -43,10 +48,9 @@ def valid_rig_instance_exists(context, ignore_face_board: bool = False) -> str: 
 
         return ""
     return "Missing data. Create/Import DNA data."
-    return ""
 
 
-def draw_rig_instance_error(layout, error: str):
+def draw_rig_instance_error(layout: bpy.types.UILayout, error: str):
     # Validate installed dependencies.
     if not dependencies_are_valid():
         row = layout.row()
@@ -66,23 +70,23 @@ def draw_rig_instance_error(layout, error: str):
 
 class RigInstanceDependentPanel(bpy.types.Panel):
     @classmethod
-    def poll(cls, context) -> bool:
+    def poll(cls, context: "Context") -> bool:
         error = valid_rig_instance_exists(context, ignore_face_board=True)
         return bool(not error)
 
 
 class ArmatureDependentPanel(bpy.types.Panel):
     @classmethod
-    def poll(cls, context) -> bool:
+    def poll(cls, context: "Context") -> bool:
         error = valid_rig_instance_exists(context, ignore_face_board=True)
         if error:
             return False
 
-        properties = context.scene.meta_human_dna  # type: ignore
-        active_index = properties.rig_instance_list_active_index
-        instance = properties.rig_instance_list[active_index]
+        instance = get_active_rig_instance()
+        if not instance:
+            return False
 
-        current_component = context.window_manager.meta_human_dna.current_component_type  # type: ignore
+        current_component = context.window_manager.meta_human_dna.current_component_type
         return bool(
             (current_component == "head" and instance.head_rig) or (current_component == "body" and instance.body_rig)
         )
@@ -90,54 +94,64 @@ class ArmatureDependentPanel(bpy.types.Panel):
 
 class MeshDependentPanel(bpy.types.Panel):
     @classmethod
-    def poll(cls, context) -> bool:
+    def poll(cls, context: "Context") -> bool:
         error = valid_rig_instance_exists(context, ignore_face_board=True)
         if error:
             return False
 
-        properties = context.scene.meta_human_dna  # type: ignore
-        active_index = properties.rig_instance_list_active_index
-        instance = properties.rig_instance_list[active_index]
+        instance = get_active_rig_instance()
+        if not instance:
+            return False
 
-        current_component = context.window_manager.meta_human_dna.current_component_type  # type: ignore
+        current_component = context.window_manager.meta_human_dna.current_component_type
         return bool(
             (current_component == "head" and instance.head_mesh) or (current_component == "body" and instance.body_mesh)
         )
 
 
 class META_HUMAN_DNA_UL_output_items(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_prop_name):
+    def draw_item(
+        self,
+        context: "Context",
+        layout: bpy.types.UILayout,
+        data: "RigInstance",
+        item: "OutputData",
+        icon: int | None,
+        active_data: "RigInstance",
+        active_prop_name: str,
+    ):
         layout.separator(factor=0.1)
         layout.prop(item, "include", text="")
 
-        icon = "MESH_DATA"
+        item_icon = "MESH_DATA"
         prop_name = "scene_object"
         if item.scene_object and item.scene_object.type == "ARMATURE":
-            icon = "ARMATURE_DATA"
+            item_icon = "ARMATURE_DATA"
         elif item.image_object:
-            icon = "IMAGE_DATA"
+            item_icon = "IMAGE_DATA"
             prop_name = "image_object"
 
         if item.editable_name:
-            layout.prop(item, "name", text="", emboss=False, icon=icon)
+            layout.prop(item, "name", text="", emboss=False, icon=item_icon)
         else:
-            layout.label(text=item.name, icon=icon)
+            layout.label(text=item.name, icon=item_icon)
 
         row = layout.row()
         row.enabled = False
         row.prop(item, prop_name, text="", emboss=False)
 
 
-class META_HUMAN_DNA_UL_material_slot_to_instance_mapping(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_prop_name):
-        split = layout.split(factor=0.25)
-        split.alert = not item.valid_path
-        split.label(text=item.name.replace(f"{data.name}_", ""), icon="MATERIAL")
-        split.prop(item, "asset_path", text="", emboss=False)
-
-
 class META_HUMAN_DNA_UL_rig_instances(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_prop_name):
+    def draw_item(
+        self,
+        context: "Context",
+        layout: bpy.types.UILayout,
+        data: "MetahumanSceneProperties",
+        item: "RigInstance",
+        icon: int | None,
+        active_data: "MetahumanSceneProperties",
+        active_prop_name: str,
+    ):
         layout.prop(item, "auto_evaluate", text="")
 
         row = layout.row()
@@ -170,21 +184,30 @@ class META_HUMAN_DNA_UL_rig_instances(bpy.types.UIList):
 class META_HUMAN_DNA_UL_shape_keys(bpy.types.UIList):
     filter_by_name: bpy.props.StringProperty(
         default="", name="Filter by Name", description="Filter shape keys by name", options={"TEXTEDIT_UPDATE"}
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
 
     show_zero_values: bpy.props.BoolProperty(
         default=False,
         name="Show Zeros",
         description="Hide shape keys with a value of 0.0",
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
 
     order_by_value: bpy.props.BoolProperty(
         default=True,
         name="Order by Value",
         description="Order shape keys by value in descending order",
-    )  # type: ignore
+    )  # pyright: ignore[reportInvalidTypeForm]
 
-    def draw_item(self, context, layout, data, item, icon, active_data, active_prop_name):
+    def draw_item(
+        self,
+        context: "Context",
+        layout: bpy.types.UILayout,
+        data: "RigInstance",
+        item: "ShapeKeyData",
+        icon: int | None,
+        active_data: "RigInstance",
+        active_prop_name: str,
+    ):
         row = layout.row(align=True)
         label = item.name.split("__", 1)[-1]
         row.label(text=label, icon="SHAPEKEY_DATA")
@@ -195,9 +218,8 @@ class META_HUMAN_DNA_UL_shape_keys(bpy.types.UIList):
         sub.operator("meta_human_dna.edit_this_shape_key", text="", icon="EDITMODE_HLT").shape_key_name = item.name
         sub.operator("meta_human_dna.reimport_this_shape_key", text="", icon="IMPORT").shape_key_name = item.name
 
-    def draw_filter(self, context, layout):
+    def draw_filter(self, context: "Context", layout: bpy.types.UILayout):
         """UI code for the filtering/sorting/search area."""
-        # col = layout.column(align=True)
         row = layout.row(align=True)
         row.prop(self, "filter_by_name", text="")
         row.separator()
@@ -207,10 +229,10 @@ class META_HUMAN_DNA_UL_shape_keys(bpy.types.UIList):
         row.prop(self, "show_zero_values", text="", icon="HIDE_OFF" if self.show_zero_values else "HIDE_ON")
         row.prop(self, "order_by_value", text="", icon="LINENUMBERS_ON")
 
-    def filter_items(self, context, data, prop_name):
+    def filter_items(self, context: "Context", data: "RigInstance", prop_name: str) -> tuple[list[int], list[int]]:
         items = getattr(data, prop_name)
         filtered = [self.bitflag_filter_item] * len(items)
-        ordered = []
+        ordered: list[int] = []
         _sort = []
         mesh_name_prefix = data.active_shape_key_mesh_name.replace(f"{data.name}_", "")
 
@@ -227,8 +249,8 @@ class META_HUMAN_DNA_UL_shape_keys(bpy.types.UIList):
 
         # sort items by descending shape key value
         if self.order_by_value:
-            _sort = [(idx, it.value) for idx, it in enumerate(items)]
-            ordered = bpy.types.UI_UL_list.sort_items_helper(_sort, lambda e: e[1], reverse=True)
+            _sort = [(i, it.value) for i, it in enumerate(items)]
+            bpy.types.UI_UL_list.sort_items_helper(_sort, lambda e: e[1], reverse=True)
 
         # filter items by name if a name is provided
         if self.filter_by_name:
@@ -246,13 +268,13 @@ class META_HUMAN_DNA_PT_face_board(RigInstanceDependentPanel):
     bl_region_type = "UI"
     bl_options = {"DEFAULT_CLOSED"}
 
-    def draw(self, context):
+    def draw(self, context: "Context"):
         if not self.layout:
             return
 
         error = valid_rig_instance_exists(context)
         if not error:
-            window_manager_properties = context.window_manager.meta_human_dna  # type: ignore
+            window_manager_properties = context.window_manager.meta_human_dna
             row = self.layout.row()
             row.label(text="Poses:")
             row = self.layout.row()
@@ -276,7 +298,7 @@ class META_HUMAN_DNA_PT_utilities(bpy.types.Panel):
     bl_region_type = "UI"
     bl_options = {"DEFAULT_CLOSED"}
 
-    def draw(self, context):
+    def draw(self, context: "Context"):
         if not self.layout:
             return
 
@@ -284,7 +306,7 @@ class META_HUMAN_DNA_PT_utilities(bpy.types.Panel):
         row.label(text="Current Component:")
         row = self.layout.row()
         row.scale_y = 1.25
-        row.prop(context.window_manager.meta_human_dna, "current_component_type", text="")  # type: ignore
+        row.prop(context.window_manager.meta_human_dna, "current_component_type", text="")
 
 
 class META_HUMAN_DNA_PT_mesh_utilities_sub_panel(MeshDependentPanel):
@@ -295,8 +317,8 @@ class META_HUMAN_DNA_PT_mesh_utilities_sub_panel(MeshDependentPanel):
     bl_category = "MetaHuman DNA"
     bl_options = {"DEFAULT_CLOSED"}
 
-    def draw(self, context):
-        properties = context.scene.meta_human_dna  # type: ignore
+    def draw(self, context: "Context"):
+        properties = context.scene.meta_human_dna
         error = valid_rig_instance_exists(context, ignore_face_board=True)
         if not self.layout:
             return
@@ -304,7 +326,7 @@ class META_HUMAN_DNA_PT_mesh_utilities_sub_panel(MeshDependentPanel):
         if not error:
             active_index = properties.rig_instance_list_active_index
             instance = properties.rig_instance_list[active_index]
-            current_component_type = context.window_manager.meta_human_dna.current_component_type  # type: ignore
+            current_component_type = context.window_manager.meta_human_dna.current_component_type
 
             # whether to enable the topology vertex group dropdowns
             enabled = bool(
@@ -356,8 +378,8 @@ class META_HUMAN_DNA_PT_armature_utilities_sub_panel(ArmatureDependentPanel):
     bl_category = "MetaHuman DNA"
     bl_options = {"DEFAULT_CLOSED"}
 
-    def draw(self, context):
-        properties = context.scene.meta_human_dna  # type: ignore
+    def draw(self, context: "Context"):
+        properties = context.scene.meta_human_dna
         error = valid_rig_instance_exists(context, ignore_face_board=True)
 
         if not self.layout:
@@ -366,7 +388,7 @@ class META_HUMAN_DNA_PT_armature_utilities_sub_panel(ArmatureDependentPanel):
         if not error:
             active_index = properties.rig_instance_list_active_index
             instance = properties.rig_instance_list[active_index]
-            current_component_type = context.window_manager.meta_human_dna.current_component_type  # type: ignore
+            current_component_type = context.window_manager.meta_human_dna.current_component_type
             box = self.layout.box()
             row = box.row()
             row.label(text="Bone Selection Groups:")
@@ -389,27 +411,27 @@ class META_HUMAN_DNA_PT_armature_utilities_sub_panel(ArmatureDependentPanel):
             elif current_component_type == "body":
                 row.prop(instance, "body_rig_bone_groups", text="")
             row = self.layout.row()
-            # row.label(text='Push Bones:')
-            # row = self.layout.row()
-            # row.prop(properties, 'push_along_normal_distance', text='Normal Distance')
-            # split = row.split(factor=0.5, align=True)
-            # split.operator('meta_human_dna.push_bones_backward_along_normals', text='', icon='REMOVE')
-            # split.operator('meta_human_dna.push_bones_forward_along_normals', text='', icon='ADD')
+            # row.label(text='Push Bones:')  # noqa: ERA001
+            # row = self.layout.row() # noqa: ERA001
+            # row.prop(properties, 'push_along_normal_distance', text='Normal Distance') # noqa: ERA001
+            # split = row.split(factor=0.5, align=True) # noqa: ERA001
+            # split.operator('meta_human_dna.push_bones_backward_along_normals', text='', icon='REMOVE') # noqa: ERA001
+            # split.operator('meta_human_dna.push_bones_forward_along_normals', text='', icon='ADD') # noqa: ERA001
             row = self.layout.row()
             row.label(text="Head to Body Constraint:")
             row = self.layout.row()
             row.prop(instance, "head_to_body_constraint_influence", text="")
             row = self.layout.row()
             row.label(text="Transform and Apply Selected Bones:")
-            # row = self.layout.row()
-            # row.operator('meta_human_dna.sync_with_body_in_blueprint', text='Sync with Body in Blueprint')
+            # row = self.layout.row() # noqa: ERA001
+            # row.operator('meta_human_dna.sync_with_body_in_blueprint', text='Sync with Body in Blueprint')  # noqa: E501, ERA001
             row = self.layout.row()
             row.operator("meta_human_dna.mirror_selected_bones", text="Mirror Selected Bones")
             row = self.layout.row()
-            # split = row.split(factor=0.5)
-            # split.scale_y = 1.5
-            # split.operator('meta_human_dna.auto_fit_selected_bones', text='Auto Fit')
-            # split.operator('meta_human_dna.revert_bone_transforms_to_dna', text='Revert')
+            # split = row.split(factor=0.5) # noqa: ERA001
+            # split.scale_y = 1.5 # noqa: ERA001
+            # split.operator('meta_human_dna.auto_fit_selected_bones', text='Auto Fit') # noqa: ERA001
+            # split.operator('meta_human_dna.revert_bone_transforms_to_dna', text='Revert') # noqa: ERA001
             row.operator("meta_human_dna.revert_bone_transforms_to_dna", text="Revert")
         else:
             draw_rig_instance_error(self.layout, error)
@@ -423,14 +445,14 @@ class META_HUMAN_DNA_PT_animation_utilities_sub_panel(ArmatureDependentPanel):
     bl_category = "MetaHuman DNA"
     bl_options = {"DEFAULT_CLOSED"}
 
-    def draw(self, context):
+    def draw(self, context: "Context"):
         error = valid_rig_instance_exists(context, ignore_face_board=True)
 
         if not self.layout:
             return
 
         if not error:
-            current_component_type = context.window_manager.meta_human_dna.current_component_type  # type: ignore
+            current_component_type = context.window_manager.meta_human_dna.current_component_type
             row = self.layout.row()
             row.scale_y = 1.5
             split = row.split(factor=0.5)
@@ -438,12 +460,12 @@ class META_HUMAN_DNA_PT_animation_utilities_sub_panel(ArmatureDependentPanel):
                 "meta_human_dna.import_component_animation",
                 icon="IMPORT",
                 text=f"Import on {current_component_type.capitalize()}",
-            ).component_type = current_component_type  # type: ignore
+            ).component_type = current_component_type
             split.operator(
                 "meta_human_dna.bake_component_animation",
                 icon="ACTION",
                 text=f"Bake on {current_component_type.capitalize()}",
-            ).component_type = current_component_type  # type: ignore
+            ).component_type = current_component_type
 
 
 class META_HUMAN_DNA_PT_materials_utilities_sub_panel(RigInstanceDependentPanel):
@@ -454,7 +476,7 @@ class META_HUMAN_DNA_PT_materials_utilities_sub_panel(RigInstanceDependentPanel)
     bl_category = "MetaHuman DNA"
     bl_options = {"DEFAULT_CLOSED"}
 
-    def draw(self, context):
+    def draw(self, context: "Context"):
         if not self.layout:
             return
 
@@ -474,7 +496,7 @@ class META_HUMAN_DNA_PT_utilities_sub_panel(bpy.types.Panel):
     bl_category = "MetaHuman DNA"
     bl_options = {"HIDE_HEADER"}
 
-    def draw(self, context):
+    def draw(self, context: "Context"):
         if not self.layout:
             return
         row = self.layout.row()
@@ -489,11 +511,11 @@ class META_HUMAN_DNA_PT_view_options(RigInstanceDependentPanel):
     bl_region_type = "UI"
     bl_options = {"DEFAULT_CLOSED"}
 
-    def draw(self, context):
+    def draw(self, context: "Context"):
         if not self.layout:
             return
 
-        properties = context.scene.meta_human_dna  # type: ignore
+        properties = context.scene.meta_human_dna
         error = valid_rig_instance_exists(context, ignore_face_board=True)
         if not error:
             active_index = properties.rig_instance_list_active_index
@@ -560,22 +582,22 @@ class META_HUMAN_DNA_PT_rig_instance(bpy.types.Panel):
     bl_region_type = "UI"
     bl_options = {"DEFAULT_CLOSED"}
 
-    def draw(self, context):
+    def draw(self, context: "Context"):
         if not self.layout:
             return
 
-        properties = context.scene.meta_human_dna  # type: ignore
+        properties = context.scene.meta_human_dna
         row = self.layout.row()
         row = self.layout.row()
         col = draw_ui_list(
             row,
-            context,
+            context,  # type: ignore[arg-type]
             class_name="META_HUMAN_DNA_UL_rig_instances",
             list_path="scene.meta_human_dna.rig_instance_list",
             active_index_path="scene.meta_human_dna.rig_instance_list_active_index",
             unique_id="rig_instance_list_id",
             insertion_operators=False,
-            move_operators=False,  # type: ignore
+            move_operators=False,  # type: ignore[arg-type]
         )
 
         enabled = len(properties.rig_instance_list) > 0
@@ -583,12 +605,12 @@ class META_HUMAN_DNA_PT_rig_instance(bpy.types.Panel):
         # plus and minus buttons
         row = col.row()
         props = row.operator("meta_human_dna.rig_instance_entry_add", text="", icon="ADD")
-        props.active_index = properties.rig_instance_list_active_index  # type: ignore
+        props.active_index = properties.rig_instance_list_active_index
 
         row = col.row()
         row.enabled = enabled
         props = row.operator("meta_human_dna.rig_instance_entry_remove", text="", icon="REMOVE")
-        props.active_index = properties.rig_instance_list_active_index  # type: ignore
+        props.active_index = properties.rig_instance_list_active_index
 
         if enabled:
             row = col.row()
@@ -596,13 +618,13 @@ class META_HUMAN_DNA_PT_rig_instance(bpy.types.Panel):
 
             row = col.row()
             props = row.operator("meta_human_dna.rig_instance_entry_move", text="", icon="TRIA_UP")
-            props.direction = "UP"  # type: ignore
-            props.active_index = properties.rig_instance_list_active_index  # type: ignore
+            props.direction = "UP"
+            props.active_index = properties.rig_instance_list_active_index
 
             row = col.row()
             props = row.operator("meta_human_dna.rig_instance_entry_move", text="", icon="TRIA_DOWN")
-            props.direction = "DOWN"  # type: ignore
-            props.active_index = properties.rig_instance_list_active_index  # type: ignore
+            props.direction = "DOWN"
+            props.active_index = properties.rig_instance_list_active_index
 
             row = self.layout.row()
             row.label(text="Rig Logic Linked Data:")
@@ -617,14 +639,14 @@ class META_HUMAN_DNA_PT_rig_instance_head_sub_panel(bpy.types.Panel):
     bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
-    def poll(cls, context):
-        return len(context.scene.meta_human_dna.rig_instance_list) > 0  # type: ignore
+    def poll(cls, context: "Context") -> bool:
+        return len(context.scene.meta_human_dna.rig_instance_list) > 0
 
-    def draw_header(self, context):
+    def draw_header(self, context: "Context"):
         if not self.layout:
             return
 
-        properties = context.scene.meta_human_dna  # type: ignore
+        properties = context.scene.meta_human_dna
         active_index = properties.rig_instance_list_active_index
         if len(properties.rig_instance_list) > 0:
             instance = properties.rig_instance_list[active_index]
@@ -632,11 +654,11 @@ class META_HUMAN_DNA_PT_rig_instance_head_sub_panel(bpy.types.Panel):
             row.enabled = instance.auto_evaluate
             row.prop(instance, "auto_evaluate_head", text="Head")
 
-    def draw(self, context):
+    def draw(self, context: "Context"):
         if not self.layout:
             return
 
-        properties = context.scene.meta_human_dna  # type: ignore
+        properties = context.scene.meta_human_dna
         active_index = properties.rig_instance_list_active_index
         if len(properties.rig_instance_list) > 0:
             instance = properties.rig_instance_list[active_index]
@@ -674,14 +696,14 @@ class META_HUMAN_DNA_PT_rig_instance_body_sub_panel(bpy.types.Panel):
     bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
-    def poll(cls, context):
-        return len(context.scene.meta_human_dna.rig_instance_list) > 0  # type: ignore
+    def poll(cls, context: "Context") -> bool:
+        return len(context.scene.meta_human_dna.rig_instance_list) > 0
 
-    def draw_header(self, context):
+    def draw_header(self, context: "Context"):
         if not self.layout:
             return
 
-        properties = context.scene.meta_human_dna  # type: ignore
+        properties = context.scene.meta_human_dna
         active_index = properties.rig_instance_list_active_index
         if len(properties.rig_instance_list) > 0:
             instance = properties.rig_instance_list[active_index]
@@ -689,11 +711,11 @@ class META_HUMAN_DNA_PT_rig_instance_body_sub_panel(bpy.types.Panel):
             row.enabled = instance.auto_evaluate
             row.prop(instance, "auto_evaluate_body", text="Body")
 
-    def draw(self, context):
+    def draw(self, context: "Context"):
         if not self.layout:
             return
 
-        properties = context.scene.meta_human_dna  # type: ignore
+        properties = context.scene.meta_human_dna
         active_index = properties.rig_instance_list_active_index
         if len(properties.rig_instance_list) > 0:
             instance = properties.rig_instance_list[active_index]
@@ -727,7 +749,7 @@ class META_HUMAN_DNA_PT_rig_instance_footer_sub_panel(RigInstanceDependentPanel)
     bl_category = "MetaHuman DNA"
     bl_options = {"HIDE_HEADER"}
 
-    def draw(self, context):
+    def draw(self, context: "Context"):
         if not self.layout:
             return
 
@@ -743,35 +765,38 @@ class META_HUMAN_DNA_PT_shape_keys(RigInstanceDependentPanel):
     bl_region_type = "UI"
     bl_options = {"DEFAULT_CLOSED"}
 
-    def draw(self, context):
+    def draw(self, context: "Context"):
         if not self.layout:
             return
 
         instance = None
-        properties = context.scene.meta_human_dna  # type: ignore
+        properties = context.scene.meta_human_dna
         active_index = properties.rig_instance_list_active_index
         if len(properties.rig_instance_list) > 0:
             instance = properties.rig_instance_list[active_index]
-            if not instance.shape_key_list and instance.head_mesh:
-                if context.window_manager.meta_human_dna.progress == 1:  # type: ignore
-                    row = self.layout.row()
-                    row.label(text=f"No shape keys on {instance.name}", icon="ERROR")
-                    row = self.layout.row()
-                    row.prop(instance, "generate_neutral_shapes")
-                    row = self.layout.row()
-                    row.operator("meta_human_dna.import_shape_keys", icon="IMPORT")
-                    return
+            if (
+                not instance.shape_key_list
+                and instance.head_mesh
+                and context.window_manager.meta_human_dna.progress == 1
+            ):
+                row = self.layout.row()
+                row.label(text=f"No shape keys on {instance.name}", icon="ERROR")
+                row = self.layout.row()
+                row.prop(instance, "generate_neutral_shapes")
+                row = self.layout.row()
+                row.operator("meta_human_dna.import_shape_keys", icon="IMPORT")
+                return
 
-        if context.window_manager.meta_human_dna.progress < 1:  # type: ignore
+        if context.window_manager.meta_human_dna.progress < 1:
             row = self.layout.row()
             row.label(
                 text=f'Importing onto "{context.window_manager.meta_human_dna.progress_mesh_name}"...', icon="SORTTIME"
-            )  # type: ignore
+            )
             row = self.layout.row()
             row.progress(
-                factor=context.window_manager.meta_human_dna.progress,  # type: ignore
+                factor=context.window_manager.meta_human_dna.progress,
                 type="BAR",
-                text=context.window_manager.meta_human_dna.progress_description,  # type: ignore
+                text=context.window_manager.meta_human_dna.progress_description,
             )
             row.scale_x = 2
             return
@@ -787,22 +812,22 @@ class META_HUMAN_DNA_PT_shape_keys(RigInstanceDependentPanel):
             active_index = properties.rig_instance_list_active_index
             draw_ui_list(
                 row,
-                context,
+                context, # type: ignore[arg-type]
                 class_name="META_HUMAN_DNA_UL_shape_keys",
                 list_path=f"scene.meta_human_dna.rig_instance_list[{active_index}].shape_key_list",
                 active_index_path=f"scene.meta_human_dna.rig_instance_list[{active_index}].shape_key_list_active_index",
                 unique_id="active_shape_key_list_id",
                 insertion_operators=False,
-                move_operators=False,  # type: ignore
+                move_operators=False,  # type: ignore[arg-type]
             )
             split = self.layout.split(factor=0.75, align=True)
             split.label(text="Basis Shape Key:")
             split.operator(
                 "meta_human_dna.sculpt_this_shape_key", text="", icon="SCULPTMODE_HLT", emboss=True
-            ).shape_key_name = SHAPE_KEY_BASIS_NAME  # type: ignore
+            ).shape_key_name = SHAPE_KEY_BASIS_NAME
             split.operator(
                 "meta_human_dna.edit_this_shape_key", text="", icon="EDITMODE_HLT", emboss=True
-            ).shape_key_name = SHAPE_KEY_BASIS_NAME  # type: ignore
+            ).shape_key_name = SHAPE_KEY_BASIS_NAME
 
             row = self.layout.row()
             row.prop(instance, "solo_shape_key", text="Solo selected shape key")
@@ -824,11 +849,11 @@ class META_HUMAN_DNA_PT_output_panel(RigInstanceDependentPanel):
     bl_region_type = "UI"
     bl_category = "MetaHuman DNA"
 
-    def draw(self, context):
+    def draw(self, context: "Context"):
         if not self.layout:
             return
 
-        properties = bpy.context.scene.meta_human_dna  # type: ignore
+        properties = context.scene.meta_human_dna
         error = valid_rig_instance_exists(context, ignore_face_board=True)
         if not error:
             active_index = properties.rig_instance_list_active_index
@@ -847,23 +872,23 @@ class META_HUMAN_DNA_PT_output_panel(RigInstanceDependentPanel):
             if instance.output_component == "head":
                 draw_ui_list(
                     row,
-                    context,
+                    context,  # type: ignore[arg-type]
                     class_name="META_HUMAN_DNA_UL_output_items",
                     list_path=f"scene.meta_human_dna.rig_instance_list[{active_index}].output_head_item_list",
                     active_index_path=f"scene.meta_human_dna.rig_instance_list[{active_index}].output_head_item_active_index",
                     unique_id="output_head_item_list_id",
-                    move_operators=False,  # type: ignore
+                    move_operators=False,  # type: ignore[arg-type]
                     insertion_operators=False,
                 )
             elif instance.output_component == "body":
                 draw_ui_list(
                     row,
-                    context,
+                    context,  # type: ignore[arg-type]
                     class_name="META_HUMAN_DNA_UL_output_items",
                     list_path=f"scene.meta_human_dna.rig_instance_list[{active_index}].output_body_item_list",
                     active_index_path=f"scene.meta_human_dna.rig_instance_list[{active_index}].output_body_item_active_index",
                     unique_id="output_body_item_list_id",
-                    move_operators=False,  # type: ignore
+                    move_operators=False,  # type: ignore[arg-type]
                     insertion_operators=False,
                 )
             row = self.layout.row()
@@ -888,11 +913,11 @@ class META_HUMAN_DNA_PT_output_buttons_sub_panel(bpy.types.Panel):
     bl_category = "MetaHuman DNA"
     bl_options = {"HIDE_HEADER"}
 
-    def draw(self, context):
+    def draw(self, context: "Context"):
         if not self.layout:
             return
 
-        properties = context.scene.meta_human_dna  # type: ignore
+        properties = context.scene.meta_human_dna
         error = valid_rig_instance_exists(context, ignore_face_board=True)
         row = self.layout.row()
         if not error:

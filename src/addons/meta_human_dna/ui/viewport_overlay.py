@@ -1,16 +1,13 @@
-from typing import TYPE_CHECKING
-
+# third party imports
 import blf
 import bpy
 import gpu
 
 from gpu_extras.batch import batch_for_shader
 
+# local imports
 from ..constants import ToolInfo
-
-
-if TYPE_CHECKING:
-    from ..rig_instance import RigInstance
+from ..typing import *  # noqa: F403
 
 
 # Global storage for draw handler
@@ -102,9 +99,12 @@ def draw_pose_editor_overlay() -> None:
     in the 3D viewport indicating that the Pose Editor is in edit mode.
     Positioned in the lower left corner of the viewport.
     """
+    if not bpy.context.preferences:
+        return
+
     # Check if overlay is enabled in preferences
-    preferences = bpy.context.preferences.addons.get(ToolInfo.NAME)  # type: ignore
-    if preferences and not preferences.preferences.show_pose_editor_viewport_overlay:  # type: ignore
+    preferences: "MetahumanAddonProperties" = bpy.context.preferences.addons[ToolInfo.NAME].preferences  # pyright: ignore[reportAssignmentType]  # noqa: UP037
+    if not preferences.show_pose_editor_viewport_overlay:
         return
 
     instance = get_active_rig_instance()
@@ -228,7 +228,7 @@ def unregister_draw_handler() -> None:
     """
     Unregister the draw handler for the Pose Editor overlay.
 
-    This should be called during addon unregistration to clean up
+    This should be called during addon un-registration to clean up
     the draw handler.
     """
     global _meta_human_dna_viewport_overlay_draw_handler

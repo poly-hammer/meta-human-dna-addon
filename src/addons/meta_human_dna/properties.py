@@ -63,7 +63,7 @@ class ExtraDnaFolder(bpy.types.PropertyGroup):
     )  # pyright: ignore[reportInvalidTypeForm]
 
 
-class MetahumanDnaAddonProperties:
+class MetahumanAddonProperties:
     """
     This class holds the properties for the addon.
     """
@@ -102,7 +102,7 @@ class MetahumanDnaAddonProperties:
     extra_dna_folder_list_active_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
 
 
-class MetahumanDnaImportProperties(get_dna_import_property_group_base_class()):
+class MetahumanImportProperties(get_dna_import_property_group_base_class()):
     import_mesh: bpy.props.BoolProperty(default=True, name="Mesh", description="Whether to import the head meshes")  # pyright: ignore[reportInvalidTypeForm]
     import_normals: bpy.props.BoolProperty(
         default=False, name="Normals", description="Whether to import custom split normals on the head meshes"
@@ -161,7 +161,7 @@ class MetahumanDnaImportProperties(get_dna_import_property_group_base_class()):
     )  # pyright: ignore[reportInvalidTypeForm]
 
 
-class MetahumanWindowMangerProperties(bpy.types.PropertyGroup, MetahumanDnaImportProperties):
+class MetahumanWindowMangerProperties(bpy.types.PropertyGroup, MetahumanImportProperties):
     """
     Defines a property group that stores constants in the window manager context.
     """

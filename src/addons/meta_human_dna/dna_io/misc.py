@@ -1,6 +1,5 @@
 import logging
 import math
-import os
 
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
@@ -87,11 +86,11 @@ def get_dna_writer(file_path: Path, file_format: FileFormat = "binary") -> "rigl
     from ..bindings import riglogic
 
     file_path = Path(file_path)
-    os.makedirs(file_path.parent, exist_ok=True)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
 
     mode = riglogic.OpenMode.Binary
     # if file_format.lower() == 'json':
-    #     mode = riglogic.OpenMode.Text
+    #     mode = riglogic.OpenMode.Text  # noqa: ERA001
 
     stream = riglogic.FileStream.create(
         path=str(file_path),
@@ -163,7 +162,7 @@ def create_shape_key(
     # Import the deltas if the shape key is not supposed to be neutral
     if not is_neutral:
         # DNA is Y-up, Blender is Z-up, so we need to rotate the deltas
-        rotation_matrix = Matrix.Rotation(math.radians(90), 4, "X")
+        rotation_matrix = Matrix.Rotation(math.radians(90), 4, "X") # type: ignore[arg-type]
 
         delta_x_values = reader.getBlendShapeTargetDeltaXs(mesh_index, index)
         delta_y_values = reader.getBlendShapeTargetDeltaYs(mesh_index, index)

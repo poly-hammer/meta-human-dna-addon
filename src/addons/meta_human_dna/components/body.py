@@ -1,12 +1,15 @@
+# standard library imports
 import json
 import logging
 
 from pathlib import Path
 
+# third party imports
 import bpy
 
 from mathutils import Vector
 
+# local imports
 from .. import utilities
 from ..constants import BODY_TOPOLOGY_VERTEX_GROUPS_FILE_PATH, TOPO_GROUP_PREFIX
 from ..dna_io import DNAExporter
@@ -78,7 +81,7 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
             )
             # if this isn't the first rig, move it to the right of the last body mesh
             if len(self.scene_properties.rig_instance_list) > 1:
-                last_instance = self.scene_properties.rig_instance_list[-2]  # type: ignore
+                last_instance = self.scene_properties.rig_instance_list[-2]
                 if last_instance.body_mesh:
                     self.body_rig_object.location.x = utilities.get_bounding_box_left_x(last_instance.body_mesh) - (
                         utilities.get_bounding_box_width(last_instance.body_mesh) / 2
@@ -109,20 +112,21 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
             self.body_rig_object.scale.z *= delta
 
             self.body_rig_object.hide_set(False)
-            utilities.apply_transforms(self.body_rig_object, scale=True, recursive=True)  # type: ignore
+            utilities.apply_transforms(self.body_rig_object, scale=True, recursive=True)
 
             # adjust the head rig origin to zero
-            utilities.switch_to_object_mode()  # type: ignore
+            utilities.switch_to_object_mode()
             # select all the objects and set their origins to the 3d cursor
             utilities.deselect_all()
             for item in self.rig_instance.output_body_item_list:
                 if item.scene_object:
                     item.scene_object.hide_set(False)
                     item.scene_object.select_set(True)
-                    bpy.context.view_layer.objects.active = item.scene_object  # type: ignore
+                    if bpy.context.view_layer:
+                        bpy.context.view_layer.objects.active = item.scene_object
             self.body_rig_object.select_set(True)
-
-            bpy.context.scene.cursor.location = Vector((0, 0, 0))  # type: ignore
+            if bpy.context.scene:
+                bpy.context.scene.cursor.location = Vector((0, 0, 0))
             bpy.ops.object.origin_set(type="ORIGIN_CURSOR")
 
             from_bmesh_object = DNAExporter.get_bmesh(mesh_object=mesh_object, rotation=0)
@@ -143,8 +147,9 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
             to_bmesh_object.free()
 
             vertex_positions = meta_human_dna_core.calculate_dna_mesh_vertex_positions(from_data, to_data)
-            self.body_mesh_object.data.vertices.foreach_set("co", vertex_positions.ravel())  # type: ignore
-            self.body_mesh_object.data.update()  # type: ignore
+            if isinstance(self.body_mesh_object.data, bpy.types.Mesh):
+                self.body_mesh_object.data.vertices.foreach_set("co", vertex_positions.ravel())  # type: ignore[attr-defined]
+                self.body_mesh_object.data.update()
 
             utilities.auto_fit_bones(
                 armature_object=self.body_rig_object,
@@ -175,7 +180,7 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
             return
 
         if self.body_mesh_object:
-            with open(BODY_TOPOLOGY_VERTEX_GROUPS_FILE_PATH) as file:
+            with BODY_TOPOLOGY_VERTEX_GROUPS_FILE_PATH.open() as file:
                 data = json.load(file)
                 logger.info("Creating topology vertex groups...")
                 for vertex_group_name, vertex_indexes in data.items():
@@ -200,15 +205,15 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
         if self.rig_instance and self.rig_instance.body_rig:
             if self.rig_instance.rig_bone_group_selection_mode != "add":
                 # deselect all bones first
-                for bone in self.rig_instance.body_rig.data.bones:  # type: ignore
+                for bone in self.rig_instance.body_rig.data.bones:
                     bone.select = False
 
             from ..bindings import meta_human_dna_core
 
             for bone_name in meta_human_dna_core.BODY_BONE_SELECTION_GROUPS.get(
                 self.rig_instance.body_rig_bone_groups, []
-            ):  # type: ignore
-                bone = self.rig_instance.body_rig.data.bones.get(bone_name)  # type: ignore
+            ):
+                bone = self.rig_instance.body_rig.data.bones.get(bone_name)
                 if bone:
                     bone.select = True
 
@@ -222,7 +227,7 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
                     bone.select = True
 
             self.rig_instance.body_rig.hide_set(False)
-            utilities.switch_to_pose_mode(self.rig_instance.body_rig)  # type: ignore
+            utilities.switch_to_pose_mode(self.rig_instance.body_rig)
 
     def shrink_wrap_vertex_group(self):
         if self.rig_instance and self.rig_instance.body_mesh:

@@ -132,7 +132,6 @@ classes = [
     *backup_manager_ui_classes,
     view_3d.META_HUMAN_DNA_UL_output_items,
     view_3d.META_HUMAN_DNA_UL_rig_instances,
-    view_3d.META_HUMAN_DNA_UL_material_slot_to_instance_mapping,
     view_3d.META_HUMAN_DNA_PT_output_panel,
     view_3d.META_HUMAN_DNA_PT_output_buttons_sub_panel,
 ]
