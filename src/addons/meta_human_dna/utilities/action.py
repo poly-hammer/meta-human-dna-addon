@@ -500,6 +500,7 @@ def import_face_board_action_from_json(file_path: Path, armature: bpy.types.Obje
 
     armature.animation_data.action = action
 
+
 def bake_control_curve_values_for_frame(
     instance: "RigInstance",
     texture_logic_node: bpy.types.ShaderNodeGroup | None,
@@ -586,19 +587,19 @@ def bake_face_board_to_action(  # noqa: PLR0912
 
             # TODO: Do we want to provide more granular control over which bones to bake?
             # collect all bone names to be baked
-            baked_bone_names = [bone.name for bone in armature_object.data.bones] # type: ignore[attr-defined]
+            baked_bone_names = [bone.name for bone in armature_object.data.bones]  # type: ignore[attr-defined]
 
             # select all secondary bones that are effected by rig logic
             for pose_bone in armature_object.pose.bones:
                 if pose_bone.name in baked_bone_names:
                     if IS_BLENDER_5:
-                        pose_bone.select = True # pyright: ignore[reportAttributeAccessIssue]
+                        pose_bone.select = True  # pyright: ignore[reportAttributeAccessIssue]
                     else:
                         pose_bone.bone.select = True
                         pose_bone.bone.select_head = True
                         pose_bone.bone.select_tail = True
                 elif IS_BLENDER_5:
-                    pose_bone.select = False # pyright: ignore[reportAttributeAccessIssue]
+                    pose_bone.select = False  # pyright: ignore[reportAttributeAccessIssue]
                 else:
                     pose_bone.bone.select = False
                     pose_bone.bone.select_head = False
@@ -629,7 +630,7 @@ def bake_face_board_to_action(  # noqa: PLR0912
             )
             instance.auto_evaluate_head = False
 
-            window_manager_properties: "MetahumanWindowMangerProperties" = bpy.context.window_manager.meta_human_dna # type: ignore[attr-defined]  # noqa: UP037
+            window_manager_properties: "MetahumanWindowMangerProperties" = bpy.context.window_manager.meta_human_dna  # type: ignore[attr-defined]  # noqa: UP037
             window_manager_properties.evaluate_dependency_graph = False
             texture_logic_node = get_head_texture_logic_node(instance.head_material)
             for frame in range(start_frame, end_frame + 1):
@@ -724,7 +725,7 @@ def bake_body_to_action(  # noqa: PLR0912
                 # these are bones that are not any of the above
                 baked_bone_names += [
                     bone.name
-                    for bone in armature_object.data.bones # type: ignore[attr-defined]
+                    for bone in armature_object.data.bones  # type: ignore[attr-defined]
                     if bone.name
                     not in [
                         *instance.body_driver_bone_names,
@@ -738,13 +739,13 @@ def bake_body_to_action(  # noqa: PLR0912
             for pose_bone in armature_object.pose.bones:
                 if pose_bone.name in baked_bone_names:
                     if IS_BLENDER_5:
-                        pose_bone.select = True # pyright: ignore[reportAttributeAccessIssue]
+                        pose_bone.select = True  # pyright: ignore[reportAttributeAccessIssue]
                     else:
                         pose_bone.bone.select = True
                         pose_bone.bone.select_head = True
                         pose_bone.bone.select_tail = True
                 elif IS_BLENDER_5:
-                    pose_bone.select = False # pyright: ignore[reportAttributeAccessIssue]
+                    pose_bone.select = False  # pyright: ignore[reportAttributeAccessIssue]
                 else:
                     pose_bone.bone.select = False
                     pose_bone.bone.select_head = False

@@ -1,9 +1,9 @@
 {
     "$schema": "https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json",
-    "version": "0.2",
     "name": "meta-human-dna-addon",
     "language": "en",
     "ignorePaths": [
+        ".gitignore",
         ".venv",
         ".stubs-venv",
         "build",
@@ -27,6 +27,12 @@
         "*.json"
     ],
     "words": [
+        "dna",
+        "mhc",
+        "Raasch",
+        "Steagall",
+        "cov",
+        "lfs",
         "abstractmethod",
         "addopts",
         "andymckay",
@@ -300,7 +306,9 @@
                 "nla",
                 "blf",
                 "_HLT",
-                "xdg"
+                "xdg",
+                "pii",
+                "tol"
             ]
         },
         {

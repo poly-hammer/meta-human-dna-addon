@@ -62,6 +62,7 @@ class RBFDrivenData(bpy.types.PropertyGroup):
     scale: bpy.props.FloatVectorProperty(default=(0.0, 0.0, 0.0), size=3)  # pyright: ignore[reportInvalidTypeForm]
     scalar_value: bpy.props.FloatProperty(default=0.0, min=0.0, max=1.0)  # pyright: ignore[reportInvalidTypeForm]
 
+
 class RBFPoseData(bpy.types.PropertyGroup):
     solver_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
     pose_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]

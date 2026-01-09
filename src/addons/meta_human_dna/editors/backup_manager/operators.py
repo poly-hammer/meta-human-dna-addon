@@ -104,9 +104,9 @@ class META_HUMAN_DNA_OT_open_backup_folder(bpy.types.Operator):
         if sys.platform == "win32":
             subprocess.Popen(["explorer", str(backup_folder)])  # noqa: S603, S607
         elif sys.platform == "darwin":
-            subprocess.Popen(["open", str(backup_folder)]) # noqa: S603, S607
+            subprocess.Popen(["open", str(backup_folder)])  # noqa: S603, S607
         else:
-            subprocess.Popen(["xdg-open", str(backup_folder)]) # noqa: S603, S607
+            subprocess.Popen(["xdg-open", str(backup_folder)])  # noqa: S603, S607
 
         return {"FINISHED"}
 

@@ -1,14 +1,15 @@
 # Documentation
-All documentation is referenced in and deployed to our docs mono repo via git submodules: 
+
+All documentation is referenced in and deployed to our docs mono repo via git submodules:
 
 [https://github.com/poly-hammer/poly-hammer-docs](https://github.com/poly-hammer/poly-hammer-docs)
 
 The finally docs build can be seen here:
 
-
 [https://docs.polyhammer.com](https://docs.polyhammer.com)
 
 ## Testing Locally
+
 The documentation sites are static html sites that are generated using [mkdocs](https://www.mkdocs.org/). To get the docs working locally run these commands:
 
 ``` shell

@@ -15,10 +15,9 @@ TOLERANCE = 1e-5
 @pytest.mark.parametrize(
     ("solver_name", "pose_name", "source_rig_name"),
     [
-        (solver_name, pose_name, "ada_body_rig") for solver_name, pose_name in get_all_body_pose_names(
-            exclude_fingers=EXCLUDE_FINGER_POSES
-        )
-    ]
+        (solver_name, pose_name, "ada_body_rig")
+        for solver_name, pose_name in get_all_body_pose_names(exclude_fingers=EXCLUDE_FINGER_POSES)
+    ],
 )
 def test_body_pose_roundtrip(
     load_body_dna_for_pose_roundtrip,
@@ -26,17 +25,14 @@ def test_body_pose_roundtrip(
     pose_name: str,
     source_rig_name: str,
     show: bool = False,
-    skip_fbx_import: bool = False
+    skip_fbx_import: bool = False,
 ):
     instance = get_active_rig_instance()
 
     # reset the pose to the default position
     reset_pose(instance.body_rig)
 
-    _, solver_index, pose_index = set_body_pose(
-        solver_name=solver_name,
-        pose_name=pose_name
-    )
+    _, solver_index, pose_index = set_body_pose(solver_name=solver_name, pose_name=pose_name)
 
     # update the rbf pose with the unmodified data
     bpy.ops.meta_human_dna.update_rbf_pose(solver_index=solver_index, pose_index=pose_index)
@@ -74,7 +70,7 @@ def test_body_pose_roundtrip(
             "calf_l",
             Quaternion((0.707107, 0.0, 0.0, -0.707107)),
             ["calf_twistCor_02_l"],
-            [Vector((0.0, 0.1, 0.0))]
+            [Vector((0.0, 0.1, 0.0))],
         ),
         (
             "thigh_l_UERBFSolver",
@@ -82,7 +78,7 @@ def test_body_pose_roundtrip(
             "thigh_l",
             Quaternion((0.653282, -0.270598, 0.270598, 0.653282)),
             ["thigh_out_l"],
-            [Vector((0.0, 0.2, 0.0))]
+            [Vector((0.0, 0.2, 0.0))],
         ),
         (
             "clavicle_r_UERBFSolver",
@@ -90,9 +86,9 @@ def test_body_pose_roundtrip(
             "clavicle_r",
             Quaternion((0.939693, 0.0, -0.34202, 0.0)),
             ["clavicle_out_r"],
-            [Vector((0.0, 0.1, 0.0))]
+            [Vector((0.0, 0.1, 0.0))],
         ),
-    ]
+    ],
 )
 def test_body_pose_update(
     load_body_dna_for_pose_editing,
@@ -101,20 +97,17 @@ def test_body_pose_update(
     driver_bone_name: str,
     driver_bone_rotation: Quaternion,
     changed_driven_bone_names: list[str],
-    changed_driven_bone_locations: list[Vector]
+    changed_driven_bone_locations: list[Vector],
 ):
     instance = get_active_rig_instance()
 
     # reset the pose to the default position
     reset_pose(instance.body_rig)
 
-    pose, solver_index, pose_index = set_body_pose(
-        solver_name=solver_name,
-        pose_name=pose_name
-    )
+    pose, solver_index, pose_index = set_body_pose(solver_name=solver_name, pose_name=pose_name)
 
     for driven_name, change_location in zip(changed_driven_bone_names, changed_driven_bone_locations, strict=False):
-        for driven_index, driven in enumerate(pose.driven): # type: ignore
+        for driven_index, driven in enumerate(pose.driven):  # type: ignore
             if driven.name == driven_name:
                 pose.driven_active_index = driven_index
                 pose_bone = instance.body_rig.pose.bones[driven.name]
@@ -142,9 +135,15 @@ def test_body_pose_update(
     for driven_name, expected_location in zip(changed_driven_bone_names, changed_driven_bone_locations, strict=False):
         pose_bone = instance.body_rig.pose.bones[driven_name]
 
-        assert pose_bone.location.x == pytest.approx(expected_location.x, abs=TOLERANCE), f"Driven bone {driven_name} X location {pose_bone.location.x} not {expected_location.x} as expected"
-        assert pose_bone.location.y == pytest.approx(expected_location.y, abs=TOLERANCE), f"Driven bone {driven_name} Y location {pose_bone.location.y} not {expected_location.y} as expected"
-        assert pose_bone.location.z == pytest.approx(expected_location.z, abs=TOLERANCE), f"Driven bone {driven_name} Z location {pose_bone.location.z} not {expected_location.z} as expected"
+        assert pose_bone.location.x == pytest.approx(
+            expected_location.x, abs=TOLERANCE
+        ), f"Driven bone {driven_name} X location {pose_bone.location.x} not {expected_location.x} as expected"
+        assert pose_bone.location.y == pytest.approx(
+            expected_location.y, abs=TOLERANCE
+        ), f"Driven bone {driven_name} Y location {pose_bone.location.y} not {expected_location.y} as expected"
+        assert pose_bone.location.z == pytest.approx(
+            expected_location.z, abs=TOLERANCE
+        ), f"Driven bone {driven_name} Z location {pose_bone.location.z} not {expected_location.z} as expected"
 
 
 @pytest.mark.parametrize(
@@ -169,7 +168,7 @@ def test_body_pose_update(
         #     ['calf_twistCor_02_l'],
         #     [Vector((0.0, 0.1, 0.0))]
         # ),
-    ]
+    ],
 )
 def test_body_pose_duplicate(
     load_body_dna_for_pose_editing,
@@ -180,17 +179,14 @@ def test_body_pose_duplicate(
     driver_bone_rotation: Quaternion,
     driven_bone_names: list[str],
     changed_driven_bone_names: list[str],
-    changed_driven_bone_locations: list[Vector]
+    changed_driven_bone_locations: list[Vector],
 ):
     instance = get_active_rig_instance()
 
     # reset the pose to the default position
     reset_pose(instance.body_rig)
 
-    _, solver_index, from_pose_index = set_body_pose(
-        solver_name=solver_name,
-        pose_name=from_pose_name
-    )
+    _, solver_index, from_pose_index = set_body_pose(solver_name=solver_name, pose_name=from_pose_name)
 
     # duplicate the pose to create a new one to edit
     bpy.ops.meta_human_dna.duplicate_rbf_pose(solver_index=solver_index, pose_index=from_pose_index)
@@ -207,7 +203,7 @@ def test_body_pose_duplicate(
     driver_bone.rotation_quaternion = driver_bone_rotation
 
     for driven_name, change_location in zip(changed_driven_bone_names, changed_driven_bone_locations, strict=False):
-        for driven_index, driven in enumerate(new_pose.driven): # type: ignore
+        for driven_index, driven in enumerate(new_pose.driven):  # type: ignore
             if driven.name == driven_name:
                 new_pose.driven_active_index = driven_index
                 pose_bone = instance.body_rig.pose.bones[driven.name]
@@ -216,22 +212,19 @@ def test_body_pose_duplicate(
                 pose_bone.location = change_location
                 # update the driven bone transform in the pose
                 bpy.ops.meta_human_dna.update_rbf_pose(
-                    solver_index=solver_index,
-                    pose_index=new_pose_index,
-                    driven_index=driven_index
+                    solver_index=solver_index, pose_index=new_pose_index, driven_index=driven_index
                 )
 
     # commit these changes to the dna
     bpy.ops.meta_human_dna.commit_rbf_solver_changes()
 
     # check that all expected driven bones are present in the duplicated pose
-    new_pose, _, _ = set_body_pose(
-        solver_name=solver_name,
-        pose_name=pose_name
-    )
+    new_pose, _, _ = set_body_pose(solver_name=solver_name, pose_name=pose_name)
     for driven in new_pose.driven:  # type: ignore
         driven_name = str(driven.name)
-        assert driven_name in driven_bone_names, f'Driven bone "{driven_name}" not in expected driven bone names after duplication'
+        assert (
+            driven_name in driven_bone_names
+        ), f'Driven bone "{driven_name}" not in expected driven bone names after duplication'
 
     # reset the pose to the default position
     reset_pose(instance.body_rig)
@@ -246,6 +239,12 @@ def test_body_pose_duplicate(
     for driven_name, expected_location in zip(changed_driven_bone_names, changed_driven_bone_locations, strict=False):
         pose_bone = instance.body_rig.pose.bones[driven_name]
 
-        assert pose_bone.location.x == pytest.approx(expected_location.x, abs=TOLERANCE), f"Driven bone {driven_name} X location {pose_bone.location.x} not {expected_location.x} as expected"
-        assert pose_bone.location.y == pytest.approx(expected_location.y, abs=TOLERANCE), f"Driven bone {driven_name} Y location {pose_bone.location.y} not {expected_location.y} as expected"
-        assert pose_bone.location.z == pytest.approx(expected_location.z, abs=TOLERANCE), f"Driven bone {driven_name} Z location {pose_bone.location.z} not {expected_location.z} as expected"
+        assert pose_bone.location.x == pytest.approx(
+            expected_location.x, abs=TOLERANCE
+        ), f"Driven bone {driven_name} X location {pose_bone.location.x} not {expected_location.x} as expected"
+        assert pose_bone.location.y == pytest.approx(
+            expected_location.y, abs=TOLERANCE
+        ), f"Driven bone {driven_name} Y location {pose_bone.location.y} not {expected_location.y} as expected"
+        assert pose_bone.location.z == pytest.approx(
+            expected_location.z, abs=TOLERANCE
+        ), f"Driven bone {driven_name} Z location {pose_bone.location.z} not {expected_location.z} as expected"

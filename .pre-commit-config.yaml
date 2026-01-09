@@ -8,12 +8,13 @@ repos:
   # General file checks
   # =============================================================================
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: check-yaml
         args: [--unsafe] # Allow custom tags in YAML
       - id: check-toml
       - id: check-json
+        exclude: ^\.vscode/ # VS Code JSON files support comments (JSONC)
       - id: check-xml
       - id: check-merge-conflict
       - id: check-case-conflict
@@ -57,7 +58,7 @@ repos:
   # Python - Ruff (Linting & Formatting)
   # =============================================================================
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.4
+    rev: v0.14.11
     hooks:
       # Linter
       - id: ruff
@@ -73,73 +74,49 @@ repos:
   # Spell checking - CSpell
   # =============================================================================
   - repo: https://github.com/streetsidesoftware/cspell-cli
-    rev: v8.17.1
+    rev: v9.4.0
     hooks:
       - id: cspell
         name: cspell
         entry: cspell lint --no-progress --no-summary
         language: node
         types: [text]
-        exclude: |
-          (?x)^(
-            .*\.dna|
-            .*\.blend|
-            tests/test_files/.*|
-            \.venv/.*|
-            \.stubs-venv/.*|
-            scratches/.*|
-            reports/.*|
-            releases/.*|
-            .*\.lock|
-            .*\.json
-          )$
+        stages: [manual] # Run only in CI, not on pre-commit
 
   # =============================================================================
   # Security checks
   # =============================================================================
   - repo: https://github.com/PyCQA/bandit
-    rev: 1.8.0
+    rev: 1.9.2
     hooks:
       - id: bandit
         args: ["-c", "pyproject.toml", "-ll", "-r"]
         additional_dependencies: ["bandit[toml]"]
         exclude: ^tests/
+        stages: [manual] # Run only in CI, not on pre-commit
 
   # =============================================================================
   # TOML formatting
   # =============================================================================
   - repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
-    rev: v2.14.0
+    rev: v2.15.0
     hooks:
       - id: pretty-format-toml
         args: [--autofix]
-        exclude: |
-          (?x)^(
-            .*blender_manifest\.toml
-          )$
 
   # =============================================================================
   # Markdown linting
   # =============================================================================
   - repo: https://github.com/igorshubovych/markdownlint-cli
-    rev: v0.43.0
+    rev: v0.47.0
     hooks:
       - id: markdownlint
-        args: ["--fix", "--disable", "MD013", "MD033", "MD041", "--"]
+        args: ["--fix", "--disable", "MD013", "MD033", "MD041", "MD059", "--"]
         exclude: |
           (?x)^(
             AGENT_INSTRUCTIONS\.md|
             \.github/.*
           )$
-
-  # =============================================================================
-  # Commit message linting
-  # =============================================================================
-  - repo: https://github.com/commitizen-tools/commitizen
-    rev: v4.1.0
-    hooks:
-      - id: commitizen
-        stages: [commit-msg]
 
 # =============================================================================
 # CI configuration

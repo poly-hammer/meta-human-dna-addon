@@ -314,7 +314,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
                     try:
                         if stem.endswith(("color_map", "color")) or "color_animated_" in stem:
                             try:
-                                node.image.colorspace_settings.name = "sRGB" # type: ignore[attr-defined]
+                                node.image.colorspace_settings.name = "sRGB"  # type: ignore[attr-defined]
                             except TypeError:
                                 node.image.colorspace_settings.name = "sRGB - Display"  # type: ignore[attr-defined]
 
@@ -322,7 +322,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
                             try:
                                 node.image.colorspace_settings.name = "Non-Color"  # type: ignore[attr-defined]
                             except TypeError:
-                                node.image.colorspace_settings.name = "Raw" # type: ignore[attr-defined]
+                                node.image.colorspace_settings.name = "Raw"  # type: ignore[attr-defined]
 
                     except Exception as error:
                         logger.error(f"Failed to set colorspace for {node.image.name}: {error}")  # type: ignore[attr-defined]
@@ -478,7 +478,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
                                 node.uv_map = UV_MAP_NAME  # type: ignore[attr-defined]
                 for mesh_object in bpy.data.objects:
                     if mesh_object.name.startswith(f"{self.name}_{key}"):
-                        if mesh_object.data.materials: # type: ignore[attr-defined]
+                        if mesh_object.data.materials:  # type: ignore[attr-defined]
                             mesh_object.data.materials[0] = material  # type: ignore[attr-defined]
                         else:
                             mesh_object.data.materials.append(material)  # type: ignore[attr-defined]
@@ -548,9 +548,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
         if self.head_rig_object:
             ignored_bone_names = utilities.get_ignored_bones_names(self.head_rig_object)
             selected_pose_bones = [
-                pose_bone
-                for pose_bone in bpy.context.selected_pose_bones
-                if pose_bone.name not in ignored_bone_names
+                pose_bone for pose_bone in bpy.context.selected_pose_bones if pose_bone.name not in ignored_bone_names
             ]
 
             # Validate that the selected bones are all on the same side
@@ -616,7 +614,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
                 if head_material_name in [i.name for i in separated_mesh.data.materials]:  # type: ignore[attr-defined]
                     new_mesh_object = separated_mesh
                     new_mesh_object.name = mesh_object_name
-                    new_mesh_object.data.name = mesh_name # type: ignore[attr-defined]
+                    new_mesh_object.data.name = mesh_name  # type: ignore[attr-defined]
                 else:
                     bpy.data.objects.remove(separated_mesh, do_unlink=True)
             return new_mesh_object

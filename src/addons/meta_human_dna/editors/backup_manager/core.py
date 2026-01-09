@@ -44,7 +44,7 @@ def _get_addon_preferences() -> "MetahumanAddonProperties | None":
         return None
     addon = bpy.context.preferences.addons.get(ToolInfo.NAME)
     if addon:
-        return addon.preferences # pyright: ignore[reportReturnType]
+        return addon.preferences  # pyright: ignore[reportReturnType]
     return None
 
 

@@ -4,6 +4,7 @@ from ..typing import *
 def get_active_rig_instance() -> "RigInstance | None":
     # Avoid circular import
     from ..ui.callbacks import get_active_rig_instance as _get_active_rig_instance
+
     return _get_active_rig_instance()
 
 

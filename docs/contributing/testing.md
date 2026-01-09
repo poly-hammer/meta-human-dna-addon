@@ -8,4 +8,5 @@ Always be sure to run tests locally before opening PRs. Also be sure to add new 
 pip install -r requirements.txt
 pytest
 ```
+
 ![1](../images/contributing/testing/1.gif)

@@ -4,7 +4,7 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "launch blender",
+            "label": "Launch: Blender",
             "command": "uv run python -m poly_hammer_utils.launch blender ${input:blender-version} ${input:debug}",
             "type": "shell",
             "group": {
@@ -17,7 +17,7 @@
             }
         },
         {
-            "label": "launch unreal",
+            "label": "Launch: Unreal",
             "command": "uv run python -m poly_hammer_utils.launch unreal ${input:unreal-version} ${input:debug}",
             "type": "shell",
             "group": {
@@ -30,7 +30,7 @@
             }
         },
         {
-            "label": "Run Pytest With Coverage",
+            "label": "Pytest: With Coverage",
             "command": "uv run pytest ${input:test-suite} ${input:test-case} --cov-config=.coveragerc --cov=src/addons/meta_human_dna --cov-report=xml:reports/coverage/results.xml --cov-report=html:reports/coverage/html",
             "type": "shell",
             "group": {
@@ -43,7 +43,7 @@
             }
         },
         {
-            "label": "Mkdocs Serve",
+            "label": "Mkdocs: Serve",
             "command": "uv run mkdocs serve --dev-addr localhost:8080",
             "type": "shell",
             "group": {
@@ -56,8 +56,47 @@
             }
         },
         {
-            "label": "package addon",
+            "label": "Ruff: Check",
+            "command": "uv run ruff check",
+            "type": "shell",
+            "group": {
+                "kind": "build"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            }
+        },
+        {
+            "label": "Ruff: Format",
+            "command": "uv run ruff format",
+            "type": "shell",
+            "group": {
+                "kind": "build"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            }
+        },
+        {
+            "label": "Package: Addon",
             "command": "uv run python -m poly_hammer_utils.addon.packager",
+            "type": "shell",
+            "group": {
+                "kind": "build"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            }
+        },
+        {
+            "label": "Pre-commit: Run",
+            "command": "uv run pre-commit run ${input:pre-commit-scope}",
             "type": "shell",
             "group": {
                 "kind": "build"
@@ -125,6 +164,19 @@
             "type": "promptString",
             "description": "What test case do you want to run? And test name after -k or leave empty to run all",
             "default": "-k "
+        },
+        {
+            "id": "pre-commit-scope",
+            "type": "pickString",
+            "default": "--all-files",
+            "options": [
+                "--all-files",
+                "ruff --all-files",
+                "markdownlint --all-files",
+                "cspell --all-files --hook-stage manual",
+                "bandit --all-files --hook-stage manual",
+            ],
+            "description": "Pre-commit scope: all files, staged only, or specific hook"
         }
     ]
 }

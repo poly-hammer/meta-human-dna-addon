@@ -33,7 +33,7 @@ def copy_materials(
             if new_material.node_tree:
                 for node in new_material.node_tree.nodes:
                     if node.type == "TEX_IMAGE":
-                        image = node.image # type: ignore[attr-defined]
+                        image = node.image  # type: ignore[attr-defined]
                         new_image = image.copy()
                         new_image.name = f"{new_prefix}_{image.name}".replace(f"{old_prefix}_", "")
                         # copy the image files to the new folder
@@ -45,7 +45,7 @@ def copy_materials(
                                 shutil.copy(image_file_path, new_image_file_path)
                                 new_image.filepath = str(new_image_file_path)
                         # assign the new image to the node
-                        node.image = new_image # type: ignore[attr-defined]
+                        node.image = new_image  # type: ignore[attr-defined]
     return first_new_mesh_material
 
 
@@ -53,7 +53,7 @@ def prefix_material_image_names(material: bpy.types.Material, prefix: str):
     if material.node_tree:
         for node in material.node_tree.nodes:
             if node.type == "TEX_IMAGE":
-                image = node.image# type: ignore[attr-defined]
+                image = node.image  # type: ignore[attr-defined]
                 name = image.name.removesuffix(".001")
                 image.name = f"{prefix}_{name}"
 

@@ -70,9 +70,21 @@
         "source.fixAll.markdownlint": "explicit"
     },
     "[markdown]": {
-        "editor.formatOnSave": true,
-        "editor.formatOnPaste": true
+        "editor.defaultFormatter": "yzhang.markdown-all-in-one"
     },
+    // =========================================================================
+    // Markdownlint Settings (matches .pre-commit-config.yaml)
+    // =========================================================================
+    "markdownlint.config": {
+        "MD013": false,
+        "MD033": false,
+        "MD041": false,
+        "MD059": false
+    },
+    "markdownlint.ignore": [
+        "AGENT_INSTRUCTIONS.md",
+        ".github/**"
+    ],
     "[python]": {
         "editor.defaultFormatter": "charliermarsh.ruff",
         "editor.codeActionsOnSave": {

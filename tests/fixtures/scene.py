@@ -12,12 +12,12 @@ from constants import TEST_DNA_FOLDER, TEST_FBX_FOLDER
 
 
 def load_dna(
-        file_path: Path,
-        import_lods: list,
-        include_body: bool = True,
-        import_shape_keys: bool = False,
-        import_face_board: bool = True,
-    ):
+    file_path: Path,
+    import_lods: list,
+    include_body: bool = True,
+    import_shape_keys: bool = False,
+    import_face_board: bool = True,
+):
     # open default scene
     bpy.ops.wm.read_homefile(app_template="")
 
@@ -33,7 +33,7 @@ def load_dna(
     for lod_name in import_lods:
         lods_to_import[f"import_{lod_name}"] = True
 
-    bpy.ops.meta_human_dna.import_dna( # type: ignore
+    bpy.ops.meta_human_dna.import_dna(  # type: ignore
         filepath=str(file_path),
         import_mesh=True,
         import_bones=True,
@@ -42,28 +42,22 @@ def load_dna(
         import_materials=True,
         import_face_board=import_face_board,
         include_body=include_body,
-        **lods_to_import
+        **lods_to_import,
     )
 
+
 def _load_temp_body_dna(
-        file_name: str,
-        temp_folder: Path,
-        dna_folder_name: str,
-        import_shape_keys: bool,
-        import_lods: list
-    ):
+    file_name: str, temp_folder: Path, dna_folder_name: str, import_shape_keys: bool, import_lods: list
+):
     destination_file_path = temp_folder / dna_folder_name / file_name
 
     # copy the dna file to the temp folder so we don't modify the original
     destination_file_path.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy(
-        src=TEST_DNA_FOLDER / dna_folder_name / file_name,
-        dst=destination_file_path
-    )
+    shutil.copy(src=TEST_DNA_FOLDER / dna_folder_name / file_name, dst=destination_file_path)
     # copy the export manifest as well (This is used for naming the imported instance)
     shutil.copy(
         src=TEST_DNA_FOLDER / dna_folder_name / "ExportManifest.json",
-        dst=temp_folder / dna_folder_name / "ExportManifest.json"
+        dst=temp_folder / dna_folder_name / "ExportManifest.json",
     )
 
     load_dna(
@@ -71,8 +65,9 @@ def _load_temp_body_dna(
         import_lods=import_lods,
         import_shape_keys=import_shape_keys,
         import_face_board=False,
-        include_body=False
+        include_body=False,
     )
+
 
 @pytest.fixture(scope="session")
 def load_head_dna(
@@ -86,7 +81,7 @@ def load_head_dna(
         import_lods=import_lods,
         import_shape_keys=import_shape_keys,
         import_face_board=True,
-        include_body=True
+        include_body=True,
     )
 
 
@@ -102,7 +97,7 @@ def load_body_dna(
         import_lods=import_lods,
         import_shape_keys=import_shape_keys,
         import_face_board=False,
-        include_body=False
+        include_body=False,
     )
 
 
@@ -119,7 +114,7 @@ def load_body_dna_for_pose_editing(
         temp_folder=temp_folder,
         dna_folder_name=dna_folder_name,
         import_shape_keys=import_shape_keys,
-        import_lods=import_lods
+        import_lods=import_lods,
     )
 
 
@@ -136,7 +131,7 @@ def load_body_dna_for_pose_roundtrip(
         temp_folder=temp_folder,
         dna_folder_name=dna_folder_name,
         import_shape_keys=import_shape_keys,
-        import_lods=import_lods
+        import_lods=import_lods,
     )
 
 
@@ -153,25 +148,23 @@ def load_full_dna_for_animation(
         import_lods=import_lods,
         import_shape_keys=import_shape_keys,
         import_face_board=True,
-        include_body=True
+        include_body=True,
     )
 
+
 @pytest.fixture(scope="session")
-def load_dna_for_rig_instance_ops(
-    addon
-):
+def load_dna_for_rig_instance_ops(addon):
     load_dna(
         file_path=TEST_DNA_FOLDER / "ada" / "head.dna",
         import_lods=["lod0"],
         import_shape_keys=False,
         import_face_board=True,
-        include_body=True
+        include_body=True,
     )
 
+
 @pytest.fixture(scope="session")
-def load_mhc_conformed_topology_meshes(
-    addon
-):
+def load_mhc_conformed_topology_meshes(addon):
     # open default scene
     bpy.ops.wm.read_homefile(app_template="")
     # import head and body wrapped meshes
@@ -179,17 +172,15 @@ def load_mhc_conformed_topology_meshes(
         file_path = TEST_FBX_FOLDER / "mhc_conformed_topology" / f"{component}.fbx"
         bpy.ops.import_scene.fbx(filepath=str(file_path))
 
+
 @pytest.fixture(scope="session")
-def setup_reference_blend_file(
-    addon,
-    temp_folder
-) -> Path:
+def setup_reference_blend_file(addon, temp_folder) -> Path:
     load_dna(
         file_path=TEST_DNA_FOLDER / "ada" / "head.dna",
         import_lods=["lod0"],
         import_shape_keys=False,
         import_face_board=True,
-        include_body=True
+        include_body=True,
     )
     file_path = temp_folder / "reference_blend_file.blend"
     # Save the blend file
@@ -202,6 +193,7 @@ def setup_reference_blend_file(
 def head_bmesh(load_head_dna) -> bmesh.types.BMesh | None:
     from meta_human_dna.dna_io.exporter import DNAExporter
     from meta_human_dna.utilities import get_active_head
+
     head = get_active_head()
     if head and head.head_mesh_object:
         return DNAExporter.get_bmesh(head.head_mesh_object)
@@ -211,6 +203,7 @@ def head_bmesh(load_head_dna) -> bmesh.types.BMesh | None:
 @pytest.fixture(scope="session")
 def head_armature(load_head_dna) -> bpy.types.Object | None:
     from meta_human_dna.utilities import get_active_head
+
     head = get_active_head()
     if head and head.head_rig_object:
         return head.head_rig_object
@@ -230,8 +223,8 @@ def modify_head_scene(
     changed_head_vertex_group_name: str,
     changed_head_vertex_group_vertex_index: int,
     changed_head_vertex_group_weight: float,
-    temp_folder
-    ):
+    temp_folder,
+):
     from utilities.modify import apply_bone_transform, apply_vertex_group_weight, apply_vertex_transform
 
     # Make some changes
@@ -239,7 +232,7 @@ def modify_head_scene(
         prefix=dna_folder_name,
         mesh_name=changed_head_mesh_name,
         vertex_index=changed_head_vertex_index,
-        location=changed_head_vertex_location[0]
+        location=changed_head_vertex_location[0],
     )
     apply_bone_transform(
         prefix=dna_folder_name,
@@ -253,7 +246,7 @@ def modify_head_scene(
         mesh_name=changed_head_mesh_name,
         vertex_group_name=changed_head_vertex_group_name,
         vertex_index=changed_head_vertex_group_vertex_index,
-        weight=changed_head_vertex_group_weight
+        weight=changed_head_vertex_group_weight,
     )
 
     # Save the blend file

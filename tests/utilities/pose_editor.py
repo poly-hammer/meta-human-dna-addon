@@ -15,20 +15,17 @@ from meta_human_dna.utilities import copy_mesh, select_only
 from utilities.bones import get_bone_differences, show_differences
 
 
-def set_body_pose(
-        solver_name: str,
-        pose_name: str
-    ) -> tuple[Any, int, int] | tuple[None, int, int]:
+def set_body_pose(solver_name: str, pose_name: str) -> tuple[Any, int, int] | tuple[None, int, int]:
     instance = get_active_rig_instance()
     if instance:
         instance.editing_rbf_solver = True
         instance.auto_evaluate_body = False
-        for solver_index, solver in enumerate(instance.rbf_solver_list): # type: ignore
+        for solver_index, solver in enumerate(instance.rbf_solver_list):  # type: ignore
             if solver.name == solver_name:
-                instance.rbf_solver_list_active_index = solver_index # type: ignore
-                for pose_index, pose in enumerate(solver.poses): # type: ignore
+                instance.rbf_solver_list_active_index = solver_index  # type: ignore
+                for pose_index, pose in enumerate(solver.poses):  # type: ignore
                     if pose.name == pose_name:
-                        solver.poses_active_index = pose_index # type: ignore
+                        solver.poses_active_index = pose_index  # type: ignore
                         return pose, solver_index, pose_index
     return None, 0, 0
 
@@ -77,15 +74,15 @@ def import_fbx_pose(file_path: Path, source_rig_name: str) -> bpy.types.Object:
 
     # rename the armature
     armature_object = bpy.data.objects.get(armature_name)
-    armature_object.name = f"{file_path.stem}_body_rig" # type: ignore
-    armature_object.data.name = f"{file_path.stem}_body_rig" # type: ignore
+    armature_object.name = f"{file_path.stem}_body_rig"  # type: ignore
+    armature_object.data.name = f"{file_path.stem}_body_rig"  # type: ignore
     # set the custom shape for the face bones to make them easier to see
     sphere_object = bpy.data.objects[CUSTOM_BONE_SHAPE_NAME]
-    for bone in armature_object.data.bones: # type: ignore
-        armature_object.pose.bones[bone.name].custom_shape = sphere_object # type: ignore
-        armature_object.pose.bones[bone.name].custom_shape_scale_xyz.x = CUSTOM_BONE_SHAPE_SCALE.x/10 # type: ignore
-        armature_object.pose.bones[bone.name].custom_shape_scale_xyz.y = CUSTOM_BONE_SHAPE_SCALE.y/10 # type: ignore
-        armature_object.pose.bones[bone.name].custom_shape_scale_xyz.z = CUSTOM_BONE_SHAPE_SCALE.z/10 # type: ignore
+    for bone in armature_object.data.bones:  # type: ignore
+        armature_object.pose.bones[bone.name].custom_shape = sphere_object  # type: ignore
+        armature_object.pose.bones[bone.name].custom_shape_scale_xyz.x = CUSTOM_BONE_SHAPE_SCALE.x / 10  # type: ignore
+        armature_object.pose.bones[bone.name].custom_shape_scale_xyz.y = CUSTOM_BONE_SHAPE_SCALE.y / 10  # type: ignore
+        armature_object.pose.bones[bone.name].custom_shape_scale_xyz.z = CUSTOM_BONE_SHAPE_SCALE.z / 10  # type: ignore
 
     # Remove the body geometry
     body_geometry = bpy.data.objects.get("body_lod0_mesh")
@@ -94,32 +91,30 @@ def import_fbx_pose(file_path: Path, source_rig_name: str) -> bpy.types.Object:
 
     # copy the body mesh and skin it to the imported armature
     body_mesh = copy_mesh(
-        mesh_object=bpy.data.objects[f"{prefix}_body_lod0_mesh"],
-        new_mesh_name=f"{file_path.stem}_mesh",
-        modifiers=True
+        mesh_object=bpy.data.objects[f"{prefix}_body_lod0_mesh"], new_mesh_name=f"{file_path.stem}_mesh", modifiers=True
     )
 
     # parent the body mesh to the armature using the existing vertex groups
-    body_mesh.modifiers["Armature"].object = armature_object # type: ignore
-    armature_object.hide_set(True) # type: ignore
+    body_mesh.modifiers["Armature"].object = armature_object  # type: ignore
+    armature_object.hide_set(True)  # type: ignore
 
     # apply the transformations
     select_only(armature_object)
     bpy.ops.object.transforms_to_deltas(mode="ALL")
 
-    return armature_object # type: ignore
+    return armature_object  # type: ignore
 
 
 def get_pose_differences(
-        instance,
-        solver_name: str,
-        pose_name: str,
-        source_rig_name: str,
-        evaluate: bool,
-        show: bool = False,
-        skip_fbx_import: bool = False,
-        tolerance: float = 0.001
-    ) -> list:
+    instance,
+    solver_name: str,
+    pose_name: str,
+    source_rig_name: str,
+    evaluate: bool,
+    show: bool = False,
+    skip_fbx_import: bool = False,
+    tolerance: float = 0.001,
+) -> list:
     use_fbx_files = os.environ.get("META_HUMAN_DNA_ADDON_TESTS_UPDATE_BODY_JSON_POSES")
 
     if not instance:
@@ -130,18 +125,12 @@ def get_pose_differences(
         fbx_file_path = TEST_FBX_POSES_FOLDER / source_rig_name / solver_name / f"{pose_name}.fbx"
         # import the fbx file
         if not skip_fbx_import:
-            armature_object = import_fbx_pose(
-                file_path=fbx_file_path,
-                source_rig_name=source_rig_name
-            )
+            armature_object = import_fbx_pose(file_path=fbx_file_path, source_rig_name=source_rig_name)
         else:
             armature_object = bpy.data.objects[f"{fbx_file_path.stem}_body_rig"]
 
         # set the current pose
-        set_body_pose(
-            solver_name=solver_name,
-            pose_name=pose_name
-        )
+        set_body_pose(solver_name=solver_name, pose_name=pose_name)
         # either evaluate through riglogic or stay in edit mode when comparing the poses
         if evaluate:
             instance.evaluate(component="body")
@@ -167,10 +156,7 @@ def get_pose_differences(
         with json_pose_file_path.open() as file:
             target_locations = json.load(file)
 
-        set_body_pose(
-            solver_name=solver_name,
-            pose_name=pose_name
-        )
+        set_body_pose(solver_name=solver_name, pose_name=pose_name)
         # either evaluate through riglogic or stay in edit mode when comparing the poses
         if evaluate:
             instance.evaluate(component="body")
@@ -192,7 +178,7 @@ def assert_body_pose(
     evaluate: bool,
     show: bool = False,
     skip_fbx_import: bool = False,
-    tolerance: float = 0.001
+    tolerance: float = 0.001,
 ):
     instance = get_active_rig_instance()
     if not instance:
@@ -207,13 +193,12 @@ def assert_body_pose(
         evaluate=evaluate,
         show=show,
         skip_fbx_import=skip_fbx_import,
-        tolerance=tolerance
+        tolerance=tolerance,
     )
 
-    assert not differences, \
-    (
+    assert not differences, (
         f'In the pose "{pose_name}" the following bone location differences '
-        f'exceeds the tolerance {tolerance}:\n{pformat(differences)}'
+        f"exceeds the tolerance {tolerance}:\n{pformat(differences)}"
     )
 
     instance.editing_rbf_solver = False

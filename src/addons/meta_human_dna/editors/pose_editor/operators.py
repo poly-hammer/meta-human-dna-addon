@@ -50,7 +50,7 @@ def set_new_pose_name(self: "AddRBFPose", value: str):
 
 
 class RBFEditorOperatorBase(bpy.types.Operator):
-    solver_index: bpy.props.IntProperty(default=0) # pyright: ignore[reportInvalidTypeForm]
+    solver_index: bpy.props.IntProperty(default=0)  # pyright: ignore[reportInvalidTypeForm]
     pose_index: bpy.props.IntProperty(default=0)  # pyright: ignore[reportInvalidTypeForm]
     driver_index: bpy.props.IntProperty(default=0)  # pyright: ignore[reportInvalidTypeForm]
     driven_index: bpy.props.IntProperty(default=0)  # pyright: ignore[reportInvalidTypeForm]

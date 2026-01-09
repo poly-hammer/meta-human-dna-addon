@@ -652,8 +652,7 @@ class DNAImporter:
         if not armature_modifier or armature_modifier.type != "ARMATURE":
             armature_modifier = mesh_object.modifiers.new(name="Armature", type="ARMATURE")
 
-        armature_modifier.object = self.rig_object # type: ignore[attr-defined]
-
+        armature_modifier.object = self.rig_object  # type: ignore[attr-defined]
 
     def run(self) -> tuple[bool, str]:
         errors = []

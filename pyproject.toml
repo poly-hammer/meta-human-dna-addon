@@ -1,229 +1,331 @@
-[project]
-name = "meta-human-dna-addon"
-version = "0.5.4"
-description = "Blender addon for importing/exporting MetaHuman DNA files with RigLogic integration"
-readme = "README.md"
-license = { text = "Proprietary" }
-requires-python = ">=3.11"
-authors = [
-    { name = "Poly Hammer" },
-]
-keywords = [ "blender", "metahuman", "dna", "riglogic", "animation", "3d" ]
-classifiers = [
-    "Development Status :: 4 - Beta",
-    "Environment :: Plugins",
-    "Intended Audience :: End Users/Desktop",
-    "License :: Other/Proprietary License",
-    "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
-    "Topic :: Multimedia :: Graphics :: 3D Modeling",
-]
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
 
+[project]
+authors = [
+  {name = "Poly Hammer"}
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Plugins",
+  "Intended Audience :: End Users/Desktop",
+  "License :: Other/Proprietary License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Topic :: Multimedia :: Graphics :: 3D Modeling"
+]
 dependencies = [
-    "sentry-sdk>=2.19.2",
+  "sentry-sdk>=2.19.2"
+]
+description = "Blender addon for importing/exporting MetaHuman DNA files with RigLogic integration"
+keywords = ["blender", "metahuman", "dna", "riglogic", "animation", "3d"]
+license = {text = "Proprietary"}
+name = "meta-human-dna-addon"
+readme = "README.md"
+requires-python = ">=3.11"
+version = "0.5.4"
+
+[project.optional-dependencies]
+dev = [
+  "debugpy>=1.8.13",
+  "bpy>=4.5.1",
+  "pytest>=8.3.3",
+  "pytest-dotenv>=0.5.2",
+  "pytest-cov>=6.0.0",
+  "pytest-html>=4.1.1",
+  "genbadge[all]>=1.1.2",
+  "mkdocs>=1.6.1",
+  "mkdocs-material>=9.5.49",
+  "mkdocs-monorepo-plugin>=1.1.0",
+  "mkdocs-material-extensions>=1.3.1",
+  "poly-hammer-utils",
+  "ruff>=0.8.0",
+  "pre-commit>=4.0.0"
+]
+# NOTE: Install stubs into a SEPARATE virtual environment (.stubs-venv), not the main .venv
+# This avoids conflicts with the bpy package. See AGENT_INSTRUCTIONS.md for setup commands.
+stubs = [
+  "fake-bpy-module-latest"
 ]
 
 [project.urls]
 Documentation = "https://docs.polyhammer.com/meta-human-dna-addon/"
 Repository = "https://github.com/poly-hammer/meta-human-dna-addon"
 
-[project.optional-dependencies]
-dev = [
-    "debugpy>=1.8.13",
-    "bpy>=4.5.1",
-    "pytest>=8.3.3",
-    "pytest-dotenv>=0.5.2",
-    "pytest-cov>=6.0.0",
-    "pytest-html>=4.1.1",
-    "genbadge[all]>=1.1.2",
-    "mkdocs>=1.6.1",
-    "mkdocs-material>=9.5.49",
-    "mkdocs-monorepo-plugin>=1.1.0",
-    "mkdocs-material-extensions>=1.3.1",
-    "poly-hammer-utils",
-    "ruff>=0.8.0",
-    "pre-commit>=4.0.0",
+# =============================================================================
+# Bandit Configuration (Security Linting)
+# =============================================================================
+[tool.bandit]
+exclude_dirs = [
+  "tests",
+  "scratches",
+  ".venv",
+  ".stubs-venv",
+  "build",
+  "reports"
 ]
-# NOTE: Install stubs into a SEPARATE virtual environment (.stubs-venv), not the main .venv
-# This avoids conflicts with the bpy package. See AGENT_INSTRUCTIONS.md for setup commands.
-stubs = [
-    "fake-bpy-module-latest",
+skips = [
+  "B101",  # assert_used (needed for tests)
+  "B104",  # hardcoded_bind_all_interfaces
+  "B602",  # subprocess_popen_with_shell_equals_true (CWE-78)
+  "B603",  # subprocess_without_shell_equals_true (CWE-78)
+  "B604",  # any_other_function_with_shell_equals_true (CWE-78)
+  "B605",  # start_process_with_a_shell (CWE-78)
+  "B606",  # start_process_with_no_shell (CWE-78)
+  "B607"  # start_process_with_partial_path (CWE-78)
 ]
 
-[build-system]
-requires = [ "hatchling" ]
-build-backend = "hatchling.build"
+[tool.coverage.html]
+directory = "reports/coverage/html"
+
+[tool.coverage.report]
+exclude_also = [
+  # Don't complain about missing debug-only code
+  "def __repr__",
+  "if self\\.debug",
+  # Don't complain if tests don't hit defensive assertion code
+  "raise AssertionError",
+  "raise NotImplementedError",
+  # Don't complain if non-runnable code isn't run
+  "if 0:",
+  "if __name__ == .__main__.:",
+  # Don't complain about abstract methods
+  "@(abc\\.)?abstractmethod",
+  # Type checking blocks
+  "if TYPE_CHECKING:"
+]
+ignore_errors = true
+precision = 2
+show_missing = true
+
+# =============================================================================
+# Coverage Configuration
+# =============================================================================
+[tool.coverage.run]
+branch = true
+omit = [
+  "src/addons/meta_human_dna/resources/*",
+  "src/addons/meta_human_dna/bindings/*"
+]
+parallel = true
+source = ["src/addons/meta_human_dna"]
+
+[tool.coverage.xml]
+output = "reports/coverage/results.xml"
+
+[tool.hatch]
 
 [tool.hatch.build.targets.wheel]
-packages = [ "src/addons/meta_human_dna" ]
+packages = ["src/addons/meta_human_dna"]
 
 # =============================================================================
-# UV Configuration
+# MyPy Configuration (optional, for those who prefer mypy)
 # =============================================================================
-[tool.uv]
-dev-dependencies = [
-    "debugpy>=1.8.13",
-    "bpy>=4.5.1",
-    "pytest>=8.3.3",
-    "pytest-dotenv>=0.5.2",
-    "pytest-cov>=6.0.0",
-    "pytest-html>=4.1.1",
-    "genbadge[all]>=1.1.2",
-    "mkdocs>=1.6.1",
-    "mkdocs-material>=9.5.49",
-    "mkdocs-monorepo-plugin>=1.1.0",
-    "mkdocs-material-extensions>=1.3.1",
-    "poly-hammer-utils",
-    "ruff>=0.8.0",
-    "pre-commit>=4.0.0",
+[tool.mypy]
+exclude = [
+  "build/",
+  "scratches/",
+  "reports/",
+  ".venv/",
+  ".stubs-venv/"
 ]
+ignore_missing_imports = true
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+
+# =============================================================================
+# Pylance / Pyright Configuration (for VS Code integration)
+# =============================================================================
+[tool.pyright]
+exclude = [
+  "**/.*",
+  "**/__pycache__",
+  "**/node_modules",
+  ".venv",
+  ".stubs-venv",
+  "build",
+  "scratches",
+  "reports",
+  "releases",
+  "src/addons/meta_human_dna/core",
+  "src/addons/meta_human_dna/resources",
+  "src/addons/meta_human_dna/bindings"
+]
+# Extra paths for imports
+extraPaths = [
+  "src/addons",
+  ".stubs-venv/Lib/site-packages",
+  "src/addons/meta_human_dna/resources/packages",
+  "src/addons/meta_human_dna/resources/unreal",
+  "src/addons/meta_human_dna/bindings/windows/amd64"
+]
+# Source roots
+include = ["src/addons", "tests"]
+pythonPlatform = "All"
+pythonVersion = "3.11"
+reportGeneralTypeIssues = "warning"
+# Type checking settings
+reportMissingImports = "warning"
+reportMissingTypeStubs = "none"
+reportOptionalMemberAccess = "warning"
+reportPrivateUsage = "warning"
+reportUnknownArgumentType = "none"
+reportUnknownMemberType = "none"
+reportUnknownParameterType = "none"
+reportUnknownVariableType = "none"
+reportUnusedFunction = "warning"
+reportUnusedImport = "warning"
+reportUnusedVariable = "warning"
+# Stub paths
+stubPath = ".stubs-venv/Lib/site-packages"
+typeCheckingMode = "basic"
+
+# =============================================================================
+# Pytest Configuration
+# =============================================================================
+[tool.pytest]
+
+[tool.pytest.ini_options]
+addopts = [
+  "--tb=long",
+  "-vv",
+  "--junitxml=reports/pytest/results.xml",
+  "--ignore-glob=scratches/**",
+  "-o",
+  "junit_family=legacy"
+]
+env_files = [".env"]
+filterwarnings = []
+log_cli = true
+log_level = "DEBUG"
+markers = [
+  "slow: marks tests as slow (deselect with '-m \"not slow\"')"
+]
+minversion = "8.0"
+pythonpath = ["tests", "src/addons"]
+testpaths = ["tests"]
 
 # =============================================================================
 # Ruff Configuration - Unified Linting & Formatting
 # =============================================================================
 [tool.ruff]
+# Files/directories to exclude
+exclude = [
+  ".git",
+  ".github",
+  ".mypy_cache",
+  ".pytest_cache",
+  ".ruff_cache",
+  ".venv",
+  ".stubs-venv",
+  "__pycache__",
+  "build",
+  "dist",
+  "node_modules",
+  "releases",
+  "reports",
+  "scratches",
+  "tests",
+  "*.pyi",
+  "src/addons/meta_human_dna/resources/*",
+  "src/addons/meta_human_dna/bindings/*"
+]
+# Line length to match Black's default
+line-length = 120
+# Include source directories
+src = ["src/addons", "tests"]
 # Target Python version (matches Blender 4.5+)
 target-version = "py311"
 
-# Line length to match Black's default
-line-length = 120
-
-# Files/directories to exclude
-exclude = [
-    ".git",
-    ".github",
-    ".mypy_cache",
-    ".pytest_cache",
-    ".ruff_cache",
-    ".venv",
-    ".stubs-venv",
-    "__pycache__",
-    "build",
-    "dist",
-    "node_modules",
-    "releases",
-    "reports",
-    "scratches",
-    "*.pyi",
-    "src/addons/meta_human_dna/resources/*",
-    "src/addons/meta_human_dna/bindings/*",
-]
-
-# Include source directories
-src = [ "src/addons", "tests" ]
+[tool.ruff.format]
+docstring-code-format = true
+docstring-code-line-length = "dynamic"
+indent-style = "space"
+line-ending = "lf"
+# Formatting configuration (replaces Black)
+quote-style = "double"
+skip-magic-trailing-comma = false
 
 [tool.ruff.lint]
-# Enable rule sets - comprehensive linting
-select = [
-    "E",    # pycodestyle errors
-    "W",    # pycodestyle warnings
-    "F",    # Pyflakes
-    "I",    # isort
-    "B",    # flake8-bugbear
-    "C4",   # flake8-comprehensions
-    "UP",   # pyupgrade
-    "ARG",  # flake8-unused-arguments
-    "SIM",  # flake8-simplify
-    "TCH",  # flake8-type-checking
-    "PTH",  # flake8-use-pathlib
-    "ERA",  # eradicate (commented-out code)
-    "PL",   # Pylint
-    "RUF",  # Ruff-specific rules
-    "N",    # pep8-naming
-    "ANN",  # flake8-annotations
-    "S",    # flake8-bandit (security)
-    "A",    # flake8-builtins
-    "COM",  # flake8-commas
-    "DTZ",  # flake8-datetimez
-    "T10",  # flake8-debugger
-    "EXE",  # flake8-executable
-    "ISC",  # flake8-implicit-str-concat
-    "ICN",  # flake8-import-conventions
-    "LOG",  # flake8-logging
-    "G",    # flake8-logging-format
-    "PIE",  # flake8-pie
-    "PYI",  # flake8-pyi
-    "Q",    # flake8-quotes
-    "RSE",  # flake8-raise
-    "RET",  # flake8-return
-    "SLF",  # flake8-self
-    "SLOT", # flake8-slots
-    "TID",  # flake8-tidy-imports
-    "INT",  # flake8-gettext
-    "FLY",  # flynt
-    "PERF", # Perflint
-    "FURB", # refurb
-]
-
-# Rules to ignore
-ignore = [
-    "ANN401",  # Dynamically typed expressions (Any) are disallowed
-    "COM812",  # Trailing comma missing (conflicts with formatter)
-    "ISC001",  # Implicit string concatenation (conflicts with formatter)
-    "PLR0913", # Too many arguments in function definition
-    "PLR2004", # Magic value used in comparison
-    "S101",    # Use of assert detected (needed for tests)
-    "TC001",   # Move import into type-checking block (can cause runtime issues)
-    "TC002",   # Move third-party import into type-checking block
-    "TC003",   # Move standard library import into type-checking block
-    "ARG002",  # Unused method argument (common in Blender operators)
-    "N801",    # Invalid class name (allow Blender UI conventions like FOLDER_UL_, PANEL_PT_, etc.)
-    "N802",    # Function name should be lowercase (Blender uses mixed case)
-    "N803",    # Argument name should be lowercase (Blender properties)
-    "N806",    # Variable should be lowercase (Blender API)
-    "N812",    # Lowercase imported as non-lowercase
-    "N815",    # Variable in class scope should not be mixedCase
-    "N816",    # Variable in global scope should not be mixedCase
-    "RUF012",  # Mutable class attributes should be annotated with ClassVar
-    "PLW0603", # Using global statement
-    "ANN204",  # Missing return type annotation for special method
-    "RET504",  # Unnecessary assignment before return
-    "SIM108",  # Use ternary operator
-    "B008",    # Do not perform function calls in argument defaults
-    "G004",    # Logging statement uses f-string (allow f-strings in logging)
-    "TID252",  # Prefer absolute imports over relative imports from parent modules (disabled for Blender addons)
-    "PLC0415", # Import should be at the top-level of a file (disabled for conditional imports)
-    "F405",  # name may be undefined from star import
-]
-
-# Allow autofix for all enabled rules when `--fix` is provided
-fixable = [ "ALL" ]
-unfixable = [  ]
-
 # Allow unused variables when underscore-prefixed
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
-
-[tool.ruff.lint.per-file-ignores]
-# Tests can use assertions and have more relaxed rules
-"tests/**/*.py" = [
-    "S101",    # Allow assert in tests
-    "ANN",     # Don't require type annotations in tests
-    "PLR0913", # Allow many arguments in test functions
-    "ARG001",  # Allow unused arguments (fixtures)
-    "ARG002",  # Allow unused arguments
-    "SLF001",  # Allow private member access in tests
+# Allow autofix for all enabled rules when `--fix` is provided
+fixable = ["ALL"]
+# Rules to ignore
+ignore = [
+  "ANN401",  # Dynamically typed expressions (Any) are disallowed
+  "COM812",  # Trailing comma missing (conflicts with formatter)
+  "ISC001",  # Implicit string concatenation (conflicts with formatter)
+  "PLR0913",  # Too many arguments in function definition
+  "PLR2004",  # Magic value used in comparison
+  "S101",  # Use of assert detected (needed for tests)
+  "TC001",  # Move import into type-checking block (can cause runtime issues)
+  "TC002",  # Move third-party import into type-checking block
+  "TC003",  # Move standard library import into type-checking block
+  "ARG002",  # Unused method argument (common in Blender operators)
+  "N801",  # Invalid class name (allow Blender UI conventions like FOLDER_UL_, PANEL_PT_, etc.)
+  "N802",  # Function name should be lowercase (Blender uses mixed case)
+  "N803",  # Argument name should be lowercase (Blender properties)
+  "N806",  # Variable should be lowercase (Blender API)
+  "N812",  # Lowercase imported as non-lowercase
+  "N815",  # Variable in class scope should not be mixedCase
+  "N816",  # Variable in global scope should not be mixedCase
+  "RUF012",  # Mutable class attributes should be annotated with ClassVar
+  "PLW0603",  # Using global statement
+  "ANN204",  # Missing return type annotation for special method
+  "RET504",  # Unnecessary assignment before return
+  "SIM108",  # Use ternary operator
+  "B008",  # Do not perform function calls in argument defaults
+  "G004",  # Logging statement uses f-string (allow f-strings in logging)
+  "TID252",  # Prefer absolute imports over relative imports from parent modules (disabled for Blender addons)
+  "PLC0415",  # Import should be at the top-level of a file (disabled for conditional imports)
+  "F405"  # name may be undefined from star import
 ]
-# __init__.py files often have unused imports
-"**/__init__.py" = [
-    "F401", # Allow unused imports
-    "F403", # Allow star imports
+# Enable rule sets - comprehensive linting
+select = [
+  "E",  # pycodestyle errors
+  "W",  # pycodestyle warnings
+  "F",  # Pyflakes
+  "I",  # isort
+  "B",  # flake8-bugbear
+  "C4",  # flake8-comprehensions
+  "UP",  # pyupgrade
+  "ARG",  # flake8-unused-arguments
+  "SIM",  # flake8-simplify
+  "TCH",  # flake8-type-checking
+  "PTH",  # flake8-use-pathlib
+  "ERA",  # eradicate (commented-out code)
+  "PL",  # Pylint
+  "RUF",  # Ruff-specific rules
+  "N",  # pep8-naming
+  "ANN",  # flake8-annotations
+  "S",  # flake8-bandit (security)
+  "A",  # flake8-builtins
+  "COM",  # flake8-commas
+  "DTZ",  # flake8-datetimez
+  "T10",  # flake8-debugger
+  "EXE",  # flake8-executable
+  "ISC",  # flake8-implicit-str-concat
+  "ICN",  # flake8-import-conventions
+  "LOG",  # flake8-logging
+  "G",  # flake8-logging-format
+  "PIE",  # flake8-pie
+  "PYI",  # flake8-pyi
+  "Q",  # flake8-quotes
+  "RSE",  # flake8-raise
+  "RET",  # flake8-return
+  "SLF",  # flake8-self
+  "SLOT",  # flake8-slots
+  "TID",  # flake8-tidy-imports
+  "INT",  # flake8-gettext
+  "FLY",  # flynt
+  "PERF",  # Perflint
+  "FURB"  # refurb
 ]
-# Operators may have unused context argument
-"**/operators.py" = [
-    "ARG001", # Unused function argument (context)
-    "ARG002", # Unused method argument (context)
-]
-
-[tool.ruff.lint.isort]
-# isort configuration (replaces standalone isort)
-known-first-party = [ "meta_human_dna" ]
-known-third-party = [ "bpy", "bmesh", "mathutils", "riglogic" ]
-section-order = [ "future", "standard-library", "third-party", "first-party", "local-folder" ]
-combine-as-imports = true
-force-single-line = false
-lines-after-imports = 2
-lines-between-types = 1
+unfixable = []
 
 [tool.ruff.lint.flake8-annotations]
 # Allow missing annotations for self and cls
@@ -233,7 +335,47 @@ suppress-none-returning = true
 
 [tool.ruff.lint.flake8-bugbear]
 # Allow default arguments like [], {}, set()
-extend-immutable-calls = [ "bpy.props.StringProperty", "bpy.props.BoolProperty", "bpy.props.IntProperty", "bpy.props.FloatProperty", "bpy.props.EnumProperty", "bpy.props.CollectionProperty", "bpy.props.PointerProperty", "bpy.props.FloatVectorProperty", "bpy.props.IntVectorProperty" ]
+extend-immutable-calls = ["bpy.props.StringProperty", "bpy.props.BoolProperty", "bpy.props.IntProperty", "bpy.props.FloatProperty", "bpy.props.EnumProperty", "bpy.props.CollectionProperty", "bpy.props.PointerProperty", "bpy.props.FloatVectorProperty", "bpy.props.IntVectorProperty"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+# Enforce relative imports within the addon for better portability
+ban-relative-imports = "parents"  # Allow relative imports from same/child modules, ban from parents
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-single-line = false
+# isort configuration (replaces standalone isort)
+known-first-party = ["meta_human_dna"]
+known-third-party = ["bpy", "bmesh", "mathutils", "riglogic"]
+lines-after-imports = 2
+lines-between-types = 1
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+
+[tool.ruff.lint.pep8-naming]
+# Allow Blender's mixedCase conventions
+classmethod-decorators = ["classmethod"]
+staticmethod-decorators = ["staticmethod"]
+
+[tool.ruff.lint.per-file-ignores]
+# __init__.py files often have unused imports
+"**/__init__.py" = [
+  "F401",  # Allow unused imports
+  "F403"  # Allow star imports
+]
+# Operators may have unused context argument
+"**/operators.py" = [
+  "ARG001",  # Unused function argument (context)
+  "ARG002"  # Unused method argument (context)
+]
+# Tests can use assertions and have more relaxed rules
+"tests/**/*.py" = [
+  "S101",  # Allow assert in tests
+  "ANN",  # Don't require type annotations in tests
+  "PLR0913",  # Allow many arguments in test functions
+  "ARG001",  # Allow unused arguments (fixtures)
+  "ARG002",  # Allow unused arguments
+  "SLF001"  # Allow private member access in tests
+]
 
 [tool.ruff.lint.pylint]
 max-args = 10
@@ -241,166 +383,23 @@ max-branches = 15
 max-returns = 8
 max-statements = 60
 
-[tool.ruff.lint.pep8-naming]
-# Allow Blender's mixedCase conventions
-classmethod-decorators = [ "classmethod" ]
-staticmethod-decorators = [ "staticmethod" ]
-
-[tool.ruff.lint.flake8-tidy-imports]
-# Enforce relative imports within the addon for better portability
-ban-relative-imports = "parents" # Allow relative imports from same/child modules, ban from parents
-
-[tool.ruff.format]
-# Formatting configuration (replaces Black)
-quote-style = "double"
-indent-style = "space"
-skip-magic-trailing-comma = false
-line-ending = "lf"
-docstring-code-format = true
-docstring-code-line-length = "dynamic"
-
 # =============================================================================
-# Pytest Configuration
+# UV Configuration
 # =============================================================================
-[tool.pytest.ini_options]
-minversion = "8.0"
-addopts = [
-    "--tb=long",
-    "-vv",
-    "--junitxml=reports/pytest/results.xml",
-    "--ignore-glob=scratches/**",
-    "-o",
-    "junit_family=legacy",
-]
-log_cli = true
-log_level = "DEBUG"
-markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-]
-filterwarnings = [  ]
-pythonpath = [ "tests", "src/addons" ]
-testpaths = [ "tests" ]
-env_files = [ ".env" ]
-
-# =============================================================================
-# Coverage Configuration
-# =============================================================================
-[tool.coverage.run]
-source = [ "src/addons/meta_human_dna" ]
-omit = [
-    "src/addons/meta_human_dna/resources/*",
-    "src/addons/meta_human_dna/bindings/*",
-]
-branch = true
-parallel = true
-
-[tool.coverage.report]
-exclude_also = [
-    # Don't complain about missing debug-only code
-    "def __repr__",
-    "if self\\.debug",
-    # Don't complain if tests don't hit defensive assertion code
-    "raise AssertionError",
-    "raise NotImplementedError",
-    # Don't complain if non-runnable code isn't run
-    "if 0:",
-    "if __name__ == .__main__.:",
-    # Don't complain about abstract methods
-    "@(abc\\.)?abstractmethod",
-    # Type checking blocks
-    "if TYPE_CHECKING:",
-]
-ignore_errors = true
-show_missing = true
-precision = 2
-
-[tool.coverage.html]
-directory = "reports/coverage/html"
-
-[tool.coverage.xml]
-output = "reports/coverage/results.xml"
-
-# =============================================================================
-# Pylance / Pyright Configuration (for VS Code integration)
-# =============================================================================
-[tool.pyright]
-pythonVersion = "3.11"
-pythonPlatform = "All"
-typeCheckingMode = "basic"
-
-# Source roots
-include = [ "src/addons", "tests" ]
-exclude = [
-    "**/.*",
-    "**/__pycache__",
-    "**/node_modules",
-    ".venv",
-    ".stubs-venv",
-    "build",
-    "scratches",
-    "reports",
-    "releases",
-    "src/addons/meta_human_dna/core",
-    "src/addons/meta_human_dna/resources",
-    "src/addons/meta_human_dna/bindings",
-]
-
-# Extra paths for imports
-extraPaths = [
-    "src/addons",
-    ".stubs-venv/Lib/site-packages",
-    "src/addons/meta_human_dna/resources/packages",
-    "src/addons/meta_human_dna/resources/unreal",
-    "src/addons/meta_human_dna/bindings/windows/amd64",
-
-]
-
-# Type checking settings
-reportMissingImports = "warning"
-reportMissingTypeStubs = "none"
-reportUnusedImport = "warning"
-reportUnusedVariable = "warning"
-reportUnusedFunction = "warning"
-reportOptionalMemberAccess = "warning"
-reportGeneralTypeIssues = "warning"
-reportPrivateUsage = "warning"
-reportUnknownMemberType = "none"
-reportUnknownArgumentType = "none"
-reportUnknownVariableType = "none"
-reportUnknownParameterType = "none"
-
-# Stub paths
-stubPath = ".stubs-venv/Lib/site-packages"
-
-# =============================================================================
-# MyPy Configuration (optional, for those who prefer mypy)
-# =============================================================================
-[tool.mypy]
-python_version = "3.11"
-warn_return_any = true
-warn_unused_configs = true
-ignore_missing_imports = true
-exclude = [
-    "build/",
-    "scratches/",
-    "reports/",
-    ".venv/",
-    ".stubs-venv/",
-]
-
-# =============================================================================
-# Bandit Configuration (Security Linting)
-# =============================================================================
-[tool.bandit]
-exclude_dirs = [
-    "tests",
-    "scratches",
-    ".venv",
-    ".stubs-venv",
-    "build",
-    "reports",
-]
-skips = [
-    "B101", # assert_used (needed for tests)
-    "B104", # hardcoded_bind_all_interfaces
+[tool.uv]
+dev-dependencies = [
+  "debugpy>=1.8.13",
+  "bpy>=4.5.1",
+  "pytest>=8.3.3",
+  "pytest-dotenv>=0.5.2",
+  "pytest-cov>=6.0.0",
+  "pytest-html>=4.1.1",
+  "genbadge[all]>=1.1.2",
+  "mkdocs>=1.6.1",
+  "mkdocs-material>=9.5.49",
+  "mkdocs-monorepo-plugin>=1.1.0",
+  "mkdocs-material-extensions>=1.3.1",
+  "poly-hammer-utils",
+  "ruff>=0.8.0",
+  "pre-commit>=4.0.0"
 ]

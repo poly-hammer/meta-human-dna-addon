@@ -55,7 +55,7 @@ def initialize_basis_shape_key(mesh_object: bpy.types.Object) -> bpy.types.Key |
     if shape_key:
         shape_key.name = mesh_object.name
 
-    return shape_key # pyright: ignore[reportReturnType]
+    return shape_key  # pyright: ignore[reportReturnType]
 
 
 def update_mesh(mesh_object: bpy.types.Object):
@@ -213,7 +213,7 @@ def get_shape_key_delta_vertices(
     switch_to_object_mode()
 
     # Make this the active shape key and show only this shape key
-    shape_key_index = mesh_object.data.shape_keys.key_blocks.keys().index(shape_key_name) # pyright: ignore[reportOptionalMemberAccess]
+    shape_key_index = mesh_object.data.shape_keys.key_blocks.keys().index(shape_key_name)  # pyright: ignore[reportOptionalMemberAccess]
     mesh_object.show_only_shape_key = True
     mesh_object.active_shape_key_index = shape_key_index
     update_mesh(mesh_object)
@@ -273,7 +273,7 @@ def get_center_of_selected_vertices(mesh_object: bpy.types.Object) -> Vector:
     bpy.ops.object.mode_set(mode="OBJECT")
 
     # Get the selected vertices in world space
-    selected_vertices = [v.co for v in mesh_object.data.vertices if v.select] # type: ignore[attr-defined]
+    selected_vertices = [v.co for v in mesh_object.data.vertices if v.select]  # type: ignore[attr-defined]
 
     if not selected_vertices:
         return Vector((0, 0, 0))
@@ -407,7 +407,7 @@ def copy_mesh(
     if mesh:
         bpy.data.meshes.remove(mesh)
 
-    mesh_data = mesh_object.data.copy() # pyright: ignore[reportOptionalMemberAccess]
+    mesh_data = mesh_object.data.copy()  # pyright: ignore[reportOptionalMemberAccess]
     mesh_data.name = new_mesh_name
     mesh_object_copy = bpy.data.objects.new(name=new_mesh_name, object_data=mesh_data)
 
@@ -439,7 +439,7 @@ def split_mesh_along_uv_islands(bmesh_object: bmesh.types.BMesh) -> dict[int, in
 
     # get each uv island and it's loops
     for island_faces in bmesh_linked_uv_islands(bmesh_object, uv_layer):
-        island_loops = [loop for face in island_faces for loop in face.loops] # type: ignore[attr-defined]
+        island_loops = [loop for face in island_faces for loop in face.loops]  # type: ignore[attr-defined]
         for loop in island_loops:
             # Select border loops on the island
             loops = (loop, loop.link_loop_radial_next)
@@ -485,10 +485,7 @@ def save_topology_vertex_groups(mesh_object: bpy.types.Object, file_path: Path):
             vertex_groups[vertex_group.name] = [
                 vertex.index
                 for vertex in mesh_object.data.vertices  # type: ignore[attr-defined]
-                if vertex_group.index
-                in [
-                    group.group for group in vertex.groups
-                ]
+                if vertex_group.index in [group.group for group in vertex.groups]
             ]
 
     file_path.write_text(json.dumps(vertex_groups), encoding="utf-8")
@@ -552,10 +549,7 @@ def get_vertex_group_vertices(
     return [
         vertex.index
         for vertex in mesh_object.data.vertices  # type: ignore[attr-defined]
-        if vertex_group.index
-        in [
-            group.group for group in vertex.groups
-        ]
+        if vertex_group.index in [group.group for group in vertex.groups]
         and vertex_group.weight(vertex.index) >= weight_equal_or_above
     ]
 

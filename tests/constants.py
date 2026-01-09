@@ -21,7 +21,7 @@ TOLERANCE = {
     "neutralJointRotations": 1e-3,
     "neutralJointTranslations": 1e-3,
     "normals": 1e-3,
-    "positions": 1e-2, # these assertions are in centimeters
+    "positions": 1e-2,  # these assertions are in centimeters
     "textureCoordinates": 1e-3,
     "skinWeights": 1e-5,
 }
@@ -35,24 +35,10 @@ DNA_GEOMETRY_VERSION = "geom1.1"
 DNA_RBF_BEHAVIOR_VERSION = "rbfb1.0"
 
 # TODO: Investigate edge case where only these bone rotation values are always slightly rotated by a few degrees on the x and z.
-IGNORED_BONE_ROTATIONS_ON_CALIBRATE = [
-    "FACIAL_C_FacialRoot",
-    "FACIAL_C_Neck1Root",
-    "FACIAL_C_Neck2Root"
-]
-IGNORED_BONE_ROTATIONS_ON_EXPORT = [
-    "FACIAL_C_FacialRoot",
-    "FACIAL_C_Neck1Root",
-    "FACIAL_C_Neck2Root"
-]
+IGNORED_BONE_ROTATIONS_ON_CALIBRATE = ["FACIAL_C_FacialRoot", "FACIAL_C_Neck1Root", "FACIAL_C_Neck2Root"]
+IGNORED_BONE_ROTATIONS_ON_EXPORT = ["FACIAL_C_FacialRoot", "FACIAL_C_Neck1Root", "FACIAL_C_Neck2Root"]
 
-FINGER_NAMES = [
-    "index",
-    "middle",
-    "ring",
-    "pinky",
-    "thumb"
-]
+FINGER_NAMES = ["index", "middle", "ring", "pinky", "thumb"]
 
 # EXCLUDE_FINGER_POSES = int(os.environ.get('META_HUMAN_DNA_ADDON_TESTS_BODY_EXCLUDE_FINGER_POSES', '0')) == 1
 EXCLUDE_FINGER_POSES = True

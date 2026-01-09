@@ -1,12 +1,13 @@
 # Rig Logic
 
-[Rig Logic](../terminology.md/#riglogic) and [Rig Instances](../terminology.md/#rig-instance) and how they interact with DNA are at the heart of this addon. This addon utilizes the same RigLogic evaluation module as Unreal Engine, making the math match 1-to-1 with blender. Rig Instances and their related data are managed under the `Rig Logic` Panel.
+[Rig Logic](../terminology.md/#rig-logic) and [Rig Instances](../terminology.md/#rig-instance) and how they interact with DNA are at the heart of this addon. This addon utilizes the same RigLogic evaluation module as Unreal Engine, making the math match 1-to-1 with blender. Rig Instances and their related data are managed under the `Rig Logic` Panel.
 
-![](../images/rig-logic/1.gif){: class="rounded-image center-image" style="width:370px"}
-![](../images/rig-logic/2.png){: class="rounded-image center-image" style="width:335px"}
+![1](../images/rig-logic/1.gif){: class="rounded-image center-image" style="width:370px"}
+![2](../images/rig-logic/2.png){: class="rounded-image center-image" style="width:335px"}
 
 ## Properties
-The properties in this panel are the 3 outputs: 
+
+The properties in this panel are the 3 outputs:
 
 * Head Mesh -> Shape Keys
 * Head Rig -> Bone Transforms
@@ -15,23 +16,26 @@ The properties in this panel are the 3 outputs:
 With the Face Board acting as the controls curve inputs, all evaluated through a RigLogic instance with the chosen DNA file in it's reader.
 
 ### DNA File
+
 The path to the DNA file that rig logic reads from when evaluating the face board controls.
 
 ### Face Board
+
 The face board that rig logic reads control positions from.
 
 ### Head Mesh
+
 The head mesh with the shape keys that rig logic will evaluate.
 
 ### Head Rig
+
 The armature object that rig logic will evaluate.
 
 ## Operators
 
 ### Force Evaluate
+
 Force the active Rig Instance to evaluate based on the face board controls.
-
-
 
 ## FAQ
 
@@ -39,7 +43,7 @@ Force the active Rig Instance to evaluate based on the face board controls.
 
 There are a few things to check:
 
-![](../images/rig-logic/3.gif){: class="rounded-image center-image"}
+![3](../images/rig-logic/3.gif){: class="rounded-image center-image"}
 
 1. The Face GUI is a armature object, and you will need to select it and then switch to pose mode to select the yellow controls.
 1. Make sure a control is actually selected (should be bright yellow, then you can hit `G` key to grab/move a control)

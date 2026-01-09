@@ -1,9 +1,10 @@
 # Import
 
 ## DNA Files
+
 There are several ways to import your `.dna` files. You can drag and drop them in the viewport, or you can open the import dialog with `File > Import > MetaHuman DNA (.dna)`.
 
-![](../images/import/1.png)
+![1](../images/import/1.png)
 
 Once you select a `head.dna` file it will look for the corresponding `body.dna` in that directory, giving you the option to check the `Include Body` box to include it your import process.
 
@@ -14,7 +15,7 @@ Once you select a `head.dna` file it will look for the corresponding `body.dna` 
 
 There is also another option to `Append` or `Link` a MetaHuman from another `.blend` file. This could be useful on a production where you are composing a scene with MetaHuman character that you already setup in another file.
 
-![](../images/import/2.png)
+![2](../images/import/2.png)
 
 When you select a `.blend` file you will see a list of available MetaHumans in that `.blend` file that are available either to link or append. Make your selection and also chose either `Append` or `Link` for the operation type.
 

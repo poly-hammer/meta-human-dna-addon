@@ -6,39 +6,30 @@ from meta_human_dna.utilities import apply_pose
 
 
 def apply_bone_transform(
-        prefix: str,
-        component: str,
-        bone_name: str,
-        location: Vector,
-        rotation: Euler,
-    ):
+    prefix: str,
+    component: str,
+    bone_name: str,
+    location: Vector,
+    rotation: Euler,
+):
     rig_object = bpy.data.objects[f"{prefix}_{component}_rig"]
-    rig_object.pose.bones[bone_name].location = location # type: ignore
-    rig_object.pose.bones[bone_name].rotation_euler = rotation # type: ignore
+    rig_object.pose.bones[bone_name].location = location  # type: ignore
+    rig_object.pose.bones[bone_name].rotation_euler = rotation  # type: ignore
     apply_pose(rig_object)
 
 
-def apply_vertex_transform(
-        prefix: str,
-        mesh_name: str,
-        vertex_index: int,
-        location: Vector
-    ):
+def apply_vertex_transform(prefix: str, mesh_name: str, vertex_index: int, location: Vector):
     mesh_object = bpy.data.objects[f"{prefix}_{mesh_name}"]
-    mesh_object.data.vertices[vertex_index].co = location # type: ignore
+    mesh_object.data.vertices[vertex_index].co = location  # type: ignore
 
 
 def apply_vertex_group_weight(
-        prefix: str,
-        mesh_name: str,
-        vertex_group_name: str,
-        vertex_index: int,
-        weight: float,
-    ):
+    prefix: str,
+    mesh_name: str,
+    vertex_group_name: str,
+    vertex_index: int,
+    weight: float,
+):
     mesh_object = bpy.data.objects[f"{prefix}_{mesh_name}"]
     vertex_group = mesh_object.vertex_groups.get(vertex_group_name)
-    vertex_group.add(
-        index=[vertex_index],
-        weight=weight,
-        type="REPLACE"
-    )
+    vertex_group.add(index=[vertex_index], weight=weight, type="REPLACE")

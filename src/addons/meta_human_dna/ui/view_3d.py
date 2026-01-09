@@ -812,7 +812,7 @@ class META_HUMAN_DNA_PT_shape_keys(RigInstanceDependentPanel):
             active_index = properties.rig_instance_list_active_index
             draw_ui_list(
                 row,
-                context, # type: ignore[arg-type]
+                context,  # type: ignore[arg-type]
                 class_name="META_HUMAN_DNA_UL_shape_keys",
                 list_path=f"scene.meta_human_dna.rig_instance_list[{active_index}].shape_key_list",
                 active_index_path=f"scene.meta_human_dna.rig_instance_list[{active_index}].shape_key_list_active_index",

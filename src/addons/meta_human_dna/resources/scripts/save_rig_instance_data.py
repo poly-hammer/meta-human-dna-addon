@@ -24,7 +24,7 @@ def ensure_addon_enabled(addon_name: str, scripts_folder: Path):
         script_directory.name = addon_name
         script_directory.directory = str(scripts_folder)
         sys.path.append(str(scripts_folder))
-    
+
     # check if the addon is enabled
     if addon_name not in bpy.context.preferences.addons.keys(): # type: ignore
         # otherwise, enable it
@@ -47,7 +47,7 @@ def main():
     data_file = Path(args.data_file)
 
     bpy.ops.wm.open_mainfile(filepath=args.blend_file)
-    
+
     # Ensure the addon is enabled
     ensure_addon_enabled('meta_human_dna', Path(args.addon_folder))
 

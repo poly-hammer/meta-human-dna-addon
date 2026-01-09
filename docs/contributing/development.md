@@ -22,10 +22,10 @@ Contributions are welcome! Please create an issue to discuss significant work be
 
 ## Setup
 
-### Using uv (Recommended)
+### Using UV (Recommended)
 
 ```bash
-# Install uv (if not installed)
+# pip install uv (if not installed) however system wide install is more ideal. (See instal link above)
 pip install uv
 
 # Create venv and install dependencies

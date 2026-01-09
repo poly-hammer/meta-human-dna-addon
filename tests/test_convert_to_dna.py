@@ -12,14 +12,9 @@ from meta_human_dna.ui.callbacks import get_active_rig_instance
     [
         ("head", "TestMetaHuman01"),
         ("body", "TestMetaHuman01"),
-    ]
+    ],
 )
-def test_convert_component_to_dna(
-    load_mhc_conformed_topology_meshes,
-    temp_folder: Path,
-    component: str,
-    name: str
-):
+def test_convert_component_to_dna(load_mhc_conformed_topology_meshes, temp_folder: Path, component: str, name: str):
     # select the component mesh
     utilities.select_only(bpy.data.objects[f"{component}_lod0_mesh"])
 
@@ -27,13 +22,11 @@ def test_convert_component_to_dna(
     folder.mkdir(parents=True, exist_ok=True)
 
     # set the current component type in the UI
-    bpy.context.window_manager.meta_human_dna.current_component_type = component # type: ignore
+    bpy.context.window_manager.meta_human_dna.current_component_type = component  # type: ignore
     # convert to DNA
-    bpy.ops.meta_human_dna.convert_selected_to_dna( # type: ignore
-        new_instance_name=name,
-        new_folder=str(folder)
-
-    ) # type: ignore
+    bpy.ops.meta_human_dna.convert_selected_to_dna(  # type: ignore
+        new_instance_name=name, new_folder=str(folder)
+    )  # type: ignore
 
     instance = get_active_rig_instance()
 

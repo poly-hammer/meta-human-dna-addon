@@ -12,22 +12,23 @@ from meta_human_dna.ui.callbacks import get_active_rig_instance
     [
         ("APPEND", ["ada"], "ada2"),
         ("LINK", ["ada"], "ada2"),
-    ]
+    ],
 )
 def test_reference_blend_file(
     setup_reference_blend_file: Path,
     temp_folder: Path,
     operation: str,
     metahuman_names: list[str],
-    current_metahuman_name: str
+    current_metahuman_name: str,
 ):
     from fixtures.scene import load_dna
+
     load_dna(
         file_path=TEST_DNA_FOLDER / "ada" / "head.dna",
         import_lods=["lod0"],
         import_shape_keys=False,
         import_face_board=True,
-        include_body=True
+        include_body=True,
     )
     instance = get_active_rig_instance()
     if not instance:
@@ -36,13 +37,11 @@ def test_reference_blend_file(
     # Rename the current instance to avoid name clashes
     instance.name = current_metahuman_name
 
-    bpy.ops.meta_human_dna.append_or_link_metahuman( # type: ignore
-        filepath=str(setup_reference_blend_file),
-        operation_type=operation,
-        meta_human_names=",".join(metahuman_names)
+    bpy.ops.meta_human_dna.append_or_link_metahuman(  # type: ignore
+        filepath=str(setup_reference_blend_file), operation_type=operation, meta_human_names=",".join(metahuman_names)
     )
 
-    instances = list(bpy.context.scene.meta_human_dna.rig_instance_list) # type: ignore
+    instances = list(bpy.context.scene.meta_human_dna.rig_instance_list)  # type: ignore
     instance_names = [instance.name for instance in instances]
 
     for name in [*metahuman_names, current_metahuman_name]:

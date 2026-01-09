@@ -232,7 +232,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
 
             vertex_positions = meta_human_dna_core.calculate_dna_mesh_vertex_positions(from_data, to_data)
             if isinstance(self.head_mesh_object.data, bpy.types.Mesh):
-                self.head_mesh_object.data.vertices.foreach_set("co", vertex_positions.ravel()) # type: ignore[attr-defined]
+                self.head_mesh_object.data.vertices.foreach_set("co", vertex_positions.ravel())  # type: ignore[attr-defined]
                 self.head_mesh_object.data.update()
 
             utilities.auto_fit_bones(

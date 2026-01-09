@@ -28,6 +28,7 @@ def get_all_pose_names() -> list[str]:
                     pose_names.append(str(Path(root).relative_to(POSES_FOLDER)))
     return pose_names
 
+
 def import_fbx_pose(file_path: Path) -> bpy.types.Object:
     armature_name = "joints_grp"
 
@@ -45,37 +46,39 @@ def import_fbx_pose(file_path: Path) -> bpy.types.Object:
 
     # rename the armature
     armature_object = bpy.data.objects.get(armature_name)
-    armature_object.name = f"{file_path.stem}_head_rig" # type: ignore
-    armature_object.data.name = f"{file_path.stem}_head_rig" # type: ignore
+    armature_object.name = f"{file_path.stem}_head_rig"  # type: ignore
+    armature_object.data.name = f"{file_path.stem}_head_rig"  # type: ignore
     sphere_object = bpy.data.objects[CUSTOM_BONE_SHAPE_NAME]
-    for bone in armature_object.data.bones: # type: ignore
+    for bone in armature_object.data.bones:  # type: ignore
         bone.name = bone.name.replace("DHIhead:", "")
-        armature_object.pose.bones[bone.name].rotation_mode = "XYZ" # type: ignore
+        armature_object.pose.bones[bone.name].rotation_mode = "XYZ"  # type: ignore
         # set the custom shape for the face bones to make them easier to see
-        armature_object.pose.bones[bone.name].custom_shape = sphere_object # type: ignore
-        armature_object.pose.bones[bone.name].custom_shape_scale_xyz.x = CUSTOM_BONE_SHAPE_SCALE.x/50 # type: ignore
-        armature_object.pose.bones[bone.name].custom_shape_scale_xyz.y = CUSTOM_BONE_SHAPE_SCALE.y/50 # type: ignore
-        armature_object.pose.bones[bone.name].custom_shape_scale_xyz.z = CUSTOM_BONE_SHAPE_SCALE.z/50 # type: ignore
+        armature_object.pose.bones[bone.name].custom_shape = sphere_object  # type: ignore
+        armature_object.pose.bones[bone.name].custom_shape_scale_xyz.x = CUSTOM_BONE_SHAPE_SCALE.x / 50  # type: ignore
+        armature_object.pose.bones[bone.name].custom_shape_scale_xyz.y = CUSTOM_BONE_SHAPE_SCALE.y / 50  # type: ignore
+        armature_object.pose.bones[bone.name].custom_shape_scale_xyz.z = CUSTOM_BONE_SHAPE_SCALE.z / 50  # type: ignore
 
     # rename the mesh
     head_mesh = bpy.data.objects.get("head_lod0_mesh")
-    head_mesh.name = f"{file_path.stem}_mesh" # type: ignore
-    head_mesh.data.name = f"{file_path.stem}_mesh" # type: ignore
+    head_mesh.name = f"{file_path.stem}_mesh"  # type: ignore
+    head_mesh.data.name = f"{file_path.stem}_mesh"  # type: ignore
 
     # fix the head mesh rotation and scale
-    armature_object.scale = Vector((0.01, 0.01, 0.01)) # type: ignore
-    armature_object.rotation_mode = "XYZ" # type: ignore
-    armature_object.rotation_euler.x += math.radians(90) # type: ignore
-    armature_object.hide_set(True) # type: ignore
+    armature_object.scale = Vector((0.01, 0.01, 0.01))  # type: ignore
+    armature_object.rotation_mode = "XYZ"  # type: ignore
+    armature_object.rotation_euler.x += math.radians(90)  # type: ignore
+    armature_object.hide_set(True)  # type: ignore
 
-    return armature_object # type: ignore
+    return armature_object  # type: ignore
+
 
 @pytest.mark.parametrize(
     ("pose_name", "source_rig_name"),
     [
         # (pose_name, 'male_01_head_rig') for pose_name in get_all_pose_names()
-        (pose_name, "ada_head_rig") for pose_name in get_all_pose_names()
-    ]
+        (pose_name, "ada_head_rig")
+        for pose_name in get_all_pose_names()
+    ],
 )
 def test_head_pose(
     load_head_dna,
@@ -83,7 +86,7 @@ def test_head_pose(
     source_rig_name: str,
     changed_head_bone_name: str,
     show: bool = False,
-    skip_fbx_import: bool = False
+    skip_fbx_import: bool = False,
 ):
     use_fbx_files = os.environ.get("META_HUMAN_DNA_ADDON_TESTS_UPDATE_HEAD_JSON_POSES")
 
@@ -93,20 +96,18 @@ def test_head_pose(
         fbx_file_path = TEST_FBX_POSES_FOLDER / source_rig_name / f"{pose_name}.fbx"
         # import the fbx file
         if not skip_fbx_import:
-            armature_object = import_fbx_pose(
-                file_path=fbx_file_path
-            )
+            armature_object = import_fbx_pose(file_path=fbx_file_path)
         else:
             armature_object = bpy.data.objects[f"{fbx_file_path.stem}_head_rig"]
 
         # set the current pose
-        bpy.context.window_manager.meta_human_dna.face_pose_previews = str(POSES_FOLDER / pose_name / "thumbnail-preview.png") # type: ignore
+        bpy.context.window_manager.meta_human_dna.face_pose_previews = str(
+            POSES_FOLDER / pose_name / "thumbnail-preview.png"
+        )  # type: ignore
 
         # check that the poses match
         differences, target_locations = get_bone_differences(
-            source_rig_name=source_rig_name,
-            target_rig_name=armature_object.name,
-            tolerance=tolerance
+            source_rig_name=source_rig_name, target_rig_name=armature_object.name, tolerance=tolerance
         )
 
         # cache bone locations to json for faster testing than importing fbx files
@@ -123,41 +124,33 @@ def test_head_pose(
         with json_pose_file_path.open() as file:
             target_locations = json.load(file)
         # set the current pose
-        bpy.context.window_manager.meta_human_dna.face_pose_previews = str(POSES_FOLDER / pose_name / "thumbnail-preview.png") # type: ignore
+        bpy.context.window_manager.meta_human_dna.face_pose_previews = str(
+            POSES_FOLDER / pose_name / "thumbnail-preview.png"
+        )  # type: ignore
 
         # check that the poses match
         differences, target_locations = get_bone_differences(
-            source_rig_name=source_rig_name,
-            target_bone_locations=target_locations,
-            tolerance=tolerance
+            source_rig_name=source_rig_name, target_bone_locations=target_locations, tolerance=tolerance
         )
 
     # ignore differences caused by testing bone changes
     differences = [(bone_name, value) for (bone_name, value) in differences if bone_name != changed_head_bone_name]
 
-    assert not differences, \
-    (
+    assert not differences, (
         f'In the pose "{pose_name}" the following bone location differences '
-        f'exceeds the tolerance {tolerance}:\n{pformat(differences)}'
+        f"exceeds the tolerance {tolerance}:\n{pformat(differences)}"
     )
 
+
 @pytest.mark.parametrize(
-    ("enum_index", "active_face_material_name"),
-    [
-        (0, "combined"),
-        (1, "masks"),
-        (2, "normals"),
-        (3, "topology")
-    ]
+    ("enum_index", "active_face_material_name"), [(0, "combined"), (1, "masks"), (2, "normals"), (3, "topology")]
 )
 def test_active_face_material(load_head_dna, enum_index, active_face_material_name):
     pytest.skip("TODO: Fix this")
-    bpy.context.scene.meta_human_dna.active_face_material = active_face_material_name # type: ignore
+    bpy.context.scene.meta_human_dna.active_face_material = active_face_material_name  # type: ignore
     instance = get_active_rig_instance()
     assert instance, "No active rig logic found"
 
-    assert instance.active_face_material == enum_index, \
-    (
-        f'The active face material should be "{enum_index}" '
-        f'but is "{instance.active_face_material}"'
+    assert instance.active_face_material == enum_index, (
+        f'The active face material should be "{enum_index}" ' f'but is "{instance.active_face_material}"'
     )

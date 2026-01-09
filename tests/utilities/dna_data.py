@@ -7,21 +7,9 @@ from meta_human_dna.dna_io import get_dna_reader, get_dna_writer
 
 
 def get_dna_json_data(dna_file_path: Path, json_file_path: Path, data_layer: str = "All") -> dict:
-    reader = get_dna_reader(
-        dna_file_path,
-        file_format="binary",
-        data_layer=data_layer
-    )
-    writer = get_dna_writer(
-        json_file_path,
-        file_format="json"
-    )
-    writer.setFrom(
-        reader,
-        getattr(riglogic.DataLayer, data_layer),
-        riglogic.UnknownLayerPolicy.Preserve,
-        None
-    )
+    reader = get_dna_reader(dna_file_path, file_format="binary", data_layer=data_layer)
+    writer = get_dna_writer(json_file_path, file_format="json")
+    writer.setFrom(reader, getattr(riglogic.DataLayer, data_layer), riglogic.UnknownLayerPolicy.Preserve, None)
     writer.write()
     if not riglogic.Status.isOk():
         status = riglogic.Status.get()
@@ -36,32 +24,21 @@ def get_dna_json_data(dna_file_path: Path, json_file_path: Path, data_layer: str
 
 
 def get_bone_names(dna_file_path: Path) -> list[str]:
-    reader = get_dna_reader(
-        file_path=dna_file_path,
-        file_format="binary",
-        data_layer="Definition"
-    )
+    reader = get_dna_reader(file_path=dna_file_path, file_format="binary", data_layer="Definition")
     return [reader.getJointName(index) for index in range(reader.getJointCount())]
 
+
 def get_mesh_names(dna_file_path: Path) -> list[str]:
-    reader = get_dna_reader(
-        file_path=dna_file_path,
-        file_format="binary",
-        data_layer="Definition"
-    )
+    reader = get_dna_reader(file_path=dna_file_path, file_format="binary", data_layer="Definition")
     return [reader.getMeshName(index) for index in range(reader.getMeshCount())]
 
+
 def get_mesh_vertex_count(dna_file_path: Path) -> list[int]:
-    reader = get_dna_reader(
-        file_path=dna_file_path,
-        file_format="binary",
-        data_layer="Geometry"
-    )
+    reader = get_dna_reader(file_path=dna_file_path, file_format="binary", data_layer="Geometry")
     return [reader.getVertexPositionCount(index) for index in range(reader.getMeshCount())]
 
 
 def get_test_bone_definitions_params(dna_file_path: Path):
-
     for bone_name in get_bone_names(dna_file_path):
         attributes = ["neutralJointRotations", "neutralJointTranslations"]
         axis_names = ["x", "y", "z"]
@@ -69,16 +46,18 @@ def get_test_bone_definitions_params(dna_file_path: Path):
             for axis_name in axis_names:
                 yield bone_name, attribute, axis_name
 
+
 def get_test_bone_behaviors_params(dna_file_path: Path):
     yield from get_bone_names(dna_file_path)
 
+
 def get_test_mesh_geometry_params(
-        dna_file_path: Path,
-        lods: list[int] | None = None,
-        vertex_positions: bool = True,
-        normals: bool = True,
-        uvs: bool = True,
-    ):
+    dna_file_path: Path,
+    lods: list[int] | None = None,
+    vertex_positions: bool = True,
+    normals: bool = True,
+    uvs: bool = True,
+):
     for mesh_name in get_mesh_names(dna_file_path):
         if lods and not any(mesh_name.endswith(f"_lod{lod}_mesh") for lod in lods):
             # skip checking meshes that are not in the specified lods
@@ -100,11 +79,14 @@ def get_test_mesh_geometry_params(
             for axis_name in axis_names:
                 yield mesh_name, attribute, axis_name
 
+
 def get_test_skin_weights_params(
-        dna_file_path: Path,
-        lods: list[int] | None = None,
+    dna_file_path: Path,
+    lods: list[int] | None = None,
+):
+    for mesh_name, mesh_vertex_count in zip(
+        get_mesh_names(dna_file_path), get_mesh_vertex_count(dna_file_path), strict=False
     ):
-    for mesh_name, mesh_vertex_count in zip(get_mesh_names(dna_file_path), get_mesh_vertex_count(dna_file_path), strict=False):
         if lods and not any(mesh_name.endswith(f"_lod{lod}_mesh") for lod in lods):
             # skip checking meshes that are not in the specified lods
             continue

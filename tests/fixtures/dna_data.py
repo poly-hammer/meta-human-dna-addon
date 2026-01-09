@@ -13,11 +13,7 @@ def original_head_dna_json_data(temp_folder, dna_folder_name: str) -> dict:
 
 
 @pytest.fixture(scope="session")
-def exported_head_dna_json_data(
-    modify_head_scene,
-    temp_folder,
-    dna_folder_name: str
-) -> dict:
+def exported_head_dna_json_data(modify_head_scene, temp_folder, dna_folder_name: str) -> dict:
     from meta_human_dna.dna_io import DNAExporter
     from meta_human_dna.utilities import get_active_head
     from utilities.dna_data import get_dna_json_data
@@ -30,22 +26,14 @@ def exported_head_dna_json_data(
 
     if head and head.rig_instance:
         head.rig_instance.output_folder_path = str(export_folder)
-        DNAExporter(
-            file_name="head.dna",
-            instance=head.rig_instance,
-            linear_modifier=head.linear_modifier
-        ).run()
+        DNAExporter(file_name="head.dna", instance=head.rig_instance, linear_modifier=head.linear_modifier).run()
         return get_dna_json_data(dna_file_path, json_file_path)
 
     return {}
 
 
 @pytest.fixture(scope="session")
-def calibrated_head_dna_json_data(
-    modify_head_scene,
-    temp_folder,
-    dna_folder_name: str
-) -> dict:
+def calibrated_head_dna_json_data(modify_head_scene, temp_folder, dna_folder_name: str) -> dict:
     from meta_human_dna.dna_io import DNACalibrator
     from meta_human_dna.utilities import get_active_head
     from utilities.dna_data import get_dna_json_data
@@ -58,11 +46,7 @@ def calibrated_head_dna_json_data(
 
     if head and head.rig_instance:
         head.rig_instance.output_folder_path = str(calibrate_folder)
-        DNACalibrator(
-            file_name="head.dna",
-            instance=head.rig_instance,
-            linear_modifier=head.linear_modifier
-        ).run()
+        DNACalibrator(file_name="head.dna", instance=head.rig_instance, linear_modifier=head.linear_modifier).run()
 
         return get_dna_json_data(dna_file_path, json_file_path)
 

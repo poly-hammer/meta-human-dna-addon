@@ -21,7 +21,7 @@ class META_HUMAN_DNA_FILE_DATA_PT_panel(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: "Context") -> bool:
-        return context.space_data.active_operator.bl_idname == "META_HUMAN_DNA_OT_import_dna" # type: ignore[attr-defined]
+        return context.space_data.active_operator.bl_idname == "META_HUMAN_DNA_OT_import_dna"  # type: ignore[attr-defined]
 
     def draw(self, context: "Context"):
         if not self.layout:
@@ -267,7 +267,7 @@ class LinkAppendMetaHumanImportHelper(ImportHelper):
                 if (f"{name}_head_lod0_mesh" in object_names and f"{name}_head_rig" in object_names) or (
                     f"{name}_body_lod0_mesh" in object_names and f"{name}_body_rig" in object_names
                 ):
-                    item = operator.meta_human_list.add() # type: ignore[attr-defined]
+                    item = operator.meta_human_list.add()  # type: ignore[attr-defined]
                     item.name = name
                     item.include = False
                     # disable items that would cause name conflicts with existing rig instances
@@ -277,7 +277,7 @@ class LinkAppendMetaHumanImportHelper(ImportHelper):
                         item.enabled = True
 
         # save the current filepath to detect changes
-        operator.previous_file_path = operator.filepath # type: ignore[attr-defined]
+        operator.previous_file_path = operator.filepath  # type: ignore[attr-defined]
 
     def draw(self, context: "Context"):
         layout = self.layout  # type: ignore

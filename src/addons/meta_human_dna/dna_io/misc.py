@@ -160,7 +160,7 @@ def create_shape_key(
             key_block.value = 0.0
         mesh_object.active_shape_key_index = 0
 
-    shape_key = mesh_object.data.shape_keys.key_blocks.get(shape_key_name) # type: ignore[attr-defined]
+    shape_key = mesh_object.data.shape_keys.key_blocks.get(shape_key_name)  # type: ignore[attr-defined]
     if shape_key:
         shape_key.lock_shape = False
         mesh_object.shape_key_remove(shape_key)
@@ -186,7 +186,7 @@ def create_shape_key(
                 rotated_delta = rotation_matrix @ delta
 
                 # set the positions of the shape key vertices
-                base_co = mesh_object.data.shape_keys.reference_key.data[vertex_index].co.copy() # type: ignore[attr-defined]
+                base_co = mesh_object.data.shape_keys.reference_key.data[vertex_index].co.copy()  # type: ignore[attr-defined]
                 shape_key_block.data[vertex_index].co = base_co + rotated_delta
             except IndexError:
                 logger.warning(

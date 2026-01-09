@@ -204,7 +204,7 @@ class DNAExporter:
         bmesh.ops.rotate(
             bmesh_object,
             cent=Vector((0, 0, 0)),
-            matrix=Matrix.Rotation(math.radians(rotation), 4, "X"), # type: ignore[arg-type]
+            matrix=Matrix.Rotation(math.radians(rotation), 4, "X"),  # type: ignore[arg-type]
             verts=list(bmesh_object.verts),
         )
         bmesh_object.verts.index_update()
@@ -214,10 +214,7 @@ class DNAExporter:
     @staticmethod
     def get_mesh_faces(bmesh_object: bmesh.types.BMesh) -> list[tuple[int, list[int]]]:
         bmesh_object.faces.ensure_lookup_table()
-        return [
-            (face.index, [vert.index for vert in face.verts])
-            for face in bmesh_object.faces
-        ]
+        return [(face.index, [vert.index for vert in face.verts]) for face in bmesh_object.faces]
 
     @staticmethod
     @preserve_context
@@ -235,7 +232,7 @@ class DNAExporter:
         hierarchy_lookup = {}
 
         # Change the rotation of the bones since DNA expects Y-up
-        rotation_x = Matrix.Rotation(math.radians(-90), 4, "X") # type: ignore[arg-type]
+        rotation_x = Matrix.Rotation(math.radians(-90), 4, "X")  # type: ignore[arg-type]
         global_matrix = rotation_x.to_4x4()
 
         # Switch to edit mode so we can get edit bone data
@@ -245,7 +242,7 @@ class DNAExporter:
 
         # Remove the extra bones from the list of bones
         ignored_bone_names = [i for i, _ in extra_bones]
-        edit_bones = [i for i in armature_object_evaluated.data.edit_bones if i.name not in ignored_bone_names] # type: ignore[attr-defined]
+        edit_bones = [i for i in armature_object_evaluated.data.edit_bones if i.name not in ignored_bone_names]  # type: ignore[attr-defined]
         for index, edit_bone in enumerate(edit_bones):
             if index == 0:
                 # get translation and rotation of the bone globally
@@ -386,8 +383,7 @@ class DNAExporter:
     def set_dna_vertex_groups(self, mesh_index: int, mesh_object: bpy.types.Object):
         if not mesh_object.data or not isinstance(mesh_object.data, bpy.types.Mesh):
             logger.warning(
-                f"Object '{mesh_object.name}' has no mesh data in the blender scene. "
-                "Skipping vertex group export..."
+                f"Object '{mesh_object.name}' has no mesh data in the blender scene. Skipping vertex group export..."
             )
             return
         # Create a lookup table for the vertex group names by their index

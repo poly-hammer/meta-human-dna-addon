@@ -124,17 +124,18 @@ def set_bone_collection(
     for bone_name in bone_names:
         bone = rig_object.data.bones.get(bone_name)
         if bone and theme and bone.color:
-            bone.color.palette = theme # type: ignore[value-assign]
+            bone.color.palette = theme  # type: ignore[value-assign]
 
         pose_bone = rig_object.pose.bones.get(bone_name)
         if pose_bone:
             collection.assign(pose_bone)
             if theme and pose_bone.color:
-                pose_bone.color.palette = theme # type: ignore[value-assign]
+                pose_bone.color.palette = theme  # type: ignore[value-assign]
 
 
 def set_head_bone_collections(mesh_object: bpy.types.Object, rig_object: bpy.types.Object):
     from ..bindings import meta_human_dna_core
+
     if not rig_object.pose:
         return
 
@@ -339,7 +340,7 @@ def reassign_to_body_bone_collections(
             if pose_bone:
                 collection.assign(pose_bone)
                 if theme and pose_bone.color:
-                    pose_bone.color.palette = theme # type: ignore[value-assign]
+                    pose_bone.color.palette = theme  # type: ignore[value-assign]
 
 
 def get_meshes_using_armature(armature_object: bpy.types.Object) -> list[bpy.types.Object]:
@@ -361,7 +362,7 @@ def get_closet_vertex_to_bone(
     bone = pose_bone.id_data.data.bones[pose_bone.name]  # type: ignore[attr-defined]
     position = mesh_object.matrix_world.inverted() @ bone.head_local
     vert = min(
-        mesh_object.data.vertices, # type: ignore[attr-defined]
+        mesh_object.data.vertices,  # type: ignore[attr-defined]
         key=lambda vert: (position - vert.co).length_squared,
     )
     distance = (position - vert.co).length_squared
@@ -435,7 +436,7 @@ def get_weighted_bone_names(mesh_object: bpy.types.Object) -> list[str]:
     weighted_bones = set()
 
     # Iterate over all vertices in the mesh
-    for vertex in mesh_object.data.vertices: # type: ignore[attr-defined]
+    for vertex in mesh_object.data.vertices:  # type: ignore[attr-defined]
         for group in vertex.groups:
             # Get the vertex group (bone) name
             bone_name = mesh_object.vertex_groups[group.group].name
@@ -455,10 +456,10 @@ def copy_armature(armature_object: bpy.types.Object, new_armature_name: str) -> 
     # remove the existing armature if it exists
     armature = bpy.data.meshes.get(new_armature_name)
     if armature:
-        bpy.data.armatures.remove(armature) # pyright: ignore[reportArgumentType]
+        bpy.data.armatures.remove(armature)  # pyright: ignore[reportArgumentType]
 
     # copy the armature
-    armature_data = armature_object.data.copy() # pyright: ignore[reportOptionalMemberAccess]
+    armature_data = armature_object.data.copy()  # pyright: ignore[reportOptionalMemberAccess]
     armature_data.name = new_armature_name
     armature_object_copy = bpy.data.objects.get(new_armature_name)
     armature_object_copy = bpy.data.objects.new(name=new_armature_name, object_data=armature_data)
