@@ -1,4 +1,4 @@
-name: Tests
+name: Dev Checks
 on:
   pull_request:
     branches:
@@ -84,7 +84,7 @@ jobs:
       runner-os: "macos-latest"
 
   benchmark-blender-4-5:
-    needs: [test-blender-4-5-ubuntu-latest, test-blender-4-5-windows-latest, test-blender-4-5-macos-latest]
+    needs: [test-blender-5-0-ubuntu-latest, test-blender-5-0-windows-latest, test-blender-5-0-macos-latest]
     name: Blender 4.5 Benchmark
     uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-benchmark.yaml@dev
     secrets: inherit
