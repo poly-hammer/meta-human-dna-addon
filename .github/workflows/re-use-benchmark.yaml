@@ -1,5 +1,37 @@
 name: Re-Useable Benchmark
 on:
+  workflow_dispatch:
+    inputs:
+      python-version:
+        required: false
+        type: string
+        default: "3.11"
+        description: "Python version to use"
+      blender-version:
+        required: true
+        type: string
+        description: "Blender version (e.g., 4.2)"
+      runner-os:
+        required: false
+        type: string
+        default: "ubuntu-latest"
+        description: "Runner OS (ubuntu-latest, windows-latest, macos-latest)"
+      iterations:
+        required: false
+        type: number
+        default: 50
+        description: "Number of benchmark iterations"
+      warmup:
+        required: false
+        type: number
+        default: 10
+        description: "Number of warmup iterations"
+      threshold:
+        required: false
+        type: number
+        default: 15
+        description: "Regression threshold percentage"
+
   workflow_call:
     inputs:
       python-version:
@@ -117,14 +149,8 @@ jobs:
           uv run python scripts/profiling_utils/ci_benchmark.py \
             --iterations ${{ inputs.iterations }} \
             --warmup ${{ inputs.warmup }} \
-            --output reports/profiling/current \
-            --format json
-        shell: bash
-
-      - name: Rename Current Snapshot
-        run: |
-          mv meta-human-dna-addon/reports/profiling/current/profiling_snapshot_*.json \
-             meta-human-dna-addon/reports/profiling/current/benchmark-current.json
+            --output reports/profiling \
+            --format all
         shell: bash
 
       - name: Compare Against Baseline
@@ -136,7 +162,7 @@ jobs:
 
           # Run comparison
           uv run python scripts/profiling_utils/ci_benchmark.py \
-            --compare reports/profiling/benchmark-baseline.json reports/profiling/current/benchmark-current.json \
+            --compare reports/profiling/benchmark-baseline.json reports/profiling/current/current.json \
             --threshold ${{ inputs.threshold }} \
             2>&1 | tee comparison_output.txt
 
@@ -163,13 +189,13 @@ jobs:
 
           echo "### Current Results" >> $GITHUB_STEP_SUMMARY
           echo '```json' >> $GITHUB_STEP_SUMMARY
-          cat reports/profiling/current/benchmark-current.json | jq '.summary' >> $GITHUB_STEP_SUMMARY
+          cat reports/profiling/current/current.json | jq '.summary' >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "### Hardware Info" >> $GITHUB_STEP_SUMMARY
           echo '```json' >> $GITHUB_STEP_SUMMARY
-          cat reports/profiling/current/benchmark-current.json | jq '.metadata.hardware' >> $GITHUB_STEP_SUMMARY
+          cat reports/profiling/current/current.json | jq '.metadata.hardware' >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
@@ -189,7 +215,9 @@ jobs:
         with:
           name: benchmark-results-blender-${{ inputs.blender-version }}-${{ inputs.runner-os }}-${{ github.sha }}
           path: |
-            meta-human-dna-addon/reports/profiling/current/benchmark-current.json
+            meta-human-dna-addon/reports/profiling/current/current.json
+            meta-human-dna-addon/reports/profiling/current/current.csv
+            meta-human-dna-addon/reports/profiling/current/current.md
             meta-human-dna-addon/comparison_output.txt
           retention-days: 30
 
@@ -197,7 +225,7 @@ jobs:
         if: steps.baseline-check.outputs.baseline_exists == 'false' && inputs.is-push == true
         uses: actions/cache/save@v4
         with:
-          path: meta-human-dna-addon/reports/profiling/current/benchmark-current.json
+          path: meta-human-dna-addon/reports/profiling/current/current.json
           key: benchmark-baseline-blender-${{ inputs.blender-version }}-${{ inputs.runner-os }}-latest
 
       - name: Notify Baseline Created

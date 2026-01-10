@@ -72,10 +72,12 @@ jobs:
         with:
           version: "latest"
 
-      - name: Create stubs venv and install stubs
+      - name: Create venv and additional stubs venv
         run: |
-          python -m venv .stubs-venv
-          .stubs-venv/bin/pip install fake-bpy-module-latest
+          uv sync
+
+          uv venv .stubs-venv
+          uv pip install --python .stubs-venv/Scripts/python.exe -e ".[stubs]"
 
       - name: Install pyright
         run: |

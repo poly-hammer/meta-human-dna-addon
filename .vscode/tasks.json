@@ -106,6 +106,32 @@
                 "panel": "shared",
                 "focus": true
             }
+        },
+        {
+            "label": "Benchmark: Run Profiling",
+            "command": "uv run python scripts/profiling_utils/ci_benchmark.py --iterations ${input:benchmark-iterations} --warmup ${input:benchmark-warmup} ${input:benchmark-shape-keys} --output reports/profiling --format all",
+            "type": "shell",
+            "group": {
+                "kind": "build"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            }
+        },
+        {
+            "label": "Benchmark: Compare Results",
+            "command": "uv run python scripts/profiling_utils/ci_benchmark.py --compare reports/profiling/baseline/baseline.json reports/profiling/current/current.json --threshold ${input:benchmark-threshold}",
+            "type": "shell",
+            "group": {
+                "kind": "build"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            }
         }
     ],
     "inputs": [
@@ -178,6 +204,53 @@
                 "bandit --all-files --hook-stage manual",
             ],
             "description": "Pre-commit scope: all files, staged only, or specific hook"
+        },
+        {
+            "id": "benchmark-iterations",
+            "type": "pickString",
+            "default": "50",
+            "options": [
+                "10",
+                "25",
+                "50",
+                "100"
+            ],
+            "description": "Number of benchmark iterations"
+        },
+        {
+            "id": "benchmark-warmup",
+            "type": "pickString",
+            "default": "10",
+            "options": [
+                "0",
+                "5",
+                "10",
+                "20"
+            ],
+            "description": "Number of warmup iterations before benchmarking"
+        },
+        {
+            "id": "benchmark-threshold",
+            "type": "pickString",
+            "default": "15",
+            "options": [
+                "5",
+                "10",
+                "15",
+                "20",
+                "25"
+            ],
+            "description": "Regression threshold percentage for comparison"
+        },
+        {
+            "id": "benchmark-shape-keys",
+            "type": "pickString",
+            "default": "",
+            "options": [
+                "",
+                "--import-shape-keys"
+            ],
+            "description": "Import shape keys after loading DNA (slower but enables shape key benchmarking)"
         }
     ]
 }

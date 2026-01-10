@@ -9,13 +9,13 @@ This script is designed to run as part of a CI pipeline to:
 
 Usage:
     # Run benchmark and export results
-    blender --background --python ci_benchmark.py -- --iterations 50 --output reports/profiling
+    uv run python scripts/profiling_utils/ci_benchmark.py --iterations 50 --output reports/profiling
 
     # Compare with baseline
-    blender --background --python ci_benchmark.py -- --compare baseline.json current.json --threshold 15
+    uv run python scripts/profiling_utils/ci_benchmark.py --compare baseline.json current.json --threshold 15
 
 Environment Variables:
-    CI_DNA_FILE: Path to DNA file to load (default: tests/test_files/dna/ada.dna)
+    CI_DNA_FILE: Path to DNA file to load (default: tests/test_files/dna/ada/head.dna)
     CI_OUTPUT_DIR: Directory for output files (default: reports/profiling)
     CI_ITERATIONS: Number of benchmark iterations (default: 50)
 """
@@ -24,6 +24,8 @@ from __future__ import annotations
 
 import argparse
 import os
+import platform
+import shutil
 import sys
 
 from pathlib import Path
@@ -35,30 +37,57 @@ ADDON_ROOT = SCRIPT_DIR.parent.parent
 SRC_PATH = ADDON_ROOT / "src" / "addons"
 SCRIPTS_PATH = ADDON_ROOT / "scripts"
 
+# Determine platform-specific architecture
+ARCH = "x64"
+if "arm" in platform.processor().lower():
+    ARCH = "arm64"
+if sys.platform == "win32" and ARCH == "x64":
+    ARCH = "amd64"
+if sys.platform == "linux" and ARCH == "x64":
+    ARCH = "x86_64"
+
+OS_NAME = "windows"
+if sys.platform == "darwin":
+    OS_NAME = "mac"
+elif sys.platform == "linux":
+    OS_NAME = "linux"
+
 # CI-specific paths for sibling repos (when checked out side-by-side in GitHub Actions)
-BINDINGS_PATH = ADDON_ROOT.parent / "meta-human-dna-bindings" / "src"
-CORE_PATH = ADDON_ROOT.parent / "meta-human-dna-core" / "src"
+BINDINGS_SOURCE_PATH = ADDON_ROOT.parent / "meta-human-dna-bindings"
+CORE_SOURCE_PATH = ADDON_ROOT.parent / "meta-human-dna-core"
+BINDINGS_DEST_PATH = ADDON_ROOT / "src" / "addons" / "meta_human_dna" / "bindings"
+
+# Add riglogic bindings to path (platform-specific)
+RIGLOGIC_BINDINGS_PATH = BINDINGS_SOURCE_PATH / OS_NAME / ARCH
+if RIGLOGIC_BINDINGS_PATH.exists():
+    sys.path.insert(0, str(RIGLOGIC_BINDINGS_PATH))
+
+# Ensure riglogic module is available
+if "riglogic" not in sys.modules:
+    try:
+        import riglogic
+
+        sys.modules["riglogic"] = riglogic
+    except ImportError:
+        print(f"WARNING: Could not import riglogic from {RIGLOGIC_BINDINGS_PATH}")
 
 if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 if str(SCRIPTS_PATH) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_PATH))
 
-# Add bindings and core paths if they exist (CI environment)
-if BINDINGS_PATH.exists() and str(BINDINGS_PATH) not in sys.path:
-    sys.path.insert(0, str(BINDINGS_PATH))
-if CORE_PATH.exists() and str(CORE_PATH) not in sys.path:
-    sys.path.insert(0, str(CORE_PATH))
-
 
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     # Find where Blender's args end (after --)
+    # If running via Blender: blender --background --python script.py -- --iterations 5
+    # If running directly: python script.py --iterations 5
     try:
         idx = sys.argv.index("--")
         args = sys.argv[idx + 1 :]
     except ValueError:
-        args = []
+        # No -- separator, use all args after the script name
+        args = sys.argv[1:]
 
     parser = argparse.ArgumentParser(description="CI Benchmark Runner")
     parser.add_argument(
@@ -82,8 +111,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--dna-file",
         type=str,
-        default=os.environ.get("CI_DNA_FILE", "tests/test_files/dna/ada.dna"),
+        default=os.environ.get("CI_DNA_FILE", "tests/test_files/dna/ada/head.dna"),
         help="Path to DNA file to benchmark",
+    )
+    parser.add_argument(
+        "--import-shape-keys",
+        action="store_true",
+        default=False,
+        help="Import shape keys after loading DNA (slower but enables shape key benchmarking)",
     )
     parser.add_argument(
         "--format",
@@ -117,25 +152,122 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args(args)
 
 
-def load_dna_file(dna_path: str) -> bool:
-    """Load a DNA file into Blender."""
+def setup_environment() -> bool:
+    """
+    Set up the environment for running the benchmark.
+
+    This mirrors the setup done in tests/conftest.py to ensure the addon
+    is properly configured with bindings and registered with Blender.
+    """
     import bpy
 
-    dna_path = str(Path(ADDON_ROOT) / dna_path)
+    print("Setting up benchmark environment...")
 
-    if not Path(dna_path).exists():
-        print(f"ERROR: DNA file not found: {dna_path}")
+    # Copy bindings to destination if needed (mirrors conftest.py pytest_configure)
+    bindings_specific_source = BINDINGS_SOURCE_PATH / OS_NAME / ARCH
+    bindings_specific_dest = BINDINGS_DEST_PATH / OS_NAME / ARCH
+
+    if not bindings_specific_dest.exists():
+        if not bindings_specific_source.exists():
+            print(f"  ✗ Bindings not found at {bindings_specific_source}")
+            print("    Please ensure meta-human-dna-bindings is available.")
+            return False
+
+        print(f"  Copying bindings from {bindings_specific_source}...")
+        shutil.copytree(src=bindings_specific_source, dst=bindings_specific_dest, dirs_exist_ok=True)
+
+    # Copy core if running in CI and it exists
+    core_dest = bindings_specific_dest / "meta_human_dna_core"
+    if CORE_SOURCE_PATH.exists() and not core_dest.exists() and os.environ.get("RUNNING_CI"):
+        print(f"  Copying core from {CORE_SOURCE_PATH}...")
+        shutil.copytree(src=CORE_SOURCE_PATH, dst=core_dest, dirs_exist_ok=True)
+
+    # Register the addon with Blender (mirrors tests/fixtures/addon.py)
+    addon_name = "meta_human_dna"
+    scripts_folder = ADDON_ROOT / "src"
+
+    # Add script directory to Blender preferences
+    script_directory = bpy.context.preferences.filepaths.script_directories.get(addon_name)
+    if script_directory:
+        bpy.context.preferences.filepaths.script_directories.remove(script_directory)
+
+    script_directory = bpy.context.preferences.filepaths.script_directories.new()
+    script_directory.name = addon_name
+    script_directory.directory = str(scripts_folder)
+
+    if str(scripts_folder) not in sys.path:
+        sys.path.append(str(scripts_folder))
+
+    # Enable the addon
+    try:
+        bpy.ops.preferences.addon_enable(module=addon_name)
+        print(f"  ✓ Addon '{addon_name}' registered and enabled")
+    except Exception as e:
+        print(f"  ✗ Failed to enable addon: {e}")
         return False
 
-    print(f"Loading DNA file: {dna_path}")
+    # Disable auto DNA backups for benchmarking performance
+    try:
+        bpy.context.preferences.addons[addon_name].preferences.enable_auto_dna_backups = False
+        print("  ✓ Auto DNA backups disabled for benchmarking")
+    except Exception:
+        pass  # Preference may not exist
+
+    return True
+
+
+def load_dna_file(dna_path: str, import_shape_keys: bool = False) -> bool:
+    """
+    Load a DNA file into Blender.
+
+    Args:
+        dna_path: Path to the DNA file (relative to ADDON_ROOT).
+        import_shape_keys: Whether to import shape keys after loading.
+
+    Returns:
+        True if successful, False otherwise.
+
+    Note:
+        Body evaluation requires a 'body.dna' file in the same directory as the head DNA.
+        If no body.dna exists, body metrics will show as 0.000ms.
+    """
+    import bpy
+
+    dna_path_resolved = Path(ADDON_ROOT) / dna_path
+    dna_path_str = str(dna_path_resolved)
+
+    if not dna_path_resolved.exists():
+        print(f"ERROR: DNA file not found: {dna_path_str}")
+        return False
+
+    # Check if body.dna exists for body benchmarking
+    body_dna_path = dna_path_resolved.parent / "body.dna"
+    has_body = body_dna_path.exists()
+
+    print(f"Loading DNA file: {dna_path_str}")
+    if has_body:
+        print(f"  Body DNA found: {body_dna_path}")
+    else:
+        print("  ⚠️  No body.dna found - body metrics will be zero")
 
     try:
         # Import the DNA file
         bpy.ops.meta_human_dna.import_dna(
-            filepath=dna_path,
+            filepath=dna_path_str,
             include_body=True,
         )
         print("  ✓ DNA file loaded successfully")
+
+        # Import shape keys if requested
+        if import_shape_keys:
+            print("  Importing shape keys (this may take a while)...")
+            try:
+                bpy.ops.meta_human_dna.import_shape_keys()
+                print("  ✓ Shape keys imported successfully")
+            except Exception as e:
+                print(f"  ⚠️  Failed to import shape keys: {e}")
+                # Don't fail the whole benchmark for shape key issues
+
         return True
     except Exception as e:
         print(f"  ✗ Failed to load DNA file: {e}")
@@ -151,8 +283,12 @@ def run_benchmark(args: argparse.Namespace) -> int:
     print("CI BENCHMARK RUNNER")
     print("=" * 60)
 
+    # Set up environment and register addon
+    if not setup_environment():
+        return 1
+
     # Load DNA file
-    if not load_dna_file(args.dna_file):
+    if not load_dna_file(args.dna_file, import_shape_keys=args.import_shape_keys):
         return 1
 
     # Run profiler
@@ -166,12 +302,18 @@ def run_benchmark(args: argparse.Namespace) -> int:
         print("ERROR: Profiler returned no results")
         return 1
 
-    # Export results
+    # Determine output paths
+    # - Timestamped results go to the root output folder (e.g., reports/profiling/)
+    # - Current snapshot goes to the "current" subfolder for easy comparison
     output_path = Path(ADDON_ROOT) / args.output
+    root_output_path = output_path.parent if output_path.name == "current" else output_path
+    current_folder = root_output_path / "current"
+
+    # Export timestamped results to root output folder
     files = export_snapshot(
         results,
-        output_path,
-        format=args.format,
+        root_output_path,
+        output_format=args.format,
         iterations=args.iterations,
         warmup=args.warmup,
     )
@@ -179,6 +321,20 @@ def run_benchmark(args: argparse.Namespace) -> int:
     print(f"\nExported {len(files)} result files:")
     for f in files:
         print(f"  - {f}")
+
+    # Clear the "current" folder and copy the latest results there
+    if current_folder.exists():
+        for old_file in current_folder.iterdir():
+            old_file.unlink()
+        print(f"\n  Cleared existing files in {current_folder}")
+    else:
+        current_folder.mkdir(parents=True, exist_ok=True)
+
+    # Copy all exported files to current folder with standardized names
+    for exported_file in files:
+        current_file_path = current_folder / f"current{exported_file.suffix}"
+        shutil.copy(exported_file, current_file_path)
+        print(f"  Copied {exported_file.name} → {current_file_path.name}")
 
     # Output summary for CI logs
     print("\n" + "=" * 60)
