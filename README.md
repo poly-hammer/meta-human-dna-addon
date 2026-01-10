@@ -3,7 +3,7 @@
 | Workflow | Status                                                                                                                                                                                            |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Release  | [![Release](https://github.com/poly-hammer/meta-human-dna-addon/actions/workflows/release.yaml/badge.svg)](https://github.com/poly-hammer/meta-human-dna-addon/actions/workflows/release.yaml)    |
-| Tests    | [![Dev](https://github.com/poly-hammer/meta-human-dna-addon/actions/workflows/on-pr.yaml/badge.svg?branch=dev)](https://github.com/poly-hammer/meta-human-dna-addon/actions/workflows/on-pr.yaml) |
+| Dev      | [![Dev](https://github.com/poly-hammer/meta-human-dna-addon/actions/workflows/on-pr.yaml/badge.svg?branch=dev)](https://github.com/poly-hammer/meta-human-dna-addon/actions/workflows/on-pr.yaml) |
 | Docs     | [![Docs](https://github.com/poly-hammer/meta-human-dna-addon/actions/workflows/docs.yaml/badge.svg)](https://github.com/poly-hammer/meta-human-dna-addon/actions/workflows/docs.yaml)             |
 | Coverage | [![codecov](https://codecov.io/gh/poly-hammer/meta-human-dna-addon/graph/badge.svg?token=322E36CVR4)](https://codecov.io/gh/poly-hammer/meta-human-dna-addon)                                     |
 
@@ -20,6 +20,19 @@ Welcome to the project! We are working hard to make this the best solution for c
 
 > [!NOTE]
 > The addon is still in beta and has missing features that will be added very soon. The supporting resources are discounted while in the beta, but will continue to work after the v1 launch. Also the addon code will continue to receive updates in the future.
+
+## Support
+
+The addon is compatible with MetaHuman `.dna` files that have been created with MetaHuman Creator in Unreal `5.6` and `5.7`. The current Blender support for the addon is listed below:
+
+| Blender Version | Platform | Architecture |
+| --------------- | -------- | ------------ |
+| 4.5             | Windows  | amd64        |
+| 4.5             | Linux    | x86_64       |
+| 4.5             | Mac OS   | arm64        |
+| 5.0             | Windows  | amd64        |
+| 5.0             | Linux    | x86_64       |
+| 5.0             | Mac OS   | arm64        |
 
 ## Dependencies
 
