@@ -11,7 +11,7 @@ schema_version = "1.0.0"
 id = "meta_human_dna"
 name = "MetaHuman DNA"
 tagline = "Import, customize, and export MetaHuman DNA files with RigLogic support"
-version = "0.5.4"
+version = "0.5.5"
 type = "add-on"
 
 # =============================================================================

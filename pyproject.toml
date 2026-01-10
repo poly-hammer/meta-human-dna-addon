@@ -25,7 +25,7 @@ license = {text = "Proprietary"}
 name = "meta-human-dna-addon"
 readme = "README.md"
 requires-python = ">=3.11"
-version = "0.5.4"
+version = "0.5.5"
 
 [project.optional-dependencies]
 dev = [

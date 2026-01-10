@@ -173,6 +173,7 @@
                 "--all-files",
                 "ruff --all-files",
                 "markdownlint --all-files",
+                "check-addon-version --all-files",
                 "cspell --all-files --hook-stage manual",
                 "bandit --all-files --hook-stage manual",
             ],

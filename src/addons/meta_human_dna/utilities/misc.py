@@ -702,15 +702,28 @@ def extract_rig_instance_data_from_blend_file(blend_file_path: Path) -> tuple[li
     error_file = TEMP_FOLDER / f"{file_id}_error.log"
     addon_folder = Path(__file__).parent.parent.parent
 
-    if sys.platform == "win32":
+    binary_path = bpy.app.binary_path
+    if binary_path:
+        if sys.platform == "win32":
+            command = (
+                f'"{binary_path}" --background --python "{script_file}" -- --data-file "{data_file}" '
+                f'--blend-file "{blend_file_path}" --addon-folder "{addon_folder}"'
+            )
+        else:
+            command = (
+                f"{binary_path} --background --python {script_file.as_posix()} -- --data-file {data_file.as_posix()} "
+                f"--blend-file {blend_file_path.as_posix()} --addon-folder {addon_folder.as_posix()}"
+            )
+    # binary path can be empty if blender is run headless
+    elif sys.platform == "win32":
         command = (
-            f'"{sys.executable}" "{script_file}" -- --data-file "{data_file}" '
-            f'--blend-file "{blend_file_path}" --addon-folder "{addon_folder}"'
+            f'"{sys.executable}" "{script_file}" -- --data-file "{data_file}" --blend-file "{blend_file_path}" '
+            f'--addon-folder "{addon_folder}"'
         )
     else:
         command = (
-            f"{sys.executable} {script_file.as_posix()} -- --data-file {data_file.as_posix()} "
-            f"--blend-file {blend_file_path.as_posix()} --addon-folder {addon_folder.as_posix()}"
+            f"{sys.executable} {script_file.as_posix()} -- --data-file {data_file.as_posix()} --blend-file "
+            f"{blend_file_path.as_posix()} --addon-folder {addon_folder.as_posix()}"
         )
 
     for _line in shell(command=command):

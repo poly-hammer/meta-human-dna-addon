@@ -1,9 +1,10 @@
 import os
-import bpy
+import traceback
+import bpy # pyright: ignore[reportMissingImports]
 import json
 import sys
 import argparse
-import addon_utils
+import addon_utils # pyright: ignore[reportMissingImports]
 from pathlib import Path
 
 def is_addon_installed(addon_name: str) -> bool:
@@ -71,7 +72,7 @@ def main():
         }
     except Exception as error:
         with open(f'{data_file.parent / data_file.stem}_error.log', 'w') as f:
-            f.write(str(error))
+            f.write(str(error) + traceback.format_exc())
             return
 
     with open(data_file, 'w') as f:

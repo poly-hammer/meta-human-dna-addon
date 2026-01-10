@@ -109,6 +109,23 @@ repos:
             \.github/.*
           )$
 
+  # =============================================================================
+  # Bump Addon Version
+  # =============================================================================
+  - repo: local
+    hooks:
+      - id: check-addon-version
+        name: Check Addon Version
+        description: Auto-bumps patch version and ensures version sync across addon files
+        entry: >
+          uv run python ./scripts/pre-commit/check_addon_version.py
+          meta_human_dna
+          --watch "src/addons/meta_human_dna/**/*.py"
+        language: system
+        pass_filenames: false
+        always_run: true
+        verbose: true
+
 # =============================================================================
 # CI configuration
 # =============================================================================

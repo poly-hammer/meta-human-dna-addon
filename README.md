@@ -7,7 +7,7 @@
 | Docs     | [![Docs](https://github.com/poly-hammer/meta-human-dna-addon/actions/workflows/docs.yaml/badge.svg)](https://github.com/poly-hammer/meta-human-dna-addon/actions/workflows/docs.yaml)             |
 | Coverage | [![codecov](https://codecov.io/gh/poly-hammer/meta-human-dna-addon/graph/badge.svg?token=322E36CVR4)](https://codecov.io/gh/poly-hammer/meta-human-dna-addon)                                     |
 
-Imports MetaHuman head and body components from a their DNA files, lets you customize them, then send them back to MetaHuman Creator. [Get Now](https://polyhammer.com/meta-human-dna-addon).
+Imports MetaHuman head and body components into Blender from a their DNA files, lets you customize them, then send them back to MetaHuman Creator. [Get Now](https://polyhammer.com/meta-human-dna-addon).
 
 <div align="center">
     <img src="docs/images/quick-start/0.gif" alt="Example Custom MetaHuman" height="250px" style="margin-right: 10px;">
