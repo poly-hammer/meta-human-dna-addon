@@ -96,7 +96,7 @@
         },
         {
             "label": "Pre-commit: Run",
-            "command": "uv run pre-commit run ${input:pre-commit-scope}",
+            "command": "uv run pre-commit run ${input:pre-commit-scope} --verbose --show-diff-on-failure",
             "type": "shell",
             "group": {
                 "kind": "build"

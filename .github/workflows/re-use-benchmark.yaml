@@ -1,0 +1,254 @@
+name: Re-Useable Benchmark
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        required: false
+        type: string
+        default: "3.11"
+      blender-version:
+        required: true
+        type: string
+      runner-os:
+        required: false
+        type: string
+        default: "ubuntu-latest"
+      iterations:
+        required: false
+        type: number
+        default: 50
+      warmup:
+        required: false
+        type: number
+        default: 10
+      threshold:
+        required: false
+        type: number
+        default: 15
+      is-push:
+        required: false
+        type: boolean
+        default: false
+        description: "Set to true on push events to allow baseline creation"
+      is-pull-request:
+        required: false
+        type: boolean
+        default: false
+        description: "Set to true on pull_request events to enable PR comments"
+
+    secrets:
+      GH_PAT:
+        required: true
+
+jobs:
+  benchmark:
+    name: Benchmark
+    runs-on: ${{ inputs.runner-os }}
+    timeout-minutes: 30
+    env:
+      PYTHONUNBUFFERED: 1
+      META_HUMAN_DNA_DEV: 1
+      RUNNING_CI: 1
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+        with:
+          path: "meta-human-dna-addon"
+          lfs: true
+          submodules: true
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Checkout meta-human-dna-bindings Repo
+        uses: actions/checkout@v4
+        with:
+          repository: "poly-hammer/meta-human-dna-bindings"
+          path: "meta-human-dna-bindings"
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Checkout meta-human-dna-core Repo
+        uses: actions/checkout@v4
+        with:
+          repository: "poly-hammer/meta-human-dna-core"
+          path: "meta-human-dna-core"
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Set up Python ${{ inputs.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Install Dependencies
+        run: |
+          cd meta-human-dna-addon
+          uv sync
+          uv pip install --upgrade bpy==${{ inputs.blender-version }}.*
+
+      - name: Restore Baseline from Cache
+        id: restore-baseline
+        uses: actions/cache/restore@v4
+        with:
+          path: meta-human-dna-addon/reports/profiling/benchmark-baseline.json
+          key: benchmark-baseline-blender-${{ inputs.blender-version }}-${{ inputs.runner-os }}-latest
+          restore-keys: |
+            benchmark-baseline-blender-${{ inputs.blender-version }}-${{ inputs.runner-os }}-
+
+      - name: Check Baseline Exists
+        id: baseline-check
+        run: |
+          if [ -f "meta-human-dna-addon/reports/profiling/benchmark-baseline.json" ]; then
+            echo "baseline_exists=true" >> $GITHUB_OUTPUT
+            echo "✓ Baseline found for Blender ${{ inputs.blender-version }} on ${{ inputs.runner-os }}"
+          else
+            echo "baseline_exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️ No baseline found for Blender ${{ inputs.blender-version }} on ${{ inputs.runner-os }}"
+            echo "A new baseline will be created on the next push."
+          fi
+        shell: bash
+
+      - name: Run Benchmark
+        run: |
+          cd meta-human-dna-addon
+          uv run python scripts/profiling_utils/ci_benchmark.py \
+            --iterations ${{ inputs.iterations }} \
+            --warmup ${{ inputs.warmup }} \
+            --output reports/profiling/current \
+            --format json
+        shell: bash
+
+      - name: Rename Current Snapshot
+        run: |
+          mv meta-human-dna-addon/reports/profiling/current/profiling_snapshot_*.json \
+             meta-human-dna-addon/reports/profiling/current/benchmark-current.json
+        shell: bash
+
+      - name: Compare Against Baseline
+        id: compare
+        if: steps.baseline-check.outputs.baseline_exists == 'true'
+        run: |
+          cd meta-human-dna-addon
+          echo "Comparing against baseline with ${{ inputs.threshold }}% threshold..."
+
+          # Run comparison
+          uv run python scripts/profiling_utils/ci_benchmark.py \
+            --compare reports/profiling/benchmark-baseline.json reports/profiling/current/benchmark-current.json \
+            --threshold ${{ inputs.threshold }} \
+            2>&1 | tee comparison_output.txt
+
+          # Check for regressions
+          if grep -q "REGRESSIONS DETECTED" comparison_output.txt; then
+            echo "has_regressions=true" >> $GITHUB_OUTPUT
+          elif grep -q "INCONCLUSIVE" comparison_output.txt; then
+            echo "has_regressions=inconclusive" >> $GITHUB_OUTPUT
+          else
+            echo "has_regressions=false" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
+      - name: Generate Summary
+        run: |
+          cd meta-human-dna-addon
+          echo "## Performance Benchmark Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Blender Version:** ${{ inputs.blender-version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Runner OS:** ${{ inputs.runner-os }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Current Results" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          cat reports/profiling/current/benchmark-current.json | jq '.summary' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Hardware Info" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          cat reports/profiling/current/benchmark-current.json | jq '.metadata.hardware' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.baseline-check.outputs.baseline_exists }}" == "true" ]; then
+            echo "### Comparison with Baseline" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat comparison_output.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ⚠️ No Baseline Available" >> $GITHUB_STEP_SUMMARY
+            echo "A new baseline will be created automatically." >> $GITHUB_STEP_SUMMARY
+          fi
+        shell: bash
+
+      - name: Upload Benchmark Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-blender-${{ inputs.blender-version }}-${{ inputs.runner-os }}-${{ github.sha }}
+          path: |
+            meta-human-dna-addon/reports/profiling/current/benchmark-current.json
+            meta-human-dna-addon/comparison_output.txt
+          retention-days: 30
+
+      - name: Save as New Baseline (if none exists)
+        if: steps.baseline-check.outputs.baseline_exists == 'false' && inputs.is-push == true
+        uses: actions/cache/save@v4
+        with:
+          path: meta-human-dna-addon/reports/profiling/current/benchmark-current.json
+          key: benchmark-baseline-blender-${{ inputs.blender-version }}-${{ inputs.runner-os }}-latest
+
+      - name: Notify Baseline Created
+        if: steps.baseline-check.outputs.baseline_exists == 'false' && inputs.is-push == true
+        run: |
+          echo "## 🎯 New Baseline Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "No existing baseline was found, so the current benchmark has been saved as the new baseline." >> $GITHUB_STEP_SUMMARY
+          echo "Future runs will compare against this baseline." >> $GITHUB_STEP_SUMMARY
+        shell: bash
+
+      - name: Post PR Comment (if regression detected)
+        if: inputs.is-pull-request == true && steps.compare.outputs.has_regressions == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            let comparisonOutput = '';
+            try {
+              comparisonOutput = fs.readFileSync('meta-human-dna-addon/comparison_output.txt', 'utf8');
+            } catch (e) {
+              comparisonOutput = 'Could not read comparison output.';
+            }
+
+            const body = `## ⚠️ Performance Regression Detected
+
+            **Blender Version:** ${{ inputs.blender-version }}
+            **Runner OS:** ${{ inputs.runner-os }}
+
+            <details>
+            <summary>Comparison Details</summary>
+
+            \`\`\`
+            ${comparisonOutput}
+            \`\`\`
+
+            </details>
+
+            Please review the performance changes before merging.
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+      - name: Warn on Regression
+        if: steps.compare.outputs.has_regressions == 'true'
+        run: |
+          echo "::warning::Performance regression detected! See summary for details."
+        shell: bash

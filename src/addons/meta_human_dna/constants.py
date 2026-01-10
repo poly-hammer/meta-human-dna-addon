@@ -247,3 +247,6 @@ class BodyBoneCollection:
     DRIVEN = "Driven"
     TWISTS = "Twists"
     SWINGS = "Swings"
+
+
+LEGACY_DATA_KEYS = ["rig_logic_instance_list"]

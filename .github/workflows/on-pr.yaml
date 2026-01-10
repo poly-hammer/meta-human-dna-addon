@@ -54,7 +54,7 @@ jobs:
 
   # Test with Blender 5.0
   test-blender-5-0-ubuntu-latest:
-    needs: [lint, test-blender-4-5-ubuntu-latest]
+    needs: [test-blender-4-5-ubuntu-latest]
     name: Blender 5.0 Tests
     uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-tests.yaml@dev
     secrets: inherit
@@ -64,7 +64,7 @@ jobs:
       runner-os: "ubuntu-latest"
 
   test-blender-5-0-windows-latest:
-    needs: [lint, test-blender-4-5-windows-latest]
+    needs: [test-blender-4-5-windows-latest]
     name: Blender 5.0 Tests
     uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-tests.yaml@dev
     secrets: inherit
@@ -74,7 +74,7 @@ jobs:
       runner-os: "windows-latest"
 
   test-blender-5-0-macos-latest:
-    needs: [lint, test-blender-4-5-macos-latest]
+    needs: [test-blender-4-5-macos-latest]
     name: Blender 5.0 Tests
     uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-tests.yaml@dev
     secrets: inherit
@@ -82,3 +82,33 @@ jobs:
       python-version: "3.11"
       blender-version: "5.0"
       runner-os: "macos-latest"
+
+  benchmark-blender-4-5:
+    needs: [test-blender-4-5-ubuntu-latest, test-blender-4-5-windows-latest, test-blender-4-5-macos-latest]
+    name: Blender 4.5 Benchmark
+    uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-benchmark.yaml@dev
+    secrets: inherit
+    with:
+      python-version: "3.11"
+      blender-version: "4.5"
+      runner-os: "ubuntu-latest"
+      iterations: 50
+      warmup: 10
+      threshold: 15
+      is-push: ${{ github.event_name == 'push' }}
+      is-pull-request: ${{ github.event_name == 'pull_request' }}
+
+  benchmark-blender-5-0:
+    needs: [test-blender-5-0-ubuntu-latest, test-blender-5-0-windows-latest, test-blender-5-0-macos-latest]
+    name: Blender 5.0 Benchmark
+    uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-benchmark.yaml@dev
+    secrets: inherit
+    with:
+      python-version: "3.11"
+      blender-version: "5.0"
+      runner-os: "ubuntu-latest"
+      iterations: 50
+      warmup: 10
+      threshold: 15
+      is-push: ${{ github.event_name == 'push' }}
+      is-pull-request: ${{ github.event_name == 'pull_request' }}

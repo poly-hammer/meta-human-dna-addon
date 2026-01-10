@@ -7,7 +7,7 @@ import bpy
 from bl_ui.generic_ui_list import draw_ui_list
 
 # local imports
-from ..constants import SHAPE_KEY_BASIS_NAME
+from ..constants import LEGACY_DATA_KEYS, SHAPE_KEY_BASIS_NAME
 from ..typing import *  # noqa: F403
 
 
@@ -937,3 +937,28 @@ class META_HUMAN_DNA_PT_output_buttons_sub_panel(bpy.types.Panel):
             row.scale_y = 2.0
             row.operator("meta_human_dna.export_selected_component", icon="EXPORT", text="Only Component")
             row.operator("meta_human_dna.send_to_meta_human_creator", icon="UV_SYNC_SELECT", text="MetaHuman Creator")
+
+
+class META_HUMAN_DNA_PT_migrate_legacy_data(bpy.types.Panel):
+    bl_label = "Migrate Legacy Data"
+    bl_category = "MetaHuman DNA"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_options = {"HEADER_LAYOUT_EXPAND"}
+
+    @classmethod
+    def poll(cls, context: "Context") -> bool:
+        return any(context.scene.meta_human_dna.get(key) for key in LEGACY_DATA_KEYS)
+
+    def draw(self, context: "Context"):
+        if not self.layout:
+            return
+
+        row = self.layout.row()
+        row.alert = True
+        row.label(text="Legacy data detected", icon="ERROR")
+        row = self.layout.row()
+        row.label(text="You must migrate your .blend file then save it.")
+        row = self.layout.row()
+        row.scale_y = 1.5
+        row.operator("meta_human_dna.migrate_legacy_data", icon="FILE_NEW", text="Migrate Now")

@@ -103,17 +103,17 @@
     // Terminal Environment Variables
     // =========================================================================
     "terminal.integrated.env.windows": {
-        "PYTHONPATH": "${env:PYTHONPATH};${workspaceFolder}/admin/packages;${workspaceFolder}/.venv/Lib/site-packages;${workspaceFolder}/src/addons",
+        "PYTHONPATH": "${env:PYTHONPATH};${workspaceFolder}/scripts;${workspaceFolder}/.venv/Lib/site-packages;${workspaceFolder}/src/addons",
         "PYTHONUNBUFFERED": "1",
         "BLENDER_SCRIPTS_FOLDERS": "${workspaceFolder}/src"
     },
     "terminal.integrated.env.linux": {
-        "PYTHONPATH": "${env:PYTHONPATH}:${workspaceFolder}/admin/packages:${workspaceFolder}/.venv/Lib/site-packages:${workspaceFolder}/src/addons",
+        "PYTHONPATH": "${env:PYTHONPATH}:${workspaceFolder}/scripts:${workspaceFolder}/.venv/Lib/site-packages:${workspaceFolder}/src/addons",
         "PYTHONUNBUFFERED": "1",
         "BLENDER_SCRIPTS_FOLDERS": "${workspaceFolder}/src"
     },
     "terminal.integrated.env.osx": {
-        "PYTHONPATH": "${env:PYTHONPATH}:${workspaceFolder}/admin/packages:${workspaceFolder}/.venv/Lib/site-packages:${workspaceFolder}/src/addons",
+        "PYTHONPATH": "${env:PYTHONPATH}:${workspaceFolder}/scripts:${workspaceFolder}/.venv/Lib/site-packages:${workspaceFolder}/src/addons",
         "PYTHONUNBUFFERED": "1",
         "BLENDER_SCRIPTS_FOLDERS": "${workspaceFolder}/src"
     },

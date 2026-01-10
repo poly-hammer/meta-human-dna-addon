@@ -4,6 +4,7 @@ import logging
 import math
 import queue
 import shutil
+import webbrowser
 
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -1129,6 +1130,18 @@ class TestSentry(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class MigrateLegacyData(bpy.types.Operator):
+    """Migrate legacy data to the latest format"""
+
+    bl_idname = "meta_human_dna.migrate_legacy_data"
+    bl_label = "Migrate Legacy Data"
+
+    def execute(self, context: "Context") -> set[str]:
+        utilities.migrate_legacy_data(context)
+        bpy.ops.meta_human_dna.force_evaluate()  # type: ignore[attr-defined]
+        return {"FINISHED"}
+
+
 class OpenBuildToolDocumentation(bpy.types.Operator):
     """Opens the Build Tool documentation in the default web browser"""
 
@@ -1136,8 +1149,6 @@ class OpenBuildToolDocumentation(bpy.types.Operator):
     bl_label = "Open Build Tool Documentation"
 
     def execute(self, context: "Context") -> set[str]:
-        import webbrowser
-
         webbrowser.open(ToolInfo.BUILD_TOOL_DOCUMENTATION)
         return {"FINISHED"}
 
@@ -1149,8 +1160,6 @@ class OpenMetricsCollectionAgreement(bpy.types.Operator):
     bl_label = "Open Metrics Collection Agreement"
 
     def execute(self, context: "Context") -> set[str]:
-        import webbrowser
-
         webbrowser.open(ToolInfo.METRICS_COLLECTION_AGREEMENT)
         return {"FINISHED"}
 

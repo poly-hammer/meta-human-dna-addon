@@ -83,19 +83,6 @@ jobs:
           cd meta-human-dna-addon
           bash ./.github/workflows/pytest-mac.sh
 
-      - name: Publish Test Report
-        uses: mikepenz/action-junit-report@v4
-        # always run even if the previous step fails
-        if: success() || failure()
-        with:
-          check_name: Test Results (${{ inputs.runner-os }} ${{ inputs.blender-version }})
-          include_passed: True
-          fail_on_failure: True
-          require_tests: True
-          require_passed_tests: True
-          detailed_summary: True
-          report_paths: "./meta-human-dna-addon/reports/pytest/*.xml"
-
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
@@ -109,3 +96,16 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./meta-human-dna-addon/reports/pytest/results.xml
           report_type: "test_results"
+
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v4
+        # always run even if the previous step fails
+        if: success() || failure()
+        with:
+          check_name: Test Results (${{ inputs.runner-os }} ${{ inputs.blender-version }})
+          include_passed: True
+          fail_on_failure: True
+          require_tests: True
+          require_passed_tests: True
+          detailed_summary: True
+          report_paths: "./meta-human-dna-addon/reports/pytest/*.xml"

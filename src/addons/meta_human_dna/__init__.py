@@ -86,6 +86,7 @@ classes = [
     operators.BakeComponentAnimation,
     operators.ImportShapeKeys,
     operators.TestSentry,
+    operators.MigrateLegacyData,
     operators.OpenBuildToolDocumentation,
     operators.OpenMetricsCollectionAgreement,
     operators.MetricsCollectionConsent,
@@ -134,6 +135,7 @@ classes = [
     view_3d.META_HUMAN_DNA_UL_rig_instances,
     view_3d.META_HUMAN_DNA_PT_output_panel,
     view_3d.META_HUMAN_DNA_PT_output_buttons_sub_panel,
+    view_3d.META_HUMAN_DNA_PT_migrate_legacy_data,
 ]
 
 app_handlers = {

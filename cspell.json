@@ -8,9 +8,9 @@
         ".stubs-venv",
         "build",
         "scratches",
+        "scripts",
+        "tests",
         "reports",
-        "tests/test_files",
-        "tests/extra_test_files",
         "node_modules",
         "*.lock",
         "*.pyc",
@@ -207,29 +207,14 @@
     "allowCompoundWords": true,
     "overrides": [
         {
-            "filename": "**/*.py",
+            "filename": "src/**",
+            "description": "Source code - more permissive spelling for technical terms",
             "words": [
                 "bpy",
                 "bgl",
                 "gpu",
                 "addon",
-                "addons"
-            ]
-        },
-        {
-            "filename": "**/tests/**",
-            "words": [
-                "fixture",
-                "fixtures",
-                "parametrize",
-                "parametrized",
-                "conftest"
-            ]
-        },
-        {
-            "filename": "src/**",
-            "description": "Source code - more permissive spelling for technical terms",
-            "words": [
+                "addons",
                 "accessor",
                 "affine",
                 "animatable",
@@ -363,7 +348,8 @@
                 "RSE",
                 "SLF",
                 "FURB",
-                "rgx"
+                "rgx",
+                "lint"
             ]
         }
     ]

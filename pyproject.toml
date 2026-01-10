@@ -228,6 +228,7 @@ exclude = [
   "releases",
   "reports",
   "scratches",
+  "scripts",
   "tests",
   "*.pyi",
   "src/addons/meta_human_dna/resources/*",
