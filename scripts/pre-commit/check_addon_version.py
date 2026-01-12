@@ -4,6 +4,7 @@ This hook ensures that the version in:
 - src/addons/<addon_name>/__init__.py (bl_info["version"])
 - src/addons/<addon_name>/blender_manifest.toml
 - pyproject.toml (at repo root)
+- uv.lock (at repo root)
 
 Are all in sync and auto-bumps the patch version when addon files are changed.
 
@@ -147,6 +148,23 @@ def read_version_from_uv_lock(file_path: Path, package_name: str) -> Version | N
     return Version.from_string(match.group(1))
 
 
+def read_version_from_version_py(file_path: Path) -> Version | None:
+    """Read version from a version.py file with __version__ = "x.y.z".
+
+    Returns None if the file doesn't exist or version not found.
+    """
+    if not file_path.exists():
+        return None
+
+    content = file_path.read_text(encoding="utf-8")
+    # Match: __version__ = "0.5.4"
+    pattern = r'^__version__\s*=\s*["\'](\d+\.\d+\.\d+)["\']'
+    match = re.search(pattern, content, re.MULTILINE)
+    if not match:
+        return None
+    return Version.from_string(match.group(1))
+
+
 def write_version_to_init(file_path: Path, version: Version) -> None:
     """Write version to addon __init__.py bl_info dict."""
     content = file_path.read_text(encoding="utf-8")
@@ -179,6 +197,27 @@ def write_version_to_uv_lock(file_path: Path, package_name: str, version: Versio
 
     # Match the package block and replace version
     pattern = rf'(\[\[package\]\]\s*\nname\s*=\s*"{re.escape(package_name)}"\s*\nversion\s*=\s*)"[\d.]+"'
+    replacement = rf'\g<1>"{version}"'
+    new_content, count = re.subn(pattern, replacement, content, flags=re.MULTILINE)
+
+    if count == 0:
+        return False
+
+    # Preserve LF line endings
+    file_path.write_text(new_content, encoding="utf-8", newline="\n")
+    return True
+
+
+def write_version_to_version_py(file_path: Path, version: Version) -> bool:
+    """Write version to a version.py file with __version__ = "x.y.z".
+
+    Returns True if the file was updated, False if file doesn't exist.
+    """
+    if not file_path.exists():
+        return False
+
+    content = file_path.read_text(encoding="utf-8")
+    pattern = r'^(__version__\s*=\s*)["\'][\d.]+["\']'
     replacement = rf'\g<1>"{version}"'
     new_content, count = re.subn(pattern, replacement, content, flags=re.MULTILINE)
 
@@ -237,6 +276,13 @@ def main() -> int:
     pyproject_path = Path("pyproject.toml")
     uv_lock_path = Path("uv.lock")
 
+    # Core package paths (for meta_human_dna_core bindings)
+    core_base_path = addon_base_path / "bindings" / "windows" / "amd64" / "meta_human_dna_core"
+    core_pyproject_path = core_base_path / "pyproject.toml"
+    core_uv_lock_path = core_base_path / "uv.lock"
+    core_version_py_path = core_base_path / "src" / "meta_human_dna_core" / "version.py"
+    core_package_name = "meta-human-dna-core"
+
     # Convert addon name to package name format (underscores to hyphens)
     package_name = args.addon_name.replace("_", "-") + "-addon"
 
@@ -274,12 +320,32 @@ def main() -> int:
     # Read uv.lock version if it exists
     uv_lock_version = read_version_from_uv_lock(uv_lock_path, package_name)
 
+    # Read core package versions if they exist
+    core_pyproject_version = None
+    core_uv_lock_version = None
+    core_version_py_version = None
+
+    if core_pyproject_path.exists():
+        try:
+            core_pyproject_version = read_version_from_toml(core_pyproject_path)
+        except ValueError:
+            pass  # File exists but version not found
+
+    core_uv_lock_version = read_version_from_uv_lock(core_uv_lock_path, core_package_name)
+    core_version_py_version = read_version_from_version_py(core_version_py_path)
+
     print("Current versions:")
     print(f"  __init__.py:           {init_version}")
     print(f"  blender_manifest.toml: {manifest_version}")
     print(f"  pyproject.toml:        {pyproject_version}")
     if uv_lock_version:
         print(f"  uv.lock:               {uv_lock_version}")
+    if core_pyproject_version:
+        print(f"  core/pyproject.toml:   {core_pyproject_version}")
+    if core_uv_lock_version:
+        print(f"  core/uv.lock:          {core_uv_lock_version}")
+    if core_version_py_version:
+        print(f"  core/version.py:       {core_version_py_version}")
 
     # Check if relevant files have changed (matching watch patterns, excluding version files)
     relevant_changes = has_relevant_changes(staged_files, watch_patterns, version_files)
@@ -302,6 +368,20 @@ def main() -> int:
             print(f"  Updated uv.lock for package '{package_name}'")
             stage_file(uv_lock_path)
 
+        # Update core package version files if they exist
+        if core_pyproject_path.exists():
+            write_version_to_toml(core_pyproject_path, new_version)
+            print(f"  Updated core/pyproject.toml")
+            stage_file(core_pyproject_path)
+
+        if write_version_to_uv_lock(core_uv_lock_path, core_package_name, new_version):
+            print(f"  Updated core/uv.lock for package '{core_package_name}'")
+            stage_file(core_uv_lock_path)
+
+        if write_version_to_version_py(core_version_py_path, new_version):
+            print(f"  Updated core/version.py")
+            stage_file(core_version_py_path)
+
         # Stage the updated version files
         for vf in version_files:
             stage_file(vf)
@@ -309,10 +389,16 @@ def main() -> int:
         print("Version files updated and staged.")
         return 0
 
-    # Check if versions are in sync (include uv.lock if it exists)
+    # Check if versions are in sync (include uv.lock and core package versions if they exist)
     all_versions = [init_version, manifest_version, pyproject_version]
     if uv_lock_version:
         all_versions.append(uv_lock_version)
+    if core_pyproject_version:
+        all_versions.append(core_pyproject_version)
+    if core_uv_lock_version:
+        all_versions.append(core_uv_lock_version)
+    if core_version_py_version:
+        all_versions.append(core_version_py_version)
 
     if len(set(all_versions)) > 1:
         print("\nERROR: Version mismatch detected!")
@@ -322,6 +408,12 @@ def main() -> int:
         print(f"  pyproject.toml:        {pyproject_version}")
         if uv_lock_version:
             print(f"  uv.lock:               {uv_lock_version}")
+        if core_pyproject_version:
+            print(f"  core/pyproject.toml:   {core_pyproject_version}")
+        if core_uv_lock_version:
+            print(f"  core/uv.lock:          {core_uv_lock_version}")
+        if core_version_py_version:
+            print(f"  core/version.py:       {core_version_py_version}")
         print("\nPlease sync the versions manually or let this hook auto-bump by")
         print("unstaging the version files and committing your addon changes again.")
         return 1
