@@ -996,6 +996,10 @@ class RigInstance(bpy.types.PropertyGroup):
 
     @property
     def body_driver_bone_names(self) -> list[str]:
+        if not self.body_rig:
+            return []
+
+        # check if we have already cached the driver bone names
         driver_bone_names = self.data.get(f"{self.name}_body_driver_bone_names", [])
         if driver_bone_names:
             return driver_bone_names

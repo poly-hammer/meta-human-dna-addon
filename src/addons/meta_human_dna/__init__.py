@@ -19,7 +19,7 @@ logger = logging.getLogger(constants.ToolInfo.NAME)
 bl_info = {
     "name": "MetaHuman DNA",
     "author": "Poly Hammer",
-    "version": (0, 5, 5),
+    "version": (0, 5, 6),
     "blender": (4, 5, 0),
     "location": "File > Import > MetaHuman DNA",
     "description": (

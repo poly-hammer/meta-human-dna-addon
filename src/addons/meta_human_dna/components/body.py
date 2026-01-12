@@ -11,7 +11,7 @@ from mathutils import Vector
 
 # local imports
 from .. import utilities
-from ..constants import BODY_TOPOLOGY_VERTEX_GROUPS_FILE_PATH, TOPO_GROUP_PREFIX
+from ..constants import BODY_TOPOLOGY_VERTEX_GROUPS_FILE_PATH, IS_BLENDER_5, TOPO_GROUP_PREFIX
 from ..dna_io import DNAExporter
 from ..utilities import exclude_rig_instance_evaluation, preserve_context
 from .base import MetaHumanComponentBase
@@ -205,17 +205,24 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
         if self.rig_instance and self.rig_instance.body_rig:
             if self.rig_instance.rig_bone_group_selection_mode != "add":
                 # deselect all bones first
-                for bone in self.rig_instance.body_rig.data.bones:
-                    bone.select = False
+                for pose_bone in self.rig_instance.body_rig.pose.bones:
+                    # Note: In Blender 5.0+, the select property moved from Bone to PoseBone
+                    if IS_BLENDER_5:
+                        pose_bone.select = False
+                    else:
+                        pose_bone.bone.select = False
 
             from ..bindings import meta_human_dna_core
 
             for bone_name in meta_human_dna_core.BODY_BONE_SELECTION_GROUPS.get(
                 self.rig_instance.body_rig_bone_groups, []
             ):
-                bone = self.rig_instance.body_rig.data.bones.get(bone_name)
-                if bone:
-                    bone.select = True
+                pose_bone = self.rig_instance.body_rig.pose.bones.get(bone_name)
+                if pose_bone:
+                    if IS_BLENDER_5:
+                        pose_bone.select = True
+                    else:
+                        pose_bone.bone.select = True
 
             if self.rig_instance.body_rig_bone_groups.startswith(TOPO_GROUP_PREFIX):
                 for bone in utilities.get_topology_group_surface_bones(
@@ -224,7 +231,12 @@ class MetaHumanComponentBody(MetaHumanComponentBase):
                     vertex_group_name=self.rig_instance.body_rig_bone_groups,
                     dna_reader=self.dna_reader,
                 ):
-                    bone.select = True
+                    pose_bone = self.rig_instance.body_rig.pose.bones.get(bone.name)
+                    if pose_bone:
+                        if IS_BLENDER_5:
+                            pose_bone.select = True
+                        else:
+                            pose_bone.bone.select = True
 
             self.rig_instance.body_rig.hide_set(False)
             utilities.switch_to_pose_mode(self.rig_instance.body_rig)
