@@ -6,8 +6,8 @@ import gpu
 from gpu_extras.batch import batch_for_shader
 
 # local imports
-from ..constants import ToolInfo
 from ..typing import *  # noqa: F403
+from ..utilities import get_addon_preferences
 
 
 # Global storage for draw handler
@@ -102,9 +102,12 @@ def draw_pose_editor_overlay() -> None:
     if not bpy.context.preferences:
         return
 
+    addon_preferences = get_addon_preferences()
+    if not addon_preferences:
+        return
+
     # Check if overlay is enabled in preferences
-    preferences: "MetahumanAddonProperties" = bpy.context.preferences.addons[ToolInfo.NAME].preferences  # pyright: ignore[reportAssignmentType]  # noqa: UP037
-    if not preferences.show_pose_editor_viewport_overlay:
+    if not addon_preferences.show_pose_editor_viewport_overlay:
         return
 
     instance = get_active_rig_instance()

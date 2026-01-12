@@ -13,9 +13,10 @@ IS_BLENDER_5 = bpy.app.version >= (5, 0, 0)
 
 
 class ToolInfo:
-    NAME = "meta_human_dna"
-    BUILD_TOOL_DOCUMENTATION = "https://docs.polyhammer.com/hammer-build-tool/setup/"
-    METRICS_COLLECTION_AGREEMENT = "https://www.polyhammer.com/dpa"
+    NAME: str = "meta_human_dna"
+    EXTENSION_ID: str | None = None
+    BUILD_TOOL_DOCUMENTATION: str = "https://docs.polyhammer.com/hammer-build-tool/setup/"
+    METRICS_COLLECTION_AGREEMENT: str = "https://www.polyhammer.com/dpa"
 
 
 Axis = Literal["X", "Y", "Z"]

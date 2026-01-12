@@ -11,8 +11,8 @@ from pathlib import Path
 import bpy
 
 # local imports
-from ...constants import ToolInfo
 from ...typing import *  # noqa: F403
+from ...utilities import get_addon_preferences
 
 
 logger = logging.getLogger(__name__)
@@ -38,16 +38,6 @@ def get_backup_folder() -> Path:
     return backup_base
 
 
-def _get_addon_preferences() -> "MetahumanAddonProperties | None":
-    """Get the addon preferences."""
-    if not bpy.context.preferences:
-        return None
-    addon = bpy.context.preferences.addons.get(ToolInfo.NAME)
-    if addon:
-        return addon.preferences  # pyright: ignore[reportReturnType]
-    return None
-
-
 def is_auto_backup_enabled() -> bool:
     """
     Check if auto backup is enabled in addon preferences.
@@ -55,7 +45,7 @@ def is_auto_backup_enabled() -> bool:
     Returns:
         True if auto backup is enabled, False otherwise.
     """
-    preferences = _get_addon_preferences()
+    preferences = get_addon_preferences()
     if preferences:
         return preferences.enable_auto_dna_backups
     return False
@@ -68,7 +58,7 @@ def get_max_backups() -> int:
     Returns:
         Maximum number of backups from preferences, or 5 as default.
     """
-    preferences = _get_addon_preferences()
+    preferences = get_addon_preferences()
     if preferences:
         return preferences.max_dna_backups
     return 5

@@ -6,7 +6,6 @@ import bpy
 
 # local imports
 from .. import __package__ as package_name
-from ..constants import ToolInfo
 from ..properties import ExtraDnaFolder, MetahumanAddonProperties
 from ..typing import *  # noqa: F403
 
@@ -33,9 +32,7 @@ class MetaHumanDnaPreferences(MetahumanAddonProperties, bpy.types.AddonPreferenc
     bl_idname = str(package_name)
 
     def draw(self, context: "Context"):
-        preferences = context.preferences.addons[ToolInfo.NAME].preferences
         layout = self.layout
-
         # General Settings
         row = layout.row()
         row.prop(self, "metrics_collection", text="Allow Metrics Collection")
@@ -60,17 +57,17 @@ class MetaHumanDnaPreferences(MetahumanAddonProperties, bpy.types.AddonPreferenc
         row.template_list(
             "FOLDER_UL_extra_dna_path",
             "extra_dna_folder_list_id",
-            preferences,
+            self,
             "extra_dna_folder_list",
-            preferences,
+            self,
             "extra_dna_folder_list_active_index",
-            rows=4 if preferences.extra_dna_folder_list else 1,
+            rows=4 if self.extra_dna_folder_list else 1,
         )
 
         col = row.column()
         col.operator("meta_human_dna.addon_preferences_extra_dna_entry_add", text="", icon="ADD")
         row = col.row()
-        row.enabled = len(preferences.extra_dna_folder_list) > 0
+        row.enabled = len(self.extra_dna_folder_list) > 0
         row.operator(
             "meta_human_dna.addon_preferences_extra_dna_entry_remove",
             text="",

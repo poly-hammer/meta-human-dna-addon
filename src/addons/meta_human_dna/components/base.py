@@ -42,7 +42,6 @@ from ..constants import (
     UNREAL_EXPORTED_HEAD_MATERIAL_NAMES,
     UV_MAP_NAME,
     ComponentType,
-    ToolInfo,
 )
 from ..dna_io import DNAImporter, get_dna_reader
 from ..typing import *  # noqa: F403
@@ -83,7 +82,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
                 self.asset_root_folder = Path(bpy.path.abspath(str(rig_instance.body_dna_file_path))).parent
 
         self.rig_instance: "RigInstance" = rig_instance  # type: ignore[assignment]  # noqa: UP037
-        self.addon_properties: "MetahumanAddonProperties" = bpy.context.preferences.addons[ToolInfo.NAME].preferences  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]  # noqa: UP037
+        self.addon_properties: "MetahumanAddonProperties" = utilities.get_addon_preferences()  # pyright: ignore[reportAttributeAccessIssue]  # noqa: UP037
         self.window_manager_properties: "MetahumanWindowMangerProperties" = bpy.context.window_manager.meta_human_dna  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue]  # noqa: UP037
         self.scene_properties: "MetahumanSceneProperties" = bpy.context.scene.meta_human_dna  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue] # noqa: UP037
         self.dna_import_properties: "MetahumanImportProperties" = dna_import_properties  # noqa: UP037

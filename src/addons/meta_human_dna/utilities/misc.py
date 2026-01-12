@@ -236,12 +236,18 @@ def init_sentry():
     if os.environ.get("META_HUMAN_DNA_DEV"):
         return
 
+    if not bpy.context.preferences:
+        return
+
     # Don't collect metrics if the user has disabled online access
     if not bpy.app.online_access:
         return
 
+    addon_preferences = get_addon_preferences()
+    if not addon_preferences:
+        return
+
     # Don't collect metrics if the user has disabled it
-    addon_preferences: "MetahumanAddonProperties" = bpy.context.preferences.addons[ToolInfo.NAME].preferences  # pyright: ignore[reportOptionalMemberAccess, reportAssignmentType] # noqa: UP037
     if not addon_preferences.metrics_collection:
         return
 
@@ -1004,3 +1010,27 @@ def migrate_legacy_data(context: "Context") -> None:  # noqa: PLR0912
 
         # Remove old data after migration
         del context.scene.meta_human_dna[key]
+
+
+def get_addon_preferences() -> "MetahumanAddonProperties | None":
+    """
+    Gets the addon preferences for the MetaHuman DNA addon.
+
+    Returns:
+        MetahumanAddonProperties | None: The addon preferences or None if not found.
+    """
+    if not bpy.context.preferences:
+        return None
+
+    # use cached extension id if available
+    if ToolInfo.EXTENSION_ID:
+        return bpy.context.preferences.addons[ToolInfo.EXTENSION_ID].preferences  # type: ignore[attr-defined]
+
+    # search for the addon preferences, these can be defined under different names depending on how
+    # the addon was installed. E.g. "meta_human_dna" or "bl_ext.user_default.meta_human_dna"
+    for extension_id in bpy.context.preferences.addons.keys():  # noqa: SIM118
+        key = extension_id.split(".")[-1]
+        if key == ToolInfo.NAME:
+            ToolInfo.EXTENSION_ID = extension_id
+            return bpy.context.preferences.addons[extension_id].preferences  # type: ignore[attr-defined]
+    return None
