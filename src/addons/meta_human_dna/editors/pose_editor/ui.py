@@ -70,7 +70,19 @@ class META_HUMAN_DNA_UL_rbf_driven(bpy.types.UIList):
         active_data: "RigInstance",
         active_prop_name: str,
     ):
-        layout.label(text=item.name, icon="BONE_DATA")
+        row = layout.row()
+        row.label(text=item.name, icon="BONE_DATA")
+        if context.active_pose_bone and context.active_pose_bone.name == item.name:
+            row.label(text="", icon="RESTRICT_SELECT_OFF")
+        # Push the transform indicators to the right
+        # sub = row.row(align=True)  # noqa: ERA001
+        # sub.alignment = "RIGHT" # noqa: ERA001
+        # if item.location_edited:
+        #     sub.label(text="L") # noqa: ERA001
+        # if item.rotation_edited:
+        #     sub.label(text="R") # noqa: ERA001
+        # if item.scale_edited:
+        #     sub.label(text="S") # noqa: ERA001
 
 
 class META_HUMAN_DNA_PT_pose_editor(bpy.types.Panel):
@@ -412,12 +424,3 @@ class META_HUMAN_DNA_PT_pose_editor_driven_sub_panel(RbfEditorSubPanelBase):
         op.solver_index = active_rbf_solver_index
         op.pose_index = active_rbf_pose_index
         op.driven_index = active_rbf_pose.driven_active_index
-
-        # Push the select all button to the right
-        sub = driven_row.row(align=True)
-        sub.alignment = "RIGHT"
-        op = sub.operator("meta_human_dna.select_all_rbf_driven_for_pose", icon="RESTRICT_SELECT_OFF", text="")
-        op.solver_index = active_rbf_solver_index
-        op.pose_index = active_rbf_pose_index
-
-        sub.separator(factor=1.5)

@@ -7,18 +7,11 @@ from gpu_extras.batch import batch_for_shader
 
 # local imports
 from ..typing import *  # noqa: F403
-from ..utilities import get_addon_preferences
+from ..utilities import get_active_rig_instance, get_addon_preferences
 
 
 # Global storage for draw handler
-_meta_human_dna_viewport_overlay_draw_handler = None
-
-
-def get_active_rig_instance() -> "RigInstance | None":
-    # Avoid circular import
-    from .callbacks import get_active_rig_instance as _get_active_rig_instance
-
-    return _get_active_rig_instance()
+_meta_human_dna_pose_editor_draw_handler = None
 
 
 def draw_text_2d(
@@ -139,8 +132,8 @@ def draw_pose_editor_overlay() -> None:
 
     # Compact text settings
     font_id = 0
-    title_size = 12.0
-    info_size = 11.0
+    title_size = 16.0
+    info_size = 14.0
     line_spacing = 3
 
     # Build the overlay text lines
@@ -151,7 +144,7 @@ def draw_pose_editor_overlay() -> None:
 
     # Position in lower left corner of viewport
     left_margin = 22
-    bottom_margin = 30  # Above the status bar area
+    bottom_margin = 65  # Above the status bar area
 
     # Calculate text heights for positioning
     blf.size(font_id, title_size)
@@ -217,12 +210,12 @@ def register_draw_handler() -> None:
     This should be called during addon registration to enable the overlay
     drawing in the 3D viewport.
     """
-    global _meta_human_dna_viewport_overlay_draw_handler
+    global _meta_human_dna_pose_editor_draw_handler
 
-    if _meta_human_dna_viewport_overlay_draw_handler is not None:
+    if _meta_human_dna_pose_editor_draw_handler is not None:
         return  # Already registered
 
-    _meta_human_dna_viewport_overlay_draw_handler = bpy.types.SpaceView3D.draw_handler_add(
+    _meta_human_dna_pose_editor_draw_handler = bpy.types.SpaceView3D.draw_handler_add(
         draw_pose_editor_overlay, (), "WINDOW", "POST_PIXEL"
     )
 
@@ -234,11 +227,11 @@ def unregister_draw_handler() -> None:
     This should be called during addon un-registration to clean up
     the draw handler.
     """
-    global _meta_human_dna_viewport_overlay_draw_handler
+    global _meta_human_dna_pose_editor_draw_handler
 
-    if _meta_human_dna_viewport_overlay_draw_handler is not None:
-        bpy.types.SpaceView3D.draw_handler_remove(_meta_human_dna_viewport_overlay_draw_handler, "WINDOW")
-        _meta_human_dna_viewport_overlay_draw_handler = None
+    if _meta_human_dna_pose_editor_draw_handler is not None:
+        bpy.types.SpaceView3D.draw_handler_remove(_meta_human_dna_pose_editor_draw_handler, "WINDOW")
+        _meta_human_dna_pose_editor_draw_handler = None
 
 
 def register() -> None:

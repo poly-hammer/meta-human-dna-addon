@@ -1,20 +1,7 @@
 import bpy
 
 from ...typing import *  # noqa: F403
-
-
-def update_body_rbf_poses_active_index(self: "RBFSolverData", context: "Context"):
-    # Avoid circular import
-    from ...ui.callbacks import update_body_rbf_poses_active_index as _update_body_rbf_poses_active_index
-
-    _update_body_rbf_poses_active_index(self, context)
-
-
-def update_body_rbf_driven_active_index(self: "RBFPoseData", context: "Context"):
-    # Avoid circular import
-    from ...ui.callbacks import update_body_rbf_driven_active_index as _update_body_rbf_driven_active_index
-
-    _update_body_rbf_driven_active_index(self, context)
+from . import core
 
 
 class RBFDriverData(bpy.types.PropertyGroup):
@@ -62,6 +49,11 @@ class RBFDrivenData(bpy.types.PropertyGroup):
     scale: bpy.props.FloatVectorProperty(default=(0.0, 0.0, 0.0), size=3)  # pyright: ignore[reportInvalidTypeForm]
     scalar_value: bpy.props.FloatProperty(default=0.0, min=0.0, max=1.0)  # pyright: ignore[reportInvalidTypeForm]
 
+    # internal use only
+    location_edited: bpy.props.BoolProperty(default=False)  # pyright: ignore[reportInvalidTypeForm]
+    rotation_edited: bpy.props.BoolProperty(default=False)  # pyright: ignore[reportInvalidTypeForm]
+    scale_edited: bpy.props.BoolProperty(default=False)  # pyright: ignore[reportInvalidTypeForm]
+
 
 class RBFPoseData(bpy.types.PropertyGroup):
     solver_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
@@ -78,7 +70,7 @@ class RBFPoseData(bpy.types.PropertyGroup):
     )  # pyright: ignore[reportInvalidTypeForm]
 
     driven: bpy.props.CollectionProperty(type=RBFDrivenData)  # pyright: ignore[reportInvalidTypeForm]
-    driven_active_index: bpy.props.IntProperty(update=update_body_rbf_driven_active_index)  # pyright: ignore[reportArgumentType, reportInvalidTypeForm]
+    driven_active_index: bpy.props.IntProperty(update=core.update_body_rbf_driven_active_index)  # pyright: ignore[reportArgumentType, reportInvalidTypeForm]
 
     drivers: bpy.props.CollectionProperty(type=RBFDriverData)  # pyright: ignore[reportInvalidTypeForm]
     drivers_active_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
@@ -158,4 +150,4 @@ class RBFSolverData(bpy.types.PropertyGroup):
     )  # pyright: ignore[reportInvalidTypeForm]
 
     poses: bpy.props.CollectionProperty(type=RBFPoseData)  # pyright: ignore[reportInvalidTypeForm]
-    poses_active_index: bpy.props.IntProperty(update=update_body_rbf_poses_active_index)  # pyright: ignore[reportArgumentType, reportInvalidTypeForm]
+    poses_active_index: bpy.props.IntProperty(update=core.update_body_rbf_poses_active_index)  # pyright: ignore[reportArgumentType, reportInvalidTypeForm]

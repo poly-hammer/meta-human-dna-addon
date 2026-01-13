@@ -14,6 +14,7 @@ from ...dna_io import get_dna_reader, get_dna_writer
 
 # type checking imports
 from ...typing import *  # noqa: F403
+from . import core
 
 
 logger = logging.getLogger(__name__)
@@ -111,8 +112,8 @@ class RevertRBFSolver(RBFEditorOperatorBase):
     bl_label = "Revert RBF Solver"
 
     def run(self, instance: "RigInstance"):
+        core.stop_listening_for_pose_edits()
         utilities.reset_pose(instance.body_rig)
-
         instance.editing_rbf_solver = False
         instance.auto_evaluate_body = True
         bpy.ops.meta_human_dna.force_evaluate()  # type: ignore[attr-defined]
@@ -137,6 +138,7 @@ class EditRBFSolver(RBFEditorOperatorBase):
         instance.auto_evaluate_body = False
         instance.body_rig.hide_set(False)
         utilities.switch_to_pose_mode(instance.body_rig)
+        core.start_listening_for_pose_edits()
 
 
 class CommitRBFSolverChanges(RBFEditorOperatorBase):
@@ -171,6 +173,8 @@ class CommitRBFSolverChanges(RBFEditorOperatorBase):
         from ..backup_manager.core import BackupType, create_backup
 
         create_backup(instance, BackupType.POSE_EDITOR)
+
+        core.stop_listening_for_pose_edits()
 
         import meta_human_dna_core
 
@@ -220,12 +224,11 @@ class RBFPoseOperatorBase(RBFEditorOperatorBase):
             return None
 
         driver = pose.drivers.add()
-        utilities.set_driver_bone_data(instance=instance, pose=pose, driver=driver, pose_bone=driver_bone, new=True)
+        core.set_driver_bone_data(instance=instance, pose=pose, driver=driver, pose_bone=driver_bone, new=True)
 
         for pose_bone in driven_bones:
             driven = pose.driven.add()
-            utilities.set_driven_bone_data(instance=instance, pose=pose, driven=driven, pose_bone=pose_bone, new=True)
-
+            core.set_driven_bone_data(instance=instance, pose=pose, driven=driven, pose_bone=pose_bone, new=True)
         # set the active pose to the new pose
         solver.poses_active_index = new_pose_index
 
@@ -365,7 +368,7 @@ class UpdateRBFPose(RBFEditorOperatorBase):
         for driver in pose.drivers:
             driver_bone = instance.body_rig.pose.bones.get(driver.name)
             if driver_bone:
-                utilities.set_driver_bone_data(instance=instance, pose=pose, driver=driver, pose_bone=driver_bone)
+                core.set_driver_bone_data(instance=instance, pose=pose, driver=driver, pose_bone=driver_bone)
             else:
                 self.report(
                     {"ERROR"},
@@ -380,7 +383,7 @@ class UpdateRBFPose(RBFEditorOperatorBase):
         for driven in pose.driven:
             driven_pose_bone = instance.body_rig.pose.bones.get(driven.name)
             if driven_pose_bone:
-                utilities.set_driven_bone_data(instance=instance, pose=pose, driven=driven, pose_bone=driven_pose_bone)
+                core.set_driven_bone_data(instance=instance, pose=pose, driven=driven, pose_bone=driven_pose_bone)
             else:
                 logger.warning(
                     f'Driven bone "{driven.name}" was not found in armature when '
@@ -423,15 +426,23 @@ class RemoveRBFDriver(RBFEditorOperatorBase):
 
 
 class AddRBFDriven(RBFEditorOperatorBase):
-    """Add a new RBF Driven bone"""
+    """
+    Add a new RBF Driven bone to the current pose. You must select the 'default' pose to add driven bones.
+    Any selected bones will be added to all poses in this solver, since poses are deltas from the default
+    pose.
+    """
 
     bl_idname = "meta_human_dna.add_rbf_driven"
     bl_label = "Add RBF Driven Bone"
 
     @classmethod
-    def poll(cls, context: "Context") -> bool:
+    def poll(cls, _: "Context") -> bool:
         instance = utilities.get_active_rig_instance()
-        return bool(instance and instance.body_rig and context.selected_pose_bones)
+        if not instance or not instance.body_rig:
+            return False
+
+        pose = core.get_active_pose(instance)
+        return bool(pose and pose.name == "default")
 
     def validate(self, context: "Context", instance: "RigInstance") -> tuple[bool, str]:
         if not context.selected_pose_bones:
@@ -448,42 +459,30 @@ class AddRBFDriven(RBFEditorOperatorBase):
         for pose_bone in selected_pose_bones:
             if pose_bone.name not in [d.name for d in pose.driven]:
                 driven = pose.driven.add()
-                utilities.set_driven_bone_data(
-                    instance=instance, pose=pose, driven=driven, pose_bone=pose_bone, new=True
-                )
+                core.set_driven_bone_data(instance=instance, pose=pose, driven=driven, pose_bone=pose_bone, new=True)
 
         # set the active driven to the last one added
         pose.driven_active_index = len(pose.driven) - 1
 
 
 class RemoveRBFDriven(RBFEditorOperatorBase):
-    """Remove the selected RBF Driven bone"""
+    """
+    Remove the selected RBF Driven bone from the current pose. You must select the 'default' pose to remove driven
+    bones. Any selected bones will be removed from all poses in this solver, since poses are deltas from the default
+    pose.
+    """
 
     bl_idname = "meta_human_dna.remove_rbf_driven"
     bl_label = "Remove RBF Driven Bone"
 
+    @classmethod
+    def poll(cls, _: "Context") -> bool:
+        instance = utilities.get_active_rig_instance()
+        if not instance or not instance.body_rig:
+            return False
+
+        pose = core.get_active_pose(instance)
+        return bool(pose and pose.name == "default")
+
     def run(self, instance: "RigInstance"):
         pass
-
-
-class SelectAllRBFDriven(RBFEditorOperatorBase):
-    """Select all RBF Driven bones for the current pose"""
-
-    bl_idname = "meta_human_dna.select_all_rbf_driven_for_pose"
-    bl_label = "Select All RBF Driven Bones for Pose"
-
-    def run(self, instance: "RigInstance"):
-        solver = instance.rbf_solver_list[self.solver_index]
-        pose = solver.poses[self.pose_index]
-
-        # switch to pose mode
-        instance.body_rig.hide_set(False)
-        utilities.switch_to_pose_mode(instance.body_rig)
-
-        # select all driven bones for the pose
-        driven_bone_names = [driven.name for driven in pose.driven]
-        for pose_bone in instance.body_rig.pose.bones:
-            if pose_bone.name in driven_bone_names:
-                pose_bone.bone.select = True
-            else:
-                pose_bone.bone.select = False

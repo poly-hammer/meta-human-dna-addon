@@ -286,7 +286,9 @@ def main() -> int:
     # Convert addon name to package name format (underscores to hyphens)
     package_name = args.addon_name.replace("_", "-") + "-addon"
 
-    version_files = [addon_init_path, blender_manifest_path, pyproject_path]
+    # TODO: Add back
+    # version_files = [addon_init_path, blender_manifest_path, pyproject_path]
+    version_files = [addon_init_path, pyproject_path]
 
     # Default watch patterns if none provided
     watch_patterns = args.watch_patterns or [f"src/addons/{args.addon_name}/**/*"]
@@ -311,7 +313,8 @@ def main() -> int:
     # Read current versions from all files
     try:
         init_version = read_version_from_init(addon_init_path)
-        manifest_version = read_version_from_toml(blender_manifest_path)
+        # TODO: Add back
+        # manifest_version = read_version_from_toml(blender_manifest_path)
         pyproject_version = read_version_from_toml(pyproject_path)
     except ValueError as e:
         print(f"ERROR: {e}")
@@ -336,7 +339,8 @@ def main() -> int:
 
     print("Current versions:")
     print(f"  __init__.py:           {init_version}")
-    print(f"  blender_manifest.toml: {manifest_version}")
+    # TODO: Add back
+    # print(f"  blender_manifest.toml: {manifest_version}")
     print(f"  pyproject.toml:        {pyproject_version}")
     if uv_lock_version:
         print(f"  uv.lock:               {uv_lock_version}")
@@ -390,7 +394,9 @@ def main() -> int:
         return 0
 
     # Check if versions are in sync (include uv.lock and core package versions if they exist)
-    all_versions = [init_version, manifest_version, pyproject_version]
+    # TODO: Add back
+    # all_versions = [init_version, manifest_version, pyproject_version]
+    all_versions = [init_version, pyproject_version]
     if uv_lock_version:
         all_versions.append(uv_lock_version)
     if core_pyproject_version:
@@ -404,7 +410,8 @@ def main() -> int:
         print("\nERROR: Version mismatch detected!")
         print("All version files must have the same version.")
         print(f"  __init__.py:           {init_version}")
-        print(f"  blender_manifest.toml: {manifest_version}")
+        # TODO: Add back
+        # print(f"  blender_manifest.toml: {manifest_version}")
         print(f"  pyproject.toml:        {pyproject_version}")
         if uv_lock_version:
             print(f"  uv.lock:               {uv_lock_version}")

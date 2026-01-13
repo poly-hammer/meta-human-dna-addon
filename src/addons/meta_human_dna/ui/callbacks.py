@@ -11,7 +11,7 @@ import bpy
 import gpu
 
 from gpu_extras.presets import draw_circle_2d
-from mathutils import Color, Euler, Matrix, Quaternion, Vector
+from mathutils import Color, Euler, Matrix, Vector
 
 # local imports
 from ..constants import (
@@ -20,7 +20,6 @@ from ..constants import (
     BODY_MAPS,
     HEAD_MAPS,
     HEAD_TO_BODY_LOD_MAPPING,
-    IS_BLENDER_5,
     NUMBER_OF_HEAD_LODS,
     POSES_FOLDER,
     ToolInfo,
@@ -549,143 +548,11 @@ def poll_shrink_wrap_target(self: "RigInstance", scene_object: bpy.types.Object)
     )
 
 
-def update_body_rbf_driven_active_index(self: "RBFPoseData", context: "Context"):  # noqa: ARG001
-    instance = get_active_rig_instance()
-
-    if not instance or not instance.body_rig:
-        return
-
-    from ..utilities import switch_to_pose_mode
-
-    driven = self.driven[self.driven_active_index]
-    instance.body_rig.hide_set(False)
-    switch_to_pose_mode(instance.body_rig)
-    for pose_bone in instance.body_rig.pose.bones:
-        if pose_bone.name == driven.name:
-            # Note: In Blender 5.0+, the select property moved from Bone to PoseBone
-            if IS_BLENDER_5:
-                pose_bone.select = True
-            else:
-                pose_bone.bone.select = True
-            instance.body_rig.data.bones.active = pose_bone.bone
-        elif IS_BLENDER_5:
-            pose_bone.select = False
-        else:
-            pose_bone.bone.select = False
-
-
-def update_body_rbf_poses_active_index(self: "RBFSolverData", context: "Context"):  # noqa: ARG001
-    from ..utilities import dependencies_are_valid
-
-    if not dependencies_are_valid():
-        return
-
-    import meta_human_dna_core
-
-    instance = get_active_rig_instance()
-
-    if not instance or not instance.body_rig:
-        return
-
-    pose = self.poses[self.poses_active_index]
-
-    # reset all bone transforms
-    if instance.body_reset_rbf_pose_on_change or instance.editing_rbf_solver:
-        for pose_bone in instance.body_rig.pose.bones:
-            pose_bone.matrix_basis = Matrix.Identity(4)
-
-    for driver in pose.drivers:
-        pose_bone = instance.body_rig.pose.bones.get(driver.name)
-        if pose_bone:
-            quaternion_rotation = Quaternion(driver.quaternion_rotation)
-            pose_bone.rotation_mode = driver.rotation_mode
-            pose_bone.rotation_quaternion = quaternion_rotation
-            pose_bone.rotation_euler = Euler(driver.euler_rotation, "XYZ")
-
-            swing_axis = pose_bone.get("swing_axis", "")
-            swing_bone_names = pose_bone.get("swing_bone_names", [])
-            swing_blend_weights = pose_bone.get("swing_blend_weights", [])
-
-            twist_axis = pose_bone.get("twist_axis", "")
-            twist_bone_names = pose_bone.get("twist_bone_names", [])
-            twist_blend_weights = pose_bone.get("twist_blend_weights", [])
-
-            # calculate swing and twist outputs
-            swing_outputs, twist_outputs = meta_human_dna_core.calculate_swing_twist(
-                driver_quaternion_rotation=list(driver.quaternion_rotation[:]),
-                swing_bone_names=swing_bone_names,
-                swing_blend_weights=list(swing_blend_weights[:]),
-                twist_bone_names=twist_bone_names,
-                twist_blend_weights=list(twist_blend_weights[:]),
-                swing_axis=swing_axis,
-                twist_axis=twist_axis,
-            )
-            # Apply swing and twist outputs
-            for bone_name, swing_output in swing_outputs.items():
-                swing_bone = instance.body_rig.pose.bones.get(bone_name)
-                if swing_bone:
-                    swing_bone.rotation_euler = Euler(swing_output, "XYZ")
-            for bone_name, twist_output in twist_outputs.items():
-                twist_bone = instance.body_rig.pose.bones.get(bone_name)
-                if twist_bone:
-                    twist_bone.rotation_euler = Euler(twist_output, "XYZ")
-
-    # ensure the body is initialized
-    if not instance.body_initialized:
-        instance.body_initialize(update_rbf_solver_list=False)
-
-    # evaluate the body rig logic when not editing the rbf solver
-    if not instance.editing_rbf_solver:
-        instance.evaluate(component="body")
-        return
-
-    for driven in pose.driven:
-        if driven.data_type == "BONE":
-            pose_bone = instance.body_rig.pose.bones.get(driven.name)
-            if pose_bone:
-                rest_location, rest_rotation, rest_scale, rest_to_parent_matrix = instance.body_rest_pose[
-                    pose_bone.name
-                ]
-
-                location = Vector(
-                    [
-                        rest_location.x + driven.location[0],
-                        rest_location.y + driven.location[1],
-                        rest_location.z + driven.location[2],
-                    ]
-                )
-                rotation = Euler(
-                    [
-                        rest_rotation.x + driven.euler_rotation[0],
-                        rest_rotation.y + driven.euler_rotation[1],
-                        rest_rotation.z + driven.euler_rotation[2],
-                    ],
-                    "XYZ",
-                )
-                scale = Vector(
-                    [
-                        rest_scale.x
-                        + (driven.scale[0] if round(driven.scale[0], 5) != round(pose.scale_factor, 5) else 0.0),
-                        rest_scale.y
-                        + (driven.scale[1] if round(driven.scale[1], 5) != round(pose.scale_factor, 5) else 0.0),
-                        rest_scale.z
-                        + (driven.scale[2] if round(driven.scale[2], 5) != round(pose.scale_factor, 5) else 0.0),
-                    ]
-                )
-
-                # update the bone matrix
-                modified_matrix = Matrix.LocRotScale(location, rotation, scale)
-                pose_bone.matrix_basis = rest_to_parent_matrix.inverted() @ modified_matrix
-
-                # rotation is applied separately in pose space
-                pose_bone.rotation_euler = Euler(driven.euler_rotation, "XYZ")
-
-
 def update_evaluate_rbfs_value(self: "RigInstance", context: "Context"):
-    context.window_manager.meta_human_dna.evaluate_dependency_graph = False
-    self.reset_body_raw_control_values()
-    self.reset_head_raw_control_values()
-    context.window_manager.meta_human_dna.evaluate_dependency_graph = True
+    # Avoid circular import
+    from ..editors.pose_editor.core import update_evaluate_rbfs_value as _update_evaluate_rbfs_value
+
+    _update_evaluate_rbfs_value(self, context)
 
 
 def update_head_topology_selection(self: "RigInstance", context: "Context"):  # noqa: ARG001

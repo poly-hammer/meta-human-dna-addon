@@ -1227,7 +1227,7 @@ class SendToMetaHumanCreator(bpy.types.Operator):
 
                 valid, title, message, fix = dna_io_instance.run()
                 if not valid:
-                    utilities.report_error(title=title, message=message, fix=fix, width=500)
+                    utilities.report_error_panel(title=title, message=message, fix=fix, width=500)
                     return {"CANCELLED"}
                 self.report({"INFO"}, message)
 
@@ -1296,7 +1296,7 @@ class ExportSelectedComponent(bpy.types.Operator):
             bpy.ops.meta_human_dna.force_evaluate()  # type: ignore[attr-defined]
 
             if not valid:
-                utilities.report_error(title=title, message=message, fix=fix, width=300)
+                utilities.report_error_panel(title=title, message=message, fix=fix, width=300)
                 return {"CANCELLED"}
             self.report({"INFO"}, message)
 
@@ -1486,10 +1486,21 @@ class ShapeKeyOperatorBase(bpy.types.Operator):
         return shape_key_index, key_block, channel_index, mesh_object
 
 
-class MetaHumanDnaReportError(ShapeKeyOperatorBase):
+class ReportError(bpy.types.Operator):
+    bl_idname = "meta_human_dna.report_error"
+    bl_label = "Error"
+
+    message: bpy.props.StringProperty(default="")  # pyright: ignore[reportInvalidTypeForm]
+
+    def execute(self, context: "Context") -> set[str]:
+        self.report({"ERROR"}, self.message)
+        return {"CANCELLED"}
+
+
+class ReportErrorWithFix(ShapeKeyOperatorBase):
     """Reports and error message to the user with a optional fix"""
 
-    bl_idname = "meta_human_dna.report_error"
+    bl_idname = "meta_human_dna.report_error_with_fix"
     bl_label = "Error"
 
     title: bpy.props.StringProperty(default="")  # pyright: ignore[reportInvalidTypeForm]

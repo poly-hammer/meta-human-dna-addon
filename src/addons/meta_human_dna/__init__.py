@@ -47,7 +47,6 @@ pose_editor_operator_classes = [
     pose_editor_operators.RemoveRBFDriver,
     pose_editor_operators.AddRBFDriven,
     pose_editor_operators.RemoveRBFDriven,
-    pose_editor_operators.SelectAllRBFDriven,
 ]
 pose_editor_ui_classes = [
     pose_editor_ui.META_HUMAN_DNA_PT_pose_editor,
@@ -103,7 +102,8 @@ classes = [
     operators.ReImportThisShapeKey,
     operators.DuplicateRigInstance,
     operators.AddRigLogicTextureNode,
-    operators.MetaHumanDnaReportError,
+    operators.ReportError,
+    operators.ReportErrorWithFix,
     operators.UILIST_RIG_INSTANCE_OT_entry_move,
     operators.UILIST_RIG_INSTANCE_OT_entry_add,
     operators.UILIST_RIG_INSTANCE_OT_entry_remove,

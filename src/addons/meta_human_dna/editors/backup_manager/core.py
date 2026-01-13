@@ -96,7 +96,7 @@ def create_backup(instance: "RigInstance", backup_type: BackupType, description:
         if instance.head_dna_file_path:
             head_path = Path(bpy.path.abspath(instance.head_dna_file_path))
             if head_path.exists():
-                dest = backup_folder / f"head_{head_path.name}"
+                dest = backup_folder / head_path.name
                 shutil.copy2(head_path, dest)
                 files_backed_up.append(str(dest))
                 logger.debug(f"Backed up head DNA: {head_path} -> {dest}")
@@ -105,7 +105,7 @@ def create_backup(instance: "RigInstance", backup_type: BackupType, description:
         if instance.body_dna_file_path:
             body_path = Path(bpy.path.abspath(instance.body_dna_file_path))
             if body_path.exists():
-                dest = backup_folder / f"body_{body_path.name}"
+                dest = backup_folder / body_path.name
                 shutil.copy2(body_path, dest)
                 files_backed_up.append(str(dest))
                 logger.debug(f"Backed up body DNA: {body_path} -> {dest}")

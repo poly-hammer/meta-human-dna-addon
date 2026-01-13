@@ -582,7 +582,20 @@ def rename_as_lod0_meshes(mesh_objects: list[bpy.types.Object]):
         update_head_output_items(None, bpy.context)  # type: ignore[arg-type]
 
 
-def report_error(title: str, message: str, fix: Callable | None = None, width: int = 500):
+def report_error(message: str):
+    """
+    Raises and error pop up to report a error message to the user.
+
+    Args:
+        message (str): The body text with the error message.
+    """
+    bpy.ops.meta_human_dna.report_error(  # type: ignore[attr-defined]
+        # "INVOKE_DEFAULT",
+        message=message
+    )
+
+
+def report_error_panel(title: str, message: str, fix: Callable | None = None, width: int = 500):
     """
     Raises and error dialog to report error messages to the user with an optional fix.
 
@@ -597,7 +610,7 @@ def report_error(title: str, message: str, fix: Callable | None = None, width: i
         width (int, optional): The width of the modal. Defaults to 500.
     """
     bpy.context.window_manager.meta_human_dna.errors[title] = {"fix": fix}  # type: ignore[attr-defined]
-    bpy.ops.meta_human_dna.report_error(  # type: ignore[attr-defined]
+    bpy.ops.meta_human_dna.report_error_with_fix(  # type: ignore[attr-defined]
         "INVOKE_DEFAULT",
         title=title,
         message=message,
