@@ -171,7 +171,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
 
     @preserve_context
     def convert(self, mesh_object: bpy.types.Object, constrain: bool = True):
-        from ..bindings import meta_human_dna_core
+        from ..bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
 
         if (
             self.head_mesh_object
@@ -299,7 +299,7 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
                     else:
                         pose_bone.bone.select = False
 
-            from ..bindings import meta_human_dna_core
+            from ..bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
 
             for bone_name in meta_human_dna_core.HEAD_BONE_SELECTION_GROUPS.get(
                 self.rig_instance.head_rig_bone_groups, []

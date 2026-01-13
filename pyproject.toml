@@ -17,7 +17,7 @@ classifiers = [
   "Topic :: Multimedia :: Graphics :: 3D Modeling"
 ]
 dependencies = [
-  "sentry-sdk>=2.19.2"
+  "sentry-sdk>=2.49.0"
 ]
 description = "Blender addon for importing/exporting MetaHuman DNA files with RigLogic integration"
 keywords = ["blender", "metahuman", "dna", "riglogic", "animation", "3d"]

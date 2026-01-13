@@ -34,6 +34,8 @@ DNA_GEOMETRY_VERSION = "geom1.1"
 
 DNA_RBF_BEHAVIOR_VERSION = "rbfb1.0"
 
+DNA_RBF_EXTENSION_VERSION = "rbfe1.0"
+
 # TODO: Investigate edge case where only these bone rotation values are always slightly rotated by a few degrees on the x and z.
 IGNORED_BONE_ROTATIONS_ON_CALIBRATE = ["FACIAL_C_FacialRoot", "FACIAL_C_Neck1Root", "FACIAL_C_Neck2Root"]
 IGNORED_BONE_ROTATIONS_ON_EXPORT = ["FACIAL_C_FacialRoot", "FACIAL_C_Neck1Root", "FACIAL_C_Neck2Root"]

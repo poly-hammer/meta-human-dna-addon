@@ -133,7 +133,7 @@ def set_bone_collection(
 
 
 def set_head_bone_collections(mesh_object: bpy.types.Object, rig_object: bpy.types.Object):
-    from ..bindings import meta_human_dna_core
+    from ..bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
 
     if not rig_object.pose:
         return
@@ -209,7 +209,7 @@ def set_body_bone_collections(
     from .misc import dependencies_are_valid
 
     if mesh_object and rig_object.pose and dependencies_are_valid():
-        import meta_human_dna_core
+        from ..bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
 
         other_name_bones = [
             pose_bone.name
@@ -487,7 +487,7 @@ def get_topology_group_surface_bones(
     vertex_group_name: str,
     dna_reader: "riglogic.BinaryStreamReader",
 ) -> list[bpy.types.Bone]:
-    from ..bindings import meta_human_dna_core
+    from ..bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
 
     bones = []
     vertex_indices = get_vertex_group_vertices(mesh_object, vertex_group_name)
@@ -503,7 +503,7 @@ def get_topology_group_surface_bones(
 
 def get_mouth_bone_names(armature_object: bpy.types.Object) -> list[str]:
     bones = []
-    from ..bindings import meta_human_dna_core
+    from ..bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
 
     if not armature_object.data or not isinstance(armature_object.data, bpy.types.Armature):
         return bones
@@ -528,13 +528,13 @@ def get_mouth_bone_names(armature_object: bpy.types.Object) -> list[str]:
 
 
 def get_eye_bones_names(side: Literal["l", "r"]) -> list[str]:
-    from ..bindings import meta_human_dna_core
+    from ..bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
 
     return meta_human_dna_core.EYE_BALL_L_BONES if side == "l" else meta_human_dna_core.EYE_BALL_R_BONES
 
 
 def get_ignored_bones_names(armature_object: bpy.types.Object) -> list[str]:
-    from ..bindings import meta_human_dna_core
+    from ..bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
 
     mouth_bone_names = get_mouth_bone_names(armature_object)
     return mouth_bone_names + meta_human_dna_core.EYE_BALL_L_BONES + meta_human_dna_core.EYE_BALL_R_BONES
@@ -548,8 +548,7 @@ def auto_fit_bones(
     component_type: ComponentType,
     only_selected: bool = False,
 ):
-    import meta_human_dna_core
-
+    from ..bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
     from ..dna_io import DNAExporter
 
     bmesh_object = DNAExporter.get_bmesh(mesh_object, rotation=0)

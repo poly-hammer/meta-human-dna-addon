@@ -29,7 +29,6 @@ from ..constants import (
     LEGACY_DATA_KEYS,
     MATERIALS_FILE_PATH,
     NUMBER_OF_HEAD_LODS,
-    PACKAGES_FOLDER,
     SCRIPTS_FOLDER,
     SENTRY_DSN,
     TEMP_FOLDER,
@@ -250,9 +249,6 @@ def init_sentry():
     # Don't collect metrics if the user has disabled it
     if not addon_preferences.metrics_collection:
         return
-
-    if PACKAGES_FOLDER not in [Path(path) for path in sys.path]:
-        sys.path.append(str(PACKAGES_FOLDER))
 
     try:
         import sentry_sdk

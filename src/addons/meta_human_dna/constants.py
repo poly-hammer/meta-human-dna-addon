@@ -77,7 +77,6 @@ BODY_MESH_SHADER_MAPPING = {"body_lod": "body_shader"}
 TEMP_FOLDER = Path(tempfile.gettempdir()) / f"{ToolInfo.NAME}_addon"
 RESOURCES_FOLDER = Path(__file__).parent / "resources"
 BINDINGS_FOLDER = Path(__file__).parent / "bindings"
-PACKAGES_FOLDER = RESOURCES_FOLDER / "packages"
 POSES_FOLDER = RESOURCES_FOLDER / "poses"
 BLENDS_FOLDER = RESOURCES_FOLDER / "blends"
 SCRIPTS_FOLDER = RESOURCES_FOLDER / "scripts"

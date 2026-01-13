@@ -43,9 +43,9 @@ def start_listening_for_pose_edits():
     # stop listening to other rig instance changes
     stop_listening()
 
-    stop_listening_for_pose_edits()
-    logger.debug("Listening for Pose Edits...")
-    bpy.app.handlers.depsgraph_update_post.append(pose_editor_listener)  # type: ignore[call-arg]
+    # stop_listening_for_pose_edits()  # noqa: ERA001
+    # logger.debug("Listening for Pose Edits...") # noqa: ERA001
+    # bpy.app.handlers.depsgraph_update_post.append(pose_editor_listener)  # type: ignore[call-arg] # noqa: ERA001
 
 
 def stop_listening_for_pose_edits():
@@ -202,7 +202,7 @@ def update_body_rbf_poses_active_index(self: "RBFSolverData", context: "Context"
     if not utilities.dependencies_are_valid():
         return
 
-    import meta_human_dna_core
+    from ...bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
 
     instance = utilities.get_active_rig_instance()
 
@@ -314,7 +314,7 @@ def update_body_rbf_solver_list(self: "RigInstance"):  # noqa: PLR0912
     if not utilities.dependencies_are_valid():
         return
 
-    import meta_human_dna_core
+    from ...bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
 
     # skip if the body rig is not set
     if not self.body_rig or not self.body_dna_reader:
@@ -465,7 +465,7 @@ def diff_rbf_pose_data(instance: "RigInstance"):  # noqa: PLR0912
 
     driven = sorted(list(d for d in pose.driven), key=lambda x: x.name)  # noqa: C400, C414
 
-    import meta_human_dna_core
+    from ...bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
 
     if not instance.body_initialized:
         instance.body_initialize(update_rbf_solver_list=False)

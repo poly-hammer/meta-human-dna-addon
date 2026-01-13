@@ -176,7 +176,7 @@ class CommitRBFSolverChanges(RBFEditorOperatorBase):
 
         core.stop_listening_for_pose_edits()
 
-        import meta_human_dna_core
+        from ...bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
 
         reader = get_dna_reader(file_path=instance.body_dna_file_path)
         writer = get_dna_writer(file_path=instance.body_dna_file_path)
@@ -205,8 +205,24 @@ class RBFPoseOperatorBase(RBFEditorOperatorBase):
         from_pose: "RBFPoseData | None" = None,
     ) -> "RBFPoseData | None":
         solver = instance.rbf_solver_list[self.solver_index]
-        new_pose_index = len(solver.poses)
+        local_pose_index = len(solver.poses)
         pose = solver.poses.add()
+
+        # For new poses, we need to assign a pose_index that indicates it's a new pose.
+        # This must be >= the total DNA pose count so commit_rbf_data_to_dna knows it's new.
+        # Calculate the next available global pose index by finding the max existing index
+        # across all solvers and adding 1.
+        max_existing_pose_index = -1
+        for s in instance.rbf_solver_list:
+            for p in s.poses:
+                if p != pose:  # Don't include the pose we just added
+                    max_existing_pose_index = max(max_existing_pose_index, p.pose_index)
+
+        # Get the DNA pose count - new poses should have index >= this value
+        dna_pose_count = instance.body_dna_reader.getRBFPoseCount() if instance.body_dna_reader else 0
+        # The new pose index should be at least dna_pose_count, and also greater than any
+        # existing pose index (in case other new poses were added in this session)
+        new_pose_index = max(dna_pose_count, max_existing_pose_index + 1)
 
         pose.solver_index = self.solver_index
         pose.pose_index = new_pose_index
@@ -226,11 +242,37 @@ class RBFPoseOperatorBase(RBFEditorOperatorBase):
         driver = pose.drivers.add()
         core.set_driver_bone_data(instance=instance, pose=pose, driver=driver, pose_bone=driver_bone, new=True)
 
-        for pose_bone in driven_bones:
-            driven = pose.driven.add()
-            core.set_driven_bone_data(instance=instance, pose=pose, driven=driven, pose_bone=pose_bone, new=True)
-        # set the active pose to the new pose
-        solver.poses_active_index = new_pose_index
+        # When duplicating from an existing pose, copy the driven data directly
+        # instead of reading from Blender's current bone transforms
+        if from_pose:
+            # Build a lookup of source pose's driven data by bone name
+            source_driven_lookup = {d.name: d for d in from_pose.driven}
+            for pose_bone in driven_bones:
+                driven = pose.driven.add()
+                source_driven = source_driven_lookup.get(pose_bone.name)
+                if source_driven:
+                    # Copy all driven data from the source pose
+                    driven.name = source_driven.name
+                    driven.pose_index = pose.pose_index  # Use the new pose's index
+                    driven.joint_index = source_driven.joint_index
+                    driven.data_type = source_driven.data_type
+                    driven.location = source_driven.location[:]
+                    driven.euler_rotation = source_driven.euler_rotation[:]
+                    driven.quaternion_rotation = source_driven.quaternion_rotation[:]
+                    driven.scale = source_driven.scale[:]
+                else:
+                    # Bone not in source pose, read from current scene
+                    core.set_driven_bone_data(
+                        instance=instance, pose=pose, driven=driven, pose_bone=pose_bone, new=True
+                    )
+        else:
+            # New pose (not duplicating), read from current bone transforms
+            for pose_bone in driven_bones:
+                driven = pose.driven.add()
+                core.set_driven_bone_data(instance=instance, pose=pose, driven=driven, pose_bone=pose_bone, new=True)
+
+        # set the active pose to the new pose (use local index within solver's poses list)
+        solver.poses_active_index = local_pose_index
 
         return pose
 
