@@ -45,8 +45,6 @@ pose_editor_operator_classes = [
     pose_editor_operators.DuplicateRBFPose,
     pose_editor_operators.RemoveRBFPose,
     pose_editor_operators.UpdateRBFPose,
-    pose_editor_operators.AddRBFDriver,
-    pose_editor_operators.RemoveRBFDriver,
     pose_editor_operators.AddRBFDriven,
     pose_editor_operators.RemoveRBFDriven,
 ]

@@ -12,7 +12,7 @@ import bpy
 # local imports
 from ...constants import DEFAULT_BACKUPS_FOLDER
 from ...typing import *  # noqa: F403
-from ...utilities import consistent_hash, get_addon_preferences
+from ...utilities import file_path_hash, get_addon_preferences
 
 
 logger = logging.getLogger(__name__)
@@ -54,7 +54,7 @@ def get_backup_folder(instance: "RigInstance") -> Path:
         # Use a hash of the DNA file paths to create a unique folder per instance
         # using the same DNA files. This avoids collisions if multiple instances
         # have the same name but are in different folders on the system.
-        hash_name = consistent_hash(instance.body_dna_file_path or instance.head_dna_file_path)
+        hash_name = file_path_hash(Path(instance.body_dna_file_path or instance.head_dna_file_path))
         instance_backup_base = backup_base / f"{instance.name}-{str(hash_name).strip('-')}"
         instance_backup_base.mkdir(parents=True, exist_ok=True)
         return instance_backup_base

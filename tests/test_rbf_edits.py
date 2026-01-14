@@ -841,3 +841,153 @@ def test_validate_and_update_solver_joint_group_expands_poses(fresh_rbf_test_sce
         assert len(pose.driven) >= driven_counts_before.get(pose.name, 0), (
             f"Pose '{pose.name}' driven count should not decrease after adding new bone"
         )
+
+
+def test_add_pose_with_expanded_joint_group_commits_to_dna(
+    fresh_rbf_test_scene,
+    original_body_dna_json_data: dict,
+    temp_folder,
+    dna_folder_name: str,
+):
+    """
+    Test that adding a new pose with additional bones (expanding the joint group)
+    correctly commits to DNA without corruption.
+
+    This is a regression test for a crash that occurred when:
+    1. User adds a new pose with AddRBFPose operator
+    2. User selects bones that are NOT in the existing joint group
+    3. User commits changes with CommitRBFSolverChanges
+    4. Blender crashes when reloading the DNA file
+
+    The test verifies:
+    - The DNA file is written without corruption
+    - The new pose exists in the DNA
+    - The expanded joint group contains the new bones
+    - The DNA can be reloaded successfully
+    """
+    from meta_human_dna.editors.pose_editor.core import (
+        get_available_driven_bones,
+        get_solver_joint_group_bones,
+    )
+
+    instance = get_active_rig_instance()
+    assert instance is not None, "No active rig instance found"
+    assert instance.body_rig is not None, "No body rig found on instance"
+
+    # Set up a solver and enter edit mode (set_body_pose handles editing_rbf_solver = True)
+    solver_name = "calf_l_UERBFSolver"
+    pose, solver_index, _ = set_body_pose(solver_name=solver_name, pose_name="calf_l_back_50")
+    assert pose is not None, f"Pose not found in solver '{solver_name}'"
+
+    # Get existing bones and find a new bone to add
+    existing_bones = get_solver_joint_group_bones(instance)
+    available_bones = get_available_driven_bones(instance)
+
+    # Find a new bone that's not in the existing joint group
+    new_bone_name = None
+    new_bone_joint_index = -1
+    for bone_name, joint_index, is_in_existing in available_bones:
+        if not is_in_existing and joint_index >= 0:
+            new_bone_name = bone_name
+            new_bone_joint_index = joint_index
+            break
+
+    if new_bone_name is None:
+        pytest.skip("No available bones to add to the joint group")
+
+    # Get the driver bone and set a unique rotation for the new pose
+    solver = instance.rbf_solver_list[solver_index]
+    driver_bone_name = solver_name.replace("_UERBFSolver", "")
+    driver_bone = instance.body_rig.pose.bones.get(driver_bone_name)
+    assert driver_bone is not None, f"Driver bone '{driver_bone_name}' not found"
+
+    # Set a unique rotation for the new pose (different from existing poses)
+    unique_rotation = Quaternion((0.866, 0.0, 0.5, 0.0))  # 60 degree rotation around Y
+    driver_bone.rotation_quaternion = unique_rotation
+
+    # Capture existing pose names before adding
+    existing_pose_names = {p.name for p in solver.poses}
+
+    # Manually simulate what the AddRBFPose operator does:
+    # 1. Populate bone selections in window manager
+    wm = bpy.context.window_manager.meta_human_dna # type: ignore
+    wm.add_pose_driven_bones.clear() #
+
+    # Add all existing bones (pre-selected)
+    for bone_name in existing_bones:
+        item = wm.add_pose_driven_bones.add()
+        item.name = bone_name
+        item.selected = True
+        item.is_in_existing_joint_group = True
+        # Find joint index for this bone
+        for bn, ji, _ in available_bones:
+            if bn == bone_name:
+                item.joint_index = ji
+                break
+
+    # Add the new bone (also selected)
+    item = wm.add_pose_driven_bones.add()
+    item.name = new_bone_name
+    item.selected = True
+    item.joint_index = new_bone_joint_index
+    item.is_in_existing_joint_group = False
+
+    # Call the AddRBFPose operator (without invoke, direct execute)
+    result = bpy.ops.meta_human_dna.add_rbf_pose()  # type: ignore
+    assert result == {"FINISHED"}, f"AddRBFPose operator failed: {result}"
+
+    # Find the newly added pose by comparing with existing pose names
+    new_pose = None
+    new_pose_name = None
+    for p in solver.poses:
+        if p.name not in existing_pose_names:
+            new_pose = p
+            new_pose_name = p.name
+            break
+    assert new_pose is not None, f"No new pose was created. Existing poses: {existing_pose_names}"
+
+    # Verify the new pose has all the bones (existing + new)
+    new_pose_driven_names = {d.name for d in new_pose.driven}
+    assert new_bone_name in new_pose_driven_names, (
+        f"New bone '{new_bone_name}' should be in the new pose's driven bones. "
+        f"Found: {new_pose_driven_names}"
+    )
+
+    # Commit the changes to DNA
+    result = bpy.ops.meta_human_dna.commit_rbf_solver_changes()  # type: ignore
+    assert result == {"FINISHED"}, f"CommitRBFSolverChanges operator failed: {result}"
+
+    # Export the modified DNA to JSON for verification
+    json_file_path = temp_folder / dna_folder_name / "body_expanded_joint_group.json"
+    modified_json_data = get_dna_json_data(instance.body_dna_file_path, json_file_path, data_layer="All")
+
+    # Verify the new pose exists in the DNA
+    _new_pose_index, new_pose_data = get_rbf_pose_data_from_json(modified_json_data, new_pose_name)
+    assert new_pose_data is not None, f"New pose '{new_pose_name}' not found in modified DNA JSON"
+
+    # Verify the DNA can be reloaded (this is the crash scenario)
+    # Re-initialize the instance to reload the DNA
+    instance.destroy()
+    instance.body_initialize()
+
+    # Verify the instance is still valid after reloading
+    assert instance.body_initialized, "Instance should be initialized after reloading DNA"
+    assert instance.body_dna_reader is not None, "DNA reader should be available after reload"
+
+    # Verify the new pose is in the reloaded solver data
+    found_pose = False
+    for s in instance.rbf_solver_list:
+        for p in s.poses:
+            if p.name == new_pose_name:
+                found_pose = True
+                # Verify the new bone is in the reloaded pose
+                reloaded_driven_names = {d.name for d in p.driven}
+                assert new_bone_name in reloaded_driven_names, (
+                    f"New bone '{new_bone_name}' should still be in the pose after reload. "
+                    f"Found: {reloaded_driven_names}"
+                )
+                break
+        if found_pose:
+            break
+
+    assert found_pose, f"New pose '{new_pose_name}' not found after reloading DNA"

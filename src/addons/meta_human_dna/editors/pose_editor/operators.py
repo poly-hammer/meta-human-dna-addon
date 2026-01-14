@@ -552,31 +552,10 @@ class RemoveRBFPose(RBFEditorOperatorBase):
         solver.poses_active_index = to_index
 
 
-class AddRBFDriver(RBFEditorOperatorBase):
-    """Add a new RBF Driver bone"""
-
-    bl_idname = "meta_human_dna.add_rbf_driver"
-    bl_label = "Add RBF Driver"
-
-    def run(self, instance: "RigInstance"):
-        pass
-
-
-class RemoveRBFDriver(RBFEditorOperatorBase):
-    """Remove the selected RBF Driver bone"""
-
-    bl_idname = "meta_human_dna.remove_rbf_driver"
-    bl_label = "Remove RBF Driver"
-
-    def run(self, instance: "RigInstance"):
-        pass
-
-
 class AddRBFDriven(RBFEditorOperatorBase):
     """
-    Add a new RBF Driven bone to the current pose. You must select the 'default' pose to add driven bones.
-    Any selected bones will be added to all poses in this solver, since poses are deltas from the default
-    pose.
+    Add a new RBF Driven bone to the current pose. Any selected bones will be added to all poses in this solver,
+    since poses are deltas from the default pose.
     """
 
     bl_idname = "meta_human_dna.add_rbf_driven"
@@ -585,11 +564,7 @@ class AddRBFDriven(RBFEditorOperatorBase):
     @classmethod
     def poll(cls, _: "Context") -> bool:
         instance = utilities.get_active_rig_instance()
-        if not instance or not instance.body_rig:
-            return False
-
-        pose = core.get_active_pose(instance)
-        return bool(pose and pose.name == "default")
+        return instance is not None and instance.body_rig is not None and core.get_active_pose(instance) is not None
 
     def validate(self, context: "Context", instance: "RigInstance") -> tuple[bool, str]:
         if not context.selected_pose_bones:
@@ -614,9 +589,8 @@ class AddRBFDriven(RBFEditorOperatorBase):
 
 class RemoveRBFDriven(RBFEditorOperatorBase):
     """
-    Remove the selected RBF Driven bone from the current pose. You must select the 'default' pose to remove driven
-    bones. Any selected bones will be removed from all poses in this solver, since poses are deltas from the default
-    pose.
+    Remove the selected RBF Driven bone from the current pose. Any selected bones will be removed from all poses
+    in this solver, since poses are deltas from the default pose.
     """
 
     bl_idname = "meta_human_dna.remove_rbf_driven"
@@ -625,11 +599,7 @@ class RemoveRBFDriven(RBFEditorOperatorBase):
     @classmethod
     def poll(cls, _: "Context") -> bool:
         instance = utilities.get_active_rig_instance()
-        if not instance or not instance.body_rig:
-            return False
-
-        pose = core.get_active_pose(instance)
-        return bool(pose and pose.name == "default")
+        return instance is not None and instance.body_rig is not None and core.get_active_pose(instance) is not None
 
     def run(self, instance: "RigInstance"):
         pass

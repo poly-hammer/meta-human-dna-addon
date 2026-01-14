@@ -1046,18 +1046,27 @@ def get_addon_preferences() -> "MetahumanAddonProperties | None":
     return None
 
 
-def consistent_hash(input_string: str) -> str:
+def file_path_hash(file_path: Path, length: int = 8) -> str:
     """
-    Generates a consistent SHA256 hash for a given string across runtimes.
+    Generates a consistent hash for a file path.
+
+    The path is normalized to ensure the same logical path always produces
+    the same hash, regardless of slash direction, case (on Windows), or
+    trailing separators.
+
+    Args:
+        file_path: The file path to hash.
+        length: The length of the returned hash (default 8 characters).
+
+    Returns:
+        A short, consistent hash string.
     """
-    # The input to hashlib functions must be bytes.
-    # Use encode() to convert the string to a byte sequence (utf-8 is standard).
-    byte_string = input_string.encode("utf-8")
+    # Normalize the path: resolve to absolute, normalize slashes and case
+    normalized = file_path.resolve().as_posix()
 
-    # Create a new hash object
-    hash_object = hashlib.sha256(byte_string)
+    # Hash the normalized path
+    byte_string = normalized.encode("utf-8")
+    hex_digest = hashlib.sha256(byte_string).hexdigest()
 
-    # Get the hexadecimal representation of the hash
-    hex_digest = hash_object.hexdigest()
-
-    return hex_digest
+    # Return the first N characters for a shorter hash
+    return hex_digest[:length]
