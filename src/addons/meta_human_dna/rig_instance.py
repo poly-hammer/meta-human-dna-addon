@@ -644,6 +644,10 @@ class RigInstance(bpy.types.PropertyGroup):
         )
 
     @property
+    def is_pro(self) -> bool:
+        return True
+
+    @property
     def head_valid(self) -> bool:
         logged_warning = self.data.get(f"{self.name}_logged_head_validation_warning", False)
 
@@ -1022,7 +1026,7 @@ class RigInstance(bpy.types.PropertyGroup):
         return self.data[f"{self.name}_body_driver_bone_names"]
 
     def head_initialize(self):
-        from .bindings import riglogic
+        from .bindings import riglogic  # pyright: ignore[reportAttributeAccessIssue]
         from .dna_io import get_dna_reader
 
         if not self.head_valid:
@@ -1063,7 +1067,7 @@ class RigInstance(bpy.types.PropertyGroup):
         self.data[f"{self.name}_head_initialized"] = True
 
     def body_initialize(self, update_rbf_solver_list: bool = True):
-        from .bindings import riglogic
+        from .bindings import riglogic  # pyright: ignore[reportAttributeAccessIssue]
         from .dna_io import get_dna_reader
 
         if not self.body_valid:
@@ -1121,6 +1125,10 @@ class RigInstance(bpy.types.PropertyGroup):
     def initialize(self):
         self.head_initialize()
         self.body_initialize()
+        if self.is_pro:
+            from .editors.backup_manager.core import sync_backup_list_with_disk as _sync_backup_list_with_disk
+
+            _sync_backup_list_with_disk(instance=self)  # pyright: ignore[reportArgumentType]
 
     def destroy(self):
         # clears these data items from the dictionary, this frees them up to be garbage collected

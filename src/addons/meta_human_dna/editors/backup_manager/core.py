@@ -1,7 +1,6 @@
 # standard library imports
 import logging
 import shutil
-import tempfile
 
 from datetime import datetime
 from enum import Enum
@@ -11,8 +10,9 @@ from pathlib import Path
 import bpy
 
 # local imports
+from ...constants import DEFAULT_BACKUPS_FOLDER
 from ...typing import *  # noqa: F403
-from ...utilities import get_addon_preferences
+from ...utilities import consistent_hash, get_addon_preferences
 
 
 logger = logging.getLogger(__name__)
@@ -24,18 +24,42 @@ class BackupType(Enum):
     POSE_EDITOR = "Pose Editor Commit"
     EXPRESSION_EDITOR = "Expression Editor Commit"
     BLENDER_FILE_SAVE = "Blender File Saved"
+    MANUAL = "Manual Backup"
 
 
-def get_backup_folder() -> Path:
+def get_backup_folder(instance: "RigInstance") -> Path:
     """
     Get the base folder for DNA backups.
 
     Returns:
         Path to the backup folder in the system's temp directory.
     """
-    backup_base = Path(tempfile.gettempdir()) / "meta_human_dna_backups"
-    backup_base.mkdir(parents=True, exist_ok=True)
-    return backup_base
+    addon_preferences = get_addon_preferences()
+    if addon_preferences:
+        if not addon_preferences.dna_backup_folder_path.startswith("//"):
+            # Absolute path
+            backup_base = Path(addon_preferences.dna_backup_folder_path)
+        elif (
+            addon_preferences.dna_backup_folder_path.startswith("//")
+            and Path(instance.head_dna_file_path).parent == Path(instance.body_dna_file_path).parent
+        ):
+            # Paths can be set relative to the source dna files
+            backup_base = Path(
+                instance.head_dna_file_path
+            ).parent / addon_preferences.dna_backup_folder_path.removeprefix("//")
+        else:
+            # Otherwise use the default temp folder
+            backup_base = DEFAULT_BACKUPS_FOLDER
+
+        # Use a hash of the DNA file paths to create a unique folder per instance
+        # using the same DNA files. This avoids collisions if multiple instances
+        # have the same name but are in different folders on the system.
+        hash_name = consistent_hash(instance.body_dna_file_path or instance.head_dna_file_path)
+        instance_backup_base = backup_base / f"{instance.name}-{str(hash_name).strip('-')}"
+        instance_backup_base.mkdir(parents=True, exist_ok=True)
+        return instance_backup_base
+
+    raise RuntimeError("Could not retrieve addon preferences for backup folder path")
 
 
 def is_auto_backup_enabled() -> bool:
@@ -85,7 +109,7 @@ def create_backup(instance: "RigInstance", backup_type: BackupType, description:
     backup_id = timestamp.strftime("%Y%m%d_%H%M%S")
 
     # Create instance-specific backup folder
-    instance_backup_folder = get_backup_folder() / instance.name
+    instance_backup_folder = get_backup_folder(instance=instance)
     backup_folder = instance_backup_folder / backup_id
     backup_folder.mkdir(parents=True, exist_ok=True)
 
@@ -176,7 +200,7 @@ def _add_backup_to_list(
     entry.backup_type = backup_type.value
     entry.description = description or backup_type.value
     entry.instance_name = instance.name
-    entry.folder_path = str(get_backup_folder() / instance.name / backup_id)
+    entry.folder_path = str(get_backup_folder(instance=instance) / backup_id)
 
     # Set as active
     instance.dna_backup_list_active_index = len(backup_list) - 1
@@ -193,7 +217,7 @@ def restore_backup(instance: "RigInstance", backup_id: str) -> bool:
     Returns:
         True if restoration was successful, False otherwise.
     """
-    backup_folder = get_backup_folder() / instance.name / backup_id
+    backup_folder = get_backup_folder(instance=instance) / backup_id
     metadata_path = backup_folder / "metadata.json"
 
     if not metadata_path.exists():
@@ -208,7 +232,7 @@ def restore_backup(instance: "RigInstance", backup_id: str) -> bool:
 
         # Restore head DNA
         if metadata.get("head_dna_path"):
-            head_backup = backup_folder / f"head_{Path(metadata['head_dna_path']).name}"
+            head_backup = backup_folder / Path(metadata["head_dna_path"]).name
             if head_backup.exists():
                 dest = Path(bpy.path.abspath(metadata["head_dna_path"]))
                 shutil.copy2(head_backup, dest)
@@ -216,7 +240,7 @@ def restore_backup(instance: "RigInstance", backup_id: str) -> bool:
 
         # Restore body DNA
         if metadata.get("body_dna_path"):
-            body_backup = backup_folder / f"body_{Path(metadata['body_dna_path']).name}"
+            body_backup = backup_folder / Path(metadata["body_dna_path"]).name
             if body_backup.exists():
                 dest = Path(bpy.path.abspath(metadata["body_dna_path"]))
                 shutil.copy2(body_backup, dest)
@@ -242,7 +266,7 @@ def delete_backup(instance: "RigInstance", backup_id: str) -> bool:
     Returns:
         True if deletion was successful, False otherwise.
     """
-    backup_folder = get_backup_folder() / instance.name / backup_id
+    backup_folder = get_backup_folder(instance=instance) / backup_id
 
     if not backup_folder.exists():
         logger.warning(f"Backup folder not found: {backup_id}")
@@ -267,7 +291,7 @@ def cleanup_old_backups(instance: "RigInstance") -> None:
         instance: The RigLogicInstance whose old backups to clean up.
     """
     max_backups = get_max_backups()
-    instance_backup_folder = get_backup_folder() / instance.name
+    instance_backup_folder = get_backup_folder(instance=instance)
 
     if not instance_backup_folder.exists():
         return
@@ -307,7 +331,7 @@ def sync_backup_list_with_disk(instance: "RigInstance") -> None:
         instance: The RigLogicInstance whose backup list to sync.
     """
     backup_list = instance.dna_backup_list
-    instance_backup_folder = get_backup_folder() / instance.name
+    instance_backup_folder = get_backup_folder(instance=instance)
 
     if not instance_backup_folder.exists():
         # No backups folder, clear the list

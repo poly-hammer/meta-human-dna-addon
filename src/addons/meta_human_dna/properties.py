@@ -5,7 +5,7 @@ import logging
 import bpy
 
 # local imports
-from .constants import NUMBER_OF_HEAD_LODS, ToolInfo
+from .constants import DEFAULT_BACKUPS_FOLDER, NUMBER_OF_HEAD_LODS, ToolInfo
 from .rig_instance import (
     OutputData,
     RigInstance,
@@ -87,6 +87,18 @@ class MetahumanAddonProperties:
             "Automatically backup DNA files when saving the blend file, or committing edit mode changes "
             "from the Pose Editor or Expression Editor"
         ),
+    )  # pyright: ignore[reportInvalidTypeForm]
+
+    dna_backup_folder_path: bpy.props.StringProperty(
+        default=str(DEFAULT_BACKUPS_FOLDER),
+        description=(
+            "The folder location of the DNA backup files. Modify this if you want to store backups in a custom "
+            "location. Note: You can use the relative path syntax, which creates a folder relative to the DNA files "
+            "being backed up. For example, setting this to '//backups' will create a 'backups' folder next to the DNA "
+            "files"
+        ),
+        subtype="DIR_PATH",
+        options={"PATH_SUPPORTS_BLEND_RELATIVE"},
     )  # pyright: ignore[reportInvalidTypeForm]
 
     max_dna_backups: bpy.props.IntProperty(

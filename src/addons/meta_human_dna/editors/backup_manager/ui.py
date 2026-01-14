@@ -54,9 +54,6 @@ class META_HUMAN_DNA_PT_dna_backups(bpy.types.Panel):
             layout.label(text="No active MetaHuman instance", icon="INFO")
             return
 
-        # Instance name header
-        layout.label(text=f"Instance: {instance.name}", icon="ARMATURE_DATA")
-
         # Backup list
         row = layout.row()
         row.template_list(
@@ -73,6 +70,7 @@ class META_HUMAN_DNA_PT_dna_backups(bpy.types.Panel):
         col = row.column(align=True)
         col.operator("meta_human_dna.sync_dna_backups", text="", icon="FILE_REFRESH")
         col.operator("meta_human_dna.open_backup_folder", text="", icon="FILE_FOLDER")
+        col.operator("meta_human_dna.create_manual_backup", text="", icon="ADD")
 
         # Bottom buttons
         if len(instance.dna_backup_list) > 0:

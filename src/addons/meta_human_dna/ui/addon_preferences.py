@@ -47,6 +47,8 @@ class MetaHumanDnaPreferences(MetahumanAddonProperties, bpy.types.AddonPreferenc
         row.prop(self, "enable_auto_dna_backups", text="Enable Auto DNA Backups")
         row.enabled = self.enable_auto_dna_backups
         row.prop(self, "max_dna_backups", text="Maximum Backups to Keep")
+        row = box.row()
+        row.prop(self, "dna_backup_folder_path", text="DNA Backup Folder")
 
         # Extra DNA Folder Paths
         layout.separator()

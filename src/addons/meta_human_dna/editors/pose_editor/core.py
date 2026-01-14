@@ -502,3 +502,51 @@ def diff_rbf_pose_data(instance: "RigInstance"):  # noqa: PLR0912
                                         _driven.scale_edited = True
                                     else:
                                         _driven.scale_edited = False
+
+
+def validate_no_duplicate_driver_bone_values(instance: "RigInstance") -> tuple[bool, str]:
+    solver = get_active_solver(instance)
+    if not solver:
+        return False, "No active RBF solver found."
+
+    if len(solver.poses) == 0:
+        return False, "No poses found in the active RBF solver."
+
+    # Collect all driver quaternions from all poses in the solver
+    all_pose_quaternions = []
+    for pose_index, pose in enumerate(solver.poses):
+        all_pose_quaternions.extend(
+            [
+                {
+                    "quaternion": Quaternion(driver.quaternion_rotation),
+                    "pose_name": pose.name,
+                    "pose_index": pose_index,
+                    "driver_name": driver.name,
+                }
+                for driver in pose.drivers
+            ]
+        )
+
+    # Check if quaternion values are unique across all poses within the threshold
+    for i, quat_data1 in enumerate(all_pose_quaternions):
+        for j, quat_data2 in enumerate(all_pose_quaternions):
+            driver1_name = quat_data1["driver_name"]
+            driver2_name = quat_data2["driver_name"]
+            if i != j and driver1_name == driver2_name:
+                quat1 = quat_data1["quaternion"]
+                quat2 = quat_data2["quaternion"]
+
+                pose1_name = quat_data1["pose_name"]
+                pose2_name = quat_data2["pose_name"]
+
+                # Calculate the rotation difference between quaternions
+                rotation_difference = quat1.normalized().rotation_difference(quat2.normalized()).angle
+
+                if rotation_difference < BONE_DELTA_THRESHOLD:
+                    return (
+                        False,
+                        f"Poses '{pose1_name}' and '{pose2_name}' have a driver bone '{driver1_name}' with the "
+                        "same rotation values. Driver bone rotations must be unique across all poses in the solver.",
+                    )
+
+    return True, ""

@@ -99,7 +99,12 @@ class META_HUMAN_DNA_OT_open_backup_folder(bpy.types.Operator):
     bl_description = "Open the DNA backup folder in the file explorer"
 
     def execute(self, context: "Context") -> set[str]:
-        backup_folder = core.get_backup_folder()
+        instance = get_active_rig_instance()
+        if not instance:
+            self.report({"ERROR"}, "No active instance")
+            return {"CANCELLED"}
+
+        backup_folder = core.get_backup_folder(instance=instance)
 
         if sys.platform == "win32":
             subprocess.Popen(["explorer", str(backup_folder)])  # noqa: S603, S607
@@ -131,3 +136,58 @@ class META_HUMAN_DNA_OT_sync_backups(bpy.types.Operator):
         core.sync_backup_list_with_disk(instance)
         self.report({"INFO"}, "Backup list refreshed")
         return {"FINISHED"}
+
+
+class META_HUMAN_DNA_OT_create_manual_backup(bpy.types.Operator):
+    """Create a manual backup of the DNA files with a custom description."""
+
+    bl_idname = "meta_human_dna.create_manual_backup"
+    bl_label = "Create Manual Backup"
+    bl_description = "Create a manual backup of the DNA files with a custom description"
+    bl_options = {"REGISTER", "UNDO"}
+
+    description: bpy.props.StringProperty(
+        name="Description",
+        description="A description for this backup",
+        default="",
+    )  # pyright: ignore[reportInvalidTypeForm]
+
+    @classmethod
+    def poll(cls, _: "Context") -> bool:
+        instance = get_active_rig_instance()
+        if instance is None:
+            return False
+        # Check if there's at least one DNA file to backup
+        return bool(instance.head_dna_file_path or instance.body_dna_file_path)
+
+    def invoke(self, context: "Context", event: bpy.types.Event) -> set[str]:
+        # Show a dialog to input the description
+        return context.window_manager.invoke_props_dialog(self, width=400)  # pyright: ignore[reportReturnType]
+
+    def draw(self, context: "Context"):
+        if not self.layout:
+            return
+        self.layout.prop(self, "description", text="Description")
+
+    def execute(self, context: "Context") -> set[str]:
+        instance = get_active_rig_instance()
+        if instance is None:
+            self.report({"ERROR"}, "No active MetaHuman instance")
+            return {"CANCELLED"}
+
+        # Use a default description if none provided
+        description = self.description.strip() if self.description else "Manual Backup"
+
+        # Temporarily enable backup creation even if auto-backup is disabled
+        backup_id = core.create_backup(
+            instance=instance,
+            backup_type=core.BackupType.MANUAL,
+            description=description,
+        )
+
+        if backup_id:
+            self.report({"INFO"}, f"Created manual backup: {description}")
+            return {"FINISHED"}
+
+        self.report({"ERROR"}, "Failed to create backup. Check if auto-backup is enabled in preferences.")
+        return {"CANCELLED"}

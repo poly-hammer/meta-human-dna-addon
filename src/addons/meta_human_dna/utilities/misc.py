@@ -1,4 +1,5 @@
 # standard library imports
+import hashlib
 import json
 import logging
 import math
@@ -1043,3 +1044,20 @@ def get_addon_preferences() -> "MetahumanAddonProperties | None":
             ToolInfo.EXTENSION_ID = extension_id
             return bpy.context.preferences.addons[extension_id].preferences  # type: ignore[attr-defined]
     return None
+
+
+def consistent_hash(input_string: str) -> str:
+    """
+    Generates a consistent SHA256 hash for a given string across runtimes.
+    """
+    # The input to hashlib functions must be bytes.
+    # Use encode() to convert the string to a byte sequence (utf-8 is standard).
+    byte_string = input_string.encode("utf-8")
+
+    # Create a new hash object
+    hash_object = hashlib.sha256(byte_string)
+
+    # Get the hexadecimal representation of the hash
+    hex_digest = hash_object.hexdigest()
+
+    return hex_digest

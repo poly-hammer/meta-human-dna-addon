@@ -67,6 +67,7 @@ backup_manager_operator_classes = [
     backup_manager_operators.META_HUMAN_DNA_OT_delete_backup,
     backup_manager_operators.META_HUMAN_DNA_OT_open_backup_folder,
     backup_manager_operators.META_HUMAN_DNA_OT_sync_backups,
+    backup_manager_operators.META_HUMAN_DNA_OT_create_manual_backup,
 ]
 backup_manager_ui_classes = [
     backup_manager_ui.META_HUMAN_DNA_UL_dna_backups,

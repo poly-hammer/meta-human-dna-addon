@@ -166,6 +166,10 @@ class CommitRBFSolverChanges(RBFEditorOperatorBase):
         if not Path(bpy.path.abspath(instance.body_dna_file_path)).exists():
             return False, "Body .dna file does not exist. Please check the file path."
 
+        valid, message = core.validate_no_duplicate_driver_bone_values(instance)
+        if not valid:
+            return False, message
+
         return True, ""
 
     def run(self, instance: "RigInstance"):
