@@ -385,10 +385,10 @@ max-returns = 8
 max-statements = 60
 
 # =============================================================================
-# UV Configuration
+# Dependency Groups (replaces deprecated tool.uv.dev-dependencies)
 # =============================================================================
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
   "debugpy>=1.8.13",
   "bpy>=4.5.1",
   "pytest>=8.3.3",

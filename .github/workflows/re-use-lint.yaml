@@ -77,7 +77,7 @@ jobs:
           uv sync
 
           uv venv .stubs-venv
-          uv pip install --python .stubs-venv/Scripts/python.exe -e ".[stubs]"
+          uv pip install --python .stubs-venv/bin/python -e ".[stubs]"
 
       - name: Install pyright
         run: |
