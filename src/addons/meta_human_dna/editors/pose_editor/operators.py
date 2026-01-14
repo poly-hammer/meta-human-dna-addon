@@ -553,53 +553,106 @@ class RemoveRBFPose(RBFEditorOperatorBase):
 
 
 class AddRBFDriven(RBFEditorOperatorBase):
-    """
-    Add a new RBF Driven bone to the current pose. Any selected bones will be added to all poses in this solver,
-    since poses are deltas from the default pose.
-    """
-
     bl_idname = "meta_human_dna.add_rbf_driven"
     bl_label = "Add RBF Driven Bone"
+    bl_options = {"REGISTER", "UNDO"}
+    bl_description = (
+        "Add selected bones as driven bones to the solver's joint group. This will add the bones to ALL poses "
+        "in this solver."
+    )
 
     @classmethod
     def poll(cls, _: "Context") -> bool:
         instance = utilities.get_active_rig_instance()
-        return instance is not None and instance.body_rig is not None and core.get_active_pose(instance) is not None
+        if not instance or not instance.body_rig:
+            return False
+        # Must be in edit mode for the solver
+        return instance.editing_rbf_solver
 
     def validate(self, context: "Context", instance: "RigInstance") -> tuple[bool, str]:
         if not context.selected_pose_bones:
-            return False, "No pose bones selected. Please select at least one driven bone in pose mode."
+            return False, "No pose bones selected. Please select at least one bone to add in pose mode."
+
+        # Check that selected bones are not driver, swing, or twist bones
+        if not instance.body_initialized:
+            instance.body_initialize(update_rbf_solver_list=False)
+
+        for pose_bone in context.selected_pose_bones:
+            if pose_bone.name in instance.body_driver_bone_names:
+                return False, f'Bone "{pose_bone.name}" is a driver bone and cannot be added as a driven bone.'
+            if pose_bone.name in instance.body_swing_bone_names:
+                return False, f'Bone "{pose_bone.name}" is a swing bone and cannot be added as a driven bone.'
+            if pose_bone.name in instance.body_twist_bone_names:
+                return False, f'Bone "{pose_bone.name}" is a twist bone and cannot be added as a driven bone.'
+            if pose_bone.id_data != instance.body_rig:
+                return False, f'Bone "{pose_bone.name}" does not belong to the body rig and cannot be added.'
 
         return True, ""
 
     def run(self, instance: "RigInstance"):
-        solver = instance.rbf_solver_list[self.solver_index]
-        pose = solver.poses[self.pose_index]
+        selected_bone_names = [pb.name for pb in bpy.context.selected_pose_bones]
 
-        selected_pose_bones = bpy.context.selected_pose_bones.copy()
+        valid, message = core.add_driven_bones_to_solver(
+            instance=instance,
+            bone_names_to_add=selected_bone_names,
+            update_active_pose_transforms=True,
+        )
 
-        for pose_bone in selected_pose_bones:
-            if pose_bone.name not in [d.name for d in pose.driven]:
-                driven = pose.driven.add()
-                core.set_driven_bone_data(instance=instance, pose=pose, driven=driven, pose_bone=pose_bone, new=True)
+        if not valid:
+            self.report({"ERROR"}, message)
+            return
 
-        # set the active driven to the last one added
-        pose.driven_active_index = len(pose.driven) - 1
+        self.report({"INFO"}, message)
 
 
 class RemoveRBFDriven(RBFEditorOperatorBase):
-    """
-    Remove the selected RBF Driven bone from the current pose. Any selected bones will be removed from all poses
-    in this solver, since poses are deltas from the default pose.
-    """
-
     bl_idname = "meta_human_dna.remove_rbf_driven"
     bl_label = "Remove RBF Driven Bone"
+    bl_options = {"REGISTER", "UNDO"}
+    bl_description = (
+        "Remove the active driven bone from the solver's joint group. This will remove the bones from ALL poses "
+        "in this solver."
+    )
 
     @classmethod
     def poll(cls, _: "Context") -> bool:
         instance = utilities.get_active_rig_instance()
-        return instance is not None and instance.body_rig is not None and core.get_active_pose(instance) is not None
+        if not instance or not instance.body_rig:
+            return False
+        # Must be in edit mode for the solver
+        if not instance.editing_rbf_solver:
+            return False
+        # Must have at least one pose with driven bones
+        pose = core.get_active_pose(instance)
+        return pose is not None and len(pose.driven) > 0
+
+    def validate(self, context: "Context", instance: "RigInstance") -> tuple[bool, str]:
+        active_driven = core.get_active_driven(instance)
+        if not active_driven:
+            return False, "The active pose has no driven bones to remove."
+
+        # Check that at least one selected bone is in the joint group
+        existing_bones = core.get_solver_joint_group_bones(instance)
+        selected_bone_names = {active_driven.name}
+
+        bones_to_remove = selected_bone_names & existing_bones
+        if not bones_to_remove:
+            return False, "None of the selected bones are in the solver's joint group."
+
+        # Check that we're not removing ALL bones
+        remaining_bones = existing_bones - bones_to_remove
+        if not remaining_bones:
+            return False, "Cannot remove all driven bones. At least one driven bone must remain in the solver."
+
+        return True, ""
 
     def run(self, instance: "RigInstance"):
-        pass
+        active_driven = core.get_active_driven(instance)
+        if active_driven:
+            # Remove the bone from all poses
+            valid, message = core.remove_driven_bone_from_solver(instance, {active_driven.name})
+            if not valid:
+                self.report({"ERROR"}, message)
+                return
+
+        self.report({"INFO"}, message)
