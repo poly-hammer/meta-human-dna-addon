@@ -8,18 +8,24 @@ if TYPE_CHECKING:
 
     from bpy.types import bpy_prop_collection, bpy_struct
 
-    from .bindings import riglogic  # noqa: TC004
+    from .bindings import riglogic  # pyright: ignore[reportAttributeAccessIssue] # noqa: TC004
     from .components.body import MetaHumanComponentBody  # noqa: TC004
     from .components.head import MetaHumanComponentHead  # noqa: TC004
     from .editors.backup_manager.properties import DnaBackupEntry  # noqa: TC004
-    from .editors.pose_editor.properties import RBFDrivenData, RBFDriverData, RBFPoseData, RBFSolverData  # noqa: TC004
+    from .editors.pose_editor.properties import (  # noqa: TC004
+        RBFDrivenBoneSelectionItem,
+        RBFDrivenData,
+        RBFDriverData,
+        RBFPoseData,
+        RBFSolverData,
+    )
     from .operators import BakeAnimationBase, DuplicateRigInstance  # noqa: TC004
     from .properties import (
         ExtraDnaFolder,
         MetahumanAddonProperties,  # noqa: TC004
         MetahumanImportProperties,  # noqa: TC004
         MetahumanSceneProperties,  # noqa: TC004
-        MetahumanWindowMangerProperties,  # noqa: TC004
+        MetahumanWindowMangerProperties as _MetahumanWindowMangerProperties,
     )
     from .rig_instance import OutputData, RigInstance as _RigInstanceBase, ShapeKeyData  # noqa: TC004
 
@@ -55,6 +61,16 @@ if TYPE_CHECKING:
         dna_backup_list_active_index: int
         rbf_solver_list: RBFSolvers
         rbf_solver_list_active_index: int
+
+    # =========================================================================
+    # Extended MetahumanWindowMangerProperties with dynamically assigned editor
+    # properties these are added at runtime in properties.py register() function
+    # =========================================================================
+    class MetahumanWindowMangerProperties(_MetahumanWindowMangerProperties):
+        """Extended WindowManager properties with Pose Editor properties."""
+
+        add_pose_driven_bones: bpy_prop_collection[RBFDrivenBoneSelectionItem]
+        add_pose_driven_bones_active_index: int
 
     # =========================================================================
     # Addon Preferences Types
@@ -130,6 +146,7 @@ if TYPE_CHECKING:
         "MetahumanWindowMangerProperties",
         "OutputData",
         "Preferences",
+        "RBFDrivenBoneSelectionItem",
         "RBFDrivenData",
         "RBFDriverData",
         "RBFPoseData",

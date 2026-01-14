@@ -282,37 +282,88 @@ class RBFPoseOperatorBase(RBFEditorOperatorBase):
 
 
 class AddRBFPose(RBFPoseOperatorBase):
-    """Add a new RBF Pose"""
+    """Add a new RBF Pose to the selected solver."""
 
     bl_idname = "meta_human_dna.add_rbf_pose"
     bl_label = "Add RBF Pose"
+    bl_options = {"REGISTER", "UNDO"}
 
     new_pose_name: bpy.props.StringProperty(
         default="default", description="The name of the new RBF Pose", get=get_new_pose_name, set=set_new_pose_name
     )  # pyright: ignore[reportInvalidTypeForm]
 
-    def validate(self, context: "Context", instance: "RigInstance") -> tuple[bool, str]:
-        if not context.selected_pose_bones:
-            return False, "No pose bones selected. Please select at least one driver bone in pose mode."
+    def _populate_bone_selections(self, context: "Context") -> None:
+        """Populate the bone selection collections based on the current solver's joint group."""
+        instance = utilities.get_active_rig_instance()
+        if not instance or not instance.body_rig:
+            return
 
         if not instance.body_initialized:
             instance.body_initialize()
 
-        for pose_bone in context.selected_pose_bones:
+        # Use window manager to store the collection (persists across draw calls)
+        wm = context.window_manager
+        if not hasattr(wm.meta_human_dna, "add_pose_driven_bones"):
+            return
+
+        # Clear existing selections
+        wm.meta_human_dna.add_pose_driven_bones.clear()
+
+        # Get available driven bones
+        available_bones = core.get_available_driven_bones(instance)
+
+        for bone_name, joint_index, is_in_existing in available_bones:
+            item = wm.meta_human_dna.add_pose_driven_bones.add()
+            item.name = bone_name
+            # Pre-select bones that are already in the joint group
+            item.selected = is_in_existing
+            item.joint_index = joint_index
+            item.is_in_existing_joint_group = is_in_existing
+
+    def _get_selected_driven_bones(self, context: "Context") -> list[bpy.types.PoseBone]:
+        """Get the list of selected driven bones from the selection collections."""
+        instance = utilities.get_active_rig_instance()
+        if not instance or not instance.body_rig:
+            return []
+
+        wm = context.window_manager
+        if not hasattr(wm.meta_human_dna, "add_pose_driven_bones"):
+            return []
+
+        driven_bones = []
+        for item in wm.meta_human_dna.add_pose_driven_bones:
+            if item.selected:
+                pose_bone = instance.body_rig.pose.bones.get(item.name)
+                if pose_bone:
+                    driven_bones.append(pose_bone)
+
+        return driven_bones
+
+    def validate(self, context: "Context", instance: "RigInstance") -> tuple[bool, str]:
+        # Get selected driven bones from our selection lists
+        driven_bones = self._get_selected_driven_bones(context)
+
+        if not driven_bones:
+            return False, "No driven bones selected. Please select at least one driven bone."
+
+        if not instance.body_initialized:
+            instance.body_initialize()
+
+        for pose_bone in driven_bones:
             if pose_bone.name in instance.body_driver_bone_names:
                 return (
                     False,
-                    f'The selected bone "{pose_bone.name}" is assigned as a driver bone. Please select other bones.',
+                    f'The selected bone "{pose_bone.name}" is assigned as a driver bone. Please deselect it.',
                 )
             if pose_bone.name in instance.body_swing_bone_names:
                 return (
                     False,
-                    f'The selected bone "{pose_bone.name}" is assigned as a swing bone. Please select other bones.',
+                    f'The selected bone "{pose_bone.name}" is assigned as a swing bone. Please deselect it.',
                 )
             if pose_bone.name in instance.body_twist_bone_names:
                 return (
                     False,
-                    f'The selected bone "{pose_bone.name}" is assigned as a twist bone. Please select other bones.',
+                    f'The selected bone "{pose_bone.name}" is assigned as a twist bone. Please deselect it.',
                 )
 
         solver = instance.rbf_solver_list[instance.rbf_solver_list_active_index]
@@ -320,48 +371,98 @@ class AddRBFPose(RBFPoseOperatorBase):
             if pose.name == self.new_pose_name:
                 return False, f'A pose with the name "{self.new_pose_name}" already exists. Use a different name.'
 
-        driver_name_name = solver.name.replace(RBF_SOLVER_POSTFIX, "")
-        if not instance.body_rig.pose.bones.get(driver_name_name):
+        driver_bone_name = solver.name.replace(RBF_SOLVER_POSTFIX, "")
+        if not instance.body_rig.pose.bones.get(driver_bone_name):
             return (
                 False,
                 (
-                    f'The driver bone "{driver_name_name}" for the solver "{solver.name}" is not found in the '
+                    f'The driver bone "{driver_bone_name}" for the solver "{solver.name}" is not found in the '
                     "armature. Please ensure the bone exists."
                 ),
             )
+
+        # Validate and update joint group consistency
+        driven_bone_names = [pb.name for pb in driven_bones]
+        valid, message = core.validate_and_update_solver_joint_group(instance, driven_bone_names)
+        if not valid:
+            return False, message
 
         return True, ""
 
     def run(self, instance: "RigInstance"):
         solver = instance.rbf_solver_list[instance.rbf_solver_list_active_index]
         new_pose_index = len(solver.poses)
+
+        # Get driven bones from our selection
+        driven_bones = self._get_selected_driven_bones(bpy.context)  # pyright: ignore[reportArgumentType]
+
         self.add_pose(
             instance=instance,
             pose_name=self.new_pose_name if self.new_pose_name else f"Pose{new_pose_index}",
-            driven_bones=bpy.context.selected_pose_bones.copy(),
+            driven_bones=driven_bones,
         )
 
     def invoke(self, context: "Context", event: bpy.types.Event) -> set[str]:
-        return context.window_manager.invoke_props_dialog(self, width=200)  # type: ignore[return-type]
+        # Populate bone selections when the dialog is opened
+        self._populate_bone_selections(context)
+        return context.window_manager.invoke_props_dialog(self, width=400)  # type: ignore[return-type]
 
     def draw(self, context: "Context"):
         if not self.layout:
             return
 
-        row = self.layout.row()
+        layout = self.layout
+        wm = context.window_manager
+
+        # Pose name input
+        row = layout.row()
         row.label(text="Pose Name:")
-        row = self.layout.row()
+        row = layout.row()
         row.prop(self, "new_pose_name", text="")
-        row = self.layout.row()
-        row.label(text="Adding bones:")
-        box = self.layout.box()
-        for pose_bone in context.selected_pose_bones:
-            row = box.row()
-            row.label(text=pose_bone.name, icon="BONE_DATA")
+
+        layout.separator()
+
+        # Driven bones selection header
+        row = layout.row()
+        row.label(text="Driven Bones:", icon="BONE_DATA")
+
+        # Info about joint group consistency
+        instance = utilities.get_active_rig_instance()
+        if instance:
+            existing_bones = core.get_solver_joint_group_bones(instance)
+            if existing_bones:
+                box = layout.box()
+                col = box.column(align=True)
+                col.label(text=f"Existing joint group has {len(existing_bones)} bones", icon="INFO")
+                col.label(text="Pre-selected bones are linked to existing group.")
+                col.label(text="Adding new bones will update all poses.")
+
+        # Draw driven bone selections as UIList
+        if hasattr(wm.meta_human_dna, "add_pose_driven_bones"):
+            # Count selected bones for display
+            selected_count = sum(1 for item in wm.meta_human_dna.add_pose_driven_bones if item.selected)
+            row = layout.row()
+            row.label(text=f"Selected: {selected_count} bones")
+
+            # UIList for bone selection with search/filter capability
+            layout.template_list(
+                "META_HUMAN_DNA_UL_bone_selection",
+                "",
+                wm.meta_human_dna,
+                "add_pose_driven_bones",
+                wm.meta_human_dna,
+                "add_pose_driven_bones_active_index",
+                rows=8,
+            )
 
     @classmethod
-    def poll(cls, context: "Context") -> bool:
-        return bool(context.selected_pose_bones)
+    def poll(cls, context: "Context") -> bool:  # noqa: ARG003
+        instance = utilities.get_active_rig_instance()
+        if not instance or not instance.body_rig:
+            return False
+
+        # Must be in edit mode for the solver
+        return instance.editing_rbf_solver
 
 
 class DuplicateRBFPose(RBFPoseOperatorBase):

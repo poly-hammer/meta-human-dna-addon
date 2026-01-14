@@ -2,6 +2,8 @@ import logging
 import os
 
 import bpy
+
+# This import is necessary to register custom icons
 import bpy.utils.previews  # pyright: ignore[reportUnusedImport]
 
 from . import constants, manual_map, operators, properties, rig_instance, utilities
@@ -55,6 +57,7 @@ pose_editor_ui_classes = [
     pose_editor_ui.META_HUMAN_DNA_PT_pose_editor_drivers_sub_panel,
     pose_editor_ui.META_HUMAN_DNA_PT_pose_editor_driven_sub_panel,
     pose_editor_ui.META_HUMAN_DNA_PT_pose_editor_footer_sub_panel,
+    pose_editor_ui.META_HUMAN_DNA_UL_bone_selection,
     pose_editor_ui.META_HUMAN_DNA_UL_rbf_solvers,
     pose_editor_ui.META_HUMAN_DNA_UL_rbf_poses,
     pose_editor_ui.META_HUMAN_DNA_UL_rbf_drivers,

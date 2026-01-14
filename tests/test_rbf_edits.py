@@ -4,7 +4,7 @@ import uuid
 import bpy
 import pytest
 
-from mathutils import Vector
+from mathutils import Vector, Quaternion
 
 from constants import (
     DNA_BEHAVIOR_VERSION,
@@ -364,6 +364,23 @@ def test_rbf_pose_duplicate(
     new_pose_name = f"{from_pose_name}_duplicated_test"
     new_pose.name = new_pose_name
 
+    # Modify the driver bone rotation to make it unique
+    # (duplicated poses have the same driver values which would fail validation)
+    if new_pose.drivers:
+        driver = new_pose.drivers[0]
+        driver_bone = instance.body_rig.pose.bones.get(driver.name)
+        if driver_bone:
+            # Add a small rotation offset to make the pose unique
+            original_quat = Quaternion(driver.quaternion_rotation)
+            offset_quat = Quaternion((0.9962, 0.0, 0.0872, 0.0))  # ~10 degree offset around Y
+            new_quat = original_quat @ offset_quat
+            driver_bone.rotation_quaternion = new_quat
+
+            # Update the driver data
+            bpy.ops.meta_human_dna.update_rbf_pose(  # type: ignore
+                solver_index=solver_index, pose_index=new_pose_index
+            )
+
     # Verify the duplicated pose has the expected number of driven bones
     assert (
         len(new_pose.driven) >= expected_driven_bone_count
@@ -451,8 +468,33 @@ def test_rbf_duplicated_pose_driven_edit(
     new_pose_name = f"{from_pose_name}_edit_test"
     new_pose.name = new_pose_name
 
-    # First, reset the rig to rest position to get clean bone positions
+    # Modify the driver bone rotation to make it unique
+    # (duplicated poses have the same driver values which would fail validation)
+    unique_driver_quat = None
+    if new_pose.drivers:
+        driver = new_pose.drivers[0]
+        driver_bone = instance.body_rig.pose.bones.get(driver.name)
+        if driver_bone:
+            # Add a small rotation offset to make the pose unique
+            original_quat = Quaternion(driver.quaternion_rotation)
+            offset_quat = Quaternion((0.9962, 0.0, 0.0872, 0.0))  # ~10 degree offset around Y
+            unique_driver_quat = original_quat @ offset_quat
+            driver_bone.rotation_quaternion = unique_driver_quat
+
+            # Update the driver data
+            bpy.ops.meta_human_dna.update_rbf_pose(  # type: ignore
+                solver_index=solver_index, pose_index=new_pose_index
+            )
+
+    # Reset the rig to rest position to get clean bone positions for driven bone edit
     reset_pose(instance.body_rig)
+
+    # Re-apply the unique driver rotation after reset (so it doesn't match 'default' pose)
+    if unique_driver_quat and new_pose.drivers:
+        driver = new_pose.drivers[0]
+        driver_bone = instance.body_rig.pose.bones.get(driver.name)
+        if driver_bone:
+            driver_bone.rotation_quaternion = unique_driver_quat
 
     # Find the driven bone in the duplicated pose and apply location change
     driven_found = False
@@ -613,3 +655,189 @@ def test_rbf_solver_contains_expected_poses(
         assert (
             expected_pose_name in solver_pose_names
         ), f"Expected pose '{expected_pose_name}' not found in solver '{solver_name}'. Found: {solver_pose_names}"
+
+
+# =============================================================================
+# Joint Group Consistency Tests
+# =============================================================================
+
+
+def test_get_solver_joint_group_bones(fresh_rbf_test_scene, dna_folder_name: str):
+    """
+    Test that get_solver_joint_group_bones returns the correct set of bone names
+    for all driven bones in the active solver's poses.
+    """
+    from meta_human_dna.editors.pose_editor.core import get_solver_joint_group_bones
+
+    instance = get_active_rig_instance()
+    assert instance is not None, "No active rig instance found"
+    assert instance.body_rig is not None, "No body rig found on instance"
+
+    # Set up a solver with known poses
+    solver_name = "calf_l_UERBFSolver"
+    pose, _, _ = set_body_pose(solver_name=solver_name, pose_name="calf_l_back_50")
+    assert pose is not None, f"Pose not found in solver '{solver_name}'"
+
+    # Get the joint group bones
+    bone_names = get_solver_joint_group_bones(instance)
+
+    # Verify we got some bones
+    assert len(bone_names) > 0, "Should have found at least one bone in the joint group"
+
+    # Verify all bones are strings
+    for bone_name in bone_names:
+        assert isinstance(bone_name, str), f"Bone name should be a string, got {type(bone_name)}"
+
+
+def test_get_available_driven_bones_excludes_driver_bones(fresh_rbf_test_scene, dna_folder_name: str):
+    """
+    Test that get_available_driven_bones does not include driver bones,
+    swing bones, or twist bones.
+    """
+    from meta_human_dna.editors.pose_editor.core import get_available_driven_bones
+
+    instance = get_active_rig_instance()
+    assert instance is not None, "No active rig instance found"
+    assert instance.body_rig is not None, "No body rig found on instance"
+
+    # Initialize the body to populate driver/swing/twist bone lists
+    if not instance.body_initialized:
+        instance.body_initialize()
+
+    # Get available driven bones
+    available_bones = get_available_driven_bones(instance)
+    available_bone_names = {bone_info[0] for bone_info in available_bones}
+
+    # Verify driver bones are excluded
+    for driver_bone in instance.body_driver_bone_names:
+        assert (
+            driver_bone not in available_bone_names
+        ), f"Driver bone '{driver_bone}' should not be in available driven bones"
+
+    # Verify swing bones are excluded
+    for swing_bone in instance.body_swing_bone_names:
+        assert (
+            swing_bone not in available_bone_names
+        ), f"Swing bone '{swing_bone}' should not be in available driven bones"
+
+    # Verify twist bones are excluded
+    for twist_bone in instance.body_twist_bone_names:
+        assert (
+            twist_bone not in available_bone_names
+        ), f"Twist bone '{twist_bone}' should not be in available driven bones"
+
+
+
+def test_validate_driver_bone_detects_duplicate_quaternions(fresh_rbf_test_scene, dna_folder_name: str):
+    from meta_human_dna.editors.pose_editor.core import validate_no_duplicate_driver_bone_values
+
+    instance = get_active_rig_instance()
+    assert instance is not None, "No active rig instance found"
+    assert instance.body_rig is not None, "No body rig found on instance"
+
+    # Set up a solver
+    solver_name = "calf_l_UERBFSolver"
+    pose, solver_index, pose_index = set_body_pose(solver_name=solver_name, pose_name="calf_l_back_50")
+    assert pose is not None, f"Pose not found in solver '{solver_name}'"
+
+    # Duplicate the pose
+    bpy.ops.meta_human_dna.duplicate_rbf_pose(  # type: ignore
+        solver_index=solver_index, pose_index=pose_index
+    )
+
+    # The duplicated pose has the same driver quaternion values as the original
+    # Validation should fail
+    is_valid, message = validate_no_duplicate_driver_bone_values(instance)
+    assert not is_valid, "Duplicated pose should have duplicate driver values detected"
+    assert "duplicate" in message.lower() or "unique" in message.lower(), (
+        f"Error message should mention duplicate or unique values: {message}"
+    )
+
+
+def test_validate_and_update_solver_joint_group_no_new_bones(fresh_rbf_test_scene, dna_folder_name: str):
+    """
+    Test that validate_and_update_solver_joint_group returns success
+    when all driven bones are already in the joint group.
+    """
+    from meta_human_dna.editors.pose_editor.core import (
+        get_solver_joint_group_bones,
+        validate_and_update_solver_joint_group,
+    )
+
+    instance = get_active_rig_instance()
+    assert instance is not None, "No active rig instance found"
+    assert instance.body_rig is not None, "No body rig found on instance"
+
+    # Set up a solver
+    solver_name = "calf_l_UERBFSolver"
+    pose, _, _ = set_body_pose(solver_name=solver_name, pose_name="calf_l_back_50")
+    assert pose is not None, f"Pose not found in solver '{solver_name}'"
+
+    # Get existing bones in the joint group
+    existing_bones = get_solver_joint_group_bones(instance)
+    assert len(existing_bones) > 0, "Should have existing bones in joint group"
+
+    # Validate with the same bones (no new bones)
+    is_valid, message = validate_and_update_solver_joint_group(instance, list(existing_bones))
+    assert is_valid, f"Validation should pass when using existing bones: {message}"
+
+
+def test_validate_and_update_solver_joint_group_expands_poses(fresh_rbf_test_scene, dna_folder_name: str):
+    """
+    Test that validate_and_update_solver_joint_group correctly adds new bones
+    to all existing poses in the solver when new bones are added.
+    """
+    from meta_human_dna.editors.pose_editor.core import (
+        get_available_driven_bones,
+        get_solver_joint_group_bones,
+        validate_and_update_solver_joint_group,
+    )
+
+    instance = get_active_rig_instance()
+    assert instance is not None, "No active rig instance found"
+    assert instance.body_rig is not None, "No body rig found on instance"
+
+    # Set up a solver
+    solver_name = "calf_l_UERBFSolver"
+    pose, solver_index, _ = set_body_pose(solver_name=solver_name, pose_name="calf_l_back_50")
+    assert pose is not None, f"Pose not found in solver '{solver_name}'"
+
+    # Get existing bones and available bones
+    existing_bones = get_solver_joint_group_bones(instance)
+    available_bones = get_available_driven_bones(instance)
+
+    # Find a new bone that's not in the existing joint group
+    new_bone_name = None
+    for bone_name, joint_index, is_in_existing in available_bones:
+        if not is_in_existing and joint_index >= 0:
+            new_bone_name = bone_name
+            break
+
+    if new_bone_name is None:
+        pytest.skip("No available bones to add to the joint group")
+
+    # Get the solver and count driven bones in each pose before expansion
+    solver = instance.rbf_solver_list[solver_index]
+    driven_counts_before = {p.name: len(p.driven) for p in solver.poses}
+
+    # Validate with the new bone added
+    new_driven_bones = list(existing_bones) + [new_bone_name]
+    is_valid, message = validate_and_update_solver_joint_group(instance, new_driven_bones)
+    assert is_valid, f"Validation should pass when adding new bone: {message}"
+
+    # Verify that all existing poses now have the new bone added
+    for pose in solver.poses:
+        # Skip the default pose as it doesn't have driven data
+        if pose.name == "default":
+            continue
+
+        driven_bone_names = {d.name for d in pose.driven}
+        assert new_bone_name in driven_bone_names, (
+            f"Pose '{pose.name}' should have the new bone '{new_bone_name}' added. "
+            f"Driven bones: {driven_bone_names}"
+        )
+
+        # Verify the driven count increased
+        assert len(pose.driven) >= driven_counts_before.get(pose.name, 0), (
+            f"Pose '{pose.name}' driven count should not decrease after adding new bone"
+        )

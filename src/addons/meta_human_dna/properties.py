@@ -283,6 +283,7 @@ def register():
     # ----------------- Pose Editor Properties -----------------
     from .editors.pose_editor import properties as pose_editor_properties
 
+    bpy.utils.register_class(pose_editor_properties.RBFDrivenBoneSelectionItem)
     bpy.utils.register_class(pose_editor_properties.RBFDriverData)
     bpy.utils.register_class(pose_editor_properties.RBFDrivenData)
     bpy.utils.register_class(pose_editor_properties.RBFPoseData)
@@ -291,6 +292,15 @@ def register():
         type=pose_editor_properties.RBFSolverData
     )
     RigInstance.__annotations__["rbf_solver_list_active_index"] = bpy.props.IntProperty()
+
+    # Add the bone selection collection for the AddRBFPose operator to window manager properties
+    MetahumanWindowMangerProperties.__annotations__["add_pose_driven_bones"] = bpy.props.CollectionProperty(
+        type=pose_editor_properties.RBFDrivenBoneSelectionItem
+    )
+    MetahumanWindowMangerProperties.__annotations__["add_pose_driven_bones_active_index"] = bpy.props.IntProperty(
+        name="Active Driven Bone Index",
+        default=0,
+    )
 
     # Now register RigLogicInstance
     bpy.utils.register_class(RigInstance)
@@ -344,12 +354,17 @@ def unregister():
             del RigInstance.__annotations__["rbf_solver_list"]
         if "rbf_solver_list_active_index" in RigInstance.__annotations__:
             del RigInstance.__annotations__["rbf_solver_list_active_index"]
+        if "add_pose_driven_bones" in MetahumanWindowMangerProperties.__annotations__:
+            del MetahumanWindowMangerProperties.__annotations__["add_pose_driven_bones"]
+        if "add_pose_driven_bones_active_index" in MetahumanWindowMangerProperties.__annotations__:
+            del MetahumanWindowMangerProperties.__annotations__["add_pose_driven_bones_active_index"]
         from .editors.pose_editor import properties as pose_editor_properties
 
         bpy.utils.unregister_class(pose_editor_properties.RBFSolverData)
         bpy.utils.unregister_class(pose_editor_properties.RBFPoseData)
         bpy.utils.unregister_class(pose_editor_properties.RBFDrivenData)
         bpy.utils.unregister_class(pose_editor_properties.RBFDriverData)
+        bpy.utils.unregister_class(pose_editor_properties.RBFDrivenBoneSelectionItem)
 
         # ----------------- Backup Manager Properties -----------------
         if "dna_backup_list" in RigInstance.__annotations__:

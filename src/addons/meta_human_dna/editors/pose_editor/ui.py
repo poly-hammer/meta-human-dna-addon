@@ -11,6 +11,32 @@ from ...typing import *  # noqa: F403
 from ...ui.view_3d import RigInstanceDependentPanel, valid_rig_instance_exists
 
 
+class META_HUMAN_DNA_UL_bone_selection(bpy.types.UIList):
+    """UIList for selecting bones in the AddRBFPose dialog."""
+
+    def draw_item(
+        self,
+        context: "Context",
+        layout: bpy.types.UILayout,
+        data: "MetahumanWindowMangerProperties",
+        item: "RBFDrivenBoneSelectionItem",
+        icon: int | None,
+        active_data: "MetahumanWindowMangerProperties",
+        active_prop_name: str,
+    ) -> None:
+        row = layout.row(align=True)
+
+        # Checkbox for selection
+        row.prop(item, "selected", text="")
+
+        # Bone name
+        row.label(text=item.name, icon="BONE_DATA")
+
+        # Indicator for existing joint group membership
+        if item.is_in_existing_joint_group:
+            row.label(text="", icon="LINKED")
+
+
 class META_HUMAN_DNA_UL_rbf_solvers(bpy.types.UIList):
     def draw_item(
         self,

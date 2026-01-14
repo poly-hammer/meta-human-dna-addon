@@ -4,6 +4,17 @@ from ...typing import *  # noqa: F403
 from . import core
 
 
+class RBFDrivenBoneSelectionItem(bpy.types.PropertyGroup):
+    """Property group for bone selection in the AddRBFPose operator dialog."""
+
+    name: bpy.props.StringProperty()  # pyright: ignore[reportInvalidTypeForm]
+    selected: bpy.props.BoolProperty(default=False)  # pyright: ignore[reportInvalidTypeForm]
+    joint_index: bpy.props.IntProperty(default=-1)  # pyright: ignore[reportInvalidTypeForm]
+    is_in_existing_joint_group: bpy.props.BoolProperty(
+        default=False, description="Whether this bone is already in the solver's joint group"
+    )  # pyright: ignore[reportInvalidTypeForm]
+
+
 class RBFDriverData(bpy.types.PropertyGroup):
     solver_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
     pose_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
