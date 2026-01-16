@@ -201,7 +201,7 @@ def update_body_rbf_driven_active_index(self: "RBFPoseData", context: "Context")
             pose_bone.bone.select = False
 
 
-def update_body_rbf_poses_active_index(self: "RBFSolverData", context: "Context"):  # noqa: ARG001
+def update_body_rbf_poses_active_index(self: "RBFSolverData", context: "Context"):  # noqa: ARG001, PLR0912
     if not utilities.dependencies_are_valid():
         return
 
@@ -212,12 +212,17 @@ def update_body_rbf_poses_active_index(self: "RBFSolverData", context: "Context"
     if not instance or not instance.body_rig:
         return
 
-    pose = self.poses[self.poses_active_index]
+    pose = get_active_pose(instance)
+    if not pose:
+        return
 
     # reset all bone transforms
     if instance.body_reset_rbf_pose_on_change or instance.editing_rbf_solver:
         for pose_bone in instance.body_rig.pose.bones:
             pose_bone.matrix_basis = Matrix.Identity(4)
+
+    if pose.name == "default":
+        return
 
     for driver in pose.drivers:
         pose_bone = instance.body_rig.pose.bones.get(driver.name)
@@ -416,6 +421,10 @@ def update_driven_bone(instance: "RigInstance", pose_bone: bpy.types.PoseBone):
     if not pose:
         return
 
+    # Default pose driven data is only for UI display, don't update it
+    if pose.name == "default":
+        return
+
     for driven in pose.driven:
         if driven.name == pose_bone.name:
             set_driven_bone_data(instance=instance, pose=pose, driven=driven, pose_bone=pose_bone)
@@ -446,16 +455,18 @@ def update_pose(instance: "RigInstance", _: "Context"):
             )
 
     # Update all the driven bone data for the pose
-    for driven in pose.driven:
-        driven_pose_bone = instance.body_rig.pose.bones.get(driven.name)
-        if driven_pose_bone:
-            set_driven_bone_data(instance=instance, pose=pose, driven=driven, pose_bone=driven_pose_bone)
-        else:
-            logger.warning(
-                f'Driven bone "{driven.name}" was not found in armature when '
-                f'updating RBF Pose "{pose.name}". It will be deleted from '
-                "the pose when this data is committed to the dna."
-            )
+    # Skip the default pose - its driven data is only for UI display purposes
+    if pose.name != "default":
+        for driven in pose.driven:
+            driven_pose_bone = instance.body_rig.pose.bones.get(driven.name)
+            if driven_pose_bone:
+                set_driven_bone_data(instance=instance, pose=pose, driven=driven, pose_bone=driven_pose_bone)
+            else:
+                logger.warning(
+                    f'Driven bone "{driven.name}" was not found in armature when '
+                    f'updating RBF Pose "{pose.name}". It will be deleted from '
+                    "the pose when this data is committed to the dna."
+                )
 
 
 def diff_rbf_pose_data(instance: "RigInstance"):  # noqa: PLR0912
@@ -637,7 +648,7 @@ def validate_and_update_solver_joint_group(
 
     # Add the new bones to all existing poses with rest pose transforms
     for pose in solver.poses:
-        # Skip the default pose as it doesn't have driven data
+        # Skip the default pose - its driven data is auto-populated for UI display only
         if pose.name == "default":
             continue
 
@@ -697,8 +708,13 @@ def remove_driven_bone_from_solver(
 
     # Remove the bones from all poses
     for pose in solver.poses:
-        # Skip the default pose as it doesn't have driven data
+        # Skip the default pose - its driven data is auto-populated for UI display only
         if pose.name == "default":
+            # Remove any driven entries for the default pose. This is strictly for UI display purposes
+            for i, driven in enumerate(pose.driven):
+                if driven.name in bones_to_remove:
+                    pose.driven.remove(i)
+            # Then skip further processing, as the default pose is not stored in DNA
             continue
 
         # Find and remove matching driven entries (iterate in reverse to safely remove)

@@ -255,15 +255,25 @@ class RBFPoseOperatorBase(RBFEditorOperatorBase):
                 driven = pose.driven.add()
                 source_driven = source_driven_lookup.get(pose_bone.name)
                 if source_driven:
+                    location = source_driven.location[:]
+                    euler_rotation = source_driven.euler_rotation[:]
+                    quaternion_rotation = source_driven.quaternion_rotation[:]
+                    scale = source_driven.scale[:]
+                    if from_pose.name == "default":
+                        location = [0.0, 0.0, 0.0]
+                        euler_rotation = [0.0, 0.0, 0.0]
+                        quaternion_rotation = [1.0, 0.0, 0.0, 0.0]
+                        scale = [1.0, 1.0, 1.0]
+
                     # Copy all driven data from the source pose
                     driven.name = source_driven.name
                     driven.pose_index = pose.pose_index  # Use the new pose's index
                     driven.joint_index = source_driven.joint_index
                     driven.data_type = source_driven.data_type
-                    driven.location = source_driven.location[:]
-                    driven.euler_rotation = source_driven.euler_rotation[:]
-                    driven.quaternion_rotation = source_driven.quaternion_rotation[:]
-                    driven.scale = source_driven.scale[:]
+                    driven.location = location
+                    driven.euler_rotation = euler_rotation
+                    driven.quaternion_rotation = quaternion_rotation
+                    driven.scale = scale
                 else:
                     # Bone not in source pose, read from current scene
                     core.set_driven_bone_data(
@@ -540,10 +550,20 @@ class UpdateRBFPose(RBFEditorOperatorBase):
 
 
 class RemoveRBFPose(RBFEditorOperatorBase):
-    """Remove the selected RBF Pose"""
-
     bl_idname = "meta_human_dna.remove_rbf_pose"
     bl_label = "Remove RBF Pose"
+    bl_description = "Remove the active RBF Pose from the selected solver. Note: the default pose cannot be removed."
+
+    @classmethod
+    def poll(cls, _: "Context") -> bool:
+        instance = utilities.get_active_rig_instance()
+        if not instance or not instance.body_rig or not instance.editing_rbf_solver:
+            return False
+
+        pose = core.get_active_pose(instance)
+        if pose:
+            return pose.name != "default"
+        return False
 
     def run(self, instance: "RigInstance"):
         solver = instance.rbf_solver_list[instance.rbf_solver_list_active_index]

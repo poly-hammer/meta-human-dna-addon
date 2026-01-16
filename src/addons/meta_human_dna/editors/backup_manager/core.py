@@ -196,7 +196,7 @@ def _add_backup_to_list(
     # Add new entry
     entry = backup_list.add()
     entry.backup_id = backup_id
-    entry.timestamp = timestamp.strftime("%Y-%m-%d %H:%M:%S")
+    entry.timestamp = timestamp.strftime("%I:%M %p  %m-%d-%y").removeprefix("0")
     entry.backup_type = backup_type.value
     entry.description = description or backup_type.value
     entry.instance_name = instance.name

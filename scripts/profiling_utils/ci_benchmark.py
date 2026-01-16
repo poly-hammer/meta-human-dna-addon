@@ -57,20 +57,6 @@ BINDINGS_SOURCE_PATH = ADDON_ROOT.parent / "meta-human-dna-bindings"
 CORE_SOURCE_PATH = ADDON_ROOT.parent / "meta-human-dna-core"
 BINDINGS_DEST_PATH = ADDON_ROOT / "src" / "addons" / "meta_human_dna" / "bindings"
 
-# Add riglogic bindings to path (platform-specific)
-RIGLOGIC_BINDINGS_PATH = BINDINGS_SOURCE_PATH / OS_NAME / ARCH
-if RIGLOGIC_BINDINGS_PATH.exists():
-    sys.path.insert(0, str(RIGLOGIC_BINDINGS_PATH))
-
-# Ensure riglogic module is available
-if "riglogic" not in sys.modules:
-    try:
-        import riglogic
-
-        sys.modules["riglogic"] = riglogic
-    except ImportError:
-        print(f"WARNING: Could not import riglogic from {RIGLOGIC_BINDINGS_PATH}")
-
 if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 if str(SCRIPTS_PATH) not in sys.path:
