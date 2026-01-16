@@ -181,7 +181,10 @@ def update_body_rbf_driven_active_index(self: "RBFPoseData", context: "Context")
     if not instance or not instance.body_rig or not instance.editing_rbf_solver:
         return
 
-    driven = self.driven[self.driven_active_index]
+    driven = get_active_driven(instance)
+    if not driven:
+        return
+
     instance.body_rig.hide_set(False)
     utilities.switch_to_pose_mode(instance.body_rig)
     for pose_bone in instance.body_rig.pose.bones:
@@ -634,6 +637,10 @@ def validate_and_update_solver_joint_group(
 
     # Add the new bones to all existing poses with rest pose transforms
     for pose in solver.poses:
+        # Skip the default pose as it doesn't have driven data
+        if pose.name == "default":
+            continue
+
         for bone_name in new_bones:
             # Check if this bone is already in the pose
             if any(d.name == bone_name for d in pose.driven):
@@ -690,6 +697,10 @@ def remove_driven_bone_from_solver(
 
     # Remove the bones from all poses
     for pose in solver.poses:
+        # Skip the default pose as it doesn't have driven data
+        if pose.name == "default":
+            continue
+
         # Find and remove matching driven entries (iterate in reverse to safely remove)
         indices_to_remove = []
         for i, driven in enumerate(pose.driven):
