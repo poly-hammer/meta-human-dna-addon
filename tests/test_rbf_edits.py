@@ -1342,12 +1342,18 @@ def test_remove_and_add_rbf_driven_persists_after_commit(
     pose, solver_index, _ = set_body_pose(solver_name=solver_name, pose_name="calf_l_back_50")
     assert pose is not None, f"Pose not found in solver '{solver_name}' after reload"
 
-    # Verify the bone is NOT in the joint group after reload
-    reloaded_bones = get_solver_joint_group_bones(instance)
-    assert bone_to_test not in reloaded_bones, (
-        f"Bone '{bone_to_test}' should NOT be in joint group after removal and reload. "
-        f"Found: {reloaded_bones}"
-    )
+    # Verify the bone is NOT in non-default poses after reload
+    # Note: The default pose now shows all joint group bones from the DNA,
+    # so we only check non-default poses
+    solver = instance.rbf_solver_list[solver_index]
+    for p in solver.poses:
+        if p.name == "default":
+            continue
+        driven_bone_names = {d.name for d in p.driven}
+        assert bone_to_test not in driven_bone_names, (
+            f"Pose '{p.name}' should NOT have the bone '{bone_to_test}' after removal and reload. "
+            f"Found: {driven_bone_names}"
+        )
 
     # Add the bone back
     valid, message = add_driven_bones_to_solver(instance, [bone_to_test])

@@ -634,10 +634,6 @@ def validate_and_update_solver_joint_group(
 
     # Add the new bones to all existing poses with rest pose transforms
     for pose in solver.poses:
-        # Skip the default pose as it doesn't have driven data
-        if pose.name == "default":
-            continue
-
         for bone_name in new_bones:
             # Check if this bone is already in the pose
             if any(d.name == bone_name for d in pose.driven):
@@ -694,10 +690,6 @@ def remove_driven_bone_from_solver(
 
     # Remove the bones from all poses
     for pose in solver.poses:
-        # Skip the default pose as it doesn't have driven data
-        if pose.name == "default":
-            continue
-
         # Find and remove matching driven entries (iterate in reverse to safely remove)
         indices_to_remove = []
         for i, driven in enumerate(pose.driven):

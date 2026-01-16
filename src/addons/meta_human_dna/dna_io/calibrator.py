@@ -11,7 +11,7 @@ from mathutils import Matrix, Vector
 
 # local imports
 from .. import utilities
-from ..bindings import riglogic
+from ..bindings import riglogic  # pyright: ignore[reportAttributeAccessIssue]
 from ..constants import (
     BONE_DELTA_THRESHOLD,
     HEAD_TO_BODY_LOD_MAPPING,

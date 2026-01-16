@@ -926,6 +926,9 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanImportProperties):
             callbacks.update_body_output_items(None, bpy.context)  # type: ignore[arg-type]
 
         component.convert(mesh_object=selected_object, constrain=self.constrain_head_to_body)
+        # TODO: Might need to refactor usages of preserve_context decorator. This re-enables the dependency
+        # graph evaluation, which we don't want until the end of this operator. So we disable it again here.
+        window_manager_properties.evaluate_dependency_graph = False
         selected_object.hide_set(True)
         # populate the output items based on what was imported
         logger.info(f'Finished converting "{window_manager_properties.base_dna}"')
