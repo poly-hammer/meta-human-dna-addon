@@ -19,21 +19,12 @@ if sys.platform == "darwin":
 elif sys.platform == "linux":
     OS_NAME = "linux"
 
-# Ensure that the riglogic module is not reloaded
-sys.path.append(os.path.join(os.getcwd(), os.pardir, "meta-human-dna-bindings", OS_NAME, ARCH))
-if "riglogic" in sys.modules:
-    riglogic = sys.modules["riglogic"]
-else:
-    import riglogic
-
-    sys.modules["riglogic"] = riglogic
-
 
 import shutil  # noqa: E402
 
 from pathlib import Path  # noqa: E402
 
-import bpy  # import this to ensure that mathutils is available  # noqa: E402, F401
+import bpy  # import this to ensure that mathutils is available  # noqa: E402, F401 #  pyright: ignore[reportUnusedImport]
 import pytest  # noqa: E402
 
 from mathutils import Euler, Vector  # noqa: E402
@@ -77,22 +68,22 @@ def pytest_configure():
 
 from fixtures.addon import addon, disable_auto_save  # noqa: E402, F401
 from fixtures.dna_data import (  # noqa: E402, F401
-    calibrated_head_dna_json_data,
-    exported_head_dna_json_data,
-    original_head_dna_json_data,
+    calibrated_head_dna_json_data, #  pyright: ignore[reportUnusedImport]
+    exported_head_dna_json_data, #  pyright: ignore[reportUnusedImport]
+    original_head_dna_json_data, #  pyright: ignore[reportUnusedImport]
 )
 from fixtures.scene import (  # noqa: E402, F401
-    head_armature,
-    head_bmesh,
-    load_body_dna,
-    load_body_dna_for_pose_editing,
-    load_body_dna_for_pose_roundtrip,
-    load_dna_for_rig_instance_ops,
-    load_full_dna_for_animation,
-    load_head_dna,
-    load_mhc_conformed_topology_meshes,
-    modify_head_scene,
-    setup_reference_blend_file,
+    head_armature, #  pyright: ignore[reportUnusedImport]
+    head_bmesh, #  pyright: ignore[reportUnusedImport]
+    load_body_dna, #  pyright: ignore[reportUnusedImport]
+    load_body_dna_for_pose_editing, #  pyright: ignore[reportUnusedImport]
+    load_body_dna_for_pose_roundtrip,  #  pyright: ignore[reportUnusedImport]
+    load_dna_for_rig_instance_ops, #  pyright: ignore[reportUnusedImport]
+    load_full_dna_for_animation, #  pyright: ignore[reportUnusedImport]
+    load_head_dna, #  pyright: ignore[reportUnusedImport]
+    load_mhc_conformed_topology_meshes, #  pyright: ignore[reportUnusedImport]
+    modify_head_scene, #  pyright: ignore[reportUnusedImport]
+    setup_reference_blend_file, #  pyright: ignore[reportUnusedImport]
 )
 
 

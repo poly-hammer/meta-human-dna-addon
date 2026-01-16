@@ -1,7 +1,9 @@
 import sys
 import platform
+from pathlib import Path
 from ..exceptions import UnsupportedPlatformError
 
+BINDINGS_FOLDER = Path(__file__).parent
 
 arch = 'x64'
 if 'arm' in platform.processor().lower():
@@ -24,11 +26,11 @@ else:
     raise UnsupportedPlatformError
 
 try:
-    if platform == "mac" and arch == "arm64":
+    if platform == "mac" and arch == "arm64" and (BINDINGS_FOLDER / "mac" / "arm64").exists():
         from .mac.arm64 import riglogic, meta_human_dna_core # pyright: ignore[reportMissingImports, reportAssignmentType]
-    elif platform == "windows" and arch == "amd64":
+    elif platform == "windows" and arch == "amd64" and (BINDINGS_FOLDER / "windows" / "amd64").exists():
         from .windows.amd64 import riglogic, meta_human_dna_core # pyright: ignore[reportMissingImports, reportAssignmentType]
-    elif platform == "linux" and arch == "x86_64":
+    elif platform == "linux" and arch == "x86_64" and (BINDINGS_FOLDER / "linux" / "x86_64").exists():
         from .linux.x86_64 import riglogic, meta_human_dna_core # pyright: ignore[reportMissingImports, reportAssignmentType]
     else:
         raise ModuleNotFoundError
