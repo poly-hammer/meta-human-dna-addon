@@ -103,9 +103,9 @@ jobs:
         if: success() || failure()
         with:
           check_name: Test Results (${{ inputs.runner-os }} ${{ inputs.blender-version }})
-          include_passed: True
+          include_passed: False
           fail_on_failure: True
           require_tests: True
           require_passed_tests: True
-          detailed_summary: True
+          detailed_summary: False
           report_paths: "./meta-human-dna-addon/reports/pytest/*.xml"

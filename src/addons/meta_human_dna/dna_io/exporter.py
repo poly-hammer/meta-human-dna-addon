@@ -14,7 +14,7 @@ from mathutils import Matrix, Vector
 
 # local imports
 from .. import utilities
-from ..bindings import riglogic
+from ..bindings import riglogic  # pyright: ignore[reportAttributeAccessIssue]
 from ..constants import EXTRA_BONES, SCALE_FACTOR, TOPO_GROUP_PREFIX, ComponentType
 from ..exceptions import InvalidComponentTypeError
 from ..typing import *  # noqa: F403
@@ -249,7 +249,8 @@ class DNAExporter:
                 translation, rotation, _ = (global_matrix @ edit_bone.matrix).decompose()
             elif edit_bone.parent:
                 # get translation and rotation of relative to it's parent
-                local_matrix = edit_bone.parent.matrix.inverted() @ edit_bone.matrix
+                # Use inverted_safe() to handle singular matrices gracefully
+                local_matrix = edit_bone.parent.matrix.inverted_safe() @ edit_bone.matrix
                 translation, rotation, _ = local_matrix.decompose()
 
             indices.append(index)
