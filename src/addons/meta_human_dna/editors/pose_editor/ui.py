@@ -337,12 +337,6 @@ class META_HUMAN_DNA_PT_pose_editor_poses_sub_panel(RbfEditorSubPanelBase):
 
             poses_row.operator("meta_human_dna.evaluate_rbf_solvers", icon="FILE_REFRESH", text="")
 
-            if active_rbf_pose.driven_active_index >= 0 and len(active_rbf_pose.driven) > 0:
-                op = poses_row.operator("meta_human_dna.update_rbf_pose", icon="CHECKMARK", text="")
-                op.solver_index = active_rbf_solver_index
-                op.pose_index = active_rbf_pose_index
-                op.driven_index = active_rbf_pose.driven_active_index
-
             # Push the select all button to the right
             sub = poses_row.row(align=True)
             sub.alignment = "RIGHT"
@@ -351,6 +345,14 @@ class META_HUMAN_DNA_PT_pose_editor_poses_sub_panel(RbfEditorSubPanelBase):
             op.pose_index = active_rbf_pose_index
 
             sub.separator(factor=1.5)
+
+            if active_rbf_pose.driven_active_index >= 0 and len(active_rbf_pose.driven) > 0:
+                row = self.layout.row()
+                row.scale_y = 1.5
+                op = row.operator("meta_human_dna.apply_rbf_pose_edits", icon="CHECKMARK", text="Apply Pose Edits")
+                op.solver_index = active_rbf_solver_index
+                op.pose_index = active_rbf_pose_index
+                op.driven_index = active_rbf_pose.driven_active_index
 
             # TODO: Maybe Re-enable when functionality is needed?
             # split = self.layout.split()  # noqa: ERA001

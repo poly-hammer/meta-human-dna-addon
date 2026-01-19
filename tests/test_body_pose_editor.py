@@ -35,7 +35,7 @@ def test_body_pose_roundtrip(
     _, solver_index, pose_index = set_body_pose(solver_name=solver_name, pose_name=pose_name)
 
     # update the rbf pose with the unmodified data
-    bpy.ops.meta_human_dna.update_rbf_pose(solver_index=solver_index, pose_index=pose_index)
+    bpy.ops.meta_human_dna.apply_rbf_pose_edits(solver_index=solver_index, pose_index=pose_index)
 
     # commit these changes to the dna
     bpy.ops.meta_human_dna.commit_rbf_solver_changes()
@@ -115,7 +115,7 @@ def test_body_pose_update(
                 # update the location
                 pose_bone.location = change_location
                 # update the driven bone transform in the pose
-                bpy.ops.meta_human_dna.update_rbf_pose(
+                bpy.ops.meta_human_dna.apply_rbf_pose_edits(
                     solver_index=solver_index, pose_index=pose_index, driven_index=driven_index
                 )
 
@@ -211,7 +211,7 @@ def test_body_pose_duplicate(
                 # update the location
                 pose_bone.location = change_location
                 # update the driven bone transform in the pose
-                bpy.ops.meta_human_dna.update_rbf_pose(
+                bpy.ops.meta_human_dna.apply_rbf_pose_edits(
                     solver_index=solver_index, pose_index=new_pose_index, driven_index=driven_index
                 )
 

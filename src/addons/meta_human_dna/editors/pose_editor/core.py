@@ -9,7 +9,7 @@ from mathutils import Euler, Matrix, Quaternion, Vector
 from ... import utilities
 
 # local imports
-from ...constants import BONE_DELTA_THRESHOLD, IS_BLENDER_5
+from ...constants import BONE_DELTA_THRESHOLD, IS_BLENDER_5, RBF_SOLVER_POSTFIX
 from ...rig_instance import start_listening, stop_listening
 from ...typing import *  # noqa: F403
 
@@ -842,3 +842,389 @@ def add_driven_bones_to_solver(
 
     logger.info(f"Added {len(new_bones)} bones to solver joint group: {new_bones}.")
     return True, f"Added {len(new_bones)} bones to the solver's joint group."
+
+
+# =============================================================================
+# RBF Solver Management Functions
+# =============================================================================
+
+
+def validate_add_rbf_solver(
+    instance: "RigInstance",
+    driver_bone_name: str,
+) -> tuple[bool, str]:
+    """
+    Validate whether a new RBF solver can be created for the given driver bone.
+
+    Args:
+        instance: The active rig instance.
+        driver_bone_name: The name of the bone to use as the driver for the new solver.
+
+    Returns:
+        A tuple of (is_valid, error_message). If is_valid is True, error_message will be empty.
+    """
+    if not instance:
+        return False, "No active rig instance found."
+
+    if not instance.body_rig:
+        return False, "No body rig found on instance."
+
+    # Ensure the body is initialized
+    if not instance.body_initialized:
+        instance.body_initialize(update_rbf_solver_list=False)
+
+    # Check that the bone exists in the rig
+    if driver_bone_name not in instance.body_rig.pose.bones:
+        return False, f'Bone "{driver_bone_name}" not found in the body rig.'
+
+    # Check that the bone is not a swing bone
+    if driver_bone_name in instance.body_swing_bone_names:
+        return False, f'Bone "{driver_bone_name}" is a swing bone and cannot be used as a driver bone.'
+
+    # Check that the bone is not a twist bone
+    if driver_bone_name in instance.body_twist_bone_names:
+        return False, f'Bone "{driver_bone_name}" is a twist bone and cannot be used as a driver bone.'
+
+    # Check that a solver with this driver bone doesn't already exist
+    expected_solver_name = f"{driver_bone_name}{RBF_SOLVER_POSTFIX}"
+    for solver in instance.rbf_solver_list:
+        if solver.name == expected_solver_name:
+            return False, f'A solver for bone "{driver_bone_name}" already exists: "{expected_solver_name}".'
+
+    return True, ""
+
+
+def add_rbf_solver(
+    instance: "RigInstance",
+    driver_bone_name: str,
+    driver_quaternion: tuple[float, float, float, float] | None = None,
+) -> tuple[bool, str, int]:
+    """
+    Add a new RBF solver for the given driver bone.
+
+    This function creates a new RBF solver with a default pose and sets up the driver bone.
+    The solver will be added to the instance's rbf_solver_list and made active.
+
+    Args:
+        instance: The active rig instance.
+        driver_bone_name: The name of the bone to use as the driver for the new solver.
+        driver_quaternion: Optional quaternion rotation for the driver bone in the default pose.
+                          If None, uses the identity quaternion (1, 0, 0, 0).
+
+    Returns:
+        A tuple of (success, message, new_solver_index).
+        If success is False, message contains the error description and new_solver_index is -1.
+    """
+    from ...constants import RBF_SOLVER_POSTFIX
+
+    # Validate first
+    is_valid, error_message = validate_add_rbf_solver(instance, driver_bone_name)
+    if not is_valid:
+        return False, error_message, -1
+
+    solver_name = f"{driver_bone_name}{RBF_SOLVER_POSTFIX}"
+
+    # Calculate the next solver index
+    dna_solver_count = instance.body_dna_reader.getRBFSolverCount() if instance.body_dna_reader else 0
+    max_existing_solver_index = -1
+    for s in instance.rbf_solver_list:
+        max_existing_solver_index = max(max_existing_solver_index, s.solver_index)
+    new_solver_index = max(dna_solver_count, max_existing_solver_index + 1)
+
+    # Create the new solver
+    solver = instance.rbf_solver_list.add()
+    solver.solver_index = new_solver_index
+    solver.name = solver_name
+
+    # Calculate the next pose index for the default pose
+    dna_pose_count = instance.body_dna_reader.getRBFPoseCount() if instance.body_dna_reader else 0
+    max_existing_pose_index = -1
+    for s in instance.rbf_solver_list:
+        for p in s.poses:
+            max_existing_pose_index = max(max_existing_pose_index, p.pose_index)
+    new_pose_index = max(dna_pose_count, max_existing_pose_index + 1)
+
+    # Create the default pose
+    default_pose = solver.poses.add()
+    default_pose.solver_index = new_solver_index
+    default_pose.pose_index = new_pose_index
+    # Use internal dictionary to bypass the custom setter which checks for active solver
+    default_pose["name"] = "default"
+
+    # Add the driver bone to the default pose
+    driver = default_pose.drivers.add()
+    driver.name = driver_bone_name
+    driver.pose_index = default_pose.pose_index
+
+    # Find and set the joint index for the driver bone
+    if instance.body_dna_reader:
+        for joint_index in range(instance.body_dna_reader.getJointCount()):
+            joint_name = instance.body_dna_reader.getJointName(joint_index)
+            if joint_name == driver_bone_name:
+                driver.joint_index = joint_index
+                break
+
+    # Set the driver quaternion (identity by default)
+    if driver_quaternion is None:
+        driver_quaternion = (1.0, 0.0, 0.0, 0.0)
+    driver.quaternion_rotation = driver_quaternion
+
+    # Set the active solver to the new solver
+    new_solver_list_index = len(instance.rbf_solver_list) - 1
+    instance.rbf_solver_list_active_index = new_solver_list_index
+    solver.poses_active_index = 0
+
+    logger.info(f'Created new RBF solver "{solver_name}" with driver bone "{driver_bone_name}".')
+    return True, f'Created new RBF solver "{solver_name}".', new_solver_list_index
+
+
+def remove_rbf_solver(
+    instance: "RigInstance",
+    solver_index: int | None = None,
+) -> tuple[bool, str]:
+    """
+    Remove an RBF solver from the instance.
+
+    Args:
+        instance: The active rig instance.
+        solver_index: The index of the solver in rbf_solver_list to remove.
+                     If None, removes the currently active solver.
+
+    Returns:
+        A tuple of (success, message).
+    """
+    if not instance:
+        return False, "No active rig instance found."
+
+    if len(instance.rbf_solver_list) == 0:
+        return False, "No RBF solvers to remove."
+
+    # Use active index if not specified
+    if solver_index is None:
+        solver_index = instance.rbf_solver_list_active_index
+
+    if solver_index < 0 or solver_index >= len(instance.rbf_solver_list):
+        return False, f"Invalid solver index: {solver_index}"
+
+    solver = instance.rbf_solver_list[solver_index]
+    solver_name = solver.name
+
+    # Remove the solver
+    instance.rbf_solver_list.remove(solver_index)
+
+    # Update the active index to stay within bounds
+    if len(instance.rbf_solver_list) > 0:
+        instance.rbf_solver_list_active_index = min(solver_index, len(instance.rbf_solver_list) - 1)
+    else:
+        instance.rbf_solver_list_active_index = 0
+
+    logger.info(f'Removed RBF solver "{solver_name}".')
+    return True, f'Removed RBF solver "{solver_name}".'
+
+
+def add_rbf_pose(  # noqa: PLR0912, PLR0915
+    instance: "RigInstance",
+    pose_name: str,
+    solver_index: int | None = None,
+    driven_bones: list[bpy.types.PoseBone] | None = None,
+    driven_bone_transforms: dict[str, dict] | None = None,
+    driver_quaternion: tuple[float, float, float, float] | None = None,
+    from_pose: "RBFPoseData | None" = None,
+) -> tuple[bool, str, int]:
+    """
+    Add a new pose to an RBF solver.
+
+    This is a core function that supports multiple use cases:
+    1. Interactive UI: Pass `driven_bones` (list of PoseBone) to read transforms from the scene
+    2. Programmatic/tests: Pass `driven_bone_transforms` (dict) with explicit transform data
+    3. Duplication: Pass `from_pose` to copy data from an existing pose
+
+    Args:
+        instance: The active rig instance.
+        pose_name: The name for the new pose.
+        solver_index: Index of solver in rbf_solver_list. If None, uses active solver.
+        driven_bones: List of Blender PoseBone objects. Transforms are read from the scene.
+        driven_bone_transforms: Dict mapping bone names to transform data.
+            Each entry should have: {"location": [x,y,z], "rotation": [x,y,z], "scale": [x,y,z]}
+        driver_quaternion: Optional driver bone quaternion rotation (w, x, y, z).
+            If None, reads from the driver bone in the scene.
+        from_pose: Optional existing pose to duplicate from.
+
+    Returns:
+        A tuple of (success, message, new_pose_index).
+    """
+    if not instance:
+        return False, "No active rig instance found.", -1
+
+    if not instance.body_rig:
+        return False, "No body rig found on instance.", -1
+
+    if len(instance.rbf_solver_list) == 0:
+        return False, "No RBF solvers available.", -1
+
+    # Must provide either driven_bones or driven_bone_transforms
+    if driven_bones is None and driven_bone_transforms is None and from_pose is None:
+        return False, "Must provide either driven_bones, driven_bone_transforms, or from_pose.", -1
+
+    # Use active index if not specified
+    if solver_index is None:
+        solver_index = instance.rbf_solver_list_active_index
+
+    if solver_index < 0 or solver_index >= len(instance.rbf_solver_list):
+        return False, f"Invalid solver index: {solver_index}", -1
+
+    solver = instance.rbf_solver_list[solver_index]
+
+    # Check for duplicate pose names
+    existing_names = {p.name for p in solver.poses}
+    if pose_name in existing_names:
+        return False, f"A pose named '{pose_name}' already exists in this solver.", -1
+
+    # Calculate the next pose index
+    local_pose_index = len(solver.poses)
+    max_existing_pose_index = -1
+    for s in instance.rbf_solver_list:
+        for p in s.poses:
+            max_existing_pose_index = max(max_existing_pose_index, p.pose_index)
+
+    dna_pose_count = instance.body_dna_reader.getRBFPoseCount() if instance.body_dna_reader else 0
+    new_pose_index = max(dna_pose_count, max_existing_pose_index + 1)
+
+    # Create the new pose
+    pose = solver.poses.add()
+    pose.solver_index = solver_index
+    pose.pose_index = new_pose_index
+    pose["name"] = pose_name  # Use internal dict to bypass setter
+
+    # Copy values from an existing pose if provided
+    if from_pose:
+        pose.joint_group_index = from_pose.joint_group_index
+        pose.target_enable = from_pose.target_enable
+        pose.scale_factor = from_pose.scale_factor
+
+    # Get the driver bone
+    driver_bone_name = solver.name.replace(RBF_SOLVER_POSTFIX, "")
+    driver_bone = instance.body_rig.pose.bones.get(driver_bone_name)
+    if not driver_bone:
+        # Remove the pose we just added since we can't set up the driver
+        solver.poses.remove(local_pose_index)
+        return False, f"Driver bone '{driver_bone_name}' not found in armature.", -1
+
+    # Add the driver
+    driver = pose.drivers.add()
+    if driver_quaternion is not None:
+        # Use explicit quaternion (for tests/programmatic use)
+        driver.name = driver_bone_name
+        driver.pose_index = pose.pose_index
+        driver.quaternion_rotation = driver_quaternion
+        driver.euler_rotation = Quaternion(driver_quaternion).to_euler("XYZ")[:]
+        # Find the joint index for the driver bone
+        if instance.body_dna_reader:
+            for joint_index in range(instance.body_dna_reader.getJointCount()):
+                joint_name = instance.body_dna_reader.getJointName(joint_index)
+                if joint_name == driver_bone_name:
+                    driver.joint_index = joint_index
+                    break
+    else:
+        # Read from the scene (for UI use)
+        set_driver_bone_data(instance=instance, pose=pose, driver=driver, pose_bone=driver_bone, new=True)
+
+    # Handle driven bones based on which parameter was provided
+    driven_list = []
+
+    if from_pose is not None:
+        # Duplicating from an existing pose
+        source_driven_lookup = {d.name: d for d in from_pose.driven}
+
+        # Get driven bones from source pose or from driven_bones parameter
+        bones_to_process = (
+            driven_bones
+            if driven_bones
+            else [
+                instance.body_rig.pose.bones.get(d.name)
+                for d in from_pose.driven
+                if instance.body_rig.pose.bones.get(d.name)
+            ]
+        )
+
+        for pose_bone in bones_to_process:
+            driven = pose.driven.add()
+            source_driven = source_driven_lookup.get(pose_bone.name)
+
+            if source_driven:
+                # Copy transforms from source, but reset if source is "default"
+                if from_pose.name == "default":
+                    location = [0.0, 0.0, 0.0]
+                    euler_rotation = [0.0, 0.0, 0.0]
+                    quaternion_rotation = [1.0, 0.0, 0.0, 0.0]
+                    scale = [1.0, 1.0, 1.0]
+                else:
+                    location = source_driven.location[:]
+                    euler_rotation = source_driven.euler_rotation[:]
+                    quaternion_rotation = source_driven.quaternion_rotation[:]
+                    scale = source_driven.scale[:]
+
+                driven.name = source_driven.name
+                driven.pose_index = pose.pose_index
+                driven.joint_index = source_driven.joint_index
+                driven.data_type = source_driven.data_type
+                driven.location = location
+                driven.euler_rotation = euler_rotation
+                driven.quaternion_rotation = quaternion_rotation
+                driven.scale = scale
+            else:
+                # Bone not in source pose, read from current scene
+                set_driven_bone_data(instance=instance, pose=pose, driven=driven, pose_bone=pose_bone, new=True)
+            driven_list.append(driven)
+
+    elif driven_bones is not None:
+        # Reading from scene (UI mode)
+        for pose_bone in driven_bones:
+            driven = pose.driven.add()
+            set_driven_bone_data(instance=instance, pose=pose, driven=driven, pose_bone=pose_bone, new=True)
+            driven_list.append(driven)
+
+    elif driven_bone_transforms is not None:
+        # Using explicit transforms (test/programmatic mode)
+        for bone_name, transforms in driven_bone_transforms.items():
+            driven = pose.driven.add()
+            driven.name = bone_name
+            driven.pose_index = pose.pose_index
+            driven.data_type = "BONE"
+            driven.location = transforms.get("location", [0.0, 0.0, 0.0])
+            driven.euler_rotation = transforms.get("rotation", [0.0, 0.0, 0.0])
+            driven.quaternion_rotation = Quaternion(Euler(transforms.get("rotation", [0.0, 0.0, 0.0]), "XYZ"))[:]  # pyright: ignore[reportArgumentType]
+            driven.scale = transforms.get("scale", [1.0, 1.0, 1.0])
+
+            # Find the joint index for this bone
+            if instance.body_dna_reader:
+                for joint_index in range(instance.body_dna_reader.getJointCount()):
+                    joint_name = instance.body_dna_reader.getJointName(joint_index)
+                    if joint_name == bone_name:
+                        driven.joint_index = joint_index
+                        break
+            driven_list.append(driven)
+
+    # Update the default pose to have entries for all driven bones (for UI purposes)
+    # Only do this if we're not duplicating (from_pose is None)
+    if from_pose is None and driven_list:
+        for _pose in solver.poses:
+            if _pose.name == "default":
+                _pose.driven.clear()
+                for _driven in driven_list:
+                    driven = _pose.driven.add()
+                    driven.name = _driven.name
+                    driven.pose_index = _pose.pose_index
+                    driven.joint_index = _driven.joint_index
+                    driven.data_type = _driven.data_type
+                    driven.location = [0.0, 0.0, 0.0]
+                    driven.euler_rotation = [0.0, 0.0, 0.0]
+                    driven.quaternion_rotation = [1.0, 0.0, 0.0, 0.0]
+                    driven.scale = [1.0, 1.0, 1.0]
+                break
+
+    # Set the new pose as active
+    solver.poses_active_index = local_pose_index
+
+    logger.info(f'Created new RBF pose "{pose_name}" with {len(driven_list)} driven bones.')
+    return True, f'Created new RBF pose "{pose_name}".', new_pose_index

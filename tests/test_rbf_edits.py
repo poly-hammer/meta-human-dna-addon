@@ -152,7 +152,7 @@ def test_rbf_pose_scale_factor_edit(
     pose.scale_factor = changed_scale_factor
 
     # Update and commit the pose changes
-    bpy.ops.meta_human_dna.update_rbf_pose(  # type: ignore
+    bpy.ops.meta_human_dna.apply_rbf_pose_edits(  # type: ignore
         solver_index=solver_index, pose_index=pose_index
     )
     bpy.ops.meta_human_dna.commit_rbf_solver_changes()  # type: ignore
@@ -218,7 +218,7 @@ def test_rbf_pose_name_edit(
     # Rename the pose
     pose.name = new_pose_name
 
-    # Commit the pose changes (name change doesn't require update_rbf_pose)
+    # Commit the pose changes (name change doesn't require apply_rbf_pose_edits)
     bpy.ops.meta_human_dna.commit_rbf_solver_changes()  # type: ignore
 
     # Export the modified DNA to JSON for verification
@@ -289,7 +289,7 @@ def test_rbf_driven_bone_location_edit(
             pose_bone.location = location_delta
 
             # Update the driven bone transform in the pose
-            bpy.ops.meta_human_dna.update_rbf_pose(  # type: ignore
+            bpy.ops.meta_human_dna.apply_rbf_pose_edits(  # type: ignore
                 solver_index=solver_index, pose_index=pose_index, driven_index=driven_index
             )
             break
@@ -377,7 +377,7 @@ def test_rbf_pose_duplicate(
             driver_bone.rotation_quaternion = new_quat
 
             # Update the driver data
-            bpy.ops.meta_human_dna.update_rbf_pose(  # type: ignore
+            bpy.ops.meta_human_dna.apply_rbf_pose_edits(  # type: ignore
                 solver_index=solver_index, pose_index=new_pose_index
             )
 
@@ -482,7 +482,7 @@ def test_rbf_duplicated_pose_driven_edit(
             driver_bone.rotation_quaternion = unique_driver_quat
 
             # Update the driver data
-            bpy.ops.meta_human_dna.update_rbf_pose(  # type: ignore
+            bpy.ops.meta_human_dna.apply_rbf_pose_edits(  # type: ignore
                 solver_index=solver_index, pose_index=new_pose_index
             )
 
@@ -510,7 +510,7 @@ def test_rbf_duplicated_pose_driven_edit(
             pose_bone.location = location_delta
 
             # Update the driven bone transform in the pose
-            bpy.ops.meta_human_dna.update_rbf_pose(  # type: ignore
+            bpy.ops.meta_human_dna.apply_rbf_pose_edits(  # type: ignore
                 solver_index=solver_index, pose_index=new_pose_index, driven_index=driven_index
             )
             break
@@ -1579,3 +1579,647 @@ def test_remove_rbf_driven_persists_after_commit(
                         f"Output index {out_idx} for bone '{bone_to_remove}' should NOT be in "
                         f"outputIndices after removal."
                     )
+
+
+# =============================================================================
+# RBF Solver Core Function Tests (validate_add_rbf_solver, add_rbf_solver, remove_rbf_solver)
+# =============================================================================
+
+
+def test_validate_add_rbf_solver_rejects_swing_bone(fresh_rbf_test_scene, dna_folder_name: str):
+    """
+    Test that validate_add_rbf_solver rejects swing bones as driver bones.
+    """
+    from meta_human_dna.editors.pose_editor.core import validate_add_rbf_solver
+
+    instance = get_active_rig_instance()
+    assert instance is not None, "No active rig instance found"
+    assert instance.body_rig is not None, "No body rig found on instance"
+
+    instance.body_initialize(update_rbf_solver_list=False)
+
+    # Get a swing bone name from the instance
+    if not instance.body_swing_bone_names:
+        pytest.skip("No swing bones available for testing")
+
+    swing_bone_name = list(instance.body_swing_bone_names)[0]
+
+    # Validate using core function
+    is_valid, message = validate_add_rbf_solver(instance, swing_bone_name)
+
+    assert is_valid is False, "Validation should reject swing bones as driver bones"
+    assert "swing bone" in message.lower(), f"Error message should mention swing bone: {message}"
+
+
+def test_validate_add_rbf_solver_rejects_twist_bone(fresh_rbf_test_scene, dna_folder_name: str):
+    """
+    Test that validate_add_rbf_solver rejects twist bones as driver bones.
+    """
+    from meta_human_dna.editors.pose_editor.core import validate_add_rbf_solver
+
+    instance = get_active_rig_instance()
+    assert instance is not None, "No active rig instance found"
+    assert instance.body_rig is not None, "No body rig found on instance"
+
+    instance.body_initialize(update_rbf_solver_list=False)
+
+    # Get a twist bone name from the instance
+    if not instance.body_twist_bone_names:
+        pytest.skip("No twist bones available for testing")
+
+    twist_bone_name = list(instance.body_twist_bone_names)[0]
+
+    # Validate using core function
+    is_valid, message = validate_add_rbf_solver(instance, twist_bone_name)
+
+    assert is_valid is False, "Validation should reject twist bones as driver bones"
+    assert "twist bone" in message.lower(), f"Error message should mention twist bone: {message}"
+
+
+def test_validate_add_rbf_solver_rejects_duplicate_solver(fresh_rbf_test_scene, dna_folder_name: str):
+    """
+    Test that validate_add_rbf_solver rejects creating a solver for a bone that already has one.
+    """
+    from meta_human_dna.constants import RBF_SOLVER_POSTFIX
+    from meta_human_dna.editors.pose_editor.core import validate_add_rbf_solver
+
+    instance = get_active_rig_instance()
+    assert instance is not None, "No active rig instance found"
+    assert instance.body_rig is not None, "No body rig found on instance"
+
+    # Find an existing solver and get its driver bone
+    if len(instance.rbf_solver_list) == 0:
+        pytest.skip("No existing RBF solvers to test duplication check")
+
+    existing_solver = instance.rbf_solver_list[0]
+    driver_bone_name = existing_solver.name.replace(RBF_SOLVER_POSTFIX, "")
+
+    # Validate using core function
+    is_valid, message = validate_add_rbf_solver(instance, driver_bone_name)
+
+    assert is_valid is False, "Validation should reject creating duplicate solver"
+    assert "already exists" in message.lower(), f"Error message should mention existing solver: {message}"
+
+
+def test_validate_add_rbf_solver_rejects_nonexistent_bone(fresh_rbf_test_scene, dna_folder_name: str):
+    """
+    Test that validate_add_rbf_solver rejects bones that don't exist in the rig.
+    """
+    from meta_human_dna.editors.pose_editor.core import validate_add_rbf_solver
+
+    instance = get_active_rig_instance()
+    assert instance is not None, "No active rig instance found"
+
+    # Validate using a bone name that doesn't exist
+    is_valid, message = validate_add_rbf_solver(instance, "nonexistent_bone_xyz_123")
+
+    assert is_valid is False, "Validation should reject nonexistent bones"
+    assert "not found" in message.lower(), f"Error message should mention bone not found: {message}"
+
+
+def test_validate_add_rbf_solver_accepts_valid_bone(fresh_rbf_test_scene, dna_folder_name: str):
+    """
+    Test that validate_add_rbf_solver accepts a valid bone that can be used as a driver.
+    """
+    from meta_human_dna.constants import RBF_SOLVER_POSTFIX
+    from meta_human_dna.editors.pose_editor.core import get_available_driven_bones, validate_add_rbf_solver
+
+    instance = get_active_rig_instance()
+    assert instance is not None, "No active rig instance found"
+    assert instance.body_rig is not None, "No body rig found on instance"
+
+    # Find a bone that doesn't have a solver
+    available_bones = get_available_driven_bones(instance)
+    new_driver_bone_name = None
+    existing_solver_driver_names = {s.name.replace(RBF_SOLVER_POSTFIX, "") for s in instance.rbf_solver_list}
+
+    for bone_name, joint_index, is_in_group in available_bones:
+        if bone_name in existing_solver_driver_names:
+            continue
+        if bone_name in instance.body_swing_bone_names:
+            continue
+        if bone_name in instance.body_twist_bone_names:
+            continue
+        if joint_index >= 0:
+            new_driver_bone_name = bone_name
+            break
+
+    if new_driver_bone_name is None:
+        pytest.skip("No available bones to test validation")
+
+    # Validate using core function
+    is_valid, message = validate_add_rbf_solver(instance, new_driver_bone_name)
+
+    assert is_valid is True, f"Validation should accept valid bone: {message}"
+    assert message == "", f"Error message should be empty for valid bone: {message}"
+
+
+def test_add_rbf_solver_creates_new_solver(fresh_rbf_test_scene, dna_folder_name: str):
+    """
+    Test that add_rbf_solver creates a new solver with the correct properties.
+    """
+    from meta_human_dna.constants import RBF_SOLVER_POSTFIX
+    from meta_human_dna.editors.pose_editor.core import add_rbf_solver, get_available_driven_bones
+
+    instance = get_active_rig_instance()
+    assert instance is not None, "No active rig instance found"
+    assert instance.body_rig is not None, "No body rig found on instance"
+
+    # Find a bone that doesn't have a solver
+    available_bones = get_available_driven_bones(instance)
+    new_driver_bone_name = None
+    existing_solver_driver_names = {s.name.replace(RBF_SOLVER_POSTFIX, "") for s in instance.rbf_solver_list}
+
+    for bone_name, joint_index, is_in_group in available_bones:
+        if bone_name in existing_solver_driver_names:
+            continue
+        if bone_name in instance.body_swing_bone_names:
+            continue
+        if bone_name in instance.body_twist_bone_names:
+            continue
+        if joint_index >= 0:
+            new_driver_bone_name = bone_name
+            break
+
+    if new_driver_bone_name is None:
+        pytest.skip("No available bones to create a new solver")
+
+    initial_solver_count = len(instance.rbf_solver_list)
+
+    # Add the solver using core function
+    success, message, new_solver_index = add_rbf_solver(instance, new_driver_bone_name)
+
+    assert success is True, f"add_rbf_solver should succeed: {message}"
+    assert new_solver_index >= 0, f"New solver index should be valid, got {new_solver_index}"
+
+    # Verify a new solver was created
+    assert len(instance.rbf_solver_list) == initial_solver_count + 1, (
+        f"Solver count should increase from {initial_solver_count} to {initial_solver_count + 1}"
+    )
+
+    # Verify the new solver has the correct properties
+    new_solver = instance.rbf_solver_list[new_solver_index]
+    expected_solver_name = f"{new_driver_bone_name}{RBF_SOLVER_POSTFIX}"
+    assert new_solver.name == expected_solver_name, (
+        f"New solver should be named '{expected_solver_name}', got '{new_solver.name}'"
+    )
+
+    # Verify the solver has a default pose
+    assert len(new_solver.poses) == 1, f"New solver should have 1 default pose, got {len(new_solver.poses)}"
+    default_pose = new_solver.poses[0]
+    assert default_pose.name == "default", f"First pose should be named 'default', got '{default_pose.name}'"
+
+    # Verify the default pose has the driver bone
+    assert len(default_pose.drivers) == 1, f"Default pose should have 1 driver, got {len(default_pose.drivers)}"
+    driver = default_pose.drivers[0]
+    assert driver.name == new_driver_bone_name, (
+        f"Driver bone should be '{new_driver_bone_name}', got '{driver.name}'"
+    )
+
+    # Verify the default pose has no driven bones
+    assert len(default_pose.driven) == 0, (
+        f"Default pose should have no driven bones initially, got {len(default_pose.driven)}"
+    )
+
+
+def test_add_rbf_solver_with_custom_quaternion(fresh_rbf_test_scene, dna_folder_name: str):
+    """
+    Test that add_rbf_solver can accept a custom quaternion for the driver bone.
+    """
+    from meta_human_dna.constants import RBF_SOLVER_POSTFIX
+    from meta_human_dna.editors.pose_editor.core import add_rbf_solver, get_available_driven_bones
+
+    instance = get_active_rig_instance()
+    assert instance is not None, "No active rig instance found"
+    assert instance.body_rig is not None, "No body rig found on instance"
+
+    # Find a bone that doesn't have a solver
+    available_bones = get_available_driven_bones(instance)
+    new_driver_bone_name = None
+    existing_solver_driver_names = {s.name.replace(RBF_SOLVER_POSTFIX, "") for s in instance.rbf_solver_list}
+
+    for bone_name, joint_index, is_in_group in available_bones:
+        if bone_name in existing_solver_driver_names:
+            continue
+        if bone_name in instance.body_swing_bone_names:
+            continue
+        if bone_name in instance.body_twist_bone_names:
+            continue
+        if joint_index >= 0:
+            new_driver_bone_name = bone_name
+            break
+
+    if new_driver_bone_name is None:
+        pytest.skip("No available bones to create a new solver")
+
+    # Custom quaternion (not identity)
+    custom_quaternion = (0.707, 0.707, 0.0, 0.0)
+
+    # Add the solver using core function with custom quaternion
+    success, message, new_solver_index = add_rbf_solver(
+        instance, new_driver_bone_name, driver_quaternion=custom_quaternion
+    )
+
+    assert success is True, f"add_rbf_solver should succeed: {message}"
+
+    # Verify the driver quaternion was set
+    new_solver = instance.rbf_solver_list[new_solver_index]
+    default_pose = new_solver.poses[0]
+    driver = default_pose.drivers[0]
+
+    assert driver.quaternion_rotation[0] == pytest.approx(custom_quaternion[0], abs=TOLERANCE), (
+        f"Driver quaternion W should be {custom_quaternion[0]}, got {driver.quaternion_rotation[0]}"
+    )
+    assert driver.quaternion_rotation[1] == pytest.approx(custom_quaternion[1], abs=TOLERANCE), (
+        f"Driver quaternion X should be {custom_quaternion[1]}, got {driver.quaternion_rotation[1]}"
+    )
+
+
+def test_add_rbf_solver_fails_for_invalid_bone(fresh_rbf_test_scene, dna_folder_name: str):
+    """
+    Test that add_rbf_solver fails and returns an error for invalid bones.
+    """
+    from meta_human_dna.editors.pose_editor.core import add_rbf_solver
+
+    instance = get_active_rig_instance()
+    assert instance is not None, "No active rig instance found"
+
+    initial_solver_count = len(instance.rbf_solver_list)
+
+    # Try to add a solver for a nonexistent bone
+    success, message, new_solver_index = add_rbf_solver(instance, "nonexistent_bone_xyz_123")
+
+    assert success is False, "add_rbf_solver should fail for nonexistent bone"
+    assert new_solver_index == -1, "Solver index should be -1 on failure"
+    assert "not found" in message.lower(), f"Error message should mention bone not found: {message}"
+
+    # Verify no solver was added
+    assert len(instance.rbf_solver_list) == initial_solver_count, "Solver count should not change on failure"
+
+
+def test_remove_rbf_solver_removes_active_solver(fresh_rbf_test_scene, dna_folder_name: str):
+    """
+    Test that remove_rbf_solver removes the active solver and updates indices.
+    """
+    from meta_human_dna.editors.pose_editor.core import remove_rbf_solver
+
+    instance = get_active_rig_instance()
+    assert instance is not None, "No active rig instance found"
+
+    if len(instance.rbf_solver_list) == 0:
+        pytest.skip("No solvers available to test removal")
+
+    initial_solver_count = len(instance.rbf_solver_list)
+    active_index = instance.rbf_solver_list_active_index
+    solver_to_remove_name = instance.rbf_solver_list[active_index].name
+
+    # Remove using core function (no solver_index = use active)
+    success, message = remove_rbf_solver(instance)
+
+    assert success is True, f"remove_rbf_solver should succeed: {message}"
+
+    # Verify solver was removed
+    assert len(instance.rbf_solver_list) == initial_solver_count - 1, (
+        f"Solver count should decrease from {initial_solver_count} to {initial_solver_count - 1}"
+    )
+
+    # Verify the removed solver is no longer in the list
+    for solver in instance.rbf_solver_list:
+        assert solver.name != solver_to_remove_name, (
+            f"Solver '{solver_to_remove_name}' should have been removed but is still in the list"
+        )
+
+    # Verify active index is updated correctly
+    if initial_solver_count > 1:
+        assert instance.rbf_solver_list_active_index <= len(instance.rbf_solver_list) - 1, (
+            f"Active index {instance.rbf_solver_list_active_index} should be within bounds "
+            f"[0, {len(instance.rbf_solver_list) - 1}]"
+        )
+
+
+def test_remove_rbf_solver_by_index(fresh_rbf_test_scene, dna_folder_name: str):
+    """
+    Test that remove_rbf_solver can remove a solver by specific index.
+    """
+    from meta_human_dna.editors.pose_editor.core import remove_rbf_solver
+
+    instance = get_active_rig_instance()
+    assert instance is not None, "No active rig instance found"
+
+    if len(instance.rbf_solver_list) < 2:
+        pytest.skip("Need at least 2 solvers to test removal by index")
+
+    initial_solver_count = len(instance.rbf_solver_list)
+    solver_to_remove_name = instance.rbf_solver_list[1].name
+
+    # Remove solver at index 1 (not the active one)
+    success, message = remove_rbf_solver(instance, solver_index=1)
+
+    assert success is True, f"remove_rbf_solver should succeed: {message}"
+
+    # Verify solver was removed
+    assert len(instance.rbf_solver_list) == initial_solver_count - 1, (
+        f"Solver count should decrease from {initial_solver_count} to {initial_solver_count - 1}"
+    )
+
+    # Verify the specific solver was removed
+    for solver in instance.rbf_solver_list:
+        assert solver.name != solver_to_remove_name, (
+            f"Solver '{solver_to_remove_name}' should have been removed but is still in the list"
+        )
+
+
+def test_remove_rbf_solver_fails_when_no_solvers(fresh_rbf_test_scene, dna_folder_name: str):
+    """
+    Test that remove_rbf_solver fails gracefully when there are no solvers.
+    """
+    from meta_human_dna.editors.pose_editor.core import remove_rbf_solver
+
+    instance = get_active_rig_instance()
+    assert instance is not None, "No active rig instance found"
+
+    # Clear all solvers
+    original_solver_count = len(instance.rbf_solver_list)
+    for _ in range(original_solver_count):
+        instance.rbf_solver_list.remove(0)
+
+    try:
+        # Try to remove when no solvers exist
+        success, message = remove_rbf_solver(instance)
+
+        assert success is False, "remove_rbf_solver should fail when no solvers exist"
+        assert "no rbf solvers" in message.lower(), f"Error message should mention no solvers: {message}"
+    finally:
+        # Reinitialize to restore solvers (cleanup)
+        instance.body_initialize(update_rbf_solver_list=True)
+
+
+def test_remove_rbf_solver_fails_for_invalid_index(fresh_rbf_test_scene, dna_folder_name: str):
+    """
+    Test that remove_rbf_solver fails gracefully for invalid indices.
+    """
+    from meta_human_dna.editors.pose_editor.core import remove_rbf_solver
+
+    instance = get_active_rig_instance()
+    assert instance is not None, "No active rig instance found"
+
+    if len(instance.rbf_solver_list) == 0:
+        pytest.skip("No solvers available to test invalid index removal")
+
+    initial_solver_count = len(instance.rbf_solver_list)
+
+    # Try to remove with an invalid index
+    success, message = remove_rbf_solver(instance, solver_index=999)
+
+    assert success is False, "remove_rbf_solver should fail for invalid index"
+    assert "invalid" in message.lower(), f"Error message should mention invalid index: {message}"
+
+    # Verify no solver was removed
+    assert len(instance.rbf_solver_list) == initial_solver_count, "Solver count should not change on failure"
+
+
+# =============================================================================
+# New Solver Core Function Tests
+# =============================================================================
+
+
+def test_new_solver_default_pose_has_no_driven_bones(fresh_rbf_test_scene, dna_folder_name: str):
+    """
+    Test that a newly created solver's default pose has no driven bones initially.
+
+    This is a regression test to ensure that poses without driven bones (like the
+    default pose on a new solver) are handled correctly and don't cause errors
+    in the joint group finding logic.
+    """
+    from meta_human_dna.constants import RBF_SOLVER_POSTFIX
+    from meta_human_dna.editors.pose_editor.core import add_rbf_solver, get_available_driven_bones
+
+    instance = get_active_rig_instance()
+    assert instance is not None, "No active rig instance found"
+    assert instance.body_rig is not None, "No body rig found on instance"
+
+    # Find a bone that doesn't have a solver
+    available_bones = get_available_driven_bones(instance)
+    new_driver_bone_name = None
+    existing_solver_driver_names = {s.name.replace(RBF_SOLVER_POSTFIX, "") for s in instance.rbf_solver_list}
+
+    for bone_name, joint_index, is_in_group in available_bones:
+        if bone_name in existing_solver_driver_names:
+            continue
+        if bone_name in instance.body_swing_bone_names:
+            continue
+        if bone_name in instance.body_twist_bone_names:
+            continue
+        if joint_index >= 0:
+            new_driver_bone_name = bone_name
+            break
+
+    if new_driver_bone_name is None:
+        pytest.skip("No available bones to create a new solver")
+
+    # Add the solver using core function
+    success, message, new_solver_index = add_rbf_solver(instance, new_driver_bone_name)
+    assert success is True, f"add_rbf_solver should succeed: {message}"
+
+    # Get the new solver and its default pose
+    new_solver = instance.rbf_solver_list[new_solver_index]
+    assert len(new_solver.poses) == 1, "New solver should have exactly 1 pose (default)"
+
+    default_pose = new_solver.poses[0]
+    assert default_pose.name == "default", "First pose should be the default pose"
+
+    # Verify the default pose has no driven bones
+    assert len(default_pose.driven) == 0, (
+        f"Default pose should have no driven bones initially, got {len(default_pose.driven)}"
+    )
+
+    # Verify it has exactly 1 driver (the driver bone)
+    assert len(default_pose.drivers) == 1, (
+        f"Default pose should have exactly 1 driver, got {len(default_pose.drivers)}"
+    )
+
+
+def test_add_then_remove_solver_restores_original_state(fresh_rbf_test_scene, dna_folder_name: str):
+    """
+    Test that adding and then removing a solver restores the original state.
+
+    This verifies the full add/remove lifecycle using only core functions.
+    """
+    from meta_human_dna.constants import RBF_SOLVER_POSTFIX
+    from meta_human_dna.editors.pose_editor.core import (
+        add_rbf_solver,
+        get_available_driven_bones,
+        remove_rbf_solver,
+    )
+
+    instance = get_active_rig_instance()
+    assert instance is not None, "No active rig instance found"
+    assert instance.body_rig is not None, "No body rig found on instance"
+
+    # Record initial state
+    initial_solver_count = len(instance.rbf_solver_list)
+    initial_solver_names = {s.name for s in instance.rbf_solver_list}
+
+    # Find a bone that doesn't have a solver
+    available_bones = get_available_driven_bones(instance)
+    new_driver_bone_name = None
+    existing_solver_driver_names = {s.name.replace(RBF_SOLVER_POSTFIX, "") for s in instance.rbf_solver_list}
+
+    for bone_name, joint_index, is_in_group in available_bones:
+        if bone_name in existing_solver_driver_names:
+            continue
+        if bone_name in instance.body_swing_bone_names:
+            continue
+        if bone_name in instance.body_twist_bone_names:
+            continue
+        if joint_index >= 0:
+            new_driver_bone_name = bone_name
+            break
+
+    if new_driver_bone_name is None:
+        pytest.skip("No available bones to create a new solver")
+
+    # Add the solver using core function
+    success, message, new_solver_index = add_rbf_solver(instance, new_driver_bone_name)
+    assert success is True, f"add_rbf_solver should succeed: {message}"
+
+    # Verify the solver was added
+    assert len(instance.rbf_solver_list) == initial_solver_count + 1, "Solver count should increase by 1"
+
+    new_solver_name = f"{new_driver_bone_name}{RBF_SOLVER_POSTFIX}"
+    assert new_solver_name in {s.name for s in instance.rbf_solver_list}, "New solver should exist"
+
+    # Remove the solver using core function
+    success, message = remove_rbf_solver(instance, new_solver_index)
+    assert success is True, f"remove_rbf_solver should succeed: {message}"
+
+    # Verify the original state is restored
+    assert len(instance.rbf_solver_list) == initial_solver_count, "Solver count should be restored"
+    assert {s.name for s in instance.rbf_solver_list} == initial_solver_names, "Original solvers should be preserved"
+
+# =============================================================================
+# Crash Reproduction Tests
+# =============================================================================
+
+
+def test_new_solver_with_pose_and_driven_bones_commits_without_crash(
+    fresh_rbf_test_scene, temp_folder, dna_folder_name: str
+):
+    """
+    Regression test for RigLogic EXCEPTION_INT_DIVIDE_BY_ZERO crash.
+
+    This test reproduces the exact scenario that causes a hard crash in RigLogic:
+    1. Remove all existing RBF solvers
+    2. Add a new solver for calf_l
+    3. Add a pose "calf_l_back_90" with driven bones (calf_kneeBack_l, calf_knee_l, calf_twistCor_02_l)
+    4. Set the driver bone calf_l rotated back 90 degrees
+    5. Commit changes to DNA
+    6. Reload the DNA (this is where the crash occurs)
+
+    The crash occurs in riglogic.cp311-win_amd64.pyd with EXCEPTION_INT_DIVIDE_BY_ZERO
+    during body_initialize after committing the changes.
+    """
+    import math
+
+    from meta_human_dna.constants import RBF_SOLVER_POSTFIX
+    from meta_human_dna.editors.pose_editor.core import (
+        add_rbf_pose,
+        add_rbf_solver,
+        remove_rbf_solver,
+    )
+
+    instance = get_active_rig_instance()
+    assert instance is not None, "No active rig instance found"
+    assert instance.body_rig is not None, "No body rig found on instance"
+
+    # Enable editing mode
+    instance.editing_rbf_solver = True
+
+    # Step 1: Remove all existing RBF solvers
+    while len(instance.rbf_solver_list) > 0:
+        success, message = remove_rbf_solver(instance, 0)
+        assert success is True, f"Failed to remove solver: {message}"
+
+    assert len(instance.rbf_solver_list) == 0, "All solvers should be removed"
+
+    # Step 2: Add a new solver for calf_l
+    driver_bone_name = "calf_l"
+    success, message, new_solver_index = add_rbf_solver(instance, driver_bone_name)
+    assert success is True, f"add_rbf_solver should succeed: {message}"
+
+    solver = instance.rbf_solver_list[new_solver_index]
+    assert solver.name == f"{driver_bone_name}{RBF_SOLVER_POSTFIX}"
+
+    # Step 3: Add a pose "calf_l_back_90" with specific driven bones
+    # Driver rotated back 90 degrees around X axis (in Blender's coordinate system)
+    # Quaternion for 90 degree rotation around X axis
+    angle_rad = math.radians(90)
+    half_angle = angle_rad / 2
+    driver_quaternion = (
+        math.cos(half_angle),  # w
+        math.sin(half_angle),  # x
+        0.0,  # y
+        0.0,  # z
+    )
+
+    # Driven bones with their transforms (simulating a bent leg pose)
+    driven_bone_transforms = {
+        "calf_kneeBack_l": {
+            "location": [0.0, 0.0, 0.0],
+            "rotation": [0.1, 0.0, 0.0],  # Small rotation
+            "scale": [1.0, 1.0, 1.0],
+        },
+        "calf_knee_l": {
+            "location": [0.0, 0.0, 0.0],
+            "rotation": [0.05, 0.0, 0.0],
+            "scale": [1.0, 1.0, 1.0],
+        },
+        "calf_twistCor_02_l": {
+            "location": [0.0, 0.0, 0.0],
+            "rotation": [0.0, 0.0, 0.05],
+            "scale": [1.0, 1.0, 1.0],
+        },
+    }
+
+    success, message, new_pose_index = add_rbf_pose(
+        instance=instance,
+        pose_name="calf_l_back_90",
+        driver_quaternion=driver_quaternion,
+        driven_bone_transforms=driven_bone_transforms,
+        solver_index=new_solver_index,
+    )
+    assert success is True, f"add_rbf_pose should succeed: {message}"
+
+    # Verify the pose was created correctly
+    new_pose = None
+    for pose in solver.poses:
+        if pose.name == "calf_l_back_90":
+            new_pose = pose
+            break
+
+    assert new_pose is not None, "New pose should exist"
+    assert len(new_pose.driven) == 3, f"Pose should have 3 driven bones, got {len(new_pose.driven)}"
+    assert len(new_pose.drivers) == 1, f"Pose should have 1 driver, got {len(new_pose.drivers)}"
+
+    # Step 4: Commit changes to DNA - this writes the DNA file
+    result = bpy.ops.meta_human_dna.commit_rbf_solver_changes()  # type: ignore
+    assert result == {"FINISHED"}, f"CommitRBFSolverChanges should succeed, got {result}"
+
+    # Step 5: Verify the DNA can be reloaded without crashing
+    # This is where the EXCEPTION_INT_DIVIDE_BY_ZERO crash occurs in RigLogic
+    instance.destroy()
+    instance.body_initialize()  # This line triggers the crash
+
+    assert instance.body_initialized, "Instance should be initialized after reloading DNA"
+
+    # Verify the new solver exists after reload
+    found_solver = False
+    for s in instance.rbf_solver_list:
+        if s.name == f"{driver_bone_name}{RBF_SOLVER_POSTFIX}":
+            found_solver = True
+            # Verify the pose exists
+            pose_names = [p.name for p in s.poses]
+            assert "calf_l_back_90" in pose_names, f"Pose 'calf_l_back_90' not found after reload. Found: {pose_names}"
+            break
+
+    assert found_solver, f"Solver '{driver_bone_name}{RBF_SOLVER_POSTFIX}' not found after reloading DNA"
