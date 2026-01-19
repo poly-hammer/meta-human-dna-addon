@@ -175,6 +175,28 @@ def set_driver_bone_data(
                 break
 
 
+def set_body_rbf_pose_name(self: "RBFPoseData", value: str):
+    instance = utilities.get_active_rig_instance()
+
+    if not instance or not instance.body_rig or not instance.editing_rbf_solver:
+        return
+
+    solver = get_active_solver(instance)
+    if not solver:
+        return
+
+    existing_names = {p.name for p in solver.poses if p != self}
+    if value in existing_names:
+        logger.warning(f"The pose name '{value}' is already in use and cannot be used.")
+        return
+
+    self["name"] = value
+
+
+def get_body_rbf_pose_name(self: "RBFPoseData") -> str:
+    return self.get("name", "")
+
+
 def update_body_rbf_driven_active_index(self: "RBFPoseData", context: "Context"):  # noqa: ARG001
     instance = utilities.get_active_rig_instance()
 

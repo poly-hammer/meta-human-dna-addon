@@ -688,7 +688,7 @@ wheels = [
 
 [[package]]
 name = "meta-human-dna-addon"
-version = "0.5.11"
+version = "0.5.12"
 source = { editable = "." }
 dependencies = [
     { name = "sentry-sdk" },

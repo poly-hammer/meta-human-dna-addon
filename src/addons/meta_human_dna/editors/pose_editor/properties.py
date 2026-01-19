@@ -73,6 +73,8 @@ class RBFPoseData(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty(
         default="",
         description="The name of the pose",
+        set=core.set_body_rbf_pose_name,
+        get=core.get_body_rbf_pose_name,
     )  # pyright: ignore[reportInvalidTypeForm]
     scale_factor: bpy.props.FloatProperty(default=1.0, description="The scale factor of the pose", min=0.0)  # pyright: ignore[reportInvalidTypeForm]
     target_enable: bpy.props.BoolProperty(
@@ -85,8 +87,6 @@ class RBFPoseData(bpy.types.PropertyGroup):
 
     drivers: bpy.props.CollectionProperty(type=RBFDriverData)  # pyright: ignore[reportInvalidTypeForm]
     drivers_active_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
-    # TODO: Implement blend shapes for RBF poses
-    # shape_key_data: bpy.props.CollectionProperty(type=ShapeKeyData) # noqa: ERA001
 
 
 class RBFSolverData(bpy.types.PropertyGroup):

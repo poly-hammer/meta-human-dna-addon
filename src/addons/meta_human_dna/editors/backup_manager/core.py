@@ -56,7 +56,6 @@ def get_backup_folder(instance: "RigInstance") -> Path:
         # have the same name but are in different folders on the system.
         hash_name = file_path_hash(Path(instance.body_dna_file_path or instance.head_dna_file_path))
         instance_backup_base = backup_base / f"{instance.name}-{str(hash_name).strip('-')}"
-        instance_backup_base.mkdir(parents=True, exist_ok=True)
         return instance_backup_base
 
     raise RuntimeError("Could not retrieve addon preferences for backup folder path")
