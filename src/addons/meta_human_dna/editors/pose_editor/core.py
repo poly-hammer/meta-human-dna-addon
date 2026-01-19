@@ -390,6 +390,10 @@ def update_body_rbf_solver_list(self: "RigInstance"):  # noqa: PLR0912
                                     setattr(driver, driver_field_name, getattr(driver_data, driver_field_name))
                         else:
                             setattr(pose, pose_field_name, getattr(pose_data, pose_field_name))
+
+                        if pose_field_name == "name":
+                            # use internal dictionary to bypass the custom setter which checks for active solver
+                            pose["name"] = getattr(pose_data, pose_field_name)
             else:
                 setattr(solver, solver_field_name, getattr(solver_data, solver_field_name))
 
@@ -584,6 +588,25 @@ def validate_no_duplicate_driver_bone_values(instance: "RigInstance") -> tuple[b
                         f"Poses '{pose1_name}' and '{pose2_name}' have a driver bone '{driver1_name}' with the "
                         "same rotation values. Driver bone rotations must be unique across all poses in the solver.",
                     )
+
+    return True, ""
+
+
+def validate_solver_non_default_pose_with_driven_bones(instance: "RigInstance") -> tuple[bool, str]:
+    if len(instance.rbf_solver_list) == 0:
+        return False, "No RBF solvers, please add one."
+
+    for solver in instance.rbf_solver_list:
+        if len(solver.poses) <= 1:
+            return False, f"The RBF solver '{solver.name}' must have at least one non-default pose."
+
+        for pose in solver.poses:
+            if pose.name != "default" and len(pose.driven) == 0:
+                return (
+                    False,
+                    f'Pose "{pose.name}" in the RBF solver "{solver.name}" has no driven bones. '
+                    "Poses must have at least one driven bone.",
+                )
 
     return True, ""
 

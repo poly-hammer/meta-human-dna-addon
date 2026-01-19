@@ -364,7 +364,11 @@ def sync_backup_list_with_disk(instance: "RigInstance") -> None:
 
                     entry = backup_list.add()
                     entry.backup_id = backup_folder.name
-                    entry.timestamp = metadata.get("timestamp", backup_folder.name)[:19].replace("T", " ")
+                    entry.timestamp = (
+                        datetime.fromisoformat(metadata.get("timestamp", backup_folder.name))
+                        .strftime("%I:%M %p  %m-%d-%y")
+                        .removeprefix("0")
+                    )
                     entry.backup_type = metadata.get("backup_type", "Unknown")
                     entry.description = metadata.get("description", "Unknown")
                     entry.instance_name = metadata.get("instance_name", instance.name)

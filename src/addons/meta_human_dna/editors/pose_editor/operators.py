@@ -76,23 +76,132 @@ class RBFEditorOperatorBase(bpy.types.Operator):
 
 
 class AddRBFSolver(RBFEditorOperatorBase):
-    """Add a new RBF Solver"""
+    """Add a new RBF Solver based on the selected pose bone."""
 
     bl_idname = "meta_human_dna.add_rbf_solver"
     bl_label = "Add RBF Solver"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context: "Context") -> bool:
+        instance = utilities.get_active_rig_instance()
+        if not instance or not instance.body_rig:
+            return False
+        # Must be in edit mode for the solver and have a pose bone selected
+        if not instance.editing_rbf_solver:
+            return False
+        return context.active_pose_bone is not None
+
+    def validate(self, context: "Context", instance: "RigInstance") -> tuple[bool, str]:
+        if not context.active_pose_bone:
+            return False, "No pose bone selected. Please select a bone to use as the driver for the new solver."
+
+        driver_bone = context.active_pose_bone
+        driver_bone_name = driver_bone.name
+
+        # Ensure the body is initialized
+        if not instance.body_initialized:
+            instance.body_initialize(update_rbf_solver_list=False)
+
+        # Check that the selected bone belongs to the body rig
+        if driver_bone.id_data != instance.body_rig:
+            return False, f'Bone "{driver_bone_name}" does not belong to the body rig.'
+
+        # Check that the bone is not a swing or twist bone
+        if driver_bone_name in instance.body_swing_bone_names:
+            return False, f'Bone "{driver_bone_name}" is a swing bone and cannot be used as a driver bone.'
+        if driver_bone_name in instance.body_twist_bone_names:
+            return False, f'Bone "{driver_bone_name}" is a twist bone and cannot be used as a driver bone.'
+
+        # Check that a solver with this driver bone doesn't already exist
+        expected_solver_name = f"{driver_bone_name}{RBF_SOLVER_POSTFIX}"
+        for solver in instance.rbf_solver_list:
+            if solver.name == expected_solver_name:
+                return False, f'A solver for bone "{driver_bone_name}" already exists: "{expected_solver_name}".'
+
+        return True, ""
 
     def run(self, instance: "RigInstance"):
-        pass
+        driver_bone = bpy.context.active_pose_bone
+        if not driver_bone:
+            return
+
+        driver_bone_name = driver_bone.name
+        solver_name = f"{driver_bone_name}{RBF_SOLVER_POSTFIX}"
+
+        # Calculate the next solver index
+        dna_solver_count = instance.body_dna_reader.getRBFSolverCount() if instance.body_dna_reader else 0
+        max_existing_solver_index = -1
+        for s in instance.rbf_solver_list:
+            max_existing_solver_index = max(max_existing_solver_index, s.solver_index)
+        new_solver_index = max(dna_solver_count, max_existing_solver_index + 1)
+
+        # Create the new solver
+        solver = instance.rbf_solver_list.add()
+        solver.solver_index = new_solver_index
+        solver.name = solver_name
+
+        # Calculate the next pose index for the default pose
+        dna_pose_count = instance.body_dna_reader.getRBFPoseCount() if instance.body_dna_reader else 0
+        max_existing_pose_index = -1
+        for s in instance.rbf_solver_list:
+            for p in s.poses:
+                max_existing_pose_index = max(max_existing_pose_index, p.pose_index)
+        new_pose_index = max(dna_pose_count, max_existing_pose_index + 1)
+
+        # Create the default pose
+        default_pose = solver.poses.add()
+        default_pose.solver_index = new_solver_index
+        default_pose.pose_index = new_pose_index
+        # Use internal dictionary to bypass the custom setter which checks for active solver
+        default_pose["name"] = "default"
+
+        # Add the driver bone to the default pose
+        driver = default_pose.drivers.add()
+        core.set_driver_bone_data(instance=instance, pose=default_pose, driver=driver, pose_bone=driver_bone, new=True)
+
+        # Set the active solver to the new solver
+        instance.rbf_solver_list_active_index = len(instance.rbf_solver_list) - 1
+        solver.poses_active_index = 0
+
+        logger.info(f'Created new RBF solver "{solver_name}" with driver bone "{driver_bone_name}".')
 
 
 class RemoveRBFSolver(RBFEditorOperatorBase):
-    """Remove the selected RBF Solver"""
+    """Remove the selected RBF Solver."""
 
     bl_idname = "meta_human_dna.remove_rbf_solver"
     bl_label = "Remove RBF Solver"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context: "Context") -> bool:  # noqa: ARG003
+        instance = utilities.get_active_rig_instance()
+        if not instance or not instance.body_rig:
+            return False
+        # Must be in edit mode and have at least one solver
+        if not instance.editing_rbf_solver:
+            return False
+        return len(instance.rbf_solver_list) > 0
 
     def run(self, instance: "RigInstance"):
-        pass
+        active_index = instance.rbf_solver_list_active_index
+        if active_index < 0 or active_index >= len(instance.rbf_solver_list):
+            return
+
+        solver = instance.rbf_solver_list[active_index]
+        solver_name = solver.name
+
+        # Remove the solver
+        instance.rbf_solver_list.remove(active_index)
+
+        # Update the active index to stay within bounds
+        if len(instance.rbf_solver_list) > 0:
+            instance.rbf_solver_list_active_index = min(active_index, len(instance.rbf_solver_list) - 1)
+        else:
+            instance.rbf_solver_list_active_index = 0
+
+        logger.info(f'Removed RBF solver "{solver_name}".')
 
 
 class EvaluateRBFSolvers(RBFEditorOperatorBase):
@@ -170,6 +279,10 @@ class CommitRBFSolverChanges(RBFEditorOperatorBase):
         if not valid:
             return False, message
 
+        valid, message = core.validate_solver_non_default_pose_with_driven_bones(instance)
+        if not valid:
+            return False, message
+
         return True, ""
 
     def run(self, instance: "RigInstance"):
@@ -190,18 +303,22 @@ class CommitRBFSolverChanges(RBFEditorOperatorBase):
         # any memory they are using
         instance.destroy()
 
-        meta_human_dna_core.commit_rbf_data_to_dna(reader=reader, writer=writer, data=data)
-        logger.info(f'DNA exported successfully to: "{instance.body_dna_file_path}"')
+        try:
+            meta_human_dna_core.commit_rbf_data_to_dna(reader=reader, writer=writer, data=data)
+        except ValueError as error:
+            self.report({"ERROR"}, str(error))
+            return
 
         # turn off editing mode and re-enable auto evaluation
         instance.editing_rbf_solver = False
         instance.auto_evaluate_body = True
         # re-initialize and evaluate the body rig
         instance.evaluate(component="body")
+        logger.info(f'DNA exported successfully to: "{instance.body_dna_file_path}"')
 
 
 class RBFPoseOperatorBase(RBFEditorOperatorBase):
-    def add_pose(
+    def add_pose(  # noqa: PLR0915
         self,
         instance: "RigInstance",
         pose_name: str,
@@ -280,10 +397,29 @@ class RBFPoseOperatorBase(RBFEditorOperatorBase):
                         instance=instance, pose=pose, driven=driven, pose_bone=pose_bone, new=True
                     )
         else:
+            driven_list = []
             # New pose (not duplicating), read from current bone transforms
             for pose_bone in driven_bones:
                 driven = pose.driven.add()
                 core.set_driven_bone_data(instance=instance, pose=pose, driven=driven, pose_bone=pose_bone, new=True)
+                driven_list.append(driven)
+
+            # Ensure the default pose has entries for all driven bones for UI purposes
+            for _pose in solver.poses:
+                if _pose.name == "default" and driven_list:
+                    _pose.driven.clear()
+                    # Reset transforms to rest pose
+                    for _driven in driven_list:
+                        driven = _pose.driven.add()
+                        driven.name = _driven.name
+                        driven.pose_index = _pose.pose_index
+                        driven.joint_index = _driven.joint_index
+                        driven.data_type = _driven.data_type
+                        driven.location = [0.0, 0.0, 0.0]
+                        driven.euler_rotation = [0.0, 0.0, 0.0]
+                        driven.quaternion_rotation = [1.0, 0.0, 0.0, 0.0]
+                        driven.scale = [1.0, 1.0, 1.0]
+                    break
 
         # set the active pose to the new pose (use local index within solver's poses list)
         solver.poses_active_index = local_pose_index
@@ -309,7 +445,7 @@ class AddRBFPose(RBFPoseOperatorBase):
             return
 
         if not instance.body_initialized:
-            instance.body_initialize()
+            instance.body_initialize(update_rbf_solver_list=False)
 
         # Use window manager to store the collection (persists across draw calls)
         wm = context.window_manager
@@ -357,7 +493,7 @@ class AddRBFPose(RBFPoseOperatorBase):
             return False, "No driven bones selected. Please select at least one driven bone."
 
         if not instance.body_initialized:
-            instance.body_initialize()
+            instance.body_initialize(update_rbf_solver_list=False)
 
         for pose_bone in driven_bones:
             if pose_bone.name in instance.body_driver_bone_names:
