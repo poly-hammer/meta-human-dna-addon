@@ -282,6 +282,7 @@ def register():
     # ----------------- Pose Editor Properties -----------------
     from .editors.pose_editor import properties as pose_editor_properties
 
+    pose_editor_properties.register()
     bpy.utils.register_class(pose_editor_properties.RBFDrivenBoneSelectionItem)
     bpy.utils.register_class(pose_editor_properties.RBFDriverData)
     bpy.utils.register_class(pose_editor_properties.RBFDrivenData)
@@ -363,7 +364,6 @@ def unregister():
         bpy.utils.unregister_class(pose_editor_properties.RBFDrivenData)
         bpy.utils.unregister_class(pose_editor_properties.RBFDriverData)
         bpy.utils.unregister_class(pose_editor_properties.RBFDrivenBoneSelectionItem)
-
         pose_editor_properties.unregister()
 
         # ----------------- Backup Manager Properties -----------------

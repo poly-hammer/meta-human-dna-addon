@@ -9,6 +9,7 @@ from bl_ui.generic_ui_list import draw_ui_list
 # local imports
 from ...typing import *  # noqa: F403
 from ...ui.view_3d import RigInstanceDependentPanel, valid_rig_instance_exists
+from .function_curves import get_function_preview_icon
 
 
 class META_HUMAN_DNA_UL_bone_selection(bpy.types.UIList):
@@ -259,14 +260,38 @@ class META_HUMAN_DNA_PT_pose_editor_solver_settings_sub_panel(RbfEditorSubPanelB
             instance.rbf_solver_list[active_rbf_solver_index] if len(instance.rbf_solver_list) > 0 else None
         )
 
-        if not active_rbf_solver:
+        if not active_rbf_solver or not context.area:
             return
 
-        row = self.layout.row()
-        row.template_icon_view(active_rbf_solver, "function_type", show_labels=True, scale=15.0)
+        # Display function type selector
         split = self.layout.split(factor=0.45)
         split.label(text="Function Type:")
         split.prop(active_rbf_solver, "function_type", text="")
+
+        # Display the curve visualization as a simple image preview
+        # Calculate width based on UI region
+        region_width = 285  # Default fallback
+        for region in context.area.regions:
+            if region.type == "UI":
+                region_width = region.width
+                break
+
+        # Calculate preview dimensions - square 1:1 aspect ratio
+        # Account for scrollbar (~20px) and panel margins (~20px)
+        preview_size = max(100, region_width - 40)
+        preview_width = preview_size
+        preview_height = preview_size  # 1:1 square aspect ratio
+
+        # Get preview at the calculated size
+        icon_id = get_function_preview_icon(active_rbf_solver.function_type, preview_width, preview_height)
+
+        # Calculate scale for template_icon (scale * 32 = display size)
+        icon_scale = preview_width / 12.0
+
+        row = self.layout.row()
+        row.scale_y = 0.6
+        row.template_icon(icon_value=icon_id, scale=icon_scale)
+
         split = self.layout.split(factor=0.45)
         split.label(text="Mode:")
         split.prop(active_rbf_solver, "mode", text="")

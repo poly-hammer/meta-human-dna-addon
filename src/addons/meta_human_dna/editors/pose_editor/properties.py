@@ -1,67 +1,12 @@
 # standard library imports
 
-from collections.abc import Iterable
-
 # third party imports
 import bpy
 
 # local imports
 from ...typing import *  # noqa: F403
 from . import core
-from .constants import FUNCTION_TYPE_ICONS_FOLDER
-
-
-function_type_preview_collections = {}
-
-
-def get_function_type_items() -> Iterable[tuple[str, str, str, int]]:
-    enum_items = []
-
-    if bpy.context is None:
-        return enum_items
-
-    # add the pose previews collection if it doesn't already exist
-    if not function_type_preview_collections.get("function_types"):
-        function_type_previews_collection = bpy.utils.previews.new()
-        function_type_previews_collection.function_type_previews = ()  # type: ignore[attr-defined]
-        function_type_preview_collections["function_types"] = function_type_previews_collection
-
-    # Get the preview collection.
-    preview_collection = function_type_preview_collections["function_types"]
-
-    # If the enum items have already been cached, return them so we don't have to regenerate them.
-    if preview_collection.values():
-        return preview_collection.function_type_previews  # pyright: ignore[reportAttributeAccessIssue]
-
-    _basic_enum_items = [
-        ("Gaussian", "Gaussian", "Use the Gaussian method for the function type of the RBF solver"),
-        ("Exponential", "Exponential", "Use the Exponential method for the function type of the RBF solver"),
-        ("Linear", "Linear", "Use the Linear method for the function type of the RBF solver"),
-        ("Cubic", "Cubic", "Use the Cubic method for the function type of the RBF solver"),
-        ("Quintic", "Quintic", "Use the Quintic method for the function type of the RBF solver"),
-    ]
-
-    if FUNCTION_TYPE_ICONS_FOLDER.exists():
-        icon_lookup = {}
-
-        for file_path in FUNCTION_TYPE_ICONS_FOLDER.iterdir():
-            if file_path.suffix.lower() == ".png":
-                icon_lookup[file_path.stem.lower()] = file_path
-
-        for i, _enum_item in enumerate(_basic_enum_items):
-            name = _enum_item[0]
-            file_path = icon_lookup.get(name.lower())
-            # generates a thumbnail preview for a file.
-            icon = preview_collection.get(name)
-            if not icon:
-                thumb = preview_collection.load(name, str(file_path), "IMAGE")
-            else:
-                thumb = preview_collection[name]
-            enum_items.append((*_enum_item, thumb.icon_id, i))
-
-    # cache the enum item values for later retrieval
-    preview_collection.function_type_previews = enum_items  # pyright: ignore[reportAttributeAccessIssue]
-    return preview_collection.function_type_previews  # pyright: ignore[reportAttributeAccessIssue]
+from .function_curves import ensure_function_curves_exist
 
 
 class RBFDrivenBoneSelectionItem(bpy.types.PropertyGroup):
@@ -230,7 +175,13 @@ class RBFSolverData(bpy.types.PropertyGroup):
         ),
     )  # pyright: ignore[reportInvalidTypeForm]
     function_type: bpy.props.EnumProperty(
-        items=get_function_type_items(),
+        items=[
+            ("Gaussian", "Gaussian", "Use the Gaussian method for the function type of the RBF solver"),
+            ("Exponential", "Exponential", "Use the Exponential method for the function type of the RBF solver"),
+            ("Linear", "Linear", "Use the Linear method for the function type of the RBF solver"),
+            ("Cubic", "Cubic", "Use the Cubic method for the function type of the RBF solver"),
+            ("Quintic", "Quintic", "Use the Quintic method for the function type of the RBF solver"),
+        ],
         default="Gaussian",
         description="The function type of the RBF solver",
     )  # pyright: ignore[reportInvalidTypeForm]
@@ -260,11 +211,13 @@ class RBFSolverData(bpy.types.PropertyGroup):
     poses_active_index: bpy.props.IntProperty(update=core.update_body_rbf_poses_active_index)  # pyright: ignore[reportArgumentType, reportInvalidTypeForm]
 
 
+def register():
+    """Register the pose editor properties and ensure function curves exist."""
+    ensure_function_curves_exist()
+
+
 def unregister():
-    """
-    Un-registers the addon's property group classes when the addon is disabled.
-    """
-    # remove the pose previews collections
-    for preview_collection in function_type_preview_collections.values():
-        bpy.utils.previews.remove(preview_collection)
-    function_type_preview_collections.clear()
+    """Un-register the addon's property group classes when the addon is disabled."""
+    from .function_curves import cleanup_function_curves
+
+    cleanup_function_curves()
