@@ -12,11 +12,7 @@ from . import constants, key_maps, manual_map, operators, properties, rig_instan
 from .editors.backup_manager import operators as backup_manager_operators, ui as backup_manager_ui
 
 # Pose Editor
-from .editors.pose_editor import (
-    operators as pose_editor_operators,
-    ui as pose_editor_ui,
-    viewport_overlay as pose_editor_viewport_overlay,
-)
+from .editors.pose_editor import operators as pose_editor_operators, ui as pose_editor_ui
 from .ui import addon_preferences, importer, menus, view_3d
 
 
@@ -181,9 +177,6 @@ def register():
         menus.add_dna_import_menu()
         menus.add_rig_logic_texture_node_menu()
 
-        # register overlays
-        pose_editor_viewport_overlay.register()
-
         # register key maps
         key_maps.register()
 
@@ -222,9 +215,6 @@ def unregister():
 
         # unregister key maps
         key_maps.unregister()
-
-        # unregister the overlay
-        pose_editor_viewport_overlay.unregister()
 
         # unregister the classes
         for cls in reversed(classes):

@@ -14,7 +14,9 @@ from ...dna_io import get_dna_reader, get_dna_writer
 
 # type checking imports
 from ...typing import *  # noqa: F403
-from . import core
+from ...ui.toast import clear_toasts, toast_info, toast_success, toast_warning
+from . import change_tracker, core
+from .viewport_overlay import register_draw_handler, unregister_draw_handler
 
 
 logger = logging.getLogger(__name__)
@@ -118,6 +120,11 @@ class AddRBFSolver(RBFEditorOperatorBase):
 
         if not success:
             self.report({"ERROR"}, message)
+            return
+
+        # Update change tracking and show toast
+        change_tracker.update_tracking(instance)
+        toast_success(f"Added solver for '{driver_bone.name}'", duration=2.5)
 
 
 class RemoveRBFSolver(RBFEditorOperatorBase):
@@ -138,11 +145,20 @@ class RemoveRBFSolver(RBFEditorOperatorBase):
         return len(instance.rbf_solver_list) > 0
 
     def run(self, instance: "RigInstance"):
+        # Get the solver name before removal for the toast
+        solver = core.get_active_solver(instance)
+        solver_name = solver.name if solver else "solver"
+
         # Delegate to core function
         success, message = core.remove_rbf_solver(instance)
 
         if not success:
             self.report({"ERROR"}, message)
+            return
+
+        # Update change tracking and show toast
+        change_tracker.update_tracking(instance)
+        toast_warning(f"Removed solver '{solver_name}'", duration=2.5)
 
 
 class EvaluateRBFSolvers(RBFEditorOperatorBase):
@@ -165,7 +181,18 @@ class RevertRBFSolver(RBFEditorOperatorBase):
         utilities.reset_pose(instance.body_rig)
         instance.editing_rbf_solver = False
         instance.auto_evaluate_body = True
+
+        tracker = change_tracker.get_change_tracker(instance)
+        change_count = tracker.change_count if tracker else 0
+
+        # Clear change tracking and toasts
+        change_tracker.clear_tracking(instance)
+        clear_toasts()
         bpy.ops.meta_human_dna.force_evaluate()  # type: ignore[attr-defined]
+
+        toast_warning(f"Reverted {change_count} edit(s)", duration=3.0)
+        # Unregister the draw handler after the final toast has been shown
+        bpy.app.timers.register(unregister_draw_handler, first_interval=3.0)
 
 
 class EditRBFSolver(RBFEditorOperatorBase):
@@ -187,6 +214,11 @@ class EditRBFSolver(RBFEditorOperatorBase):
         instance.auto_evaluate_body = False
         instance.body_rig.hide_set(False)
         utilities.switch_to_pose_mode(instance.body_rig)
+        register_draw_handler()
+
+        # Initialize change tracking when entering edit mode
+        change_tracker.initialize_tracking(instance)
+        toast_info("Entered Pose Editor edit mode", duration=2.0)
 
 
 class CommitRBFSolverChanges(RBFEditorOperatorBase):
@@ -236,6 +268,10 @@ class CommitRBFSolverChanges(RBFEditorOperatorBase):
         writer = get_dna_writer(file_path=instance.body_dna_file_path)
         data = utilities.collection_to_list(instance.rbf_solver_list)
 
+        # Get the change count before clearing for the toast message
+        tracker = change_tracker.get_change_tracker(instance)
+        change_count = tracker.change_count if tracker else 0
+
         # destroy the reader and writer instances to release file locks and
         # any memory they are using
         instance.destroy()
@@ -249,9 +285,20 @@ class CommitRBFSolverChanges(RBFEditorOperatorBase):
         # turn off editing mode and re-enable auto evaluation
         instance.editing_rbf_solver = False
         instance.auto_evaluate_body = True
+
+        # Clear change tracking and toasts
+        change_tracker.clear_tracking(instance)
+        clear_toasts()
+
         # re-initialize and evaluate the body rig
         instance.evaluate(component="body")
         logger.info(f'DNA exported successfully to: "{instance.body_dna_file_path}"')
+
+        # Show success toast
+        toast_success(f"Committed {change_count} change(s) to DNA", duration=3.0)
+
+        # Unregister the draw handler after the final toast has been shown
+        bpy.app.timers.register(unregister_draw_handler, first_interval=3.0)
 
 
 class RBFPoseOperatorBase(RBFEditorOperatorBase):
@@ -410,11 +457,17 @@ class AddRBFPose(RBFPoseOperatorBase):
         # Get driven bones from our selection
         driven_bones = self._get_selected_driven_bones(bpy.context)  # pyright: ignore[reportArgumentType]
 
-        self.add_pose(
+        pose_name = self.new_pose_name if self.new_pose_name else f"Pose{new_pose_index}"
+        pose = self.add_pose(
             instance=instance,
-            pose_name=self.new_pose_name if self.new_pose_name else f"Pose{new_pose_index}",
+            pose_name=pose_name,
             driven_bones=driven_bones,
         )
+
+        if pose:
+            # Update change tracking and show toast
+            change_tracker.update_tracking(instance)
+            toast_success(f"Added pose '{pose_name}'", duration=2.5)
 
     def invoke(self, context: "Context", event: bpy.types.Event) -> set[str]:
         # Populate bone selections when the dialog is opened
@@ -511,7 +564,12 @@ class DuplicateRBFPose(RBFPoseOperatorBase):
         for existing_pose in solver.poses:
             if existing_pose.name.startswith(pose.name):
                 count_same_name += 1
-        new_pose_name = f"{pose.name}_{count_same_name}"
+
+        chunks = pose.name.split("_")
+        if len(chunks) > 2 and (chunks[-2].isdigit() and chunks[-1].isdigit()):
+            new_pose_name = "_".join(chunks[:-1]) + f"_{int(chunks[-1]) + 1}"
+        else:
+            new_pose_name = f"{pose.name}_{count_same_name}"
 
         # Copy the driven bone names from the original pose
         driven_bones = []
@@ -526,6 +584,10 @@ class DuplicateRBFPose(RBFPoseOperatorBase):
             driven_bones=driven_bones,
             from_pose=pose,
         )
+
+        # Update change tracking and show toast
+        change_tracker.update_tracking(instance)
+        toast_success(f"Duplicated pose '{pose.name}' to '{new_pose_name}'", duration=2.5)
 
 
 class ApplyRBFPoseEdits(RBFEditorOperatorBase):
@@ -564,11 +626,19 @@ class ApplyRBFPoseEdits(RBFEditorOperatorBase):
         if not pose:
             return
 
+        # Update the change tracker
+        tracker = change_tracker.get_change_tracker(instance)
+        change_count = tracker.change_count if tracker else 0
+
         # Update all the driver bone data for the pose
         for driver in pose.drivers:
             driver_bone = instance.body_rig.pose.bones.get(driver.name)
             if driver_bone:
-                core.set_driver_bone_data(instance=instance, pose=pose, driver=driver, pose_bone=driver_bone)
+                update_message = core.set_driver_bone_data(
+                    instance=instance, pose=pose, driver=driver, pose_bone=driver_bone
+                )
+                if update_message:
+                    toast_info(update_message, duration=2.5)
             else:
                 self.report(
                     {"ERROR"},
@@ -583,13 +653,24 @@ class ApplyRBFPoseEdits(RBFEditorOperatorBase):
         for driven in pose.driven:
             driven_pose_bone = instance.body_rig.pose.bones.get(driven.name)
             if driven_pose_bone:
-                core.set_driven_bone_data(instance=instance, pose=pose, driven=driven, pose_bone=driven_pose_bone)
+                update_message = core.set_driven_bone_data(
+                    instance=instance, pose=pose, driven=driven, pose_bone=driven_pose_bone
+                )
+                if update_message:
+                    toast_info(update_message, duration=2.5)
             else:
                 logger.warning(
                     f'Driven bone "{driven.name}" was not found in armature when '
                     f'updating RBF Pose "{pose.name}". It will be deleted from '
                     "the pose when this data is committed to the dna."
                 )
+
+        # Update the change tracker
+        current_tracker = change_tracker.update_tracking(instance)
+        current_change_count = current_tracker.change_count - change_count
+        if current_change_count > 0:
+            # Show toast notification
+            toast_success(f"Applied {current_change_count} edits to pose '{pose.name}'", duration=2.5)
 
 
 class RemoveRBFPose(RBFEditorOperatorBase):
@@ -610,9 +691,18 @@ class RemoveRBFPose(RBFEditorOperatorBase):
 
     def run(self, instance: "RigInstance"):
         solver = instance.rbf_solver_list[instance.rbf_solver_list_active_index]
+
+        # Get pose name before removal for toast
+        pose = solver.poses[solver.poses_active_index]
+        pose_name = pose.name
+
         solver.poses.remove(solver.poses_active_index)
         to_index = min(solver.poses_active_index, len(solver.poses) - 1)
         solver.poses_active_index = to_index
+
+        # Update change tracking and show toast
+        change_tracker.update_tracking(instance)
+        toast_warning(f"Removed pose '{pose_name}'", duration=2.5)
 
 
 class AddRBFDriven(RBFEditorOperatorBase):
@@ -640,6 +730,10 @@ class AddRBFDriven(RBFEditorOperatorBase):
         if not instance.body_initialized:
             instance.body_initialize(update_rbf_solver_list=False)
 
+        pose = core.get_active_pose(instance)
+        if not pose:
+            return False, "No active pose found in the solver."
+
         for pose_bone in context.selected_pose_bones:
             if pose_bone.name in instance.body_driver_bone_names:
                 return False, f'Bone "{pose_bone.name}" is a driver bone and cannot be added as a driven bone.'
@@ -649,6 +743,8 @@ class AddRBFDriven(RBFEditorOperatorBase):
                 return False, f'Bone "{pose_bone.name}" is a twist bone and cannot be added as a driven bone.'
             if pose_bone.id_data != instance.body_rig:
                 return False, f'Bone "{pose_bone.name}" does not belong to the body rig and cannot be added.'
+            if pose_bone.name in [d.name for d in pose.driven]:
+                return False, f'Bone "{pose_bone.name}" is already a driven bone in the "{pose.name}" pose.'
 
         return True, ""
 
@@ -665,7 +761,9 @@ class AddRBFDriven(RBFEditorOperatorBase):
             self.report({"ERROR"}, message)
             return
 
-        self.report({"INFO"}, message)
+        # Update change tracking and show toast
+        change_tracker.update_tracking(instance)
+        toast_success(message=message, duration=2.5)
 
 
 class RemoveRBFDriven(RBFEditorOperatorBase):
@@ -718,4 +816,6 @@ class RemoveRBFDriven(RBFEditorOperatorBase):
                 self.report({"ERROR"}, message)
                 return
 
-        self.report({"INFO"}, message)
+            # Update change tracking and show toast
+            change_tracker.update_tracking(instance)
+            toast_warning(message=f"Removed driven bone '{active_driven.name}'", duration=2.5)

@@ -22,7 +22,9 @@ def set_driven_bone_data(
     driven: "RBFDrivenData",
     pose_bone: bpy.types.PoseBone,
     new: bool = False,
-) -> None:
+) -> str:
+    updates = []
+    update_message = ""
     if pose_bone:
         if not instance.body_initialized:
             instance.body_initialize(update_rbf_solver_list=False)
@@ -83,21 +85,29 @@ def set_driven_bone_data(
         # only update if the delta is significant enough to avoid floating point value drift
         if rotation_delta.length > BONE_DELTA_THRESHOLD or new:
             driven.euler_rotation = rotation[:]
-            logger.info(
+            logger.debug(
                 f'Updated RBF pose "{pose.name}" driven bone "{driven.name}" rotation to {driven.euler_rotation[:]}',
             )
+            updates.append("rotation")
         if location_delta.length > BONE_DELTA_THRESHOLD or new:
             driven.location = location[:]
-            logger.info(
+            logger.debug(
                 f'Updated RBF pose "{pose.name}" driven bone "{driven.name}" location to {driven.location[:]}',
             )
+            updates.append("location")
 
         # only update if scale is not zero or equal to the scale factor, because only those are actual deltas
         if all(round(abs(i), 5) != 0.0 and pose.scale_factor != round(abs(i), 5) for i in scale_delta) or new:
             driven.scale = scale[:]
-            logger.info(
+            logger.debug(
                 f'Updated RBF pose "{pose.name}" driven bone "{driven.name}" scale to {driven.scale[:]}',
             )
+            updates.append("scale")
+
+    if updates:
+        _updated = ", ".join(updates)
+        update_message = f'Updated pose "{pose.name}" driven bone "{driven.name}" ({_updated})'
+    return update_message
 
 
 def set_driver_bone_data(
@@ -106,7 +116,9 @@ def set_driver_bone_data(
     driver: "RBFDriverData",
     pose_bone: bpy.types.PoseBone,
     new: bool = False,
-) -> None:
+) -> str:
+    update_message = ""
+
     if pose_bone:
         if not instance.body_initialized:
             instance.body_initialize(update_rbf_solver_list=False)
@@ -120,10 +132,11 @@ def set_driver_bone_data(
         if any(abs(i) > BONE_DELTA_THRESHOLD for i in delta) or new:
             driver.euler_rotation = pose_bone.rotation_quaternion.to_euler("XYZ")[:]
             driver.quaternion_rotation = pose_bone.rotation_quaternion[:]
-            logger.info(
+            logger.debug(
                 f'Updated RBF pose "{pose.name}" driver bone "{driver.name}" rotation '
                 f"to {driver.quaternion_rotation[:]}",
             )
+            update_message = f'Updated pose "{pose.name}" driver bone "{driver.name}" (rotation)'
 
         # Find the joint index for this bone
         for joint_index in range(instance.body_dna_reader.getJointCount()):
@@ -131,6 +144,8 @@ def set_driver_bone_data(
             if joint_name == pose_bone.name:
                 driver.joint_index = joint_index
                 break
+
+    return update_message
 
 
 def set_body_rbf_pose_name(self: "RBFPoseData", value: str):
@@ -453,7 +468,21 @@ def update_pose(instance: "RigInstance", _: "Context"):
                 )
 
 
-def diff_rbf_pose_data(instance: "RigInstance"):  # noqa: PLR0912
+def diff_rbf_pose_data(instance: "RigInstance") -> None:  # noqa: PLR0912
+    """
+    Compare current RBF pose data against the original DNA data and update edit flags.
+
+    This function performs two tasks:
+    1. Updates the location_edited, rotation_edited, scale_edited flags on each driven bone
+       for UI display purposes (showing which bones have been modified).
+    2. Updates the change tracker to maintain a complete record of all modifications
+       since entering edit mode.
+
+    Args:
+        instance: The active rig instance.
+    """
+    from . import change_tracker
+
     if not instance or not instance.body_rig:
         return
 
@@ -468,6 +497,7 @@ def diff_rbf_pose_data(instance: "RigInstance"):  # noqa: PLR0912
     if not instance.body_initialized:
         instance.body_initialize(update_rbf_solver_list=False)
 
+    # Update the driven bone edit flags by comparing to original DNA data
     for solver_data in meta_human_dna_core.get_rbf_solver_data(instance.body_dna_reader):
         for solver_field_name in solver_data.__annotations__:
             if solver_field_name == "poses":
@@ -500,6 +530,9 @@ def diff_rbf_pose_data(instance: "RigInstance"):  # noqa: PLR0912
                                         _driven.scale_edited = True
                                     else:
                                         _driven.scale_edited = False
+
+    # Update the global change tracker for the overlay display
+    change_tracker.update_tracking(instance)
 
 
 def validate_no_duplicate_driver_bone_values(instance: "RigInstance") -> tuple[bool, str]:

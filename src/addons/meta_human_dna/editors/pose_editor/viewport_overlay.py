@@ -7,7 +7,9 @@ from gpu_extras.batch import batch_for_shader
 
 # local imports
 from ...typing import *  # noqa: F403
+from ...ui.toast import get_toast_manager
 from ...utilities import get_active_rig_instance, get_addon_preferences
+from .change_tracker import get_change_tracker
 
 
 # Global storage for draw handler
@@ -91,7 +93,16 @@ def draw_pose_editor_overlay() -> None:
     This function is called by the draw handler and renders an overlay
     in the 3D viewport indicating that the Pose Editor is in edit mode.
     Positioned in the lower left corner of the viewport.
+    Also draws toast notifications regardless of edit mode state.
     """
+    # Get the current 3D viewport region first - needed for toasts
+    region = bpy.context.region
+    if region is None:
+        return
+
+    # Always draw toasts, regardless of pose editor state
+    _draw_toasts()
+
     if not bpy.context.preferences:
         return
 
@@ -108,11 +119,6 @@ def draw_pose_editor_overlay() -> None:
         return
 
     if not instance.editing_rbf_solver:
-        return
-
-    # Get the current 3D viewport region
-    region = bpy.context.region
-    if region is None:
         return
 
     # Get active solver info
@@ -134,6 +140,7 @@ def draw_pose_editor_overlay() -> None:
     font_id = 0
     title_size = 16.0
     info_size = 14.0
+    small_size = 12.0
     line_spacing = 3
 
     # Build the overlay text lines
@@ -151,6 +158,8 @@ def draw_pose_editor_overlay() -> None:
     _, _title_height = blf.dimensions(font_id, title_text)
     blf.size(font_id, info_size)
     _, info_height = blf.dimensions(font_id, solver_text)
+    blf.size(font_id, small_size)
+    _, small_height = blf.dimensions(font_id, "X")
 
     # Start from bottom and work up
     current_y = bottom_margin
@@ -191,7 +200,7 @@ def draw_pose_editor_overlay() -> None:
     )
     current_y += info_height + line_spacing
 
-    # Draw title (top-most)
+    # Draw title (top-most of main info)
     draw_text_2d(
         text=title_text,
         x=left_margin,
@@ -201,6 +210,101 @@ def draw_pose_editor_overlay() -> None:
         shadow=True,
         shadow_offset=(1, -1),
     )
+    current_y += info_height + line_spacing * 2
+
+    # Draw change summary if there are changes
+    tracker = get_change_tracker(instance)
+    if tracker and tracker.has_changes:
+        # Draw separator line
+        current_y += 5
+
+        # Draw changes header
+        change_count = tracker.change_count
+        changes_header = f"Pending Changes ({change_count}):"
+        draw_text_2d(
+            text=changes_header,
+            x=left_margin,
+            y=current_y,
+            size=info_size,
+            color=(0.9, 0.75, 0.3, 1.0),  # Gold/amber
+            shadow=True,
+            shadow_offset=(1, -1),
+        )
+        current_y += info_height + line_spacing
+
+        # Draw change summary lines
+        summary_lines = tracker.get_summary_lines(max_lines=4)
+        for line in summary_lines:
+            draw_text_2d(
+                text=f"  • {line}",
+                x=left_margin,
+                y=current_y,
+                size=small_size,
+                color=(0.75, 0.75, 0.75, 0.9),
+                shadow=True,
+                shadow_offset=(1, -1),
+            )
+            current_y += small_height + 2
+
+
+def _draw_toasts() -> None:
+    """
+    Draw toast notifications at the top-center of the viewport.
+
+    Toasts stack downward from the top.
+    """
+    toast_manager = get_toast_manager()
+    toasts = toast_manager.get_visible_toasts()
+
+    if not toasts:
+        return
+
+    # Get viewport region for centering
+    region = bpy.context.region
+    if region is None:
+        return
+
+    font_id = 0
+    toast_size = 14.0
+    toast_padding = 10
+    toast_spacing = 5
+    top_margin = 50
+
+    # Start from top and stack downward
+    current_y = region.height - top_margin
+
+    for toast in toasts:  # Oldest at top, newest below
+        blf.size(font_id, toast_size)
+        text_width, text_height = blf.dimensions(font_id, toast.message)
+
+        # Calculate background dimensions
+        bg_width = text_width + toast_padding * 2
+        bg_height = text_height + toast_padding * 2
+
+        # Center horizontally
+        bg_x = (region.width - bg_width) / 2
+        bg_y = current_y - bg_height
+
+        # Get color with opacity from toast
+        r, g, b, a = toast.color
+
+        # Draw background with toast color
+        bg_color = (r * 0.15, g * 0.15, b * 0.15, 0.9 * a)
+        draw_rounded_rect(bg_x, bg_y, bg_width, bg_height, bg_color)
+
+        # Draw text
+        draw_text_2d(
+            text=toast.message,
+            x=bg_x + toast_padding,
+            y=bg_y + toast_padding,
+            size=toast_size,
+            color=(r, g, b, a),
+            shadow=True,
+            shadow_color=(0.0, 0.0, 0.0, 0.6 * a),
+            shadow_offset=(1, -1),
+        )
+
+        current_y -= bg_height + toast_spacing
 
 
 def register_draw_handler() -> None:
@@ -232,13 +336,3 @@ def unregister_draw_handler() -> None:
     if _meta_human_dna_pose_editor_draw_handler is not None:
         bpy.types.SpaceView3D.draw_handler_remove(_meta_human_dna_pose_editor_draw_handler, "WINDOW")
         _meta_human_dna_pose_editor_draw_handler = None
-
-
-def register() -> None:
-    """Register the overlay module."""
-    register_draw_handler()
-
-
-def unregister() -> None:
-    """Unregister the overlay module."""
-    unregister_draw_handler()
