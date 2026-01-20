@@ -37,18 +37,30 @@ class MetaHumanDnaPreferences(MetahumanAddonProperties, bpy.types.AddonPreferenc
         row = layout.row()
         row.prop(self, "metrics_collection", text="Allow Metrics Collection")
         row = layout.row()
-        row.prop(self, "show_pose_editor_viewport_overlay", text="Show Pose Editor Viewport Overlay")
+
+        # Pose Editor Settings
+        layout.separator()
+        box = layout.box()
+        box.label(text="Pose Editor Settings:", icon="POSE_HLT")
+        row = box.row()
+        row.prop(self, "pose_editor_show_viewport_overlay", text="Show Pose Editor Viewport Overlay")
+        row = box.row()
+        row.prop(self, "pose_editor_solver_mirror_regex_pattern")
+        row = box.row()
+        row.prop(self, "pose_editor_pose_mirror_regex_pattern")
+        row = box.row()
+        row.prop(self, "pose_editor_bone_mirror_regex_pattern")
 
         # DNA Backup Settings
         layout.separator()
         box = layout.box()
         box.label(text="Backup Manager Settings:", icon="FILE_BACKUP")
         row = box.row()
-        row.prop(self, "enable_auto_dna_backups", text="Enable Auto DNA Backups")
-        row.enabled = self.enable_auto_dna_backups
-        row.prop(self, "max_dna_backups", text="Maximum Backups to Keep")
+        row.prop(self, "dna_backups_enable", text="Enable Auto DNA Backups")
+        row.enabled = self.dna_backups_enable
+        row.prop(self, "dna_backups_max", text="Maximum Backups to Keep")
         row = box.row()
-        row.prop(self, "dna_backup_folder_path", text="DNA Backup Folder")
+        row.prop(self, "dna_backups_folder_path", text="DNA Backup Folder")
 
         # Extra DNA Folder Paths
         layout.separator()

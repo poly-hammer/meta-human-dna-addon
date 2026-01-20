@@ -35,10 +35,10 @@ def test_body_pose_roundtrip(
     _, solver_index, pose_index = set_body_pose(solver_name=solver_name, pose_name=pose_name)
 
     # update the rbf pose with the unmodified data
-    bpy.ops.meta_human_dna.apply_rbf_pose_edits(solver_index=solver_index, pose_index=pose_index)
+    bpy.ops.meta_human_dna.apply_rbf_pose_edits()  # type: ignore
 
     # commit these changes to the dna
-    bpy.ops.meta_human_dna.commit_rbf_solver_changes()
+    bpy.ops.meta_human_dna.commit_rbf_solver_changes()  # type: ignore
 
     # reset the pose to the default position
     reset_pose(instance.body_rig)
@@ -115,12 +115,10 @@ def test_body_pose_update(
                 # update the location
                 pose_bone.location = change_location
                 # update the driven bone transform in the pose
-                bpy.ops.meta_human_dna.apply_rbf_pose_edits(
-                    solver_index=solver_index, pose_index=pose_index, driven_index=driven_index
-                )
+                bpy.ops.meta_human_dna.apply_rbf_pose_edits()  # type: ignore
 
     # commit these changes to the dna
-    bpy.ops.meta_human_dna.commit_rbf_solver_changes()
+    bpy.ops.meta_human_dna.commit_rbf_solver_changes()  # type: ignore
 
     # reset the pose to the default position
     reset_pose(instance.body_rig)
@@ -211,12 +209,10 @@ def test_body_pose_duplicate(
                 # update the location
                 pose_bone.location = change_location
                 # update the driven bone transform in the pose
-                bpy.ops.meta_human_dna.apply_rbf_pose_edits(
-                    solver_index=solver_index, pose_index=new_pose_index, driven_index=driven_index
-                )
+                bpy.ops.meta_human_dna.apply_rbf_pose_edits() # type: ignore
 
     # commit these changes to the dna
-    bpy.ops.meta_human_dna.commit_rbf_solver_changes()
+    bpy.ops.meta_human_dna.commit_rbf_solver_changes() # type: ignore
 
     # check that all expected driven bones are present in the duplicated pose
     new_pose, _, _ = set_body_pose(solver_name=solver_name, pose_name=pose_name)

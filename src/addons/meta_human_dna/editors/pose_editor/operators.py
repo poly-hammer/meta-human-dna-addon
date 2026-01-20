@@ -51,11 +51,6 @@ def set_new_pose_name(self: "AddRBFPose", value: str):
 
 
 class RBFEditorOperatorBase(bpy.types.Operator):
-    solver_index: bpy.props.IntProperty(default=0)  # pyright: ignore[reportInvalidTypeForm]
-    pose_index: bpy.props.IntProperty(default=0)  # pyright: ignore[reportInvalidTypeForm]
-    driver_index: bpy.props.IntProperty(default=0)  # pyright: ignore[reportInvalidTypeForm]
-    driven_index: bpy.props.IntProperty(default=0)  # pyright: ignore[reportInvalidTypeForm]
-
     def validate(self, context: "Context", instance: "RigInstance") -> tuple[bool, str]:
         return True, ""
 
@@ -112,13 +107,13 @@ class AddRBFSolver(RBFEditorOperatorBase):
             return
 
         # Get the driver quaternion from the pose bone
-        driver_quaternion = tuple(driver_bone.rotation_quaternion)
+        driver_quaternion = tuple(driver_bone.rotation_quaternion[:])
 
         # Delegate to core function
         success, message, _ = core.add_rbf_solver(
             instance=instance,
             driver_bone_name=driver_bone.name,
-            driver_quaternion=driver_quaternion,
+            driver_quaternion=driver_quaternion,  # pyright: ignore[reportArgumentType]
         )
 
         if not success:
@@ -167,7 +162,6 @@ class RevertRBFSolver(RBFEditorOperatorBase):
     bl_label = "Revert RBF Solver"
 
     def run(self, instance: "RigInstance"):
-        core.stop_listening_for_pose_edits()
         utilities.reset_pose(instance.body_rig)
         instance.editing_rbf_solver = False
         instance.auto_evaluate_body = True
@@ -193,7 +187,6 @@ class EditRBFSolver(RBFEditorOperatorBase):
         instance.auto_evaluate_body = False
         instance.body_rig.hide_set(False)
         utilities.switch_to_pose_mode(instance.body_rig)
-        core.start_listening_for_pose_edits()
 
 
 class CommitRBFSolverChanges(RBFEditorOperatorBase):
@@ -236,8 +229,6 @@ class CommitRBFSolverChanges(RBFEditorOperatorBase):
         from ..backup_manager.core import BackupType, create_backup
 
         create_backup(instance, BackupType.POSE_EDITOR)
-
-        core.stop_listening_for_pose_edits()
 
         from ...bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
 
@@ -290,7 +281,7 @@ class RBFPoseOperatorBase(RBFEditorOperatorBase):
         success, message, _ = core.add_rbf_pose(
             instance=instance,
             pose_name=pose_name,
-            solver_index=self.solver_index,
+            solver_index=instance.rbf_solver_list_active_index,
             driven_bones=driven_bones,
             from_pose=from_pose,
         )
@@ -300,7 +291,7 @@ class RBFPoseOperatorBase(RBFEditorOperatorBase):
             return None
 
         # Return the newly added pose
-        solver = instance.rbf_solver_list[self.solver_index]
+        solver = instance.rbf_solver_list[instance.rbf_solver_list_active_index]
         return solver.poses[solver.poses_active_index]
 
 
@@ -508,8 +499,12 @@ class DuplicateRBFPose(RBFPoseOperatorBase):
         return instance.editing_rbf_solver
 
     def run(self, instance: "RigInstance"):
-        solver = instance.rbf_solver_list[self.solver_index]
-        pose = solver.poses[self.pose_index]
+        solver = core.get_active_solver(instance)
+        if not solver:
+            return
+        pose = core.get_active_pose(instance)
+        if not pose:
+            return
 
         # Generate a unique name for the duplicated pose
         count_same_name = 1
@@ -543,13 +538,31 @@ class ApplyRBFPoseEdits(RBFEditorOperatorBase):
         "using the 'Commit' operator."
     )
 
+    @classmethod
+    def poll(cls, context: "Context") -> bool:  # noqa: ARG003
+        instance = utilities.get_active_rig_instance()
+        if not instance or not instance.body_rig:
+            return False
+        # Must be in edit mode for the solver
+        if not instance.editing_rbf_solver:
+            return False
+        # Must have at least one solver with poses
+        if len(instance.rbf_solver_list) == 0:
+            return False
+        solver = instance.rbf_solver_list[instance.rbf_solver_list_active_index]
+        return len(solver.poses) > 0
+
     def run(self, instance: "RigInstance"):
         # ensure the body is initialized
         if not instance.body_initialized:
             instance.body_initialize(update_rbf_solver_list=False)
 
-        solver = instance.rbf_solver_list[self.solver_index]
-        pose = solver.poses[self.pose_index]
+        solver = core.get_active_solver(instance)
+        if not solver:
+            return
+        pose = core.get_active_pose(instance)
+        if not pose:
+            return
 
         # Update all the driver bone data for the pose
         for driver in pose.drivers:

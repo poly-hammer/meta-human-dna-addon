@@ -80,9 +80,12 @@ if TYPE_CHECKING:
 
         bl_idname: str
         metrics_collection: bool
-        show_pose_editor_viewport_overlay: bool
-        enable_auto_dna_backups: bool
-        max_dna_backups: int
+        pose_editor_show_viewport_overlay: bool
+        pose_editor_solver_mirror_regex_pattern: str
+        pose_editor_pose_mirror_regex_pattern: str
+        pose_editor_bone_mirror_regex_pattern: str
+        dna_backups_enable: bool
+        dna_backups_max: int
         next_metrics_consent_timestamp: float
         extra_dna_folder_list: ExtraDnaFolders
         extra_dna_folder_list_active_index: int

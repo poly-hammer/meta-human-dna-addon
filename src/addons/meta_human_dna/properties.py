@@ -74,13 +74,29 @@ class MetahumanAddonProperties:
         description="This will send anonymous usage data to Poly Hammer to help improve the addon and help catch bugs",
     )  # pyright: ignore[reportInvalidTypeForm]
 
-    show_pose_editor_viewport_overlay: bpy.props.BoolProperty(
+    # ------- Pose Editor Properties -------
+
+    pose_editor_show_viewport_overlay: bpy.props.BoolProperty(
         name="Show Pose Editor Viewport Overlay",
         default=True,
         description="Display an overlay in the 3D viewport when the Pose Editor is in edit mode",
     )  # pyright: ignore[reportInvalidTypeForm]
 
-    enable_auto_dna_backups: bpy.props.BoolProperty(
+    pose_editor_solver_mirror_regex_pattern: bpy.props.StringProperty(
+        name="Solver Mirror Regex Pattern", default=r"(?P<prefix>.+)?(?P<side>_l_)(?P<suffix>.+)?"
+    )  # pyright: ignore[reportInvalidTypeForm]
+
+    pose_editor_pose_mirror_regex_pattern: bpy.props.StringProperty(
+        name="Pose Mirror Regex Pattern", default=r"(?P<prefix>.+)?(?P<side>_l_)(?P<suffix>.+)?"
+    )  # pyright: ignore[reportInvalidTypeForm]
+
+    pose_editor_bone_mirror_regex_pattern: bpy.props.StringProperty(
+        name="Bone Mirror Regex Pattern", default=r"(?P<prefix>.+)?(?P<side>_l)"
+    )  # pyright: ignore[reportInvalidTypeForm]
+
+    # ------- Backup Manager Properties -------
+
+    dna_backups_enable: bpy.props.BoolProperty(
         name="Enable Auto DNA Backups",
         default=True,
         description=(
@@ -89,7 +105,7 @@ class MetahumanAddonProperties:
         ),
     )  # pyright: ignore[reportInvalidTypeForm]
 
-    dna_backup_folder_path: bpy.props.StringProperty(
+    dna_backups_folder_path: bpy.props.StringProperty(
         default=str(DEFAULT_BACKUPS_FOLDER),
         description=(
             "The folder location of the DNA backup files. Modify this if you want to store backups in a custom "
@@ -101,12 +117,15 @@ class MetahumanAddonProperties:
         options={"PATH_SUPPORTS_BLEND_RELATIVE"},
     )  # pyright: ignore[reportInvalidTypeForm]
 
-    max_dna_backups: bpy.props.IntProperty(
+    dna_backups_max: bpy.props.IntProperty(
         name="Maximum Backups",
         default=5,
         min=1,
         max=50,
-        description="Maximum number of DNA backups to keep. Older backups will be automatically deleted",
+        description=(
+            "Maximum number of automatic DNA backups to keep. Older backups will be automatically deleted "
+            "(Manually created backups are not automatically deleted)"
+        ),
     )  # pyright: ignore[reportInvalidTypeForm]
 
     next_metrics_consent_timestamp: bpy.props.FloatProperty(default=0.0)  # pyright: ignore[reportInvalidTypeForm]

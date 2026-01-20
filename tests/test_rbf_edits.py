@@ -152,9 +152,7 @@ def test_rbf_pose_scale_factor_edit(
     pose.scale_factor = changed_scale_factor
 
     # Update and commit the pose changes
-    bpy.ops.meta_human_dna.apply_rbf_pose_edits(  # type: ignore
-        solver_index=solver_index, pose_index=pose_index
-    )
+    bpy.ops.meta_human_dna.apply_rbf_pose_edits()  # type: ignore
     bpy.ops.meta_human_dna.commit_rbf_solver_changes()  # type: ignore
 
     # Export the modified DNA to JSON for verification
@@ -289,9 +287,7 @@ def test_rbf_driven_bone_location_edit(
             pose_bone.location = location_delta
 
             # Update the driven bone transform in the pose
-            bpy.ops.meta_human_dna.apply_rbf_pose_edits(  # type: ignore
-                solver_index=solver_index, pose_index=pose_index, driven_index=driven_index
-            )
+            bpy.ops.meta_human_dna.apply_rbf_pose_edits()  # type: ignore
             break
 
     assert driven_found, f"Driven bone '{driven_bone_name}' not found in pose '{pose_name}'"
@@ -353,9 +349,7 @@ def test_rbf_pose_duplicate(
     assert pose is not None, f"Pose '{from_pose_name}' not found in solver '{solver_name}'"
 
     # Duplicate the pose
-    bpy.ops.meta_human_dna.duplicate_rbf_pose(  # type: ignore
-        solver_index=solver_index, pose_index=from_pose_index
-    )
+    bpy.ops.meta_human_dna.duplicate_rbf_pose()  # type: ignore
 
     # Get the new pose
     solver = instance.rbf_solver_list[solver_index]
@@ -377,9 +371,7 @@ def test_rbf_pose_duplicate(
             driver_bone.rotation_quaternion = new_quat
 
             # Update the driver data
-            bpy.ops.meta_human_dna.apply_rbf_pose_edits(  # type: ignore
-                solver_index=solver_index, pose_index=new_pose_index
-            )
+            bpy.ops.meta_human_dna.apply_rbf_pose_edits()  # type: ignore
 
     # Verify the duplicated pose has the expected number of driven bones
     assert (
@@ -457,9 +449,7 @@ def test_rbf_duplicated_pose_driven_edit(
     assert source_pose is not None, f"Pose '{from_pose_name}' not found in solver '{solver_name}'"
 
     # Duplicate the pose
-    bpy.ops.meta_human_dna.duplicate_rbf_pose(  # type: ignore
-        solver_index=solver_index, pose_index=source_pose_index
-    )
+    bpy.ops.meta_human_dna.duplicate_rbf_pose()  # type: ignore
 
     # Get the new pose
     solver = instance.rbf_solver_list[solver_index]
@@ -482,9 +472,7 @@ def test_rbf_duplicated_pose_driven_edit(
             driver_bone.rotation_quaternion = unique_driver_quat
 
             # Update the driver data
-            bpy.ops.meta_human_dna.apply_rbf_pose_edits(  # type: ignore
-                solver_index=solver_index, pose_index=new_pose_index
-            )
+            bpy.ops.meta_human_dna.apply_rbf_pose_edits()  # type: ignore
 
     # Reset the rig to rest position to get clean bone positions for driven bone edit
     reset_pose(instance.body_rig)
@@ -510,9 +498,7 @@ def test_rbf_duplicated_pose_driven_edit(
             pose_bone.location = location_delta
 
             # Update the driven bone transform in the pose
-            bpy.ops.meta_human_dna.apply_rbf_pose_edits(  # type: ignore
-                solver_index=solver_index, pose_index=new_pose_index, driven_index=driven_index
-            )
+            bpy.ops.meta_human_dna.apply_rbf_pose_edits()  # type: ignore
             break
 
     assert driven_found, f"Driven bone '{driven_bone_name}' not found in duplicated pose"
@@ -741,9 +727,7 @@ def test_validate_driver_bone_detects_duplicate_quaternions(fresh_rbf_test_scene
     assert pose is not None, f"Pose not found in solver '{solver_name}'"
 
     # Duplicate the pose
-    bpy.ops.meta_human_dna.duplicate_rbf_pose(  # type: ignore
-        solver_index=solver_index, pose_index=pose_index
-    )
+    bpy.ops.meta_human_dna.duplicate_rbf_pose()  # type: ignore
 
     # The duplicated pose has the same driver quaternion values as the original
     # Validation should fail

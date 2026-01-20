@@ -6,8 +6,8 @@ import gpu
 from gpu_extras.batch import batch_for_shader
 
 # local imports
-from ..typing import *  # noqa: F403
-from ..utilities import get_active_rig_instance, get_addon_preferences
+from ...typing import *  # noqa: F403
+from ...utilities import get_active_rig_instance, get_addon_preferences
 
 
 # Global storage for draw handler
@@ -100,7 +100,7 @@ def draw_pose_editor_overlay() -> None:
         return
 
     # Check if overlay is enabled in preferences
-    if not addon_preferences.show_pose_editor_viewport_overlay:
+    if not addon_preferences.pose_editor_show_viewport_overlay:
         return
 
     instance = get_active_rig_instance()

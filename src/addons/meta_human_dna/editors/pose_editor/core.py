@@ -10,52 +10,10 @@ from ... import utilities
 
 # local imports
 from ...constants import BONE_DELTA_THRESHOLD, IS_BLENDER_5, RBF_SOLVER_POSTFIX
-from ...rig_instance import start_listening, stop_listening
 from ...typing import *  # noqa: F403
 
 
 logger = logging.getLogger(__name__)
-
-
-def pose_editor_listener(scene: "Scene", dependency_graph: bpy.types.Depsgraph):
-    context: "Context" = bpy.context  # pyright: ignore[reportAssignmentType]  # noqa: UP037
-
-    # only evaluate if in pose mode
-    if context.mode == "POSE":
-        for update in dependency_graph.updates:
-            if not update.id:
-                continue
-
-            data_type = update.id.bl_rna.name  # type: ignore[attr-defined]
-            if data_type == "Armature" and update.is_updated_transform:
-                for instance in scene.meta_human_dna.rig_instance_list:
-                    armature_name = update.id.name
-                    active_pose_bone = context.active_pose_bone
-                    if active_pose_bone:
-                        update_driven_bone(instance=instance, pose_bone=active_pose_bone)
-
-                    # Check if the armature is the body rig
-                    if instance.body_rig.data.name == armature_name:
-                        return
-
-
-def start_listening_for_pose_edits():
-    # stop listening to other rig instance changes
-    stop_listening()
-
-    # stop_listening_for_pose_edits()  # noqa: ERA001
-    # logger.debug("Listening for Pose Edits...") # noqa: ERA001
-    # bpy.app.handlers.depsgraph_update_post.append(pose_editor_listener)  # type: ignore[call-arg] # noqa: ERA001
-
-
-def stop_listening_for_pose_edits():
-    for handler in bpy.app.handlers.depsgraph_update_post:
-        if handler.__name__ == pose_editor_listener.__name__:
-            bpy.app.handlers.depsgraph_update_post.remove(handler)
-
-    logger.debug("Stopped listening for Pose Edits.")
-    # start listening again to other rig instance changes
-    start_listening()
 
 
 def set_driven_bone_data(
