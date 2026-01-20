@@ -494,6 +494,19 @@ class DuplicateRBFPose(RBFPoseOperatorBase):
     bl_idname = "meta_human_dna.duplicate_rbf_pose"
     bl_label = "Duplicate RBF Pose"
 
+    @classmethod
+    def poll(cls, context: "Context") -> bool:  # noqa: ARG003
+        instance = utilities.get_active_rig_instance()
+        if not instance or not instance.body_rig:
+            return False
+
+        pose = core.get_active_pose(instance)
+        if not pose or pose.name == "default":
+            return False
+
+        # Must be in edit mode for the solver
+        return instance.editing_rbf_solver
+
     def run(self, instance: "RigInstance"):
         solver = instance.rbf_solver_list[self.solver_index]
         pose = solver.poses[self.pose_index]

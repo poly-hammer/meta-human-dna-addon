@@ -104,7 +104,7 @@ def get_active_material_preview(self: "RigInstance") -> int:
 
 
 def get_face_pose_previews_items(self: "RigInstance", context: "Context") -> Iterable[tuple[str, str, str, int, int]]:  # noqa: ARG001
-    from ..properties import preview_collections
+    from ..properties import face_pose_preview_collections
 
     enum_items = []
 
@@ -114,7 +114,7 @@ def get_face_pose_previews_items(self: "RigInstance", context: "Context") -> Ite
     directory = POSES_FOLDER / "face"
 
     # Get the preview collection.
-    preview_collection = preview_collections["face_poses"]
+    preview_collection = face_pose_preview_collections["face_poses"]
 
     # If the enum items have already been cached, return them so we don't have to regenerate them.
     if preview_collection.values():

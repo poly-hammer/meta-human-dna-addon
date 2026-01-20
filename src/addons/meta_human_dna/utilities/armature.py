@@ -33,21 +33,12 @@ logger = logging.getLogger(__name__)
 def get_bone_rest_transformations(
     bone: bpy.types.Bone, force_object_space: bool = False, rotation_mode: str = "XYZ"
 ) -> tuple[Vector, Euler, Vector, Matrix]:
-    try:
-        if force_object_space:
-            rest_to_parent_matrix = bone.matrix_local
-        elif bone.parent:
-            rest_to_parent_matrix = bone.parent.matrix_local.inverted() @ bone.matrix_local
-        else:
-            rest_to_parent_matrix = bone.matrix_local
-    except ValueError as error:
-        if bone.parent:
-            logger.error(
-                'Error getting bone rest transformation. Parent bone "%s" %s cannot be inverted.',
-                bone.parent.name,
-                bone.parent.matrix_local,
-            )
-        raise error
+    if force_object_space:
+        rest_to_parent_matrix = bone.matrix_local
+    elif bone.parent:
+        rest_to_parent_matrix = bone.parent.matrix_local.inverted_safe() @ bone.matrix_local
+    else:
+        rest_to_parent_matrix = bone.matrix_local
 
     bone_matrix_parent_space = rest_to_parent_matrix @ Matrix.Identity(4)
     # get respective transforms in parent space

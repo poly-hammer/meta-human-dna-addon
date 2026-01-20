@@ -1,7 +1,67 @@
+# standard library imports
+
+from collections.abc import Iterable
+
+# third party imports
 import bpy
 
+# local imports
 from ...typing import *  # noqa: F403
 from . import core
+from .constants import FUNCTION_TYPE_ICONS_FOLDER
+
+
+function_type_preview_collections = {}
+
+
+def get_function_type_items() -> Iterable[tuple[str, str, str, int]]:
+    enum_items = []
+
+    if bpy.context is None:
+        return enum_items
+
+    # add the pose previews collection if it doesn't already exist
+    if not function_type_preview_collections.get("function_types"):
+        function_type_previews_collection = bpy.utils.previews.new()
+        function_type_previews_collection.function_type_previews = ()  # type: ignore[attr-defined]
+        function_type_preview_collections["function_types"] = function_type_previews_collection
+
+    # Get the preview collection.
+    preview_collection = function_type_preview_collections["function_types"]
+
+    # If the enum items have already been cached, return them so we don't have to regenerate them.
+    if preview_collection.values():
+        return preview_collection.function_type_previews  # pyright: ignore[reportAttributeAccessIssue]
+
+    _basic_enum_items = [
+        ("Gaussian", "Gaussian", "Use the Gaussian method for the function type of the RBF solver"),
+        ("Exponential", "Exponential", "Use the Exponential method for the function type of the RBF solver"),
+        ("Linear", "Linear", "Use the Linear method for the function type of the RBF solver"),
+        ("Cubic", "Cubic", "Use the Cubic method for the function type of the RBF solver"),
+        ("Quintic", "Quintic", "Use the Quintic method for the function type of the RBF solver"),
+    ]
+
+    if FUNCTION_TYPE_ICONS_FOLDER.exists():
+        icon_lookup = {}
+
+        for file_path in FUNCTION_TYPE_ICONS_FOLDER.iterdir():
+            if file_path.suffix.lower() == ".png":
+                icon_lookup[file_path.stem.lower()] = file_path
+
+        for i, _enum_item in enumerate(_basic_enum_items):
+            name = _enum_item[0]
+            file_path = icon_lookup.get(name.lower())
+            # generates a thumbnail preview for a file.
+            icon = preview_collection.get(name)
+            if not icon:
+                thumb = preview_collection.load(name, str(file_path), "IMAGE")
+            else:
+                thumb = preview_collection[name]
+            enum_items.append((*_enum_item, thumb.icon_id, i))
+
+    # cache the enum item values for later retrieval
+    preview_collection.function_type_previews = enum_items  # pyright: ignore[reportAttributeAccessIssue]
+    return preview_collection.function_type_previews  # pyright: ignore[reportAttributeAccessIssue]
 
 
 class RBFDrivenBoneSelectionItem(bpy.types.PropertyGroup):
@@ -100,25 +160,52 @@ class RBFSolverData(bpy.types.PropertyGroup):
             ("Additive", "Additive", "Use the additive RBF solver mode"),
             ("Interpolative", "Interpolative", "Use the interpolative RBF solver mode"),
         ],
-        default="Additive",
+        default="Interpolative",
         description="The mode of the RBF solver",
     )  # pyright: ignore[reportInvalidTypeForm]
-    radius: bpy.props.FloatProperty(default=50.0, description="The radius of the RBF solver", min=0.0)  # pyright: ignore[reportInvalidTypeForm]
+    radius: bpy.props.FloatProperty(
+        default=50.0,
+        description=(
+            "The radius shows how close the driver transforms must be to the target pose in order for the "
+            "pose to be active."
+        ),
+        min=0.0,
+    )  # pyright: ignore[reportInvalidTypeForm]
     weight_threshold: bpy.props.FloatProperty(
-        default=0.001, description="The weight threshold of the RBF solver", min=0.0
+        name="Weight Threshold",
+        default=0.001,
+        description="The minimum normalized distance that is required for a pose to activate.",
+        min=0.0,
     )  # pyright: ignore[reportInvalidTypeForm]
     distance_method: bpy.props.EnumProperty(
+        name="Distance Method",
         items=[
-            # TODO: Should we support Euclidean?
-            # ('Euclidean', 'Euclidean', 'Use the Euclidean distance method for the RBF solver'),  # noqa: ERA001
-            ("Quaternion", "Quaternion", "Use the Quaternion distance method for the RBF solver"),
-            ("SwingAngle", "Swing Angle", "Use the Swing Angle distance method for the RBF solver"),
-            ("TwistAngle", "Twist Angle", "Use the Twist Angle distance method for the RBF solver"),
+            # TODO: Should we support Euclidean?Z
+            # ('Euclidean', 'Euclidean', 'Standard n-dimensional distance measure.'),  # noqa: ERA001
+            ("Quaternion", "Quaternion", "Treat inputs as quaternion"),
+            (
+                "SwingAngle",
+                "Swing Angle",
+                (
+                    "Treat inputs as quaternion, and find the distance between rotated TwistAxis "
+                    "directions. Only uses the rotation values from the y + z axis (whatever hasn't "
+                    "been set as the twist axis)."
+                ),
+            ),
+            (
+                "TwistAngle",
+                "Twist Angle",
+                (
+                    "Treat inputs as quaternion, and find the distance between rotations around "
+                    "the TwistAxis direction. Only uses the rotation of the axis defined by the twist axis."
+                ),
+            ),
         ],
-        default="TwistAngle",
+        default="SwingAngle",
         description="The distance method of the RBF solver",
     )  # pyright: ignore[reportInvalidTypeForm]
     normalize_method: bpy.props.EnumProperty(
+        name="Normalize Method",
         items=[
             (
                 "OnlyNormalizeAboveOne",
@@ -132,16 +219,18 @@ class RBFSolverData(bpy.types.PropertyGroup):
             ),
         ],
         default="AlwaysNormalize",
-        description="The normalization method of the RBF solver",
+        description=(
+            "As you rotate the driven transform around, the solver will calculate a weight to show how "
+            "much of the pose has been activated. This weight value is between 0 and 1. In some cases, "
+            "the sum of all of the weights of all of the poses can exceed one and in other scenarios be "
+            "less than one. This is where normalization comes into play.\nIt will always normalize above "
+            "one, regardless if no normalization is selected. It is recommended to always normalize. DNA "
+            "does not support no normalization and will generate an error if the solver is exported with "
+            "this setting."
+        ),
     )  # pyright: ignore[reportInvalidTypeForm]
     function_type: bpy.props.EnumProperty(
-        items=[
-            ("Gaussian", "Gaussian", "Use the Gaussian method for the function type of the RBF solver"),
-            ("Exponential", "Exponential", "Use the Exponential method for the function type of the RBF solver"),
-            ("Linear", "Linear", "Use the Linear method for the function type of the RBF solver"),
-            ("Cubic", "Cubic", "Use the Cubic method for the function type of the RBF solver"),
-            ("Quintic", "Quintic", "Use the Quintic method for the function type of the RBF solver"),
-        ],
+        items=get_function_type_items(),
         default="Gaussian",
         description="The function type of the RBF solver",
     )  # pyright: ignore[reportInvalidTypeForm]
@@ -152,13 +241,30 @@ class RBFSolverData(bpy.types.PropertyGroup):
             ("Z", "Z-Axis", "Use the Z axis for twisting"),
         ],
         default="X",
-        description="The axis around which to twists are calculated",
+        description="The axis used during SwingAngle or TwistAngle distance method calculations.",
     )  # pyright: ignore[reportInvalidTypeForm]
     automatic_radius: bpy.props.BoolProperty(
         default=False,
         name="Automatic Radius",
-        description="Whether to automatically calculate the radius for the RBF solver",
+        description=(
+            "Enabling automatic radius will calculate the average distance between the default pose and "
+            "each target pose. The min radius value and max radius value are debug values to show what "
+            "the solver is using to calculate the automatic radius value. The automatic radius value is "
+            "also a debug attribute showcasing the result. The min radius is calculated by taking the "
+            "absolute distance between the default pose and the closest pose. The max radius is the sum "
+            "of the absolute distance between the closest pose and the furthest pose."
+        ),
     )  # pyright: ignore[reportInvalidTypeForm]
 
     poses: bpy.props.CollectionProperty(type=RBFPoseData)  # pyright: ignore[reportInvalidTypeForm]
     poses_active_index: bpy.props.IntProperty(update=core.update_body_rbf_poses_active_index)  # pyright: ignore[reportArgumentType, reportInvalidTypeForm]
+
+
+def unregister():
+    """
+    Un-registers the addon's property group classes when the addon is disabled.
+    """
+    # remove the pose previews collections
+    for preview_collection in function_type_preview_collections.values():
+        bpy.utils.previews.remove(preview_collection)
+    function_type_preview_collections.clear()

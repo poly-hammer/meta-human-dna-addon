@@ -2223,3 +2223,195 @@ def test_new_solver_with_pose_and_driven_bones_commits_without_crash(
             break
 
     assert found_solver, f"Solver '{driver_bone_name}{RBF_SOLVER_POSTFIX}' not found after reloading DNA"
+
+
+def test_new_solver_driven_bone_transforms_persist_after_commit(
+    fresh_rbf_test_scene, temp_folder, dna_folder_name: str
+):
+    """
+    Regression test for driven bone transforms not being persisted after commit.
+
+    This test reproduces a bug where:
+    1. Remove all existing RBF solvers
+    2. Add a new solver
+    3. Add a pose with driven bones that have non-zero transforms
+    4. Commit changes to DNA
+    5. Reload the DNA
+    6. The driven bone transforms are NOT preserved (they appear as zeros)
+
+    This is related to the EXCEPTION_INT_DIVIDE_BY_ZERO crash fix, but specifically
+    tests that the transform data itself is correctly written to the DNA file.
+    """
+    import math
+
+    from meta_human_dna.constants import RBF_SOLVER_POSTFIX
+    from meta_human_dna.editors.pose_editor.core import (
+        add_rbf_pose,
+        add_rbf_solver,
+        remove_rbf_solver,
+    )
+
+    instance = get_active_rig_instance()
+    assert instance is not None, "No active rig instance found"
+    assert instance.body_rig is not None, "No body rig found on instance"
+
+    # Enable editing mode
+    instance.editing_rbf_solver = True
+
+    # Step 1: Remove all existing RBF solvers
+    while len(instance.rbf_solver_list) > 0:
+        success, message = remove_rbf_solver(instance, 0)
+        assert success is True, f"Failed to remove solver: {message}"
+
+    assert len(instance.rbf_solver_list) == 0, "All solvers should be removed"
+
+    # Step 2: Add a new solver for calf_l
+    driver_bone_name = "calf_l"
+    success, message, new_solver_index = add_rbf_solver(instance, driver_bone_name)
+    assert success is True, f"add_rbf_solver should succeed: {message}"
+
+    solver = instance.rbf_solver_list[new_solver_index]
+
+    # Step 3: Add a pose with driven bones that have NON-ZERO transforms
+    angle_rad = math.radians(90)
+    half_angle = angle_rad / 2
+    driver_quaternion = (
+        math.cos(half_angle),  # w
+        math.sin(half_angle),  # x
+        0.0,  # y
+        0.0,  # z
+    )
+
+    # Use significant transform values that we can verify after reload
+    # Test with 3 driven bones - include location, rotation, AND scale changes
+    expected_rotation_calf_kneeBack = 0.1  # ~5.7 degrees
+    expected_rotation_calf_knee = 0.05  # ~2.9 degrees
+    expected_rotation_calf_twist = 0.05  # ~2.9 degrees (around Z axis)
+
+    # Non-zero location offsets (in meters/Blender units)
+    expected_location_calf_kneeBack = [0.01, 0.02, 0.03]  # 1cm, 2cm, 3cm offset
+    expected_location_calf_knee = [0.005, 0.0, 0.0]  # 5mm X offset
+    expected_location_calf_twist = [0.0, 0.01, 0.0]  # 1cm Y offset
+
+    # Non-identity scale values
+    expected_scale_calf_kneeBack = [1.1, 1.0, 1.0]  # 10% scale on X
+    expected_scale_calf_knee = [1.0, 1.05, 1.0]  # 5% scale on Y
+    expected_scale_calf_twist = [1.0, 1.0, 0.95]  # -5% scale on Z
+
+    driven_bone_transforms = {
+        "calf_kneeBack_l": {
+            "location": expected_location_calf_kneeBack,
+            "rotation": [expected_rotation_calf_kneeBack, 0.0, 0.0],
+            "scale": expected_scale_calf_kneeBack,
+        },
+        "calf_knee_l": {
+            "location": expected_location_calf_knee,
+            "rotation": [expected_rotation_calf_knee, 0.0, 0.0],
+            "scale": expected_scale_calf_knee,
+        },
+        "calf_twistCor_02_l": {
+            "location": expected_location_calf_twist,
+            "rotation": [0.0, 0.0, expected_rotation_calf_twist],
+            "scale": expected_scale_calf_twist,
+        },
+    }
+
+    success, message, new_pose_index = add_rbf_pose(
+        instance=instance,
+        pose_name="calf_l_back_90",
+        driver_quaternion=driver_quaternion,
+        driven_bone_transforms=driven_bone_transforms,
+        solver_index=new_solver_index,
+    )
+    assert success is True, f"add_rbf_pose should succeed: {message}"
+
+    # Verify the pose has the correct transforms BEFORE commit
+    new_pose = None
+    for pose in solver.poses:
+        if pose.name == "calf_l_back_90":
+            new_pose = pose
+            break
+
+    assert new_pose is not None, "New pose should exist"
+    assert len(new_pose.driven) == 3, f"Pose should have 3 driven bones, got {len(new_pose.driven)}"
+
+    # Verify transforms BEFORE commit
+    driven_lookup_before = {d.name: d for d in new_pose.driven}
+    assert "calf_kneeBack_l" in driven_lookup_before, "calf_kneeBack_l should be in driven bones"
+    assert driven_lookup_before["calf_kneeBack_l"].euler_rotation[0] == pytest.approx(
+        expected_rotation_calf_kneeBack, abs=TOLERANCE
+    ), f"calf_kneeBack_l rotation X before commit mismatch"
+
+    # Step 4: Commit changes to DNA
+    result = bpy.ops.meta_human_dna.commit_rbf_solver_changes()  # type: ignore
+    assert result == {"FINISHED"}, f"CommitRBFSolverChanges should succeed, got {result}"
+
+    # Step 5: Reload the DNA
+    instance.destroy()
+    instance.body_initialize()
+
+    assert instance.body_initialized, "Instance should be initialized after reloading DNA"
+
+    # Step 6: Verify the driven bone transforms are preserved after reload
+    found_solver = None
+    for s in instance.rbf_solver_list:
+        if s.name == f"{driver_bone_name}{RBF_SOLVER_POSTFIX}":
+            found_solver = s
+            break
+
+    assert found_solver is not None, f"Solver not found after reload"
+
+    # Find the pose
+    found_pose = None
+    for pose in found_solver.poses:
+        if pose.name == "calf_l_back_90":
+            found_pose = pose
+            break
+
+    assert found_pose is not None, f"Pose 'calf_l_back_90' not found after reload"
+    assert len(found_pose.driven) == 3, f"Pose should have 3 driven bones after reload, got {len(found_pose.driven)}"
+
+    # Verify transforms AFTER reload
+    driven_lookup_after = {d.name: d for d in found_pose.driven}
+
+    # Check calf_kneeBack_l - rotation, location, and scale
+    assert "calf_kneeBack_l" in driven_lookup_after, "calf_kneeBack_l should be in driven bones after reload"
+    d = driven_lookup_after["calf_kneeBack_l"]
+    assert d.euler_rotation[0] == pytest.approx(expected_rotation_calf_kneeBack, abs=TOLERANCE), (
+        f"calf_kneeBack_l rotation X after reload should be {expected_rotation_calf_kneeBack}, got {d.euler_rotation[0]}"
+    )
+    for i, axis in enumerate(["X", "Y", "Z"]):
+        assert d.location[i] == pytest.approx(expected_location_calf_kneeBack[i], abs=TOLERANCE), (
+            f"calf_kneeBack_l location {axis} after reload should be {expected_location_calf_kneeBack[i]}, got {d.location[i]}"
+        )
+        assert d.scale[i] == pytest.approx(expected_scale_calf_kneeBack[i], abs=TOLERANCE), (
+            f"calf_kneeBack_l scale {axis} after reload should be {expected_scale_calf_kneeBack[i]}, got {d.scale[i]}"
+        )
+
+    # Check calf_knee_l - rotation, location, and scale
+    assert "calf_knee_l" in driven_lookup_after, "calf_knee_l should be in driven bones after reload"
+    d = driven_lookup_after["calf_knee_l"]
+    assert d.euler_rotation[0] == pytest.approx(expected_rotation_calf_knee, abs=TOLERANCE), (
+        f"calf_knee_l rotation X after reload should be {expected_rotation_calf_knee}, got {d.euler_rotation[0]}"
+    )
+    for i, axis in enumerate(["X", "Y", "Z"]):
+        assert d.location[i] == pytest.approx(expected_location_calf_knee[i], abs=TOLERANCE), (
+            f"calf_knee_l location {axis} after reload should be {expected_location_calf_knee[i]}, got {d.location[i]}"
+        )
+        assert d.scale[i] == pytest.approx(expected_scale_calf_knee[i], abs=TOLERANCE), (
+            f"calf_knee_l scale {axis} after reload should be {expected_scale_calf_knee[i]}, got {d.scale[i]}"
+        )
+
+    # Check calf_twistCor_02_l - rotation, location, and scale
+    assert "calf_twistCor_02_l" in driven_lookup_after, "calf_twistCor_02_l should be in driven bones after reload"
+    d = driven_lookup_after["calf_twistCor_02_l"]
+    assert d.euler_rotation[2] == pytest.approx(expected_rotation_calf_twist, abs=TOLERANCE), (
+        f"calf_twistCor_02_l rotation Z after reload should be {expected_rotation_calf_twist}, got {d.euler_rotation[2]}"
+    )
+    for i, axis in enumerate(["X", "Y", "Z"]):
+        assert d.location[i] == pytest.approx(expected_location_calf_twist[i], abs=TOLERANCE), (
+            f"calf_twistCor_02_l location {axis} after reload should be {expected_location_calf_twist[i]}, got {d.location[i]}"
+        )
+        assert d.scale[i] == pytest.approx(expected_scale_calf_twist[i], abs=TOLERANCE), (
+            f"calf_twistCor_02_l scale {axis} after reload should be {expected_scale_calf_twist[i]}, got {d.scale[i]}"
+        )

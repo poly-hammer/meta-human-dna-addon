@@ -17,7 +17,7 @@ from .ui import callbacks
 
 logger = logging.getLogger(__name__)
 
-preview_collections = {}
+face_pose_preview_collections = {}
 
 
 def get_dna_import_property_group_base_class() -> type:
@@ -261,8 +261,7 @@ class MetahumanSceneProperties(bpy.types.PropertyGroup):
 
 def register():
     """
-    Registers the property group class and adds it to the window manager context when the
-    addon is enabled.
+    Registers the addon's property group classes when the addon is enabled.
     """
     # register the list data classes first, since the scene property groups depends on them
     bpy.utils.register_class(OutputData)
@@ -322,18 +321,17 @@ def register():
     face_pose_previews_collection = bpy.utils.previews.new()
     face_pose_previews_collection.face_pose_previews_root_folder = ""  # type: ignore[attr-defined]
     face_pose_previews_collection.face_pose_previews = ()  # type: ignore[attr-defined]
-    preview_collections["face_poses"] = face_pose_previews_collection
+    face_pose_preview_collections["face_poses"] = face_pose_previews_collection
 
 
 def unregister():
     """
-    Un-registers the property group class and deletes it from the window manager context when the
-    addon is disabled.
+    Un-registers the addon's property group classes when the addon is disabled.
     """
     # remove the pose previews collections
-    for preview_collection in preview_collections.values():
+    for preview_collection in face_pose_preview_collections.values():
         bpy.utils.previews.remove(preview_collection)
-    preview_collections.clear()
+    face_pose_preview_collections.clear()
 
     window_manager_property_class = bpy.types.PropertyGroup.bl_rna_get_subclass_py(
         MetahumanWindowMangerProperties.__name__
@@ -365,6 +363,8 @@ def unregister():
         bpy.utils.unregister_class(pose_editor_properties.RBFDrivenData)
         bpy.utils.unregister_class(pose_editor_properties.RBFDriverData)
         bpy.utils.unregister_class(pose_editor_properties.RBFDrivenBoneSelectionItem)
+
+        pose_editor_properties.unregister()
 
         # ----------------- Backup Manager Properties -----------------
         if "dna_backup_list" in RigInstance.__annotations__:

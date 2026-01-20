@@ -262,6 +262,11 @@ class META_HUMAN_DNA_PT_pose_editor_solver_settings_sub_panel(RbfEditorSubPanelB
         if not active_rbf_solver:
             return
 
+        row = self.layout.row()
+        row.template_icon_view(active_rbf_solver, "function_type", show_labels=True, scale=15.0)
+        split = self.layout.split(factor=0.45)
+        split.label(text="Function Type:")
+        split.prop(active_rbf_solver, "function_type", text="")
         split = self.layout.split(factor=0.45)
         split.label(text="Mode:")
         split.prop(active_rbf_solver, "mode", text="")
@@ -272,12 +277,11 @@ class META_HUMAN_DNA_PT_pose_editor_solver_settings_sub_panel(RbfEditorSubPanelB
         split.label(text="Normalize Method:")
         split.prop(active_rbf_solver, "normalize_method", text="")
         split = self.layout.split(factor=0.45)
-        split.label(text="Function Type:")
-        split.prop(active_rbf_solver, "function_type", text="")
         split = self.layout.split(factor=0.45)
         split.label(text="Twist Axis:")
         split.prop(active_rbf_solver, "twist_axis", text="")
         row = self.layout.row()
+        row.enabled = not active_rbf_solver.automatic_radius
         row.prop(active_rbf_solver, "radius", text="Radius")
         row = self.layout.row()
         row.prop(active_rbf_solver, "weight_threshold", text="Weight Threshold")

@@ -876,11 +876,7 @@ class RigInstance(bpy.types.PropertyGroup):
                 else:
                     pose_bone.rotation_mode = "XYZ"
                 # save the rest pose and their parent space matrix so we don't have to calculate it again
-                try:
-                    rest_pose[pose_bone.name] = utilities.get_bone_rest_transformations(pose_bone.bone)
-                except ValueError as error:
-                    logger.error(f'Error getting rest pose for bone "{pose_bone.name}": {error}')
-                    return {}
+                rest_pose[pose_bone.name] = utilities.get_bone_rest_transformations(pose_bone.bone)
 
         # save the rest pose so we don't have to calculate it again
         self.data[f"{self.name}_head_rest_pose"] = rest_pose
@@ -938,13 +934,7 @@ class RigInstance(bpy.types.PropertyGroup):
                     pose_bone.rotation_mode = "XYZ"
 
                 # save the rest pose and their parent space matrix so we don't have to calculate it again
-                try:
-                    rest_pose[pose_bone.name] = utilities.get_bone_rest_transformations(
-                        pose_bone.bone, rotation_mode="XYZ"
-                    )
-                except ValueError as error:
-                    logger.error(f'Error getting rest pose for bone "{pose_bone.name}": {error}')
-                    return {}
+                rest_pose[pose_bone.name] = utilities.get_bone_rest_transformations(pose_bone.bone, rotation_mode="XYZ")
 
         # save the rest pose so we don't have to calculate it again
         self.data[f"{self.name}_body_rest_pose"] = rest_pose
