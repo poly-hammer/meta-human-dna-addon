@@ -1435,7 +1435,9 @@ def mirror_solver(  # noqa: PLR0912, PLR0915
         new_pose.solver_index = new_solver_index
         new_pose.pose_index = next_pose_index
         new_pose["name"] = mirrored_pose_name
-        new_pose.joint_group_index = source_pose.joint_group_index
+        # Set joint_group_index to -1 so commit will find/create an appropriate joint group
+        # for the mirrored bones (which are different from the source bones)
+        new_pose.joint_group_index = -1
         new_pose.target_enable = source_pose.target_enable
         new_pose.scale_factor = source_pose.scale_factor
         next_pose_index += 1
@@ -1469,7 +1471,8 @@ def mirror_solver(  # noqa: PLR0912, PLR0915
 
             new_driven = new_pose.driven.add()
             new_driven.pose_index = new_pose.pose_index
-            new_driven.joint_group_index = source_driven.joint_group_index
+            # Set joint_group_index to -1 since mirrored bones need a different joint group
+            new_driven.joint_group_index = -1
             new_driven.name = mirrored_driven_bone
             new_driven.data_type = source_driven.data_type
             new_driven.rotation_mode = source_driven.rotation_mode
@@ -1646,7 +1649,8 @@ def mirror_pose(  # noqa: PLR0915
     new_pose.solver_index = target_solver.solver_index
     new_pose.pose_index = new_pose_index
     new_pose["name"] = mirrored_pose_name
-    new_pose.joint_group_index = source_pose.joint_group_index
+    # Set joint_group_index to -1 since mirrored bones need a different joint group
+    new_pose.joint_group_index = -1
     new_pose.target_enable = source_pose.target_enable
     new_pose.scale_factor = source_pose.scale_factor
 
@@ -1677,7 +1681,8 @@ def mirror_pose(  # noqa: PLR0915
 
         new_driven = new_pose.driven.add()
         new_driven.pose_index = new_pose.pose_index
-        new_driven.joint_group_index = source_driven.joint_group_index
+        # Set joint_group_index to -1 since mirrored bones need a different joint group
+        new_driven.joint_group_index = -1
         new_driven.name = mirrored_driven_bone
         new_driven.data_type = source_driven.data_type
         new_driven.rotation_mode = source_driven.rotation_mode

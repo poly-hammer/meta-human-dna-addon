@@ -2401,6 +2401,155 @@ def test_new_solver_driven_bone_transforms_persist_after_commit(
         )
 
 
+def test_delete_solver_and_mirror_does_not_scramble_other_poses(fresh_rbf_test_scene, dna_folder_name: str):
+    """
+    Test that deleting a solver and mirroring another does not corrupt poses in unrelated solvers.
+
+    This is a regression test for a bug where:
+    1. Deleting a solver (e.g., calf_r_UERBFSolver)
+    2. Mirroring another solver (e.g., calf_l_UERBFSolver) to recreate it
+    3. Committing changes to DNA
+    Would cause poses in OTHER solvers (e.g., thigh_l_UERBFSolver) to have scrambled driven bone data.
+
+    The bug was caused by:
+    1. Mirrored poses copying the source pose's joint_group_index, but with different (mirrored) bone names
+    2. When has_stale_solvers triggered, joint groups were cleared but pose joint_group_index wasn't reset
+    3. This caused poses to be written to wrong joint groups with wrong bone transformations
+    """
+    from meta_human_dna.editors.pose_editor.core import mirror_solver, remove_rbf_solver
+
+    instance = get_active_rig_instance()
+    assert instance is not None, "No active rig instance found"
+    assert instance.body_rig is not None, "No body rig found on instance"
+
+    # Enter edit mode
+    instance.editing_rbf_solver = True
+    instance.auto_evaluate_body = False
+
+    # Capture thigh_l_UERBFSolver pose data BEFORE any changes
+    thigh_solver_name = "thigh_l_UERBFSolver"
+    thigh_pose_name = "thigh_l_bck_90"
+
+    thigh_solver = None
+    thigh_solver_index = -1
+    for i, solver in enumerate(instance.rbf_solver_list):
+        if solver.name == thigh_solver_name:
+            thigh_solver = solver
+            thigh_solver_index = i
+            break
+    assert thigh_solver is not None, f"Solver '{thigh_solver_name}' not found"
+
+    # Get original driven bone data for the thigh pose
+    thigh_pose = None
+    for pose in thigh_solver.poses:
+        if pose.name == thigh_pose_name:
+            thigh_pose = pose
+            break
+    assert thigh_pose is not None, f"Pose '{thigh_pose_name}' not found in solver '{thigh_solver_name}'"
+
+    # Capture original driven bone transforms for comparison later
+    original_driven_data = {}
+    for driven in thigh_pose.driven:
+        original_driven_data[driven.name] = {
+            "location": list(driven.location[:]),
+            "euler_rotation": list(driven.euler_rotation[:]),
+            "scale": list(driven.scale[:]),
+        }
+    assert len(original_driven_data) > 0, "Thigh pose should have driven bones"
+
+    # Step 1: Delete calf_r_UERBFSolver
+    calf_r_solver_index = -1
+    for i, solver in enumerate(instance.rbf_solver_list):
+        if solver.name == "calf_r_UERBFSolver":
+            calf_r_solver_index = i
+            break
+    assert calf_r_solver_index >= 0, "calf_r_UERBFSolver not found"
+
+    success, message = remove_rbf_solver(instance, solver_index=calf_r_solver_index)
+    assert success, f"Failed to remove calf_r_UERBFSolver: {message}"
+
+    # Step 2: Mirror calf_l_UERBFSolver to recreate calf_r_UERBFSolver
+    calf_l_solver_index = -1
+    for i, solver in enumerate(instance.rbf_solver_list):
+        if solver.name == "calf_l_UERBFSolver":
+            calf_l_solver_index = i
+            break
+    assert calf_l_solver_index >= 0, "calf_l_UERBFSolver not found"
+
+    instance.rbf_solver_list_active_index = calf_l_solver_index
+
+    solver_regex = r"(?P<prefix>.+)?(?P<side>_[lr]_)(?P<suffix>.+)?"
+    bone_regex = r"(?P<prefix>.+)?(?P<side>_[lr])"
+    pose_regex = r"(?P<prefix>.+)?(?P<side>_[lr]_)(?P<suffix>.+)?"
+
+    success, message, mirrored_solver_index = mirror_solver(
+        instance=instance,
+        solver_regex=solver_regex,
+        bone_regex=bone_regex,
+        pose_regex=pose_regex,
+        mirror_axis="x",
+    )
+    assert success, f"Failed to mirror calf_l_UERBFSolver: {message}"
+
+    # Verify calf_r_UERBFSolver was recreated
+    calf_r_recreated = False
+    for solver in instance.rbf_solver_list:
+        if solver.name == "calf_r_UERBFSolver":
+            calf_r_recreated = True
+            break
+    assert calf_r_recreated, "calf_r_UERBFSolver should have been recreated by mirroring"
+
+    # Step 3: Commit the changes to DNA
+    result = bpy.ops.meta_human_dna.commit_rbf_solver_changes()  # type: ignore
+    assert result == {"FINISHED"}, f"CommitRBFSolverChanges operator failed: {result}"
+
+    # Step 4: Verify thigh_l_UERBFSolver poses are NOT scrambled
+    # Re-get the thigh solver after reload (instance was destroyed and reinitialized by commit)
+    instance = get_active_rig_instance()
+    assert instance is not None, "No active rig instance found after commit"
+
+    thigh_solver = None
+    for solver in instance.rbf_solver_list:
+        if solver.name == thigh_solver_name:
+            thigh_solver = solver
+            break
+    assert thigh_solver is not None, f"Solver '{thigh_solver_name}' not found after commit"
+
+    thigh_pose = None
+    for pose in thigh_solver.poses:
+        if pose.name == thigh_pose_name:
+            thigh_pose = pose
+            break
+    assert thigh_pose is not None, f"Pose '{thigh_pose_name}' not found after commit"
+
+    # Verify the driven bones are the same as before
+    current_driven_names = {d.name for d in thigh_pose.driven}
+    original_driven_names = set(original_driven_data.keys())
+
+    # The driven bone names should match
+    assert current_driven_names == original_driven_names, (
+        f"Driven bone names changed! Original: {original_driven_names}, Current: {current_driven_names}"
+    )
+
+    # Verify the transform values haven't been scrambled
+    for driven in thigh_pose.driven:
+        if driven.name not in original_driven_data:
+            continue
+        original = original_driven_data[driven.name]
+
+        # Check that transforms are approximately the same (allowing for floating point tolerance)
+        for i, axis in enumerate(["X", "Y", "Z"]):
+            assert driven.location[i] == pytest.approx(original["location"][i], abs=TOLERANCE), (
+                f"'{driven.name}' location {axis} changed from {original['location'][i]} to {driven.location[i]}"
+            )
+            assert driven.euler_rotation[i] == pytest.approx(original["euler_rotation"][i], abs=TOLERANCE), (
+                f"'{driven.name}' rotation {axis} changed from {original['euler_rotation'][i]} to {driven.euler_rotation[i]}"
+            )
+            assert driven.scale[i] == pytest.approx(original["scale"][i], abs=TOLERANCE), (
+                f"'{driven.name}' scale {axis} changed from {original['scale'][i]} to {driven.scale[i]}"
+            )
+
+
 # =============================================================================
 # Mirroring Tests
 # =============================================================================
