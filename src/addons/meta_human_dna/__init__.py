@@ -47,6 +47,8 @@ pose_editor_operator_classes = [
     pose_editor_operators.ApplyRBFPoseEdits,
     pose_editor_operators.AddRBFDriven,
     pose_editor_operators.RemoveRBFDriven,
+    pose_editor_operators.MirrorRBFSolver,
+    pose_editor_operators.MirrorRBFPose,
 ]
 pose_editor_ui_classes = [
     pose_editor_ui.META_HUMAN_DNA_PT_pose_editor,

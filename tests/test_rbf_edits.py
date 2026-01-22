@@ -2399,3 +2399,204 @@ def test_new_solver_driven_bone_transforms_persist_after_commit(
         assert d.scale[i] == pytest.approx(expected_scale_calf_twist[i], abs=TOLERANCE), (
             f"calf_twistCor_02_l scale {axis} after reload should be {expected_scale_calf_twist[i]}, got {d.scale[i]}"
         )
+
+
+# =============================================================================
+# Mirroring Tests
+# =============================================================================
+
+
+@pytest.mark.parametrize(
+    ("input_name", "pattern", "expected"),
+    [
+        # Left to right with _l suffix
+        ("calf_l", r"(?P<prefix>.+)?(?P<side>_l)", "calf_r"),
+        # Right to left with _r suffix
+        ("calf_r", r"(?P<prefix>.+)?(?P<side>_r)", "calf_l"),
+        # Left to right with _l_ infix
+        ("calf_l_back_90", r"(?P<prefix>.+)?(?P<side>_l_)(?P<suffix>.+)?", "calf_r_back_90"),
+        # Right to left with _r_ infix
+        ("calf_r_back_90", r"(?P<prefix>.+)?(?P<side>_r_)(?P<suffix>.+)?", "calf_l_back_90"),
+        # No match returns None
+        ("root", r"(?P<prefix>.+)?(?P<side>_l_)(?P<suffix>.+)?", None),
+    ],
+)
+def test_get_mirrored_name(input_name: str, pattern: str, expected: str | None):
+    """Test that get_mirrored_name correctly mirrors names based on patterns."""
+    from meta_human_dna.editors.pose_editor.core import get_mirrored_name
+
+    result = get_mirrored_name(input_name, pattern)
+    assert result == expected, f"Expected '{expected}', got '{result}'"
+
+
+@pytest.mark.parametrize(
+    ("input_name", "pattern", "expected"),
+    [
+        # Valid name with _l_ infix
+        ("calf_l_back_90", r"(?P<prefix>.+)?(?P<side>_[lr]_)(?P<suffix>.+)?", True),
+        # Valid name with _r_ infix
+        ("calf_r_back_90", r"(?P<prefix>.+)?(?P<side>_[lr]_)(?P<suffix>.+)?", True),
+        # Invalid name (no side marker)
+        ("root", r"(?P<prefix>.+)?(?P<side>_[lr]_)(?P<suffix>.+)?", False),
+    ],
+)
+def test_can_mirror_name(input_name: str, pattern: str, expected: bool):
+    """Test that can_mirror_name correctly identifies mirrorable names."""
+    from meta_human_dna.editors.pose_editor.core import can_mirror_name
+
+    result = can_mirror_name(input_name, pattern)
+    assert result == expected, f"Expected {expected}, got {result}"
+
+
+@pytest.mark.parametrize(
+    (
+        "source_solver_name",
+        "expected_mirrored_solver_name",
+    ),
+    [
+        ("calf_l_UERBFSolver", "calf_r_UERBFSolver"),
+        ("thigh_l_UERBFSolver", "thigh_r_UERBFSolver"),
+    ],
+)
+def test_mirror_solver_name_generation(
+    source_solver_name: str,
+    expected_mirrored_solver_name: str,
+):
+    """
+    Test that solver names are correctly mirrored using the regex patterns.
+    """
+    from meta_human_dna.editors.pose_editor.core import get_mirrored_name
+
+    # Use the default solver mirror regex pattern (matches both _l_ and _r_)
+    solver_regex = r"(?P<prefix>.+)?(?P<side>_[lr]_)(?P<suffix>.+)?"
+    result = get_mirrored_name(source_solver_name, solver_regex)
+    assert result == expected_mirrored_solver_name, (
+        f"Expected '{expected_mirrored_solver_name}', got '{result}'"
+    )
+
+
+@pytest.mark.parametrize(
+    (
+        "source_bone_name",
+        "expected_mirrored_bone_name",
+    ),
+    [
+        ("calf_l", "calf_r"),
+        ("thigh_l", "thigh_r"),
+        ("calf_knee_l", "calf_knee_r"),
+        ("calf_twistCor_02_l", "calf_twistCor_02_r"),
+    ],
+)
+def test_mirror_bone_name_generation(
+    source_bone_name: str,
+    expected_mirrored_bone_name: str,
+):
+    """
+    Test that bone names are correctly mirrored using the regex patterns.
+    """
+    from meta_human_dna.editors.pose_editor.core import get_mirrored_name
+
+    # Use the default bone mirror regex pattern (matches both _l and _r)
+    bone_regex = r"(?P<prefix>.+)?(?P<side>_[lr])"
+    result = get_mirrored_name(source_bone_name, bone_regex)
+    assert result == expected_mirrored_bone_name, (
+        f"Expected '{expected_mirrored_bone_name}', got '{result}'"
+    )
+
+
+@pytest.mark.parametrize(
+    (
+        "source_pose_name",
+        "expected_mirrored_pose_name",
+    ),
+    [
+        ("calf_l_back_90", "calf_r_back_90"),
+        ("thigh_l_in_45_out_90", "thigh_r_in_45_out_90"),
+    ],
+)
+def test_mirror_pose_name_generation(
+    source_pose_name: str,
+    expected_mirrored_pose_name: str,
+):
+    """
+    Test that pose names are correctly mirrored using the regex patterns.
+    """
+    from meta_human_dna.editors.pose_editor.core import get_mirrored_name
+
+    # Use the default pose mirror regex pattern (matches both _l_ and _r_)
+    pose_regex = r"(?P<prefix>.+)?(?P<side>_[lr]_)(?P<suffix>.+)?"
+    result = get_mirrored_name(source_pose_name, pose_regex)
+    assert result == expected_mirrored_pose_name, (
+        f"Expected '{expected_mirrored_pose_name}', got '{result}'"
+    )
+
+
+def test_validate_mirror_solver_target_exists(fresh_rbf_test_scene):
+    """
+    Test that validate_mirror_solver returns an error when the target solver already exists.
+    """
+    from meta_human_dna.editors.pose_editor.core import validate_mirror_solver
+
+    instance = get_active_rig_instance()
+    assert instance is not None, "No active rig instance found"
+
+    # Enter edit mode
+    instance.editing_rbf_solver = True
+    instance.auto_evaluate_body = False
+
+    # Set calf_l_UERBFSolver as active - it has a mirrored counterpart calf_r_UERBFSolver
+    for solver_index, solver in enumerate(instance.rbf_solver_list):
+        if solver.name == "calf_l_UERBFSolver":
+            instance.rbf_solver_list_active_index = solver_index
+            break
+
+    solver_regex = r"(?P<prefix>.+)?(?P<side>_[lr]_)(?P<suffix>.+)?"
+    bone_regex = r"(?P<prefix>.+)?(?P<side>_[lr])"
+
+    is_valid, error_message = validate_mirror_solver(instance, solver_regex, bone_regex)
+
+    # Should fail because calf_r_UERBFSolver already exists
+    assert is_valid is False, f"Expected validation to fail, but it passed"
+    assert "already exists" in error_message.lower(), f"Expected 'already exists' in error message, got: {error_message}"
+
+
+def test_validate_mirror_pose_no_target_solver(fresh_rbf_test_scene):
+    """
+    Test that validate_mirror_pose returns an error when the target solver doesn't exist.
+    """
+    from meta_human_dna.editors.pose_editor.core import validate_mirror_pose, add_rbf_solver
+
+    instance = get_active_rig_instance()
+    assert instance is not None, "No active rig instance found"
+
+    # Enter edit mode
+    instance.editing_rbf_solver = True
+    instance.auto_evaluate_body = False
+
+    # Create a new solver that doesn't have a mirrored counterpart
+    # First find a bone that doesn't have a solver yet
+    success, message, solver_index = add_rbf_solver(
+        instance=instance,
+        driver_bone_name="pelvis",  # pelvis doesn't have a mirrored counterpart
+        driver_quaternion=(1.0, 0.0, 0.0, 0.0),
+    )
+
+    if not success:
+        # Pelvis solver may already exist, skip this test
+        pytest.skip("Could not create test solver")
+
+    # Add a non-default pose to the solver
+    solver = instance.rbf_solver_list[solver_index]
+    pose = solver.poses.add()
+    pose.solver_index = solver.solver_index
+    pose.pose_index = 9999
+    pose["name"] = "test_pose"
+    solver.poses_active_index = len(solver.poses) - 1
+
+    solver_regex = r"(?P<prefix>.+)?(?P<side>_[lr]_)(?P<suffix>.+)?"
+    pose_regex = r"(?P<prefix>.+)?(?P<side>_[lr]_)(?P<suffix>.+)?"
+
+    is_valid, error_message = validate_mirror_pose(instance, solver_regex, pose_regex)
+
+    # Should fail because pelvis doesn't match the mirror pattern
+    assert is_valid is False, f"Expected validation to fail, but it passed"

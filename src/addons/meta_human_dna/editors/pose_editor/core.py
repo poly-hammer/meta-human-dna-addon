@@ -1,5 +1,6 @@
 # standard library imports
 import logging
+import re
 
 # third party imports
 import bpy
@@ -14,6 +15,19 @@ from ...typing import *  # noqa: F403
 
 
 logger = logging.getLogger(__name__)
+
+
+def find_joint_index(instance: "RigInstance", bone_name: str) -> int | None:
+    if not instance.body_initialized:
+        instance.body_initialize(update_rbf_solver_list=False)
+
+    # Find joint index
+    if instance.body_dna_reader:
+        for joint_index in range(instance.body_dna_reader.getJointCount()):
+            joint_name = instance.body_dna_reader.getJointName(joint_index)
+            if joint_name == bone_name:
+                return joint_index
+    return None
 
 
 def set_driven_bone_data(
@@ -37,11 +51,9 @@ def set_driven_bone_data(
         driven.pose_index = pose.pose_index
         driven.data_type = "BONE"
         # Find the joint index for this bone
-        for joint_index in range(instance.body_dna_reader.getJointCount()):
-            joint_name = instance.body_dna_reader.getJointName(joint_index)
-            if joint_name == pose_bone.name:
-                driven.joint_index = joint_index
-                break
+        joint_index = find_joint_index(instance, pose_bone.name)
+        if joint_index is not None:
+            driven.joint_index = joint_index
 
         # Get the rest pose for this bone
         rest_location, _rest_rotation, rest_scale, rest_to_parent_matrix = instance.body_rest_pose[pose_bone.name]
@@ -139,11 +151,9 @@ def set_driver_bone_data(
             update_message = f'Updated pose "{pose.name}" driver bone "{driver.name}" (rotation)'
 
         # Find the joint index for this bone
-        for joint_index in range(instance.body_dna_reader.getJointCount()):
-            joint_name = instance.body_dna_reader.getJointName(joint_index)
-            if joint_name == pose_bone.name:
-                driver.joint_index = joint_index
-                break
+        joint_index = find_joint_index(instance, pose_bone.name)
+        if joint_index is not None:
+            driver.joint_index = joint_index
 
     return update_message
 
@@ -1219,3 +1229,480 @@ def add_rbf_pose(  # noqa: PLR0912, PLR0915
 
     logger.info(f'Created new RBF pose "{pose_name}" with {len(driven_list)} driven bones.')
     return True, f'Created new RBF pose "{pose_name}".', new_pose_index
+
+
+# =============================================================================
+# Mirroring Utility Functions
+# =============================================================================
+
+
+def get_mirror_side_replacement(source_side: str) -> str:
+    """
+    Get the replacement string for the opposite side.
+
+    Args:
+        source_side: The matched side string (e.g., "_l_", "_r_", "_l", "_r")
+
+    Returns:
+        The opposite side string with matching format.
+    """
+    if "_l_" in source_side:
+        return source_side.replace("_l_", "_r_")
+    if "_r_" in source_side:
+        return source_side.replace("_r_", "_l_")
+    if source_side.endswith("_l"):
+        return source_side[:-2] + "_r"
+    if source_side.endswith("_r"):
+        return source_side[:-2] + "_l"
+    return source_side
+
+
+def get_mirrored_name(name: str, regex_pattern: str) -> str | None:
+    try:
+        match = re.match(regex_pattern, name)
+        if not match:
+            return None
+
+        groups = match.groupdict()
+        if "side" not in groups or groups["side"] is None:
+            return None
+
+        source_side = groups["side"]
+        target_side = get_mirror_side_replacement(source_side)
+
+        if source_side == target_side:
+            return None  # No valid mirror side found
+
+        # Reconstruct the name with the mirrored side
+        return name.replace(source_side, target_side)
+    except re.error:
+        logger.warning(f"Invalid regex pattern: {regex_pattern}")
+        return None
+
+
+def can_mirror_name(name: str, regex_pattern: str) -> bool:
+    return get_mirrored_name(name, regex_pattern) is not None
+
+
+def mirror_driven_bone_transform(
+    location: Vector,
+    euler_rotation: Euler,
+    scale: Vector,
+    mirror_axis: str = "x",  # noqa: ARG001
+) -> tuple[Vector, Euler, Vector]:
+    return (location * -1, euler_rotation, scale)
+
+
+# =============================================================================
+# Solver Mirroring Functions
+# =============================================================================
+
+
+def validate_mirror_solver(
+    instance: "RigInstance",
+    solver_regex: str,
+    bone_regex: str,
+) -> tuple[bool, str]:
+    """
+    Validate that the active solver can be mirrored.
+
+    Args:
+        instance: The active rig instance.
+        solver_regex: Regex pattern for matching solver names.
+        bone_regex: Regex pattern for matching bone names.
+
+    Returns:
+        A tuple of (is_valid, error_message).
+    """
+    if not instance:
+        return False, "No active rig instance found."
+
+    if not instance.body_rig:
+        return False, "No body rig found on instance."
+
+    solver = get_active_solver(instance)
+    if not solver:
+        return False, "No active RBF solver found."
+
+    # Check if the solver name can be mirrored
+    mirrored_solver_name = get_mirrored_name(solver.name, solver_regex)
+    if not mirrored_solver_name:
+        return False, f'Solver "{solver.name}" does not match the mirror pattern and cannot be mirrored.'
+
+    # Check that the target solver doesn't already exist
+    for existing_solver in instance.rbf_solver_list:
+        if existing_solver.name == mirrored_solver_name:
+            return (
+                False,
+                f'Target solver "{mirrored_solver_name}" already exists. '
+                "Delete it first or mirror individual poses instead.",
+            )
+
+    # Validate that the driver bone can be mirrored
+    driver_bone_name = solver.name.replace(RBF_SOLVER_POSTFIX, "")
+    mirrored_driver_name = get_mirrored_name(driver_bone_name, bone_regex)
+    if not mirrored_driver_name:
+        return False, f'Driver bone "{driver_bone_name}" does not match the bone mirror pattern.'
+
+    # Check that the mirrored driver bone exists
+    if mirrored_driver_name not in instance.body_rig.pose.bones:
+        return False, f'Mirrored driver bone "{mirrored_driver_name}" does not exist in the body rig.'
+
+    return True, ""
+
+
+def mirror_solver(  # noqa: PLR0912, PLR0915
+    instance: "RigInstance",
+    solver_regex: str,
+    bone_regex: str,
+    pose_regex: str,
+    mirror_axis: str = "x",
+) -> tuple[bool, str, int]:
+    """
+    Mirror the active RBF solver to the opposite side.
+
+    This creates a new solver with mirrored driver/driven bone names and
+    mirrored transform values for all poses.
+
+    Args:
+        instance: The active rig instance.
+        solver_regex: Regex pattern for matching solver names.
+        bone_regex: Regex pattern for matching bone names.
+        pose_regex: Regex pattern for matching pose names.
+        mirror_axis: The axis to mirror transforms across.
+
+    Returns:
+        A tuple of (success, message, new_solver_index).
+    """
+    # Validate first
+    is_valid, error_message = validate_mirror_solver(instance, solver_regex, bone_regex)
+    if not is_valid:
+        return False, error_message, -1
+
+    source_solver = get_active_solver(instance)
+    if not source_solver:
+        return False, "No active solver found.", -1
+
+    # Get mirrored names
+    mirrored_solver_name = get_mirrored_name(source_solver.name, solver_regex)
+    if not mirrored_solver_name:
+        return False, "Could not generate mirrored solver name.", -1
+
+    driver_bone_name = source_solver.name.replace(RBF_SOLVER_POSTFIX, "")
+    mirrored_driver_name = get_mirrored_name(driver_bone_name, bone_regex)
+    if not mirrored_driver_name:
+        return False, "Could not generate mirrored driver bone name.", -1
+
+    # Calculate the next solver index
+    max_existing_solver_index = -1
+    for s in instance.rbf_solver_list:
+        max_existing_solver_index = max(max_existing_solver_index, s.solver_index)
+    new_solver_index = max_existing_solver_index + 1
+
+    # Create the new solver
+    new_solver = instance.rbf_solver_list.add()
+    new_solver.solver_index = new_solver_index
+    new_solver.name = mirrored_solver_name
+    new_solver.mode = source_solver.mode
+    new_solver.radius = source_solver.radius
+    new_solver.weight_threshold = source_solver.weight_threshold
+    new_solver.distance_method = source_solver.distance_method
+    new_solver.normalize_method = source_solver.normalize_method
+    new_solver.function_type = source_solver.function_type
+    new_solver.twist_axis = source_solver.twist_axis
+    new_solver.automatic_radius = source_solver.automatic_radius
+
+    # Track pose indices
+    max_existing_pose_index = -1
+    for s in instance.rbf_solver_list:
+        for p in s.poses:
+            max_existing_pose_index = max(max_existing_pose_index, p.pose_index)
+    next_pose_index = max_existing_pose_index + 1
+
+    # Mirror each pose
+    for source_pose in source_solver.poses:
+        # Get mirrored pose name
+        if source_pose.name.lower() == "default":
+            mirrored_pose_name = "default"
+        else:
+            mirrored_pose_name = get_mirrored_name(source_pose.name, pose_regex)
+            if not mirrored_pose_name:
+                # If pose name doesn't match pattern, keep original name
+                mirrored_pose_name = source_pose.name
+
+        # Create new pose
+        new_pose = new_solver.poses.add()
+        new_pose.solver_index = new_solver_index
+        new_pose.pose_index = next_pose_index
+        new_pose["name"] = mirrored_pose_name
+        new_pose.joint_group_index = source_pose.joint_group_index
+        new_pose.target_enable = source_pose.target_enable
+        new_pose.scale_factor = source_pose.scale_factor
+        next_pose_index += 1
+
+        # Mirror drivers
+        for source_driver in source_pose.drivers:
+            mirrored_driver_bone = get_mirrored_name(source_driver.name, bone_regex)
+            if not mirrored_driver_bone:
+                mirrored_driver_bone = source_driver.name
+
+            new_driver = new_pose.drivers.add()
+            new_driver.solver_index = new_solver_index
+            new_driver.pose_index = new_pose.pose_index
+            new_driver.name = mirrored_driver_bone
+            new_driver.rotation_mode = source_driver.rotation_mode
+
+            # Find the joint index for this bone
+            joint_index = find_joint_index(instance, mirrored_driver_bone)
+            if joint_index is not None:
+                new_driver.joint_index = joint_index
+
+            # Mirror quaternion using world space transforms
+            new_driver.quaternion_rotation = source_driver.quaternion_rotation
+            new_driver.euler_rotation = Quaternion(source_driver.quaternion_rotation).to_euler("XYZ")[:]
+
+        # Mirror driven bones
+        for source_driven in source_pose.driven:
+            mirrored_driven_bone = get_mirrored_name(source_driven.name, bone_regex)
+            if not mirrored_driven_bone:
+                mirrored_driven_bone = source_driven.name
+
+            new_driven = new_pose.driven.add()
+            new_driven.pose_index = new_pose.pose_index
+            new_driven.joint_group_index = source_driven.joint_group_index
+            new_driven.name = mirrored_driven_bone
+            new_driven.data_type = source_driven.data_type
+            new_driven.rotation_mode = source_driven.rotation_mode
+
+            # Find joint index for mirrored driven
+            if instance.body_dna_reader:
+                for joint_index in range(instance.body_dna_reader.getJointCount()):
+                    joint_name = instance.body_dna_reader.getJointName(joint_index)
+                    if joint_name == mirrored_driven_bone:
+                        new_driven.joint_index = joint_index
+                        break
+
+            # Mirror the transforms using the correct driven bone transform function
+            mirrored_location, mirrored_euler_rotation, mirrored_scale = mirror_driven_bone_transform(
+                location=Vector(source_driven.location[:]),
+                euler_rotation=Euler(source_driven.euler_rotation[:], "XYZ"),
+                scale=Vector(source_driven.scale[:]),
+                mirror_axis=mirror_axis,
+            )
+            new_driven.location = mirrored_location
+            new_driven.scale = mirrored_scale
+
+            # For driven bones, quaternion_rotation is derived from euler_rotation
+            new_driven.euler_rotation = mirrored_euler_rotation[:]
+            new_driven.quaternion_rotation = mirrored_euler_rotation.to_quaternion()[:]
+
+    # Set the new solver as active
+    new_solver_list_index = len(instance.rbf_solver_list) - 1
+    instance.rbf_solver_list_active_index = new_solver_list_index
+    new_solver.poses_active_index = 0
+
+    logger.info(f'Mirrored solver "{source_solver.name}" to "{mirrored_solver_name}".')
+    return True, f'Mirrored solver to "{mirrored_solver_name}".', new_solver_list_index
+
+
+# =============================================================================
+# Pose Mirroring Functions
+# =============================================================================
+
+
+def validate_mirror_pose(  # noqa: PLR0911
+    instance: "RigInstance",
+    solver_regex: str,
+    pose_regex: str,
+) -> tuple[bool, str]:
+    """
+    Validate that the active pose can be mirrored.
+
+    Args:
+        instance: The active rig instance.
+        solver_regex: Regex pattern for matching solver names.
+        bone_regex: Regex pattern for matching bone names.
+        pose_regex: Regex pattern for matching pose names.
+
+    Returns:
+        A tuple of (is_valid, error_message).
+    """
+    if not instance:
+        return False, "No active rig instance found."
+
+    if not instance.body_rig:
+        return False, "No body rig found on instance."
+
+    source_solver = get_active_solver(instance)
+    if not source_solver:
+        return False, "No active RBF solver found."
+
+    pose = get_active_pose(instance)
+    if not pose:
+        return False, "No active pose found."
+
+    if pose.name.lower() == "default":
+        return False, "Cannot mirror the default pose."
+
+    # Check if the solver name can be mirrored to find target solver
+    mirrored_solver_name = get_mirrored_name(source_solver.name, solver_regex)
+    if not mirrored_solver_name:
+        return False, f'Solver "{source_solver.name}" does not match the mirror pattern.'
+
+    # Check that the target solver exists
+    target_solver = None
+    for existing_solver in instance.rbf_solver_list:
+        if existing_solver.name == mirrored_solver_name:
+            target_solver = existing_solver
+            break
+
+    if not target_solver:
+        return (
+            False,
+            f'Target solver "{mirrored_solver_name}" does not exist. Mirror the solver first or create it manually.',
+        )
+
+    # Get the mirrored pose name
+    mirrored_pose_name = get_mirrored_name(pose.name, pose_regex)
+    if not mirrored_pose_name:
+        # If pose name doesn't match the pattern, use the same name
+        mirrored_pose_name = pose.name
+
+    # Check if the mirrored pose already exists in the target solver
+    for existing_pose in target_solver.poses:
+        if existing_pose.name == mirrored_pose_name:
+            return (
+                False,
+                f'Pose "{mirrored_pose_name}" already exists in solver "{mirrored_solver_name}". '
+                "Delete it first or update it manually.",
+            )
+
+    return True, ""
+
+
+def mirror_pose(  # noqa: PLR0915
+    instance: "RigInstance",
+    solver_regex: str,
+    bone_regex: str,
+    pose_regex: str,
+    mirror_axis: str = "x",
+) -> tuple[bool, str, int]:
+    """
+    Mirror the active pose to the mirrored solver.
+
+    This creates a new pose in the mirrored solver with mirrored driver/driven
+    bone names and mirrored transform values.
+
+    Args:
+        instance: The active rig instance.
+        solver_regex: Regex pattern for matching solver names.
+        bone_regex: Regex pattern for matching bone names.
+        pose_regex: Regex pattern for matching pose names.
+        mirror_axis: The axis to mirror transforms across.
+
+    Returns:
+        A tuple of (success, message, new_pose_index).
+    """
+    # Validate first
+    is_valid, error_message = validate_mirror_pose(instance, solver_regex, pose_regex)
+    if not is_valid:
+        return False, error_message, -1
+
+    source_solver = get_active_solver(instance)
+    source_pose = get_active_pose(instance)
+    if not source_solver or not source_pose:
+        return False, "No active solver or pose.", -1
+
+    # Get mirrored solver
+    mirrored_solver_name = get_mirrored_name(source_solver.name, solver_regex)
+    if not mirrored_solver_name:
+        return False, "Could not generate mirrored solver name.", -1
+
+    target_solver = None
+    target_solver_index = -1
+    for index, existing_solver in enumerate(instance.rbf_solver_list):
+        if existing_solver.name == mirrored_solver_name:
+            target_solver = existing_solver
+            target_solver_index = index
+            break
+
+    if not target_solver:
+        return False, f'Target solver "{mirrored_solver_name}" not found.', -1
+
+    # Get mirrored pose name
+    mirrored_pose_name = get_mirrored_name(source_pose.name, pose_regex)
+    if not mirrored_pose_name:
+        mirrored_pose_name = source_pose.name
+
+    # Calculate next pose index
+    max_existing_pose_index = -1
+    for s in instance.rbf_solver_list:
+        for p in s.poses:
+            max_existing_pose_index = max(max_existing_pose_index, p.pose_index)
+    new_pose_index = max_existing_pose_index + 1
+
+    # Create new pose in target solver
+    new_pose = target_solver.poses.add()
+    new_pose.solver_index = target_solver.solver_index
+    new_pose.pose_index = new_pose_index
+    new_pose["name"] = mirrored_pose_name
+    new_pose.joint_group_index = source_pose.joint_group_index
+    new_pose.target_enable = source_pose.target_enable
+    new_pose.scale_factor = source_pose.scale_factor
+
+    # Mirror drivers
+    for source_driver in source_pose.drivers:
+        mirrored_driver_bone = get_mirrored_name(source_driver.name, bone_regex)
+        if not mirrored_driver_bone:
+            mirrored_driver_bone = source_driver.name
+
+        new_driver = new_pose.drivers.add()
+        new_driver.solver_index = target_solver.solver_index
+        new_driver.pose_index = new_pose.pose_index
+        new_driver.name = mirrored_driver_bone
+        new_driver.rotation_mode = source_driver.rotation_mode
+        joint_index = find_joint_index(instance, mirrored_driver_bone)
+        if joint_index is not None:
+            new_driver.joint_index = joint_index
+
+        # Mirror quaternion using world space transforms
+        new_driver.quaternion_rotation = source_driver.quaternion_rotation
+        new_driver.euler_rotation = Quaternion(source_driver.quaternion_rotation).to_euler("XYZ")[:]
+
+    # Mirror driven bones
+    for source_driven in source_pose.driven:
+        mirrored_driven_bone = get_mirrored_name(source_driven.name, bone_regex)
+        if not mirrored_driven_bone:
+            mirrored_driven_bone = source_driven.name
+
+        new_driven = new_pose.driven.add()
+        new_driven.pose_index = new_pose.pose_index
+        new_driven.joint_group_index = source_driven.joint_group_index
+        new_driven.name = mirrored_driven_bone
+        new_driven.data_type = source_driven.data_type
+        new_driven.rotation_mode = source_driven.rotation_mode
+        joint_index = find_joint_index(instance, mirrored_driven_bone)
+        if joint_index is not None:
+            new_driven.joint_index = joint_index
+
+        # Mirror the transforms using the correct driven bone transform function
+        mirrored_location, mirrored_euler_rotation, mirrored_scale = mirror_driven_bone_transform(
+            location=Vector(source_driven.location[:]),
+            euler_rotation=Euler(source_driven.euler_rotation[:], "XYZ"),
+            scale=Vector(source_driven.scale[:]),
+            mirror_axis=mirror_axis,
+        )
+        new_driven.location = mirrored_location[:]
+        new_driven.scale = mirrored_scale[:]
+        # For driven bones, quaternion_rotation is derived from euler_rotation
+        new_driven.euler_rotation = mirrored_euler_rotation[:]
+        new_driven.quaternion_rotation = mirrored_euler_rotation.to_quaternion()[:]
+
+    # Set the new pose as active in the target solver
+    target_solver.poses_active_index = len(target_solver.poses) - 1
+
+    # Switch to the target solver
+    instance.rbf_solver_list_active_index = target_solver_index
+
+    logger.info(f'Mirrored pose "{source_pose.name}" to "{mirrored_pose_name}" in solver "{mirrored_solver_name}".')
+    return True, f'Mirrored pose to "{mirrored_pose_name}" in solver "{mirrored_solver_name}".', new_pose_index

@@ -181,6 +181,12 @@ class META_HUMAN_DNA_PT_pose_editor(bpy.types.Panel):
             solver_row.operator("meta_human_dna.add_rbf_solver", icon="ADD", text="")
             solver_row.operator("meta_human_dna.remove_rbf_solver", icon="REMOVE", text="")
 
+            # Push the select all button to the right
+            sub = solver_row.row(align=True)
+            sub.alignment = "RIGHT"
+            sub.operator("meta_human_dna.mirror_rbf_solver", icon="MOD_MIRROR", text="")
+            sub.separator(factor=1.5)
+
 
 class META_HUMAN_DNA_PT_pose_editor_footer_sub_panel(RigInstanceDependentPanel):
     bl_parent_id = "META_HUMAN_DNA_PT_pose_editor"
@@ -360,8 +366,8 @@ class META_HUMAN_DNA_PT_pose_editor_poses_sub_panel(RbfEditorSubPanelBase):
             # Push the select all button to the right
             sub = poses_row.row(align=True)
             sub.alignment = "RIGHT"
+            sub.operator("meta_human_dna.mirror_rbf_pose", icon="MOD_MIRROR", text="")
             sub.operator("meta_human_dna.duplicate_rbf_pose", icon="DUPLICATE", text="")
-
             sub.separator(factor=1.5)
 
             if active_rbf_pose.driven_active_index >= 0 and len(active_rbf_pose.driven) > 0:

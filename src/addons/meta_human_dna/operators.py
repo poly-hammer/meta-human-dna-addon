@@ -1325,7 +1325,9 @@ class MirrorSelectedBones(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context: "Context") -> bool:
-        return callbacks.poll_head_rig_bone_selection(cls, context)  # type: ignore[arg-type]
+        poll_head = callbacks.poll_head_rig_bone_selection(cls, context)  # type: ignore[arg-type]
+        # poll_body = callbacks.poll_body_rig_bone_selection(cls, context) # type: ignore[arg-type]  # noqa: ERA001
+        return poll_head  # or poll_body
 
 
 class ShrinkWrapVertexGroup(bpy.types.Operator):

@@ -83,15 +83,30 @@ class MetahumanAddonProperties:
     )  # pyright: ignore[reportInvalidTypeForm]
 
     pose_editor_solver_mirror_regex_pattern: bpy.props.StringProperty(
-        name="Solver Mirror Regex Pattern", default=r"(?P<prefix>.+)?(?P<side>_l_)(?P<suffix>.+)?"
+        name="Solver Mirror Regex Pattern",
+        default=r"(?P<prefix>.+)?(?P<side>_[lr]_)(?P<suffix>.+)?",
+        description=(
+            "Regex pattern to identify the side of a solver name. Must contain a 'side' named group that "
+            "captures '_l_' or '_r_'. The matched side will be swapped to its opposite when mirroring."
+        ),
     )  # pyright: ignore[reportInvalidTypeForm]
 
     pose_editor_pose_mirror_regex_pattern: bpy.props.StringProperty(
-        name="Pose Mirror Regex Pattern", default=r"(?P<prefix>.+)?(?P<side>_l_)(?P<suffix>.+)?"
+        name="Pose Mirror Regex Pattern",
+        default=r"(?P<prefix>.+)?(?P<side>_[lr]_)(?P<suffix>.+)?",
+        description=(
+            "Regex pattern to identify the side of a pose name. Must contain a 'side' named group that "
+            "captures '_l_' or '_r_'. The matched side will be swapped to its opposite when mirroring."
+        ),
     )  # pyright: ignore[reportInvalidTypeForm]
 
     pose_editor_bone_mirror_regex_pattern: bpy.props.StringProperty(
-        name="Bone Mirror Regex Pattern", default=r"(?P<prefix>.+)?(?P<side>_l)"
+        name="Bone Mirror Regex Pattern",
+        default=r"(?P<prefix>.+)?(?P<side>_[lr])",
+        description=(
+            "Regex pattern to identify the side of a bone name. Must contain a 'side' named group that "
+            "captures '_l' or '_r'. The matched side will be swapped to its opposite when mirroring."
+        ),
     )  # pyright: ignore[reportInvalidTypeForm]
 
     # ------- Backup Manager Properties -------
