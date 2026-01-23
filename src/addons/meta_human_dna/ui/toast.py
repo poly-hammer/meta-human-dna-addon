@@ -82,7 +82,7 @@ class ToastManager:
             self._max_visible: int = 5
             self._initialized = True
 
-    def __new__(cls) -> "ToastManager":
+    def __new__(cls) -> "ToastManager":  # noqa: PYI034, RUF100
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
