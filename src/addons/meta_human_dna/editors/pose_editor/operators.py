@@ -260,7 +260,7 @@ class CommitRBFSolverChanges(RBFEditorOperatorBase):
         # Create a backup before committing edit mode changes
         from ..backup_manager.core import BackupType, create_backup
 
-        create_backup(instance, BackupType.POSE_EDITOR)
+        create_backup(instance, BackupType.PRE_POSE_EDITOR_COMMIT)
 
         from ...bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
 
@@ -299,6 +299,9 @@ class CommitRBFSolverChanges(RBFEditorOperatorBase):
 
         # Unregister the draw handler after the final toast has been shown
         bpy.app.timers.register(unregister_draw_handler, first_interval=3.0)
+
+        # Create a backup with can toggle back too
+        create_backup(instance, BackupType.POST_POSE_EDITOR_COMMIT)
 
 
 class RBFPoseOperatorBase(RBFEditorOperatorBase):
@@ -819,3 +822,126 @@ class RemoveRBFDriven(RBFEditorOperatorBase):
             # Update change tracking and show toast
             change_tracker.update_tracking(instance)
             toast_warning(message=f"Removed driven bone '{active_driven.name}'", duration=2.5)
+
+
+class MirrorRBFSolver(RBFEditorOperatorBase):
+    """Mirror the active RBF solver to the opposite side, creating a new solver with mirrored poses."""
+
+    bl_idname = "meta_human_dna.mirror_rbf_solver"
+    bl_label = "Mirror RBF Solver"
+    bl_options = {"REGISTER", "UNDO"}
+    bl_description = (
+        "Mirror the active RBF solver to the opposite side. This creates a new solver with mirrored "
+        "driver/driven bone names and mirrored transform values for all poses."
+    )
+
+    @classmethod
+    def poll(cls, context: "Context") -> bool:  # noqa: ARG003
+        instance = utilities.get_active_rig_instance()
+        if not instance or not instance.body_rig:
+            return False
+        # Must be in edit mode for the solver
+        if not instance.editing_rbf_solver:
+            return False
+        # Must have at least one solver
+        return len(instance.rbf_solver_list) > 0
+
+    def validate(self, context: "Context", instance: "RigInstance") -> tuple[bool, str]:
+        # Get the regex patterns from addon preferences
+        addon_preferences = utilities.get_addon_preferences()
+        if not addon_preferences:
+            return False, "Addon preferences not found."
+
+        solver_regex = addon_preferences.pose_editor_solver_mirror_regex_pattern
+        bone_regex = addon_preferences.pose_editor_bone_mirror_regex_pattern
+
+        return core.validate_mirror_solver(instance, solver_regex, bone_regex)
+
+    def run(self, instance: "RigInstance"):
+        # Get the regex patterns from addon preferences
+        addon_preferences = utilities.get_addon_preferences()
+        if not addon_preferences:
+            self.report({"ERROR"}, "Addon preferences not found.")
+            return
+
+        solver_regex = addon_preferences.pose_editor_solver_mirror_regex_pattern
+        bone_regex = addon_preferences.pose_editor_bone_mirror_regex_pattern
+        pose_regex = addon_preferences.pose_editor_pose_mirror_regex_pattern
+
+        success, message, _ = core.mirror_solver(
+            instance=instance,
+            solver_regex=solver_regex,
+            bone_regex=bone_regex,
+            pose_regex=pose_regex,
+            mirror_axis="x",
+        )
+
+        if not success:
+            self.report({"ERROR"}, message)
+            return
+
+        # Update change tracking and show toast
+        change_tracker.update_tracking(instance)
+        toast_success(message=message, duration=2.5)
+
+
+class MirrorRBFPose(RBFEditorOperatorBase):
+    """Mirror the active RBF pose to the mirrored solver on the opposite side."""
+
+    bl_idname = "meta_human_dna.mirror_rbf_pose"
+    bl_label = "Mirror RBF Pose"
+    bl_options = {"REGISTER", "UNDO"}
+    bl_description = (
+        "Mirror the active RBF pose to the mirrored solver. This creates a new pose in the target solver "
+        "with mirrored driver/driven bone names and mirrored transform values."
+    )
+
+    @classmethod
+    def poll(cls, context: "Context") -> bool:  # noqa: ARG003
+        instance = utilities.get_active_rig_instance()
+        if not instance or not instance.body_rig:
+            return False
+        # Must be in edit mode for the solver
+        if not instance.editing_rbf_solver:
+            return False
+        # Must have a non-default pose selected
+        pose = core.get_active_pose(instance)
+        return pose is not None and pose.name.lower() != "default"
+
+    def validate(self, context: "Context", instance: "RigInstance") -> tuple[bool, str]:
+        # Get the regex patterns from addon preferences
+        addon_preferences = utilities.get_addon_preferences()
+        if not addon_preferences:
+            return False, "Addon preferences not found."
+
+        solver_regex = addon_preferences.pose_editor_solver_mirror_regex_pattern
+        pose_regex = addon_preferences.pose_editor_pose_mirror_regex_pattern
+
+        return core.validate_mirror_pose(instance=instance, solver_regex=solver_regex, pose_regex=pose_regex)
+
+    def run(self, instance: "RigInstance"):
+        # Get the regex patterns from addon preferences
+        addon_preferences = utilities.get_addon_preferences()
+        if not addon_preferences:
+            self.report({"ERROR"}, "Addon preferences not found.")
+            return
+
+        solver_regex = addon_preferences.pose_editor_solver_mirror_regex_pattern
+        bone_regex = addon_preferences.pose_editor_bone_mirror_regex_pattern
+        pose_regex = addon_preferences.pose_editor_pose_mirror_regex_pattern
+
+        success, message, _ = core.mirror_pose(
+            instance=instance,
+            solver_regex=solver_regex,
+            bone_regex=bone_regex,
+            pose_regex=pose_regex,
+            mirror_axis="x",
+        )
+
+        if not success:
+            self.report({"ERROR"}, message)
+            return
+
+        # Update change tracking and show toast
+        change_tracker.update_tracking(instance)
+        toast_success(message=message, duration=2.5)

@@ -25,8 +25,10 @@ class ChangeType(Enum):
     POSE_ADDED = "pose_added"
     POSE_REMOVED = "pose_removed"
     POSE_RENAMED = "pose_renamed"
+    POSE_INDEX_CHANGED = "pose_index_changed"
     SOLVER_ADDED = "solver_added"
     SOLVER_REMOVED = "solver_removed"
+    SOLVER_INDEX_CHANGED = "solver_index_changed"
     DRIVEN_BONE_ADDED = "driven_bone_added"
     DRIVEN_BONE_REMOVED = "driven_bone_removed"
     DRIVER_MODIFIED = "driver_modified"
@@ -61,30 +63,29 @@ class BoneChange:
 
 @dataclass
 class StructuralChange:
-    """Represents a structural change (add/remove pose, solver, bone)."""
+    """Represents a structural change (add/remove pose, solver, bone, or index change)."""
 
     change_type: ChangeType
     name: str
     parent_name: str = ""  # For poses: solver name. For bones: pose name.
+    old_index: int | None = None  # For index changes
+    new_index: int | None = None  # For index changes
 
     @property
     def summary(self) -> str:
         """Get a human-readable summary of this change."""
-        if self.change_type == ChangeType.POSE_ADDED:
-            return f"Added pose '{self.name}' to {self.parent_name}"
-        if self.change_type == ChangeType.POSE_REMOVED:
-            return f"Removed pose '{self.name}' from {self.parent_name}"
-        if self.change_type == ChangeType.SOLVER_ADDED:
-            return f"Added solver '{self.name}'"
-        if self.change_type == ChangeType.SOLVER_REMOVED:
-            return f"Removed solver '{self.name}'"
-        if self.change_type == ChangeType.DRIVEN_BONE_ADDED:
-            return f"Added bone '{self.name}' to {self.parent_name}"
-        if self.change_type == ChangeType.DRIVEN_BONE_REMOVED:
-            return f"Removed bone '{self.name}' from {self.parent_name}"
-        if self.change_type == ChangeType.POSE_RENAMED:
-            return f"Renamed pose to '{self.name}'"
-        return f"{self.change_type.value}: {self.name}"
+        summaries = {
+            ChangeType.POSE_ADDED: f"Added pose '{self.name}' to {self.parent_name}",
+            ChangeType.POSE_REMOVED: f"Removed pose '{self.name}' from {self.parent_name}",
+            ChangeType.SOLVER_ADDED: f"Added solver '{self.name}'",
+            ChangeType.SOLVER_REMOVED: f"Removed solver '{self.name}'",
+            ChangeType.DRIVEN_BONE_ADDED: f"Added bone '{self.name}' to {self.parent_name}",
+            ChangeType.DRIVEN_BONE_REMOVED: f"Removed bone '{self.name}' from {self.parent_name}",
+            ChangeType.POSE_RENAMED: f"Renamed pose to '{self.name}'",
+            ChangeType.POSE_INDEX_CHANGED: f"Pose '{self.name}' index: {self.old_index} -> {self.new_index}",
+            ChangeType.SOLVER_INDEX_CHANGED: f"Solver '{self.name}' index: {self.old_index} -> {self.new_index}",
+        }
+        return summaries.get(self.change_type, f"{self.change_type.value}: {self.name}")
 
 
 @dataclass
@@ -103,6 +104,10 @@ class PoseEditorSnapshot:
     pose_driven_bones: dict = field(default_factory=dict)
     # Solver name -> pose_name -> {driver_name -> quaternion}
     pose_drivers: dict = field(default_factory=dict)
+    # Solver name -> solver_index
+    solver_indices: dict = field(default_factory=dict)
+    # Solver name -> pose_name -> pose_index
+    pose_indices: dict = field(default_factory=dict)
 
     def is_empty(self) -> bool:
         """Check if the snapshot is empty."""
@@ -200,6 +205,9 @@ def create_snapshot(instance: "RigInstance") -> PoseEditorSnapshot:
         snapshot.solver_poses[solver_name] = []
         snapshot.pose_driven_bones[solver_name] = {}
         snapshot.pose_drivers[solver_name] = {}
+        # Store solver index
+        snapshot.solver_indices[solver_name] = solver_data.solver_index
+        snapshot.pose_indices[solver_name] = {}
 
         for pose_data in solver_data.poses:
             pose_name = pose_data.name
@@ -207,6 +215,8 @@ def create_snapshot(instance: "RigInstance") -> PoseEditorSnapshot:
             snapshot.solvers[solver_name][pose_name] = {}
             snapshot.pose_driven_bones[solver_name][pose_name] = []
             snapshot.pose_drivers[solver_name][pose_name] = {}
+            # Store pose index
+            snapshot.pose_indices[solver_name][pose_name] = pose_data.pose_index
 
             # Store driven bone transforms
             for driven_data in pose_data.driven:
@@ -398,6 +408,18 @@ def compute_changes(instance: "RigInstance", initial_snapshot: PoseEditorSnapsho
         if solver_name not in initial_snapshot.solvers:
             continue
 
+        # Detect solver index changes
+        initial_solver_index = initial_snapshot.solver_indices.get(solver_name)
+        if initial_solver_index is not None and solver.solver_index != initial_solver_index:
+            tracker.structural_changes.append(
+                StructuralChange(
+                    change_type=ChangeType.SOLVER_INDEX_CHANGED,
+                    name=solver_name,
+                    old_index=initial_solver_index,
+                    new_index=solver.solver_index,
+                )
+            )
+
         initial_poses = set(initial_snapshot.solver_poses.get(solver_name, []))
         current_poses = {p.name for p in solver.poses}
 
@@ -422,8 +444,25 @@ def compute_changes(instance: "RigInstance", initial_snapshot: PoseEditorSnapsho
                 )
             )
 
-        # Compare transforms for existing poses
+        # Compare transforms and indices for existing poses
+        initial_pose_indices = initial_snapshot.pose_indices.get(solver_name, {})
         for pose in solver.poses:
+            pose_name = pose.name
+
+            # Detect pose index changes (only for poses that existed before)
+            if pose_name in initial_poses:
+                initial_pose_index = initial_pose_indices.get(pose_name)
+                if initial_pose_index is not None and pose.pose_index != initial_pose_index:
+                    tracker.structural_changes.append(
+                        StructuralChange(
+                            change_type=ChangeType.POSE_INDEX_CHANGED,
+                            name=pose_name,
+                            parent_name=solver_name,
+                            old_index=initial_pose_index,
+                            new_index=pose.pose_index,
+                        )
+                    )
+
             _compare_pose_bones(tracker, pose, solver_name, initial_snapshot)
 
     return tracker

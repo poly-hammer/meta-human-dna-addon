@@ -30,11 +30,11 @@ jobs:
 
       - name: Ruff Lint Check
         run: |
-          ruff check --output-format=github .
+          uv run ruff check --output-format=github .
 
       - name: Ruff Format Check
         run: |
-          ruff format --check --diff .
+          uv run ruff format --check --diff .
 
   spell-check:
     name: CSpell Check

@@ -21,7 +21,7 @@ logger = logging.getLogger(constants.ToolInfo.NAME)
 bl_info = {
     "name": "MetaHuman DNA",
     "author": "Poly Hammer",
-    "version": (0, 5, 15),
+    "version": (0, 5, 16),
     "blender": (4, 5, 0),
     "location": "File > Import > MetaHuman DNA",
     "description": (
@@ -47,6 +47,8 @@ pose_editor_operator_classes = [
     pose_editor_operators.ApplyRBFPoseEdits,
     pose_editor_operators.AddRBFDriven,
     pose_editor_operators.RemoveRBFDriven,
+    pose_editor_operators.MirrorRBFSolver,
+    pose_editor_operators.MirrorRBFPose,
 ]
 pose_editor_ui_classes = [
     pose_editor_ui.META_HUMAN_DNA_PT_pose_editor,

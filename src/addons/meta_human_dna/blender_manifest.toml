@@ -10,8 +10,8 @@ schema_version = "1.0.0"
 # =============================================================================
 id = "meta_human_dna"
 name = "MetaHuman DNA"
-tagline = "Import, customize, and export MetaHuman DNA files with RigLogic support"
-version = "0.5.15"
+tagline = "Customize MetaHuman DNA files with RigLogic evaluation support"
+version = "0.5.16"
 type = "add-on"
 
 # =============================================================================
@@ -91,7 +91,7 @@ permissions = { files = "Import and export DNA files", network = "Error reportin
 # Python packages required by this extension
 # These will be installed automatically when the extension is enabled
 wheels = [
-    "./wheels/sentry_sdk-2.49.0-py3-none-any.whl",
+    "./wheels/sentry_sdk-2.49.0-py2.py3-none-any.whl",
 ]
 
 # =============================================================================

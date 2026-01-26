@@ -487,6 +487,13 @@ def poll_head_rig_bone_selection(_: bpy.types.Operator, context: "Context") -> b
     return context.mode == "POSE" and bool(context.selected_pose_bones) and instance.head_rig == context.active_object
 
 
+def poll_body_rig_bone_selection(_: bpy.types.Operator, context: "Context") -> bool:
+    instance = get_active_rig_instance()
+    if not instance or not instance.body_rig:
+        return False
+    return context.mode == "POSE" and bool(context.selected_pose_bones) and instance.body_rig == context.active_object
+
+
 def poll_head_materials(self: "RigInstance", material: bpy.types.Material) -> bool:  # noqa: ARG001
     node = get_head_texture_logic_node(material)
     return bool(node)
