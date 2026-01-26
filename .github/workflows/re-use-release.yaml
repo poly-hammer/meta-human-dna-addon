@@ -5,6 +5,10 @@ on:
       python-version:
         required: true
         type: string
+      environment:
+        default: "staging"
+        required: true
+        type: string
     secrets:
       GH_PAT:
         required: true
@@ -15,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           lfs: true
           submodules: false
@@ -34,10 +38,19 @@ jobs:
       - name: Install Dependencies
         run: uv sync
 
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
       - name: Create Release
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
-          ADDON_FOLDER: src/addons/meta_human_dna
-          GITHUB_REPO: ${{ github.repository }}
-          CORE_REPO: ${{ secrets.CORE_REPO }}
-        run: uv run python -m poly_hammer_utils.addon.release
+          ADDONS_FOLDER: src/addons
+          RELEASES_FOLDER: releases
+          BLENDER_VERSION: "4.5"
+          BLENDER_EXTENSION_SERVER_S3_BUCKET: ${{ inputs.environment == 'prod' && 'poly-hammer-portal-prod-app-data' || 'poly-hammer-portal-staging-app-data' }}
+          BLENDER_EXTENSION_SERVER_S3_FOLDER: products/blender-extensions/meta_human_dna
+        run: uv run python -m poly_hammer_utils.extension.meta_human_dna

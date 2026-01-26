@@ -25,8 +25,8 @@ website = "https://polyhammer.com"
 # =============================================================================
 # Minimum Blender version required
 blender_version_min = "4.5.0"
-# Maximum Blender version supported (optional, leave unset for future compatibility)
-# blender_version_max = "5.0.0"
+# Maximum Blender version supported
+blender_version_max = "5.0.0"
 
 # =============================================================================
 # License Information
@@ -117,4 +117,7 @@ paths_exclude_pattern = [
     ".mypy_cache/",
     "*.md",
     "requirements.txt",
+    "bindings/windows",
+    "bindings/macos",
+    "bindings/linux",
 ]

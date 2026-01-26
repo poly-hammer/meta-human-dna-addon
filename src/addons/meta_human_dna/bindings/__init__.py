@@ -9,11 +9,11 @@ arch = 'x64'
 if 'arm' in platform.processor().lower():
     arch = 'arm64'
 if sys.platform == 'win32' and arch == 'x64':
-    arch = 'amd64'
+    arch = 'x64'
 if sys.platform == 'linux' and arch == 'x64':
-    arch = 'x86_64'
+    arch = 'x64'
 if sys.platform == 'mac' and arch == 'x64':
-    arch = 'x86_64'
+    arch = 'x64'
 
 platform = None
 if sys.platform == "win32":
@@ -21,17 +21,31 @@ if sys.platform == "win32":
 elif sys.platform == "linux":
     platform = "linux"
 elif sys.platform == "darwin":
-    platform = "mac"
+    platform = "macos"
+else:
+    raise UnsupportedPlatformError
+
+python_version = None
+if sys.version_info.major == 3 and sys.version_info.minor == 11:
+    python_version = "py311"
+elif sys.version_info.major == 3 and sys.version_info.minor == 13:
+    python_version = "py313"
 else:
     raise UnsupportedPlatformError
 
 try:
-    if platform == "mac" and arch == "arm64" and (BINDINGS_FOLDER / "mac" / "arm64").exists():
-        from .mac.arm64 import riglogic, meta_human_dna_core # pyright: ignore[reportMissingImports, reportAssignmentType]
-    elif platform == "windows" and arch == "amd64" and (BINDINGS_FOLDER / "windows" / "amd64").exists():
-        from .windows.amd64 import riglogic, meta_human_dna_core # pyright: ignore[reportMissingImports, reportAssignmentType]
-    elif platform == "linux" and arch == "x86_64" and (BINDINGS_FOLDER / "linux" / "x86_64").exists():
-        from .linux.x86_64 import riglogic, meta_human_dna_core # pyright: ignore[reportMissingImports, reportAssignmentType]
+    if platform == "macos" and arch == "arm64" and python_version == "py311" and (BINDINGS_FOLDER / "macos" / "arm64" / "py311").exists():
+        from .macos.arm64.py311 import riglogic, meta_human_dna_core # pyright: ignore[reportMissingImports, reportAssignmentType]
+    if platform == "macos" and arch == "arm64" and python_version == "py313" and (BINDINGS_FOLDER / "macos" / "arm64" / "py313").exists():
+        from .macos.arm64.py313 import riglogic, meta_human_dna_core # pyright: ignore[reportMissingImports, reportAssignmentType]
+    elif platform == "windows" and arch == "x64" and python_version == "py311" and (BINDINGS_FOLDER / "windows" / "x64" / "py311").exists():
+        from .windows.x64.py311 import riglogic, meta_human_dna_core # pyright: ignore[reportMissingImports, reportAssignmentType]
+    elif platform == "windows" and arch == "x64" and python_version == "py313" and (BINDINGS_FOLDER / "windows" / "x64" / "py313").exists():
+        from .windows.x64.py313 import riglogic, meta_human_dna_core # pyright: ignore[reportMissingImports, reportAssignmentType]
+    elif platform == "linux" and arch == "x64" and python_version == "py311" and (BINDINGS_FOLDER / "linux" / "x64" / "py311").exists():
+        from .linux.x64.py311 import riglogic, meta_human_dna_core # pyright: ignore[reportMissingImports, reportAssignmentType]
+    elif platform == "linux" and arch == "x64" and python_version == "py313" and (BINDINGS_FOLDER / "linux" / "x64" / "py313").exists():
+        from .linux.x64.py313 import riglogic, meta_human_dna_core # pyright: ignore[reportMissingImports, reportAssignmentType]
     else:
         raise ModuleNotFoundError
 except ModuleNotFoundError:

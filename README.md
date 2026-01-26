@@ -27,12 +27,12 @@ The addon is compatible with MetaHuman `.dna` files that have been created with 
 
 | Blender Version | Platform | Architecture |
 | --------------- | -------- | ------------ |
-| 4.5             | Windows  | amd64        |
-| 4.5             | Linux    | x86_64       |
+| 4.5             | Windows  | x64          |
+| 4.5             | Linux    | x64          |
 | 4.5             | Mac OS   | arm64        |
 | 5.0             | Windows  | amd64        |
-| 5.0             | Linux    | x86_64       |
-| 5.0             | Mac OS   | arm64        |
+| 5.0             | Linux    | x64          |
+| 5.0             | Mac OS   | x64          |
 
 ## Dependencies
 
