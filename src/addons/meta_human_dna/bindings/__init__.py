@@ -36,7 +36,7 @@ else:
 try:
     if platform == "macos" and arch == "arm64" and python_version == "py311" and (BINDINGS_FOLDER / "macos" / "arm64" / "py311").exists():
         from .macos.arm64.py311 import riglogic, meta_human_dna_core # pyright: ignore[reportMissingImports, reportAssignmentType]
-    if platform == "macos" and arch == "arm64" and python_version == "py313" and (BINDINGS_FOLDER / "macos" / "arm64" / "py313").exists():
+    elif platform == "macos" and arch == "arm64" and python_version == "py313" and (BINDINGS_FOLDER / "macos" / "arm64" / "py313").exists():
         from .macos.arm64.py313 import riglogic, meta_human_dna_core # pyright: ignore[reportMissingImports, reportAssignmentType]
     elif platform == "windows" and arch == "x64" and python_version == "py311" and (BINDINGS_FOLDER / "windows" / "x64" / "py311").exists():
         from .windows.x64.py311 import riglogic, meta_human_dna_core # pyright: ignore[reportMissingImports, reportAssignmentType]
