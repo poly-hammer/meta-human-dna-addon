@@ -1,9 +1,20 @@
+import os
 import sys
+
 import platform
 from pathlib import Path
 from ..exceptions import UnsupportedPlatformError
 
 BINDINGS_FOLDER = Path(__file__).parent
+
+already_loaded = any(key for key in sys.modules.keys() if key.endswith('riglogic'))
+is_dev_mode = os.getenv('META_HUMAN_DNA_DEV', '0') == '1'
+
+# prevents reloading issues with compiled dependencies in releases
+if is_dev_mode:
+    should_import = True
+else:
+    should_import = not already_loaded
 
 arch = 'x64'
 if 'arm' in platform.processor().lower():
@@ -34,19 +45,19 @@ else:
     raise UnsupportedPlatformError
 
 try:
-    if platform == "macos" and arch == "arm64" and python_version == "py311" and (BINDINGS_FOLDER / "macos" / "arm64" / "py311").exists():
-        from .macos.arm64.py311 import riglogic, meta_human_dna_core # pyright: ignore[reportMissingImports, reportAssignmentType]
-    elif platform == "macos" and arch == "arm64" and python_version == "py313" and (BINDINGS_FOLDER / "macos" / "arm64" / "py313").exists():
-        from .macos.arm64.py313 import riglogic, meta_human_dna_core # pyright: ignore[reportMissingImports, reportAssignmentType]
-    elif platform == "windows" and arch == "x64" and python_version == "py311" and (BINDINGS_FOLDER / "windows" / "x64" / "py311").exists():
-        from .windows.x64.py311 import riglogic, meta_human_dna_core # pyright: ignore[reportMissingImports, reportAssignmentType]
-    elif platform == "windows" and arch == "x64" and python_version == "py313" and (BINDINGS_FOLDER / "windows" / "x64" / "py313").exists():
-        from .windows.x64.py313 import riglogic, meta_human_dna_core # pyright: ignore[reportMissingImports, reportAssignmentType]
-    elif platform == "linux" and arch == "x64" and python_version == "py311" and (BINDINGS_FOLDER / "linux" / "x64" / "py311").exists():
-        from .linux.x64.py311 import riglogic, meta_human_dna_core # pyright: ignore[reportMissingImports, reportAssignmentType]
-    elif platform == "linux" and arch == "x64" and python_version == "py313" and (BINDINGS_FOLDER / "linux" / "x64" / "py313").exists():
-        from .linux.x64.py313 import riglogic, meta_human_dna_core # pyright: ignore[reportMissingImports, reportAssignmentType]
-    else:
+    if should_import and platform == "macos" and arch == "arm64" and python_version == "py311" and (BINDINGS_FOLDER / "macos" / "arm64" / "py311").exists():
+        from .macos.arm64.py311 import riglogic, meta_human_dna_core # pyright: ignore[reportUnusedImport, reportMissingImports, reportAssignmentType]
+    elif should_import and platform == "macos" and arch == "arm64" and python_version == "py313" and (BINDINGS_FOLDER / "macos" / "arm64" / "py313").exists():
+        from .macos.arm64.py313 import riglogic, meta_human_dna_core # pyright: ignore[reportUnusedImport, reportMissingImports, reportAssignmentType]
+    elif should_import and platform == "windows" and arch == "x64" and python_version == "py311" and (BINDINGS_FOLDER / "windows" / "x64" / "py311").exists():
+        from .windows.x64.py311 import riglogic, meta_human_dna_core # pyright: ignore[reportUnusedImport, reportMissingImports, reportAssignmentType]
+    elif should_import and platform == "windows" and arch == "x64" and python_version == "py313" and (BINDINGS_FOLDER / "windows" / "x64" / "py313").exists():
+        from .windows.x64.py313 import riglogic, meta_human_dna_core # pyright: ignore[reportUnusedImport, reportMissingImports, reportAssignmentType]
+    elif should_import and platform == "linux" and arch == "x64" and python_version == "py311" and (BINDINGS_FOLDER / "linux" / "x64" / "py311").exists():
+        from .linux.x64.py311 import riglogic, meta_human_dna_core # pyright: ignore[reportUnusedImport, reportMissingImports, reportAssignmentType]
+    elif should_import and platform == "linux" and arch == "x64" and python_version == "py313" and (BINDINGS_FOLDER / "linux" / "x64" / "py313").exists():
+        from .linux.x64.py313 import riglogic, meta_human_dna_core # pyright: ignore[reportUnusedImport, reportMissingImports, reportAssignmentType]
+    elif should_import:
         raise ModuleNotFoundError
 except ModuleNotFoundError:
     class riglogic:
@@ -65,8 +76,3 @@ except ModuleNotFoundError:
 
 except ImportError as error:
     raise error
-
-__all__ = [
-    "riglogic",
-    "meta_human_dna_core"
-]
