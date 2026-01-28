@@ -51,6 +51,6 @@ jobs:
           ADDONS_FOLDER: src/addons
           RELEASES_FOLDER: releases
           BLENDER_VERSION: "4.5"
-          BLENDER_EXTENSION_SERVER_S3_BUCKET: ${{ inputs.environment == 'prod' && 'poly-hammer-portal-prod-app-data' || 'poly-hammer-portal-staging-app-data' }}
-          BLENDER_EXTENSION_SERVER_S3_FOLDER: products/blender-extensions/meta_human_dna
+          ENVIRONMENT: ${{ inputs.environment }}
+          PORTAL_API_KEY: ${{ secrets.POLY_HAMMER_PORTAL_API_KEY }}
         run: uv run python -m poly_hammer_utils.extension.meta_human_dna

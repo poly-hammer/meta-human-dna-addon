@@ -17,7 +17,7 @@ on:
         type: choice
         options:
           - staging
-          - prod
+          - production
 
 jobs:
   lint:
