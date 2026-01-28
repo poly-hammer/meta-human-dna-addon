@@ -42,15 +42,21 @@ ARCH = "x64"
 if "arm" in platform.processor().lower():
     ARCH = "arm64"
 if sys.platform == "win32" and ARCH == "x64":
-    ARCH = "amd64"
+    ARCH = "x64"
 if sys.platform == "linux" and ARCH == "x64":
-    ARCH = "x86_64"
+    ARCH = "x64"
 
 OS_NAME = "windows"
 if sys.platform == "darwin":
-    OS_NAME = "mac"
+    OS_NAME = "macos"
 elif sys.platform == "linux":
     OS_NAME = "linux"
+
+PYTHON_VERSION = "py311"
+if sys.version_info.major == 3 and sys.version_info.minor == 11:
+    PYTHON_VERSION = "py311"
+elif sys.version_info.major == 3 and sys.version_info.minor == 13:
+    PYTHON_VERSION = "py313"
 
 # CI-specific paths for sibling repos (when checked out side-by-side in GitHub Actions)
 BINDINGS_SOURCE_PATH = ADDON_ROOT.parent / "meta-human-dna-bindings"
@@ -150,8 +156,8 @@ def setup_environment() -> bool:
     print("Setting up benchmark environment...")
 
     # Copy bindings to destination if needed (mirrors conftest.py pytest_configure)
-    bindings_specific_source = BINDINGS_SOURCE_PATH / OS_NAME / ARCH
-    bindings_specific_dest = BINDINGS_DEST_PATH / OS_NAME / ARCH
+    bindings_specific_source = BINDINGS_SOURCE_PATH / OS_NAME / ARCH / PYTHON_VERSION
+    bindings_specific_dest = BINDINGS_DEST_PATH / OS_NAME / ARCH / PYTHON_VERSION
 
     if not bindings_specific_dest.exists():
         if not bindings_specific_source.exists():

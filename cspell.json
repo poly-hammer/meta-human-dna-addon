@@ -27,6 +27,7 @@
         "*.json"
     ],
     "words": [
+        "env",
         "bpy",
         "rbf",
         "Raasch",

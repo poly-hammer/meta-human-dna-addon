@@ -8,17 +8,22 @@ ARCH = "x64"
 if "arm" in platform.processor().lower():
     ARCH = "arm64"
 if sys.platform == "win32" and ARCH == "x64":
-    ARCH = "amd64"
+    ARCH = "x64"
 if sys.platform == "linux" and ARCH == "x64":
-    ARCH = "x86_64"
+    ARCH = "x64"
 
 
 OS_NAME = "windows"
 if sys.platform == "darwin":
-    OS_NAME = "mac"
+    OS_NAME = "macos"
 elif sys.platform == "linux":
     OS_NAME = "linux"
 
+PYTHON_VERSION = "py311"
+if sys.version_info.major == 3 and sys.version_info.minor == 11:
+    PYTHON_VERSION = "py311"
+elif sys.version_info.major == 3 and sys.version_info.minor == 13:
+    PYTHON_VERSION = "py313"
 
 import shutil  # noqa: E402
 
@@ -41,8 +46,8 @@ def pytest_configure():
     core_source_folder = REPO_ROOT.parent / "meta-human-dna-core"
     bindings_destination_folder = REPO_ROOT / "src" / "addons" / "meta_human_dna" / "bindings"
 
-    bindings_specific_source_folder = bindings_source_folder / OS_NAME / ARCH
-    bindings_specific_destination_folder = bindings_destination_folder / OS_NAME / ARCH
+    bindings_specific_source_folder = bindings_source_folder / OS_NAME / ARCH / PYTHON_VERSION
+    bindings_specific_destination_folder = bindings_destination_folder / OS_NAME / ARCH / PYTHON_VERSION
 
     # Copy the bindings folder to the src directory if they doesn't exist
     if not bindings_specific_destination_folder.exists():

@@ -667,14 +667,14 @@ def get_pose_bone_local_quaternion(pose_bone: bpy.types.PoseBone) -> Quaternion:
         parent_world_matrix = pose_bone.parent.matrix
         parent_rest_local_matrix = pose_bone.parent.bone.matrix_local
         matrix_basis = (
-            pose_bone.bone.matrix_local.inverted()
+            pose_bone.bone.matrix_local.inverted_safe()
             @ parent_rest_local_matrix
-            @ parent_world_matrix.inverted()
+            @ parent_world_matrix.inverted_safe()
             @ pose_bone.matrix
         )
     else:
         matrix_basis = (
-            pose_bone.bone.matrix_local.inverted() @ pose_bone.id_data.matrix_world.inverted() @ pose_bone.matrix  # type: ignore[attr-defined]
+            pose_bone.bone.matrix_local.inverted_safe() @ pose_bone.id_data.matrix_world.inverted() @ pose_bone.matrix  # type: ignore[attr-defined]
         )
 
     # Extract and return the quaternion
