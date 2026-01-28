@@ -12,7 +12,7 @@ if sys.platform == 'win32' and arch == 'x64':
     arch = 'x64'
 if sys.platform == 'linux' and arch == 'x64':
     arch = 'x64'
-if sys.platform == 'mac' and arch == 'x64':
+if sys.platform == 'darwin' and arch == 'x64':
     arch = 'x64'
 
 platform = None
