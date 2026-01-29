@@ -48,8 +48,8 @@ jobs:
       - name: Create Release
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
-          ADDONS_FOLDER: ${GITHUB_WORKSPACE}/src/addons
-          RELEASES_FOLDER: ${GITHUB_WORKSPACE}/releases
+          ADDONS_FOLDER: ${{ github.workspace }}/src/addons
+          RELEASES_FOLDER: ${{ github.workspace }}/releases
           BLENDER_VERSION: "4.5"
           ENVIRONMENT: ${{ inputs.environment }}
           PORTAL_API_KEY: ${{ secrets.POLY_HAMMER_PORTAL_API_KEY }}
