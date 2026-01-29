@@ -59,6 +59,10 @@ try:
         from .linux.x64.py313 import riglogic, meta_human_dna_core # pyright: ignore[reportUnusedImport, reportMissingImports, reportAssignmentType]
     elif should_import:
         raise ModuleNotFoundError
+
+    if "meta_human_dna_core" in sys.modules:
+        sys.modules[__name__ + ".meta_human_dna_core"] = sys.modules.pop("meta_human_dna_core")
+
 except ModuleNotFoundError:
     class riglogic:
         __is_fake__ = True

@@ -10,21 +10,50 @@ Are all in sync and auto-bumps the patch version when addon files are changed.
 
 Usage:
     python check_addon_version.py <addon_name> [--watch <glob_pattern>...]
+    python check_addon_version.py <addon_name> --set-version <version> [--stage]
 
 Example:
     python check_addon_version.py meta_human_dna --watch "src/addons/meta_human_dna/**/*.py"
+    python check_addon_version.py meta_human_dna --set-version 1.0.0
+    python check_addon_version.py meta_human_dna --set-version 1.0.0 --stage
 """
 
 from __future__ import annotations
 
 import argparse
 import fnmatch
+import platform
 import re
 import subprocess
 import sys
 
 from pathlib import Path
 from typing import NamedTuple
+
+
+# Platform detection for core package paths
+def _get_platform_info() -> tuple[str, str, str]:
+    """Get OS name, architecture, and Python version for platform-specific paths.
+
+    Returns:
+        Tuple of (os_name, arch, python_version)
+    """
+    # Determine architecture
+    arch = "x64"
+    if "arm" in platform.processor().lower():
+        arch = "arm64"
+
+    # Determine OS
+    os_name = "windows"
+    if sys.platform == "darwin":
+        os_name = "macos"
+    elif sys.platform == "linux":
+        os_name = "linux"
+
+    # Determine Python version
+    python_version = f"py{sys.version_info.major}{sys.version_info.minor}"
+
+    return os_name, arch, python_version
 
 
 class Version(NamedTuple):
@@ -244,6 +273,8 @@ Examples:
   %(prog)s meta_human_dna
   %(prog)s meta_human_dna --watch "src/addons/meta_human_dna/**/*.py"
   %(prog)s meta_human_dna --watch "src/addons/meta_human_dna/**/*.py" --watch "src/addons/meta_human_dna/**/*.toml"
+  %(prog)s meta_human_dna --set-version 1.0.0
+  %(prog)s meta_human_dna --set-version 1.0.0 --stage
         """,
     )
     parser.add_argument(
@@ -258,7 +289,78 @@ Examples:
         metavar="PATTERN",
         help="Glob pattern for files that trigger version bump (can be specified multiple times)",
     )
+    parser.add_argument(
+        "--set-version",
+        dest="set_version",
+        metavar="VERSION",
+        help="Set a specific version (e.g., '1.0.0') and sync across all version files",
+    )
+    parser.add_argument(
+        "--stage",
+        action="store_true",
+        help="Stage the updated version files after setting version (use with --set-version)",
+    )
     return parser.parse_args()
+
+
+def sync_version_to_all_files(
+    version: Version,
+    addon_init_path: Path,
+    blender_manifest_path: Path,
+    pyproject_path: Path,
+    uv_lock_path: Path,
+    package_name: str,
+    core_pyproject_path: Path,
+    core_uv_lock_path: Path,
+    core_version_py_path: Path,
+    core_package_name: str,
+    stage_files: bool = False,
+) -> list[Path]:
+    """Sync version to all version files.
+
+    Returns list of files that were updated.
+    """
+    updated_files: list[Path] = []
+
+    # Update main version files
+    write_version_to_init(addon_init_path, version)
+    updated_files.append(addon_init_path)
+    print(f"  Updated {addon_init_path}")
+
+    write_version_to_toml(blender_manifest_path, version)
+    updated_files.append(blender_manifest_path)
+    print(f"  Updated {blender_manifest_path}")
+
+    write_version_to_toml(pyproject_path, version)
+    updated_files.append(pyproject_path)
+    print(f"  Updated {pyproject_path}")
+
+    # Update uv.lock if it exists
+    if write_version_to_uv_lock(uv_lock_path, package_name, version):
+        updated_files.append(uv_lock_path)
+        print(f"  Updated {uv_lock_path} for package '{package_name}'")
+
+    # Update core package version files if they exist
+    if core_pyproject_path.exists():
+        write_version_to_toml(core_pyproject_path, version)
+        updated_files.append(core_pyproject_path)
+        print(f"  Updated {core_pyproject_path}")
+
+    if write_version_to_uv_lock(core_uv_lock_path, core_package_name, version):
+        updated_files.append(core_uv_lock_path)
+        print(f"  Updated {core_uv_lock_path} for package '{core_package_name}'")
+
+    if write_version_to_version_py(core_version_py_path, version):
+        updated_files.append(core_version_py_path)
+        print(f"  Updated {core_version_py_path}")
+
+    # Stage files if requested
+    if stage_files:
+        for file_path in updated_files:
+            stage_file(file_path)
+        print("\nVersion files staged for commit.")
+
+    return updated_files
 
 
 def main() -> int:
@@ -277,7 +379,9 @@ def main() -> int:
     uv_lock_path = Path("uv.lock")
 
     # Core package paths (for meta_human_dna_core bindings)
-    core_base_path = addon_base_path / "bindings" / "windows" / "amd64" / "meta_human_dna_core"
+    # Use platform detection for the correct path
+    os_name, arch, python_version = _get_platform_info()
+    core_base_path = addon_base_path / "bindings" / os_name / arch / python_version / "meta_human_dna_core"
     core_pyproject_path = core_base_path / "pyproject.toml"
     core_uv_lock_path = core_base_path / "uv.lock"
     core_version_py_path = core_base_path / "src" / "meta_human_dna_core" / "version.py"
@@ -288,6 +392,44 @@ def main() -> int:
 
     version_files = [addon_init_path, blender_manifest_path, pyproject_path]
 
+    # Check if version files exist
+    missing_files = [p for p in version_files if not p.exists()]
+    if missing_files:
+        print("ERROR: One or more version files not found:")
+        for p in missing_files:
+            print(f"  - {p}")
+        return 1
+
+    # Handle --set-version mode (manual version sync, not pre-commit hook)
+    if args.set_version:
+        try:
+            new_version = Version.from_string(args.set_version)
+        except ValueError:
+            print(f"ERROR: Invalid version format '{args.set_version}'")
+            print("Version must be in format 'major.minor.patch' (e.g., '1.0.0')")
+            return 1
+
+        print(f"Setting version to: {new_version}")
+        print()
+
+        sync_version_to_all_files(
+            version=new_version,
+            addon_init_path=addon_init_path,
+            blender_manifest_path=blender_manifest_path,
+            pyproject_path=pyproject_path,
+            uv_lock_path=uv_lock_path,
+            package_name=package_name,
+            core_pyproject_path=core_pyproject_path,
+            core_uv_lock_path=core_uv_lock_path,
+            core_version_py_path=core_version_py_path,
+            core_package_name=core_package_name,
+            stage_files=args.stage,
+        )
+
+        print(f"\nAll version files updated to {new_version}")
+        return 0
+
+    # Pre-commit hook mode: check staged files and auto-bump if needed
     # Default watch patterns if none provided
     watch_patterns = args.watch_patterns or [f"src/addons/{args.addon_name}/**/*"]
 
@@ -299,14 +441,6 @@ def main() -> int:
     if not staged_files:
         print("No staged files.")
         return 0
-
-    # Check if version files exist
-    missing_files = [p for p in version_files if not p.exists()]
-    if missing_files:
-        print("ERROR: One or more version files not found:")
-        for p in missing_files:
-            print(f"  - {p}")
-        return 1
 
     # Read current versions from all files
     try:
@@ -358,33 +492,19 @@ def main() -> int:
         new_version = init_version.bumped_patch()
         print(f"\nRelevant files changed. Auto-bumping patch version: {init_version} -> {new_version}")
 
-        # Update all version files
-        write_version_to_init(addon_init_path, new_version)
-        write_version_to_toml(blender_manifest_path, new_version)
-        write_version_to_toml(pyproject_path, new_version)
-
-        # Update uv.lock if it exists
-        if write_version_to_uv_lock(uv_lock_path, package_name, new_version):
-            print(f"  Updated uv.lock for package '{package_name}'")
-            stage_file(uv_lock_path)
-
-        # Update core package version files if they exist
-        if core_pyproject_path.exists():
-            write_version_to_toml(core_pyproject_path, new_version)
-            print(f"  Updated core/pyproject.toml")
-            stage_file(core_pyproject_path)
-
-        if write_version_to_uv_lock(core_uv_lock_path, core_package_name, new_version):
-            print(f"  Updated core/uv.lock for package '{core_package_name}'")
-            stage_file(core_uv_lock_path)
-
-        if write_version_to_version_py(core_version_py_path, new_version):
-            print(f"  Updated core/version.py")
-            stage_file(core_version_py_path)
-
-        # Stage the updated version files
-        for vf in version_files:
-            stage_file(vf)
+        sync_version_to_all_files(
+            version=new_version,
+            addon_init_path=addon_init_path,
+            blender_manifest_path=blender_manifest_path,
+            pyproject_path=pyproject_path,
+            uv_lock_path=uv_lock_path,
+            package_name=package_name,
+            core_pyproject_path=core_pyproject_path,
+            core_uv_lock_path=core_uv_lock_path,
+            core_version_py_path=core_version_py_path,
+            core_package_name=core_package_name,
+            stage_files=True,
+        )
 
         print("Version files updated and staged.")
         return 0

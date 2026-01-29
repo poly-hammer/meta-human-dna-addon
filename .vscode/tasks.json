@@ -132,9 +132,28 @@
                 "panel": "shared",
                 "focus": true
             }
+        },
+        {
+            "label": "Version: Set Addon Version",
+            "command": "uv run python scripts/pre-commit/check_addon_version.py meta_human_dna --set-version ${input:addon-version}",
+            "type": "shell",
+            "group": {
+                "kind": "build"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            }
         }
     ],
     "inputs": [
+        {
+            "id": "addon-version",
+            "type": "promptString",
+            "description": "Enter the version to set (e.g., 1.0.0)",
+            "default": "0.5.19"
+        },
         {
             "id": "blender-version",
             "type": "pickString",
