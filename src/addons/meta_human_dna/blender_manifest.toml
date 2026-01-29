@@ -31,8 +31,8 @@ blender_version_max = "5.0.0"
 # =============================================================================
 # License Information
 # =============================================================================
-license = ["SPDX:LicenseRef-Proprietary"]
-copyright = ["2024-2026 Poly Hammer"]
+license = ["LGPL-3.0 license"]
+copyright = ["2026 Poly Hammer"]
 
 # =============================================================================
 # Extension Description

@@ -36,7 +36,7 @@ jobs:
           version: "latest"
 
       - name: Install Dependencies
-        run: uv sync
+        run: uv sync --upgrade-package poly-hammer-utils
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
