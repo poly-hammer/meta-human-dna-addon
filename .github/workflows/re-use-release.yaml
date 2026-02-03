@@ -45,7 +45,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Create Release
+      - name: Create Portal Release
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
           ADDONS_FOLDER: ${{ github.workspace }}/src/addons
@@ -53,3 +53,12 @@ jobs:
           ENVIRONMENT: ${{ inputs.environment }}
           PORTAL_API_KEY: ${{ secrets.POLY_HAMMER_PORTAL_API_KEY }}
         run: uv run python -m poly_hammer_utils.extension.meta_human_dna
+
+      - name: Create Release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          ADDON_FOLDER: src/addons/meta_human_dna
+          GITHUB_REPO: ${{ github.repository }}
+          CORE_REPO: ${{ secrets.CORE_REPO }}
+        run: uv run python -m poly_hammer_utils.addon.release
