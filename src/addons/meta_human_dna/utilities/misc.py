@@ -14,6 +14,8 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
+import addon_utils
+
 # third party imports
 import bpy
 
@@ -252,6 +254,14 @@ def init_sentry():
     if not addon_preferences.metrics_collection:
         return
 
+    from .. import bl_info
+
+    default_tags = {
+        "blender_version": bpy.app.version_string,
+        "addon_version": ".".join([str(i) for i in bl_info.get("version", [])]),
+        "platform": sys.platform,
+    }
+
     try:
         import sentry_sdk
 
@@ -262,26 +272,44 @@ def init_sentry():
             # to the MetaHuman DNA addon.
             exception = event.get("exception")
             if exception and exception.get("values"):
-                exception = exception["values"][0]
-                if exception.get("stacktrace") and exception["stacktrace"].get("frames"):
-                    # Check if the exception originated from one of the whitelisted modules
-                    for frame in exception["stacktrace"]["frames"]:
-                        module_name = frame.get("module")
-                        if module_name and module_name.startswith(ToolInfo.NAME):
+                # Check all exception values (handles chained exceptions)
+                for exception_value in exception["values"]:
+                    stacktrace = exception_value.get("stacktrace")
+                    if stacktrace and stacktrace.get("frames"):
+                        # Walk from the top of the stack (where the error was raised) backwards
+                        # to determine if the error originated in our addon code
+                        for frame in reversed(stacktrace["frames"]):
+                            module_name = frame.get("module", "")
+                            abs_path = frame.get("abs_path", "")
+                            if module_name and module_name.endswith(ToolInfo.NAME):
+                                break
+                            if abs_path and ToolInfo.NAME in abs_path:
+                                break
+                            # Hit a non-addon frame at the top of the stack — error did not originate from us
+                            if module_name:
+                                break
+                        else:
+                            # No frames at all, skip this exception value
+                            continue
+                        # Check if the loop broke on an addon frame
+                        module_name = frame.get("module", "")  # type: ignore[possibly-undefined]
+                        abs_path = frame.get("abs_path", "")  # type: ignore[possibly-undefined]
+                        if module_name and module_name.endswith(ToolInfo.NAME):
                             break
-                    else:
-                        return None
+                        if abs_path and ToolInfo.NAME in abs_path:
+                            break
+                else:
+                    # No exception value had frames originating in our addon
+                    return None
+            else:
+                # No exception data — don't send
+                return None
 
             # Add tags to the event
             if "tags" not in event:
-                event["tags"] = {}
+                event["tags"] = default_tags
 
-            from .. import bl_info
-
-            event["tags"]["blender_version"] = bpy.app.version_string
             event["tags"]["blender_mode"] = bpy.context.mode
-            event["tags"]["addon_version"] = ".".join([str(i) for i in bl_info.get("version", [])])
-            event["tags"]["platform"] = sys.platform
 
             return event
 
@@ -300,7 +328,7 @@ def init_sentry():
             # events that are not relevant to us.
             before_send=before_send,
         )
-        sentry_sdk.capture_event({"message": "Initialized Sentry"})
+        sentry_sdk.metrics.count("addon.initialized", value=1, attributes=default_tags)
     except ImportError:
         logger.warning("The sentry-sdk package is not installed. Un-able to use the Sentry error tracking service.")
     except Exception as error:
@@ -1119,3 +1147,12 @@ def file_path_hash(file_path: Path, length: int = 8) -> str:
 
     # Return the first N characters for a shorter hash
     return hex_digest[:length]
+
+
+def disable_duplicate_addons():
+    # If the pro version of the addon is enabled, disable any other versions to avoid conflicts
+    if ToolInfo.NAME == "meta_human_dna_pro":
+        enabled_addons = [mod.__name__ for mod in addon_utils.modules() if addon_utils.check(mod.__name__)[1]]  # type: ignore[reportGeneralTypeIssues]
+        for addon_name in enabled_addons:
+            if addon_name.endswith("meta_human_dna"):
+                addon_utils.disable(addon_name)

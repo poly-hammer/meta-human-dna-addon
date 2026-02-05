@@ -196,6 +196,8 @@ def unregister():
     """
     Un-registers the addon classes when the addon is disabled.
     """
+    utilities.disable_duplicate_addons()
+
     utilities.teardown_scene()
 
     if not os.environ.get("META_HUMAN_DNA_DEV"):

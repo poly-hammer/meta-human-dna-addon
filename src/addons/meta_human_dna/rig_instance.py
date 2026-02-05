@@ -49,21 +49,6 @@ def rig_instance_listener(scene: "Scene", dependency_graph: bpy.types.Depsgraph,
     # track the minimal set of instances that need to be updated and their components
     instance_updates = set()
 
-    # TODO: Investigate if this is needed and if there is a better way to do this
-    # if the screen is the temp screen, then is is rendering and we need to evaluate
-    # if bpy.context.screen.is_temporary: Blender 5.0+
-    if bpy.context.screen and "temp" in bpy.context.screen.name.lower():
-        # this rules out other temporary window types
-        if len(bpy.context.screen.areas) == 1 and bpy.context.screen.areas[0].type != "IMAGE_EDITOR":
-            return
-
-        for instance in scene_properties.rig_instance_list:
-            if instance.auto_evaluate:
-                if instance.auto_evaluate_head:
-                    instance_updates.add((instance, "head"))
-                if instance.auto_evaluate_body:
-                    instance_updates.add((instance, "body"))
-
     # only evaluate if in pose mode or if animation is
     if is_frame_change or bpy.context.mode == "POSE":
         for update in dependency_graph.updates:
