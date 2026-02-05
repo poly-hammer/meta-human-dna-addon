@@ -62,7 +62,7 @@ def get_active_rig_instance() -> "RigInstance | None":
     """
     Gets the active rig instance.
     """
-    scene_properties: "MetahumanSceneProperties" = bpy.context.scene.meta_human_dna  # type: ignore  # noqa: UP037
+    scene_properties: "MetahumanSceneProperties" = getattr(bpy.context.scene, ToolInfo.NAME)  # noqa: UP037
     if not hasattr(bpy.context.scene, ToolInfo.NAME):
         return None
 
@@ -342,7 +342,7 @@ def set_highlight_matching_active_bone(self: "MetahumanSceneProperties", value: 
             if bpy.context.mode == "POSE":
                 pose_bone = bpy.context.active_pose_bone
                 if pose_bone:
-                    scene_properties: "MetahumanSceneProperties" = bpy.context.scene.meta_human_dna  # type: ignore  # noqa: UP037
+                    scene_properties: "MetahumanSceneProperties" = getattr(bpy.context.scene, ToolInfo.NAME)  # noqa: UP037
                     for instance in scene_properties.rig_instance_list:
                         if (
                             instance
@@ -587,14 +587,16 @@ def update_body_rig_bone_group_selection(self: "RigInstance", context: "Context"
 
 
 def update_face_pose(self: "RigInstance", context: "Context"):  # noqa: ARG001
-    from ..utilities import get_head
+    from ..utilities import get_addon_scene_properties, get_head
 
     active_instance = get_active_rig_instance()
     if not active_instance:
         return
 
+    addon_scene_properties = get_addon_scene_properties()
+
     # update all instances with the same face board
-    for instance in context.scene.meta_human_dna.rig_instance_list:
+    for instance in addon_scene_properties.rig_instance_list:
         if instance.face_board == active_instance.face_board:
             head = get_head(instance.name)
             if head:
@@ -645,7 +647,7 @@ def get_head_image_output_items(instance: "RigInstance") -> list[tuple[bpy.types
                 if node_input and node_input.links:
                     image_node = node_input.links[0].from_node
                     if image_node and image_node.type == "TEX_IMAGE":
-                        image_nodes.append((image_node.image, file_name))
+                        image_nodes.append((image_node.image, file_name))  # type: ignore[reportAttributeAccessIssue]
     return image_nodes
 
 
@@ -664,7 +666,10 @@ def get_body_image_output_items(instance: "RigInstance") -> list[tuple[bpy.types
 
 
 def update_instance_name(self: "RigInstance", context: "Context"):
-    existing_names = [instance.name for instance in context.scene.meta_human_dna.rig_instance_list]
+    from ..utilities import get_addon_scene_properties
+
+    addon_scene_properties = get_addon_scene_properties(context)
+    existing_names = [instance.name for instance in addon_scene_properties.rig_instance_list]
     if existing_names.count(self.name) > 1:
         self.name = self.old_name
         logger.warning(f'Rig Instance with name "{self.name}" already exists. Please choose a different name.')
@@ -681,7 +686,11 @@ def update_body_output_items(self: "RigInstance", context: "Context"):  # noqa: 
     if not hasattr(context.scene, ToolInfo.NAME):
         return
 
-    for instance in context.scene.meta_human_dna.rig_instance_list:
+    from ..utilities import get_addon_scene_properties
+
+    addon_scene_properties = get_addon_scene_properties(context)
+
+    for instance in addon_scene_properties.rig_instance_list:
         if instance and instance.body_mesh and instance.body_rig:
             # update the output items for the scene objects
             for scene_object in [*get_body_mesh_output_items(instance), instance.body_rig]:
@@ -723,7 +732,11 @@ def update_head_output_items(self: "RigInstance | None", context: "Context"):  #
     if not hasattr(context.scene, ToolInfo.NAME):
         return
 
-    for instance in context.scene.meta_human_dna.rig_instance_list:
+    from ..utilities import get_addon_scene_properties
+
+    addon_scene_properties = get_addon_scene_properties(context)
+
+    for instance in addon_scene_properties.rig_instance_list:
         if instance and instance.head_mesh and instance.head_rig:
             # update the output items for the scene objects
             for scene_object in [*get_head_mesh_output_items(instance), instance.head_rig]:

@@ -83,8 +83,10 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
 
         self.rig_instance: "RigInstance" = rig_instance  # type: ignore[assignment]  # noqa: UP037
         self.addon_properties: "MetahumanAddonProperties" = utilities.get_addon_preferences()  # pyright: ignore[reportAttributeAccessIssue]  # noqa: UP037
-        self.window_manager_properties: "MetahumanWindowMangerProperties" = bpy.context.window_manager.meta_human_dna  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue]  # noqa: UP037
-        self.scene_properties: "MetahumanSceneProperties" = bpy.context.scene.meta_human_dna  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue] # noqa: UP037
+        self.window_manager_properties: MetahumanWindowMangerProperties = (
+            utilities.get_addon_window_manager_properties()
+        )
+        self.scene_properties: "MetahumanSceneProperties" = utilities.get_addon_scene_properties()  # noqa: UP037
         self.dna_import_properties: "MetahumanImportProperties" = dna_import_properties  # noqa: UP037
 
         # if no rig_instance is provided, create a new one and supply the dna_file_path to it

@@ -7,6 +7,7 @@ import bpy
 from bpy_extras.io_utils import ImportHelper  # type: ignore
 
 # local imports
+from .. import utilities
 from ..constants import NUMBER_OF_HEAD_LODS
 from ..dna_io import get_dna_reader
 from ..typing import *  # noqa: F403
@@ -156,20 +157,21 @@ class META_HUMAN_DNA_FILE_INFO_PT_panel(bpy.types.Panel):
             return
 
         operator = context.space_data.active_operator  # type: ignore[attr-defined]
-        wm = context.window_manager.meta_human_dna.dna_info
+        addon_window_manager_properties = utilities.get_addon_window_manager_properties(context)
+        dna_info = addon_window_manager_properties.dna_info
 
         if operator.filepath.lower().endswith(".dna") and Path(operator.filepath).exists():
-            if not wm["_dna_reader"] or operator.filepath != wm["_previous_file_path"]:
-                wm["_previous_file_path"] = operator.filepath
+            if not dna_info["_dna_reader"] or operator.filepath != dna_info["_previous_file_path"]:
+                dna_info["_previous_file_path"] = operator.filepath
                 reader = get_dna_reader(
                     file_path=Path(operator.filepath), file_format="binary", data_layer="Descriptor"
                 )
                 if not reader:
                     return
 
-                wm["_dna_reader"] = reader
+                dna_info["_dna_reader"] = reader
 
-            dna_reader = wm["_dna_reader"]
+            dna_reader = dna_info["_dna_reader"]
             row = self.layout.row()
             row.label(text="Name: ")
             row.label(text=str(dna_reader.getName()))
@@ -257,7 +259,7 @@ class LinkAppendMetaHumanImportHelper(ImportHelper):
 
     def refresh_meta_human_list(self, operator: bpy.types.Operator):
         self.meta_human_list.clear()  # type: ignore[attr-defined]
-        scene_properties: "MetahumanSceneProperties" = bpy.context.scene.meta_human_dna  # type: ignore[attr-defined]  # noqa: UP037
+        scene_properties = utilities.get_addon_scene_properties()
         rig_instance_names = [i.name for i in scene_properties.rig_instance_list]
 
         with bpy.data.libraries.load(operator.filepath) as (data_from, _data_to):  # type: ignore[arg-type]

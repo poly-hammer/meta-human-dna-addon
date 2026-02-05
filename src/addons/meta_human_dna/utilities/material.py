@@ -62,7 +62,8 @@ def create_new_material(
     name: str, color: tuple[float, float, float, float] | None = None, alpha: float | None = None
 ) -> bpy.types.Material:
     material = bpy.data.materials.new(name=name)
-    material.use_nodes = True
+    if hasattr(material, "use_nodes"):
+        material.use_nodes = True
     if not material.node_tree:
         logger.error(f"Material {name} has no node tree.")
         return material

@@ -27,19 +27,23 @@ logger = logging.getLogger(__name__)
 
 
 def rig_instance_listener(scene: "Scene", dependency_graph: bpy.types.Depsgraph, is_frame_change: bool = False):  # noqa: PLR0912
-    meta_human_dna_window_manager: "MetahumanWindowMangerProperties | None" = getattr(  # noqa: UP037
+    addon_window_manager: "MetahumanWindowMangerProperties | None" = getattr(  # noqa: UP037
         bpy.context.window_manager, ToolInfo.NAME, None
     )
-    if not meta_human_dna_window_manager:
+    if not addon_window_manager:
         return
 
     # this condition prevents constant evaluation
-    if not meta_human_dna_window_manager.evaluate_dependency_graph:
+    if not addon_window_manager.evaluate_dependency_graph:
         return
 
     # this condition prevents evaluation after an undo operation
-    if meta_human_dna_window_manager.is_undoing:
-        meta_human_dna_window_manager.is_undoing = False
+    if addon_window_manager.is_undoing:
+        addon_window_manager.is_undoing = False
+        return
+
+    scene_properties = getattr(scene, ToolInfo.NAME, None)
+    if not scene_properties:
         return
 
     # track the minimal set of instances that need to be updated and their components
@@ -53,7 +57,7 @@ def rig_instance_listener(scene: "Scene", dependency_graph: bpy.types.Depsgraph,
         if len(bpy.context.screen.areas) == 1 and bpy.context.screen.areas[0].type != "IMAGE_EDITOR":
             return
 
-        for instance in scene.meta_human_dna.rig_instance_list:
+        for instance in scene_properties.rig_instance_list:
             if instance.auto_evaluate:
                 if instance.auto_evaluate_head:
                     instance_updates.add((instance, "head"))
@@ -68,7 +72,7 @@ def rig_instance_listener(scene: "Scene", dependency_graph: bpy.types.Depsgraph,
 
             data_type = update.id.bl_rna.name  # type: ignore[attr-defined]
             if data_type == "Action":
-                for instance in scene.meta_human_dna.rig_instance_list:
+                for instance in scene_properties.rig_instance_list:
                     # Check if the action is being used by the face board
                     if (
                         instance.auto_evaluate
@@ -103,7 +107,7 @@ def rig_instance_listener(scene: "Scene", dependency_graph: bpy.types.Depsgraph,
                             instance_updates.add((instance, "body"))
 
             elif data_type == "Armature" and update.is_updated_transform:
-                for instance in scene.meta_human_dna.rig_instance_list:
+                for instance in scene_properties.rig_instance_list:
                     armature_name = update.id.name
 
                     # Check if the armature is the face board
@@ -1729,7 +1733,7 @@ class RigInstance(bpy.types.PropertyGroup):
     def evaluate(
         self, component: Literal["head", "body", "all"] = "all", dependency_graph: bpy.types.Depsgraph | None = None
     ):
-        window_manager_properties: "MetahumanWindowMangerProperties" = bpy.context.window_manager.meta_human_dna  # type: ignore[attr-defined]  # noqa: UP037
+        window_manager_properties = utilities.get_addon_window_manager_properties()
         # this condition prevents constant evaluation
         if window_manager_properties.evaluate_dependency_graph:
             # turn off the dependency graph evaluation so we can update the controls without triggering an update

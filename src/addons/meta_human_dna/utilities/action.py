@@ -10,7 +10,7 @@ import bpy
 from mathutils import Quaternion
 
 # local imports
-from ..constants import EYE_AIM_BONES, FACE_BOARD_SWITCHES, IS_BLENDER_5, SCALE_FACTOR, Axis, ComponentType
+from ..constants import EYE_AIM_BONES, FACE_BOARD_SWITCHES, IS_BLENDER_5, SCALE_FACTOR, Axis, ComponentType, ToolInfo
 from ..typing import *  # noqa: F403
 from .misc import apply_transforms, switch_to_object_mode, switch_to_pose_mode
 
@@ -630,7 +630,9 @@ def bake_face_board_to_action(  # noqa: PLR0912
             )
             instance.auto_evaluate_head = False
 
-            window_manager_properties: "MetahumanWindowMangerProperties" = bpy.context.window_manager.meta_human_dna  # type: ignore[attr-defined]  # noqa: UP037
+            window_manager_properties: MetahumanWindowMangerProperties = getattr(
+                bpy.context.window_manager, ToolInfo.NAME
+            )
             window_manager_properties.evaluate_dependency_graph = False
             texture_logic_node = get_head_texture_logic_node(instance.head_material)
             for frame in range(start_frame, end_frame + 1):

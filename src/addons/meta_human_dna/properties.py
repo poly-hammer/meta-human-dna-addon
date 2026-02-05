@@ -342,13 +342,13 @@ def register():
 
     try:
         bpy.utils.register_class(MetahumanSceneProperties)
-        bpy.types.Scene.meta_human_dna = bpy.props.PointerProperty(type=MetahumanSceneProperties)  # type: ignore[attr-defined]
+        setattr(bpy.types.Scene, ToolInfo.NAME, bpy.props.PointerProperty(type=MetahumanSceneProperties))  # type: ignore[attr-defined]
     except ValueError as error:
         logger.debug(error)
 
     try:
         bpy.utils.register_class(MetahumanWindowMangerProperties)
-        bpy.types.WindowManager.meta_human_dna = bpy.props.PointerProperty(type=MetahumanWindowMangerProperties)  # type: ignore[attr-defined]
+        setattr(bpy.types.WindowManager, ToolInfo.NAME, bpy.props.PointerProperty(type=MetahumanWindowMangerProperties))  # type: ignore[attr-defined]
     except ValueError as error:
         logger.debug(error)
 
@@ -417,7 +417,7 @@ def unregister():
         logger.debug(error)
 
     if hasattr(bpy.types.WindowManager, ToolInfo.NAME):
-        del bpy.types.WindowManager.meta_human_dna  # type: ignore[attr-defined]
+        delattr(bpy.types.WindowManager, ToolInfo.NAME)
 
     if hasattr(bpy.types.Scene, ToolInfo.NAME):
-        del bpy.types.Scene.meta_human_dna  # type: ignore[attr-defined]
+        delattr(bpy.types.Scene, ToolInfo.NAME)

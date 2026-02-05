@@ -43,6 +43,7 @@ def main():
     parser.add_argument('--data-file', type=str, help='Where to save the rig instance data')
     parser.add_argument('--blend-file', type=str, help='The blend file to extract data from')
     parser.add_argument('--addon-folder', type=str, help='The addon folder to use')
+    parser.add_argument('--addon-name', type=str, help='The addon name to use')
     args = parser.parse_args(argv)
 
     data_file = Path(args.data_file)
@@ -50,10 +51,13 @@ def main():
     bpy.ops.wm.open_mainfile(filepath=args.blend_file)
 
     # Ensure the addon is enabled
-    ensure_addon_enabled('meta_human_dna', Path(args.addon_folder))
+    ensure_addon_enabled(args.addon_name, Path(args.addon_folder))
 
     os.makedirs(data_file.parent, exist_ok=True)
     data = {}
+
+    scene_properties = getattr(bpy.context.scene, args.addon_name)
+
     try:
         data = {
             i.name: {
@@ -68,7 +72,7 @@ def main():
                 'body_dna_file_path': i.body_dna_file_path,
                 'output_folder_path': i.output_folder_path,
             }
-            for i in bpy.context.scene.meta_human_dna.rig_instance_list # type: ignore
+            for i in scene_properties.rig_instance_list
         }
     except Exception as error:
         with open(f'{data_file.parent / data_file.stem}_error.log', 'w') as f:

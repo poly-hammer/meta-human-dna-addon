@@ -11,6 +11,7 @@ import uuid
 
 from collections.abc import Callable, Generator
 from pathlib import Path
+from types import ModuleType
 from typing import Any
 
 # third party imports
@@ -45,7 +46,7 @@ logger = logging.getLogger(__name__)
 
 def exclude_rig_instance_evaluation(func: Callable) -> Callable:
     def wrapper(*args: Any, **kwargs: Any) -> Any:
-        window_manager_properties: "MetahumanWindowMangerProperties" = bpy.context.window_manager.meta_human_dna  # type: ignore[attr-defined]  # noqa: UP037
+        window_manager_properties = get_addon_window_manager_properties()
         window_manager_properties.evaluate_dependency_graph = False
         result = func(*args, **kwargs)
         window_manager_properties.evaluate_dependency_graph = True
@@ -125,7 +126,7 @@ def set_context(context: dict[str, Any]) -> None:
 
 def preserve_context(func: Callable) -> Callable:
     def wrapper(*args: Any, **kwargs: Any) -> Any:
-        window_manager_properties: "MetahumanWindowMangerProperties" = bpy.context.window_manager.meta_human_dna  # type: ignore[attr-defined]  # noqa: UP037
+        window_manager_properties = get_addon_window_manager_properties()
         window_manager_properties.evaluate_dependency_graph = False
         context = get_current_context()
         result = func(*args, **kwargs)
@@ -326,21 +327,24 @@ def teardown_scene(*_: Any) -> None:
 
 def pre_undo(*_: Any) -> None:
     context: "Context" = bpy.context  # type: ignore[attr-defined]  # noqa: UP037
+    addon_window_manager_properties = get_addon_window_manager_properties(context)
+    addon_scene_properties = get_addon_scene_properties(context)
 
     # Only run the pre-undo logic if the current context is a 3D view area
     if context.area and context.area.type == "VIEW_3D" and context.region and context.region.type == "WINDOW":
-        context.window_manager.meta_human_dna.evaluate_dependency_graph = False
-        context.window_manager.meta_human_dna.is_undoing = True
-        for instance in context.scene.meta_human_dna.rig_instance_list:
+        addon_window_manager_properties.evaluate_dependency_graph = False
+        addon_window_manager_properties.is_undoing = True
+        for instance in addon_scene_properties.rig_instance_list:
             instance.destroy()
 
 
 def post_undo(*_: Any) -> None:
     context: "Context" = bpy.context  # type: ignore[attr-defined]  # noqa: UP037
+    addon_window_manager_properties = get_addon_window_manager_properties(context)
 
     # Only run the post-undo logic if the current context is a 3D view area
     if context.area and context.area.type == "VIEW_3D" and context.region and context.region.type == "WINDOW":
-        context.window_manager.meta_human_dna.evaluate_dependency_graph = True
+        addon_window_manager_properties.evaluate_dependency_graph = True
 
 
 def pre_redo(*args: Any) -> None:
@@ -423,7 +427,7 @@ def get_head(name: str) -> "MetaHumanComponentHead | None":
     # avoid circular import
     from ..components.head import MetaHumanComponentHead
 
-    scene_properties: "MetahumanSceneProperties" = bpy.context.scene.meta_human_dna  # type: ignore[attr-defined]  # noqa: UP037
+    scene_properties = get_addon_scene_properties()
     for instance in scene_properties.rig_instance_list:
         if instance.name == name:
             return MetaHumanComponentHead(rig_instance=instance, component_type="head")
@@ -436,7 +440,7 @@ def get_body(name: str) -> "MetaHumanComponentBody | None":
     # avoid circular import
     from ..components.body import MetaHumanComponentBody
 
-    scene_properties: "MetahumanSceneProperties" = bpy.context.scene.meta_human_dna  # type: ignore[attr-defined]  # noqa: UP037
+    scene_properties = get_addon_scene_properties()
     for instance in scene_properties.rig_instance_list:
         if instance.name == name:
             return MetaHumanComponentBody(rig_instance=instance, component_type="body")
@@ -586,7 +590,8 @@ def report_error(message: str):
     Args:
         message (str): The body text with the error message.
     """
-    bpy.ops.meta_human_dna.report_error(  # type: ignore[attr-defined]
+    ops = get_addon_ops_module()
+    ops.report_error(
         # "INVOKE_DEFAULT",
         message=message
     )
@@ -606,8 +611,10 @@ def report_error_panel(title: str, message: str, fix: Callable | None = None, wi
 
         width (int, optional): The width of the modal. Defaults to 500.
     """
-    bpy.context.window_manager.meta_human_dna.errors[title] = {"fix": fix}  # type: ignore[attr-defined]
-    bpy.ops.meta_human_dna.report_error_with_fix(  # type: ignore[attr-defined]
+    addon_window_manager_properties = get_addon_window_manager_properties()
+    addon_window_manager_properties.errors[title] = {"fix": fix}
+    ops = get_addon_ops_module()
+    ops.report_error_with_fix(
         "INVOKE_DEFAULT",
         title=title,
         message=message,
@@ -631,7 +638,7 @@ def import_head_texture_logic_node() -> bpy.types.NodeTree | None:
 
 def dependencies_are_valid() -> bool:
     for module_name in ["riglogic", "meta_human_dna_core"]:
-        module = sys.modules.get(module_name)
+        module = next((module for key, module in sys.modules.items() if key.endswith(module_name)), None)
         if module and getattr(module, "__is_fake__", False):
             return False
     return True
@@ -693,7 +700,7 @@ def shell(command: str, **kwargs: Any) -> Generator[str, None, None]:
 
 
 def add_rig_instance(name: None | str = None) -> "RigInstance":
-    scene_properties: "MetahumanSceneProperties" = bpy.context.scene.meta_human_dna  # type: ignore[attr-defined]  # noqa: UP037
+    scene_properties = get_addon_scene_properties()
     my_list = scene_properties.rig_instance_list
     active_index = scene_properties.rig_instance_list_active_index
     to_index = min(len(my_list), active_index + 1)
@@ -723,23 +730,24 @@ def extract_rig_instance_data_from_blend_file(blend_file_path: Path) -> tuple[li
         if sys.platform == "win32":
             command = (
                 f'"{binary_path}" --background --python "{script_file}" -- --data-file "{data_file}" '
-                f'--blend-file "{blend_file_path}" --addon-folder "{addon_folder}"'
+                f'--blend-file "{blend_file_path}" --addon-folder "{addon_folder}" --addon-name "{ToolInfo.NAME}"'
             )
         else:
             command = (
                 f"{binary_path} --background --python {script_file.as_posix()} -- --data-file {data_file.as_posix()} "
-                f"--blend-file {blend_file_path.as_posix()} --addon-folder {addon_folder.as_posix()}"
+                f"--blend-file {blend_file_path.as_posix()} --addon-folder {addon_folder.as_posix()} "
+                f"--addon-name {ToolInfo.NAME}"
             )
     # binary path can be empty if blender is run headless
     elif sys.platform == "win32":
         command = (
             f'"{sys.executable}" "{script_file}" -- --data-file "{data_file}" --blend-file "{blend_file_path}" '
-            f'--addon-folder "{addon_folder}"'
+            f'--addon-folder "{addon_folder}" --addon-name "{ToolInfo.NAME}"'
         )
     else:
         command = (
             f"{sys.executable} {script_file.as_posix()} -- --data-file {data_file.as_posix()} --blend-file "
-            f"{blend_file_path.as_posix()} --addon-folder {addon_folder.as_posix()}"
+            f"{blend_file_path.as_posix()} --addon-folder {addon_folder.as_posix()} --addon-name {ToolInfo.NAME}"
         )
 
     for _line in shell(command=command):
@@ -771,7 +779,7 @@ def extract_rig_instance_data_from_blend_file(blend_file_path: Path) -> tuple[li
 
 
 def duplicate_face_board(name: str) -> bpy.types.Object | None:
-    scene_properties: "MetahumanSceneProperties" = bpy.context.scene.meta_human_dna  # type: ignore[attr-defined]  # noqa: UP037
+    scene_properties = get_addon_scene_properties()
     for instance in scene_properties.rig_instance_list:
         if instance.face_board:
             # Duplicate the face board object
@@ -953,14 +961,15 @@ def collection_to_list(collection: bpy.types.bpy_prop_collection) -> list:
 
 @exclude_rig_instance_evaluation
 def migrate_legacy_data(context: "Context") -> None:  # noqa: PLR0912
-    rig_instance_names = [instance.name for instance in context.scene.meta_human_dna.rig_instance_list]
+    addon_scene_properties = get_addon_scene_properties(context)
+    rig_instance_names = [instance.name for instance in addon_scene_properties.rig_instance_list]
     for key in LEGACY_DATA_KEYS:
         # Migrate rig instance data from old format to new format
-        old_data = context.scene.meta_human_dna.get(key, [])
+        old_data = addon_scene_properties.get(key, [])
         for _instance_data in old_data:
             name = _instance_data.get("name")
             if name is not None and name not in rig_instance_names:
-                instance = context.scene.meta_human_dna.rig_instance_list.add()
+                instance = addon_scene_properties.rig_instance_list.add()
                 instance.name = name
 
                 # File Paths
@@ -1019,7 +1028,7 @@ def migrate_legacy_data(context: "Context") -> None:  # noqa: PLR0912
                     instance.head_to_body_constraint_influence = head_to_body_constraint_influence
 
         # Remove old data after migration
-        del context.scene.meta_human_dna[key]
+        del getattr(context.scene, ToolInfo.NAME)[key]
 
 
 def get_addon_preferences() -> "MetahumanAddonProperties | None":
@@ -1044,6 +1053,46 @@ def get_addon_preferences() -> "MetahumanAddonProperties | None":
             ToolInfo.EXTENSION_ID = extension_id
             return bpy.context.preferences.addons[extension_id].preferences  # type: ignore[attr-defined]
     return None
+
+
+def get_addon_window_manager_properties(context: bpy.types.Context | None = None) -> "MetahumanWindowMangerProperties":
+    """
+    Gets the window manager properties for the MetaHuman DNA addon.
+
+    Returns:
+        MetahumanWindowManagerProperties: The window manager properties.
+    """
+    if context is None:
+        context = bpy.context
+
+    if context.window_manager and hasattr(context.window_manager, ToolInfo.NAME):
+        return getattr(context.window_manager, ToolInfo.NAME)
+    return None  # type: ignore[reportReturnType]
+
+
+def get_addon_scene_properties(context: bpy.types.Context | None = None) -> "MetahumanSceneProperties":
+    """
+    Gets the scene properties for the MetaHuman DNA addon.
+
+    Returns:
+        MetahumanSceneProperties: The scene properties.
+    """
+    if context is None:
+        context = bpy.context
+
+    if context.scene and hasattr(context.scene, ToolInfo.NAME):
+        return getattr(context.scene, ToolInfo.NAME)
+    return None  # type: ignore[reportReturnType]
+
+
+def get_addon_ops_module() -> ModuleType:
+    """
+    Gets the operator module for the MetaHuman DNA addon.
+
+    Returns:
+        ModuleType: The operator's module for the addon.
+    """
+    return getattr(bpy.ops, ToolInfo.NAME, None)  # type: ignore[reportReturnType]
 
 
 def file_path_hash(file_path: Path, length: int = 8) -> str:

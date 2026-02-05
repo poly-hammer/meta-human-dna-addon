@@ -6,6 +6,7 @@ import bpy
 
 # local imports
 from .. import __package__ as package_name
+from ..constants import ToolInfo
 from ..properties import ExtraDnaFolder, MetahumanAddonProperties
 from ..typing import *  # noqa: F403
 
@@ -79,11 +80,11 @@ class MetaHumanDnaPreferences(MetahumanAddonProperties, bpy.types.AddonPreferenc
         )
 
         col = row.column()
-        col.operator("meta_human_dna.addon_preferences_extra_dna_entry_add", text="", icon="ADD")
+        col.operator(f"{ToolInfo.NAME}.addon_preferences_extra_dna_entry_add", text="", icon="ADD")
         row = col.row()
         row.enabled = len(self.extra_dna_folder_list) > 0
         row.operator(
-            "meta_human_dna.addon_preferences_extra_dna_entry_remove",
+            f"{ToolInfo.NAME}.addon_preferences_extra_dna_entry_remove",
             text="",
             icon="REMOVE",
         )

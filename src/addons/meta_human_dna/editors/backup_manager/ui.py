@@ -2,6 +2,7 @@
 import bpy
 
 # local imports
+from ...constants import ToolInfo
 from ...typing import *  # noqa: F403
 from ...utilities import get_active_rig_instance
 
@@ -68,15 +69,15 @@ class META_HUMAN_DNA_PT_dna_backups(bpy.types.Panel):
 
         # Side buttons
         col = row.column(align=True)
-        col.operator("meta_human_dna.sync_dna_backups", text="", icon="FILE_REFRESH")
-        col.operator("meta_human_dna.open_backup_folder", text="", icon="FILE_FOLDER")
-        col.operator("meta_human_dna.create_manual_backup", text="", icon="ADD")
+        col.operator(f"{ToolInfo.NAME}.sync_dna_backups", text="", icon="FILE_REFRESH")
+        col.operator(f"{ToolInfo.NAME}.open_backup_folder", text="", icon="FILE_FOLDER")
+        col.operator(f"{ToolInfo.NAME}.create_manual_backup", text="", icon="ADD")
 
         # Bottom buttons
         if len(instance.dna_backup_list) > 0:
             row = layout.row(align=True)
-            row.operator("meta_human_dna.restore_dna_backup", text="Restore", icon="LOOP_BACK")
-            row.operator("meta_human_dna.delete_dna_backup", text="Delete", icon="TRASH")
+            row.operator(f"{ToolInfo.NAME}.restore_dna_backup", text="Restore", icon="LOOP_BACK")
+            row.operator(f"{ToolInfo.NAME}.delete_dna_backup", text="Delete", icon="TRASH")
 
             # Show selected backup details
             active_index = instance.dna_backup_list_active_index

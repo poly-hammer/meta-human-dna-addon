@@ -12,7 +12,7 @@ import bpy
 # local imports
 from ...constants import DEFAULT_BACKUPS_FOLDER
 from ...typing import *  # noqa: F403
-from ...utilities import file_path_hash, get_addon_preferences
+from ...utilities import file_path_hash, get_addon_ops_module, get_addon_preferences
 
 
 logger = logging.getLogger(__name__)
@@ -247,7 +247,8 @@ def restore_backup(instance: "RigInstance", backup_id: str) -> bool:
                 logger.info(f"Restored body DNA: {body_backup} -> {dest}")
 
         logger.info(f"Successfully restored backup for {instance.name}: {backup_id}")
-        bpy.ops.meta_human_dna.force_evaluate()  # type: ignore[attr-defined]
+        ops = get_addon_ops_module()
+        ops.force_evaluate()
         return True
 
     except Exception as e:

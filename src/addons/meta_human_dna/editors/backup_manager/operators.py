@@ -5,17 +5,17 @@ import sys
 # third party imports
 import bpy
 
+# local imports
+from ...constants import ToolInfo
 from ...typing import *  # noqa: F403
 from ...utilities import get_active_rig_instance
-
-# local imports
 from . import core
 
 
 class META_HUMAN_DNA_OT_restore_backup(bpy.types.Operator):
     """Restore DNA files from the selected backup."""
 
-    bl_idname = "meta_human_dna.restore_dna_backup"
+    bl_idname = f"{ToolInfo.NAME}.restore_dna_backup"
     bl_label = "Restore Backup"
     bl_description = "Restore DNA files from the selected backup"
     bl_options = {"REGISTER", "UNDO"}
@@ -52,7 +52,7 @@ class META_HUMAN_DNA_OT_restore_backup(bpy.types.Operator):
 class META_HUMAN_DNA_OT_delete_backup(bpy.types.Operator):
     """Delete the selected backup."""
 
-    bl_idname = "meta_human_dna.delete_dna_backup"
+    bl_idname = f"{ToolInfo.NAME}.delete_dna_backup"
     bl_label = "Delete Backup"
     bl_description = "Delete the selected DNA backup"
     bl_options = {"REGISTER", "UNDO"}
@@ -94,7 +94,7 @@ class META_HUMAN_DNA_OT_delete_backup(bpy.types.Operator):
 class META_HUMAN_DNA_OT_open_backup_folder(bpy.types.Operator):
     """Open the backup folder in the file explorer."""
 
-    bl_idname = "meta_human_dna.open_backup_folder"
+    bl_idname = f"{ToolInfo.NAME}.open_backup_folder"
     bl_label = "Open Backup Folder"
     bl_description = "Open the DNA backup folder in the file explorer"
 
@@ -119,7 +119,7 @@ class META_HUMAN_DNA_OT_open_backup_folder(bpy.types.Operator):
 class META_HUMAN_DNA_OT_sync_backups(bpy.types.Operator):
     """Synchronize the backup list with files on disk."""
 
-    bl_idname = "meta_human_dna.sync_dna_backups"
+    bl_idname = f"{ToolInfo.NAME}.sync_dna_backups"
     bl_label = "Refresh Backups"
     bl_description = "Refresh the backup list from disk"
 
@@ -141,7 +141,7 @@ class META_HUMAN_DNA_OT_sync_backups(bpy.types.Operator):
 class META_HUMAN_DNA_OT_create_manual_backup(bpy.types.Operator):
     """Create a manual backup of the DNA files with a custom description."""
 
-    bl_idname = "meta_human_dna.create_manual_backup"
+    bl_idname = f"{ToolInfo.NAME}.create_manual_backup"
     bl_label = "Create Manual Backup"
     bl_description = "Create a manual backup of the DNA files with a custom description"
     bl_options = {"REGISTER", "UNDO"}

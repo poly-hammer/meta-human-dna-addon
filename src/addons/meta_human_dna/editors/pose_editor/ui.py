@@ -7,6 +7,7 @@ import bpy
 from bl_ui.generic_ui_list import draw_ui_list
 
 # local imports
+from ...constants import ToolInfo
 from ...typing import *  # noqa: F403
 from ...ui.view_3d import RigInstanceDependentPanel, valid_rig_instance_exists
 from .function_curves import get_function_preview_icon
@@ -63,7 +64,7 @@ class META_HUMAN_DNA_UL_rbf_poses(bpy.types.UIList):
         active_data: "RigInstance",
         active_prop_name: str,
     ):
-        properties = context.scene.meta_human_dna
+        properties = getattr(context.scene, ToolInfo.NAME)
         active_index = properties.rig_instance_list_active_index
         instance = properties.rig_instance_list[active_index]
         if instance.editing_rbf_solver:
@@ -121,7 +122,7 @@ class META_HUMAN_DNA_PT_pose_editor(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: "Context") -> bool:
-        properties = context.scene.meta_human_dna
+        properties = getattr(context.scene, ToolInfo.NAME)
         if not len(properties.rig_instance_list) > 0:
             return False
 
@@ -135,7 +136,7 @@ class META_HUMAN_DNA_PT_pose_editor(bpy.types.Panel):
         if not self.layout:
             return
 
-        properties = context.scene.meta_human_dna
+        properties = getattr(context.scene, ToolInfo.NAME)
 
         active_index = properties.rig_instance_list_active_index
         instance = properties.rig_instance_list[active_index]
@@ -149,8 +150,8 @@ class META_HUMAN_DNA_PT_pose_editor(bpy.types.Panel):
             row,
             context,  # type: ignore[arg-type]
             class_name="META_HUMAN_DNA_UL_rbf_solvers",
-            list_path=f"scene.meta_human_dna.rig_instance_list[{active_index}].rbf_solver_list",
-            active_index_path=f"scene.meta_human_dna.rig_instance_list[{active_index}].rbf_solver_list_active_index",
+            list_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].rbf_solver_list",
+            active_index_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].rbf_solver_list_active_index",
             unique_id="active_rbf_solver_list_id",
             insertion_operators=False,
             move_operators=False,  # type: ignore[arg-type]
@@ -167,8 +168,8 @@ class META_HUMAN_DNA_PT_pose_editor(bpy.types.Panel):
                 row,
                 context,  # type: ignore[arg-type]
                 class_name="META_HUMAN_DNA_UL_rbf_poses",
-                list_path=f"scene.meta_human_dna.rig_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses",
-                active_index_path=f"scene.meta_human_dna.rig_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses_active_index",
+                list_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses",
+                active_index_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses_active_index",
                 unique_id="active_rbf_poses_list_id",
                 insertion_operators=False,
                 move_operators=False,  # type: ignore[arg-type]
@@ -178,13 +179,13 @@ class META_HUMAN_DNA_PT_pose_editor(bpy.types.Panel):
 
         if instance.editing_rbf_solver:
             solver_row = self.layout.row(align=True)
-            solver_row.operator("meta_human_dna.add_rbf_solver", icon="ADD", text="")
-            solver_row.operator("meta_human_dna.remove_rbf_solver", icon="REMOVE", text="")
+            solver_row.operator(f"{ToolInfo.NAME}.add_rbf_solver", icon="ADD", text="")
+            solver_row.operator(f"{ToolInfo.NAME}.remove_rbf_solver", icon="REMOVE", text="")
 
             # Push the select all button to the right
             sub = solver_row.row(align=True)
             sub.alignment = "RIGHT"
-            sub.operator("meta_human_dna.mirror_rbf_solver", icon="MOD_MIRROR", text="")
+            sub.operator(f"{ToolInfo.NAME}.mirror_rbf_solver", icon="MOD_MIRROR", text="")
             sub.separator(factor=1.5)
 
 
@@ -200,7 +201,7 @@ class META_HUMAN_DNA_PT_pose_editor_footer_sub_panel(RigInstanceDependentPanel):
         if not self.layout:
             return
 
-        properties = context.scene.meta_human_dna
+        properties = getattr(context.scene, ToolInfo.NAME)
 
         active_index = properties.rig_instance_list_active_index
         instance = properties.rig_instance_list[active_index]
@@ -209,11 +210,11 @@ class META_HUMAN_DNA_PT_pose_editor_footer_sub_panel(RigInstanceDependentPanel):
         solver_row.scale_y = 1.5
 
         if instance.editing_rbf_solver:
-            solver_row.operator("meta_human_dna.revert_rbf_solver", icon="LOOP_BACK", text="Revert")
+            solver_row.operator(f"{ToolInfo.NAME}.revert_rbf_solver", icon="LOOP_BACK", text="Revert")
         else:
-            solver_row.operator("meta_human_dna.edit_rbf_solver", icon="OUTLINER_DATA_ARMATURE", text="Edit")
+            solver_row.operator(f"{ToolInfo.NAME}.edit_rbf_solver", icon="OUTLINER_DATA_ARMATURE", text="Edit")
 
-        solver_row.operator("meta_human_dna.commit_rbf_solver_changes", icon="RNA", text="Commit")
+        solver_row.operator(f"{ToolInfo.NAME}.commit_rbf_solver_changes", icon="RNA", text="Commit")
 
 
 class RbfEditorSubPanelBase(bpy.types.Panel):
@@ -221,11 +222,11 @@ class RbfEditorSubPanelBase(bpy.types.Panel):
     def poll(cls, context: "Context") -> bool:
         error = valid_rig_instance_exists(context, ignore_face_board=True)
         if not error:
-            properties = context.scene.meta_human_dna
+            properties = getattr(context.scene, ToolInfo.NAME)
             if not len(properties.rig_instance_list) > 0:
                 return False
 
-            properties = context.scene.meta_human_dna
+            properties = getattr(context.scene, ToolInfo.NAME)
             active_index = properties.rig_instance_list_active_index
             instance = properties.rig_instance_list[active_index]
 
@@ -253,7 +254,7 @@ class META_HUMAN_DNA_PT_pose_editor_solver_settings_sub_panel(RbfEditorSubPanelB
         if not self.layout:
             return
 
-        properties = context.scene.meta_human_dna
+        properties = getattr(context.scene, ToolInfo.NAME)
         active_index = properties.rig_instance_list_active_index
         instance = properties.rig_instance_list[active_index]
 
@@ -327,7 +328,7 @@ class META_HUMAN_DNA_PT_pose_editor_poses_sub_panel(RbfEditorSubPanelBase):
         if not self.layout:
             return
 
-        properties = context.scene.meta_human_dna
+        properties = getattr(context.scene, ToolInfo.NAME)
         active_index = properties.rig_instance_list_active_index
         instance = properties.rig_instance_list[active_index]
 
@@ -344,16 +345,16 @@ class META_HUMAN_DNA_PT_pose_editor_poses_sub_panel(RbfEditorSubPanelBase):
             row,
             context,  # type: ignore[arg-type]
             class_name="META_HUMAN_DNA_UL_rbf_poses",
-            list_path=f"scene.meta_human_dna.rig_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses",
-            active_index_path=f"scene.meta_human_dna.rig_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses_active_index",
+            list_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses",
+            active_index_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses_active_index",
             unique_id="active_rbf_poses_list_id",
             insertion_operators=False,
             move_operators=False,  # type: ignore[arg-type]
         )
         if instance.editing_rbf_solver:
             poses_row = self.layout.row(align=True)
-            poses_row.operator("meta_human_dna.add_rbf_pose", icon="ADD", text="")
-            poses_row.operator("meta_human_dna.remove_rbf_pose", icon="REMOVE", text="")
+            poses_row.operator(f"{ToolInfo.NAME}.add_rbf_pose", icon="ADD", text="")
+            poses_row.operator(f"{ToolInfo.NAME}.remove_rbf_pose", icon="REMOVE", text="")
             active_rbf_pose_index = active_rbf_solver.poses_active_index
             active_rbf_pose = (
                 active_rbf_solver.poses[active_rbf_pose_index] if len(active_rbf_solver.poses) > 0 else None
@@ -361,19 +362,21 @@ class META_HUMAN_DNA_PT_pose_editor_poses_sub_panel(RbfEditorSubPanelBase):
             if not active_rbf_pose:
                 return
 
-            poses_row.operator("meta_human_dna.evaluate_rbf_solvers", icon="FILE_REFRESH", text="")
+            poses_row.operator(f"{ToolInfo.NAME}.evaluate_rbf_solvers", icon="FILE_REFRESH", text="")
 
             # Push the select all button to the right
             sub = poses_row.row(align=True)
             sub.alignment = "RIGHT"
-            sub.operator("meta_human_dna.mirror_rbf_pose", icon="MOD_MIRROR", text="")
-            sub.operator("meta_human_dna.duplicate_rbf_pose", icon="DUPLICATE", text="")
+            sub.operator(f"{ToolInfo.NAME}.mirror_rbf_pose", icon="MOD_MIRROR", text="")
+            sub.operator(f"{ToolInfo.NAME}.duplicate_rbf_pose", icon="DUPLICATE", text="")
             sub.separator(factor=1.5)
 
             if active_rbf_pose.driven_active_index >= 0 and len(active_rbf_pose.driven) > 0:
                 row = self.layout.row()
                 row.scale_y = 1.5
-                row.operator("meta_human_dna.apply_rbf_pose_edits", icon="CHECKMARK", text="Apply Pose Transform Edits")
+                row.operator(
+                    f"{ToolInfo.NAME}.apply_rbf_pose_edits", icon="CHECKMARK", text="Apply Pose Transform Edits"
+                )
 
             # TODO: Maybe Re-enable when functionality is needed?
             # split = self.layout.split()  # noqa: ERA001
@@ -393,7 +396,7 @@ class META_HUMAN_DNA_PT_pose_editor_drivers_sub_panel(RbfEditorSubPanelBase):
         if not self.layout:
             return
 
-        properties = context.scene.meta_human_dna
+        properties = getattr(context.scene, ToolInfo.NAME)
         active_index = properties.rig_instance_list_active_index
         instance = properties.rig_instance_list[active_index]
 
@@ -412,8 +415,8 @@ class META_HUMAN_DNA_PT_pose_editor_drivers_sub_panel(RbfEditorSubPanelBase):
             row,
             context,  # type: ignore[arg-type]
             class_name="META_HUMAN_DNA_UL_rbf_drivers",
-            list_path=f"scene.meta_human_dna.rig_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses[{active_rbf_pose_index}].drivers",
-            active_index_path=f"scene.meta_human_dna.rig_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses[{active_rbf_pose_index}].drivers_active_index",
+            list_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses[{active_rbf_pose_index}].drivers",
+            active_index_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses[{active_rbf_pose_index}].drivers_active_index",
             unique_id="active_rbf_driver_list_id",
             insertion_operators=False,
             move_operators=False,  # type: ignore[arg-type]
@@ -431,11 +434,11 @@ class META_HUMAN_DNA_PT_pose_editor_driven_sub_panel(bpy.types.Panel):
     def poll(cls, context: "Context") -> bool:
         error = valid_rig_instance_exists(context, ignore_face_board=True)
         if not error:
-            properties = context.scene.meta_human_dna
+            properties = getattr(context.scene, ToolInfo.NAME)
             if not len(properties.rig_instance_list) > 0:
                 return False
 
-            properties = context.scene.meta_human_dna
+            properties = getattr(context.scene, ToolInfo.NAME)
             active_index = properties.rig_instance_list_active_index
             instance = properties.rig_instance_list[active_index]
 
@@ -459,7 +462,7 @@ class META_HUMAN_DNA_PT_pose_editor_driven_sub_panel(bpy.types.Panel):
         if not self.layout:
             return
 
-        properties = context.scene.meta_human_dna
+        properties = getattr(context.scene, ToolInfo.NAME)
         active_index = properties.rig_instance_list_active_index
         instance: "RigInstance" = properties.rig_instance_list[active_index]  # noqa: UP037
 
@@ -481,8 +484,8 @@ class META_HUMAN_DNA_PT_pose_editor_driven_sub_panel(bpy.types.Panel):
             row,
             context,  # type: ignore[arg-type]
             class_name="META_HUMAN_DNA_UL_rbf_driven",
-            list_path=f"scene.meta_human_dna.rig_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses[{active_rbf_pose_index}].driven",
-            active_index_path=f"scene.meta_human_dna.rig_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses[{active_rbf_pose_index}].driven_active_index",
+            list_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses[{active_rbf_pose_index}].driven",
+            active_index_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses[{active_rbf_pose_index}].driven_active_index",
             unique_id="active_rbf_driven_list_id",
             insertion_operators=False,
             move_operators=False,  # type: ignore[arg-type]
@@ -490,5 +493,5 @@ class META_HUMAN_DNA_PT_pose_editor_driven_sub_panel(bpy.types.Panel):
         column = self.layout.column()
         driven_row = column.row(align=True)
 
-        driven_row.operator("meta_human_dna.add_rbf_driven", icon="ADD", text="")
-        driven_row.operator("meta_human_dna.remove_rbf_driven", icon="REMOVE", text="")
+        driven_row.operator(f"{ToolInfo.NAME}.add_rbf_driven", icon="ADD", text="")
+        driven_row.operator(f"{ToolInfo.NAME}.remove_rbf_driven", icon="REMOVE", text="")

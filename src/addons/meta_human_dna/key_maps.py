@@ -4,6 +4,9 @@ import logging
 # third-party imports
 import bpy
 
+# local imports
+from .constants import ToolInfo
+
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +36,7 @@ def register():
 
     # Apply RBF Pose Edits - default: Ctrl+Shift+A
     key_map_item = km.keymap_items.new(
-        idname="meta_human_dna.apply_rbf_pose_edits",
+        idname=f"{ToolInfo.NAME}.apply_rbf_pose_edits",
         type="A",
         value="PRESS",
         ctrl=True,

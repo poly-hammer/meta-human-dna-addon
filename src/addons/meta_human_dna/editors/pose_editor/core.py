@@ -317,10 +317,11 @@ def update_body_rbf_poses_active_index(self: "RBFSolverData", context: "Context"
 
 
 def update_evaluate_rbfs_value(self: "RigInstance", context: "Context"):
-    context.window_manager.meta_human_dna.evaluate_dependency_graph = False
+    addon_window_manager_properties = utilities.get_addon_window_manager_properties(context)
+    addon_window_manager_properties.evaluate_dependency_graph = False
     self.reset_body_raw_control_values()
     self.reset_head_raw_control_values()
-    context.window_manager.meta_human_dna.evaluate_dependency_graph = True
+    addon_window_manager_properties.evaluate_dependency_graph = True
 
 
 def update_body_rbf_solver_list(self: "RigInstance"):  # noqa: PLR0912

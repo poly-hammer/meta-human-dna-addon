@@ -54,6 +54,8 @@ class GenericProgressQueueOperator(bpy.types.Operator):
     _commands_queue_size = 0
 
     def modal(self, context: "Context", event: bpy.types.Event) -> set[str]:
+        addon_window_manager_properties = utilities.get_addon_window_manager_properties(context)
+
         if event.type == "ESC":
             return self.finish(context)
 
@@ -69,15 +71,17 @@ class GenericProgressQueueOperator(bpy.types.Operator):
             kwargs = kwargs_callback(index, mesh_index)
             # inject the kwargs into the description
             description = description.format(**kwargs)
-            context.window_manager.meta_human_dna.progress = (
+            addon_window_manager_properties.progress = (
                 self._commands_queue_size - new_size
             ) / self._commands_queue_size
-            context.window_manager.meta_human_dna.progress_description = description
+            addon_window_manager_properties.progress_description = description
             callback(**kwargs)
 
         return {"PASS_THROUGH"}
 
     def execute(self, context: "Context") -> set[str]:
+        addon_window_manager_properties = utilities.get_addon_window_manager_properties(context)
+
         if not self.validate(context):
             return {"CANCELLED"}
 
@@ -85,8 +89,8 @@ class GenericProgressQueueOperator(bpy.types.Operator):
         context.window_manager.modal_handler_add(self)
         head = utilities.get_active_head()
         if head:
-            context.window_manager.meta_human_dna.progress = 0
-            context.window_manager.meta_human_dna.progress_description = ""
+            addon_window_manager_properties.progress = 0
+            addon_window_manager_properties.progress_description = ""
             self._commands_queue = queue.Queue()
             self.set_commands_queue(context, head, self._commands_queue)
             self._commands_queue_size = self._commands_queue.qsize()
@@ -94,9 +98,11 @@ class GenericProgressQueueOperator(bpy.types.Operator):
         return {"CANCELLED"}
 
     def finish(self, context: "Context") -> set[str]:
+        addon_window_manager_properties = utilities.get_addon_window_manager_properties(context)
+
         if self._timer:
             context.window_manager.event_timer_remove(self._timer)
-        context.window_manager.meta_human_dna.progress = 1
+        addon_window_manager_properties.progress = 1
         # re-initialize the rig instance so the shape key blocks collection is updated for the UI
         instance = callbacks.get_active_rig_instance()
         if instance:
@@ -119,7 +125,7 @@ class GenericProgressQueueOperator(bpy.types.Operator):
 class AppendOrLinkMetaHuman(bpy.types.Operator, importer.LinkAppendMetaHumanImportHelper):
     """Append or link a MetaHuman from a .blend file. The .blend file must contain a collection with all data related to the MetaHuman asset."""  # noqa: E501
 
-    bl_idname = "meta_human_dna.append_or_link_metahuman"
+    bl_idname = f"{ToolInfo.NAME}.append_or_link_metahuman"
     bl_label = "Import"
     filename_ext = ".blend"
 
@@ -155,6 +161,8 @@ class AppendOrLinkMetaHuman(bpy.types.Operator, importer.LinkAppendMetaHumanImpo
             self.report({"ERROR"}, "You cannot import a MetaHuman from the current .blend file")
             return {"CANCELLED"}
 
+        addon_scene_properties = utilities.get_addon_scene_properties(context)
+
         # this is for headless imports and automated tests
         if self.meta_human_names:
             self.meta_human_list.clear()
@@ -165,7 +173,7 @@ class AppendOrLinkMetaHuman(bpy.types.Operator, importer.LinkAppendMetaHumanImpo
 
         # track the current control objects
         current_control_objects = []
-        for instance in context.scene.meta_human_dna.rig_instance_list:
+        for instance in addon_scene_properties.rig_instance_list:
             if instance.face_board:
                 current_control_objects.extend(pose_bone.custom_shape for pose_bone in instance.face_board.pose.bones)
 
@@ -220,7 +228,7 @@ class AppendOrLinkMetaHuman(bpy.types.Operator, importer.LinkAppendMetaHumanImpo
             instance.output_folder_path = data[collection_name]["output_folder_path"]
 
             # duplicate the face board if there is one already in the scene
-            if any(i.face_board for i in context.scene.meta_human_dna.rig_instance_list):
+            if any(i.face_board for i in addon_scene_properties.rig_instance_list):
                 instance.face_board = utilities.duplicate_face_board(name=collection_name)
             # otherwise import it
             else:
@@ -307,7 +315,7 @@ class ImportAnimationBase(bpy.types.Operator):
 class ImportFaceBoardAnimation(ImportAnimationBase, importer.ImportAnimation):
     """Import an animation for the metahuman face board exported from an Unreal Engine Level Sequence"""
 
-    bl_idname = "meta_human_dna.import_face_board_animation"
+    bl_idname = f"{ToolInfo.NAME}.import_face_board_animation"
     bl_label = "Import"
 
     @property
@@ -333,7 +341,7 @@ class ImportFaceBoardAnimation(ImportAnimationBase, importer.ImportAnimation):
 class ImportComponentAnimation(ImportAnimationBase, importer.ImportAnimation):
     """Import an animation for the selected metahuman component that has been exported from an Unreal Engine"""
 
-    bl_idname = "meta_human_dna.import_component_animation"
+    bl_idname = f"{ToolInfo.NAME}.import_component_animation"
     bl_label = "Import"
 
     component_type: bpy.props.StringProperty(default="body")  # pyright: ignore[reportInvalidTypeForm]
@@ -498,7 +506,7 @@ class BakeAnimationBase(bpy.types.Operator):
 class BakeFaceBoardAnimation(BakeAnimationBase):
     """Bakes the active face board action to the pose bones, shape key values, and texture logic mask values. Useful for rendering, simulations, etc. where rig logic evaluation is not available"""  # noqa: E501
 
-    bl_idname = "meta_human_dna.bake_face_board_animation"
+    bl_idname = f"{ToolInfo.NAME}.bake_face_board_animation"
     bl_label = "Bake Face Board Animation"
 
     def execute(self, context: "Context") -> set[str]:
@@ -556,7 +564,7 @@ class BakeFaceBoardAnimation(BakeAnimationBase):
 class BakeComponentAnimation(BakeAnimationBase):
     """Bakes the active component action. This takes into account how the driver pose bones effect the rbf driven bones, shape key values, and texture logic mask values. Useful for rendering, simulations, etc. where rig logic evaluation is not available"""  # noqa: E501
 
-    bl_idname = "meta_human_dna.bake_component_animation"
+    bl_idname = f"{ToolInfo.NAME}.bake_component_animation"
     bl_label = "Bake Component Animation"
 
     component_type: bpy.props.StringProperty(
@@ -651,11 +659,12 @@ class BakeComponentAnimation(BakeAnimationBase):
     @classmethod
     def poll(cls, context: "Context") -> bool:
         instance = callbacks.get_active_rig_instance()
+        addon_window_manager_properties = utilities.get_addon_window_manager_properties(context)
 
         if not instance:
             return False
 
-        if context.window_manager.meta_human_dna.current_component_type == "body":
+        if addon_window_manager_properties.current_component_type == "body":
             if not instance.body_rig:
                 return False
             if not instance.body_rig.animation_data:
@@ -668,7 +677,7 @@ class BakeComponentAnimation(BakeAnimationBase):
 class ImportMetaHumanDna(bpy.types.Operator, importer.ImportAsset, MetahumanImportProperties):
     """Import a metahuman head from a DNA file"""
 
-    bl_idname = "meta_human_dna.import_dna"
+    bl_idname = f"{ToolInfo.NAME}.import_dna"
     bl_label = "Import DNA"
     filename_ext = ".dna"
 
@@ -679,13 +688,7 @@ class ImportMetaHumanDna(bpy.types.Operator, importer.ImportAsset, MetahumanImpo
     )  # pyright: ignore[reportInvalidTypeForm]
 
     def execute(self, context: "Context") -> set[str]:
-        window_manager_properties = context.window_manager.meta_human_dna
-        # we define the properties initially on the operator so has preset
-        # transfer the settings from the operator onto the window properties, so they are globally accessible
-        for key in self.__annotations__:
-            if hasattr(MetahumanImportProperties, key):
-                value = getattr(self.properties, key)
-                setattr(window_manager_properties.meta_human_dna, key, value)
+        window_manager_properties = utilities.get_addon_window_manager_properties(context)
 
         file_path = Path(bpy.path.abspath(self.filepath))
         if not file_path.exists():
@@ -694,7 +697,7 @@ class ImportMetaHumanDna(bpy.types.Operator, importer.ImportAsset, MetahumanImpo
         if not file_path.is_file():
             self.report({"ERROR"}, f'"{file_path}" is a folder. Please select a DNA file.')
             return {"CANCELLED"}
-        if file_path.suffix not in [".dna"]:
+        if file_path.suffix.lower() != ".dna":
             self.report({"ERROR"}, f'The file "{file_path}" is not a DNA file')
             return {"CANCELLED"}
         if round(context.scene.unit_settings.scale_length, 2) != 1.0:
@@ -734,9 +737,9 @@ class ImportMetaHumanDna(bpy.types.Operator, importer.ImportAsset, MetahumanImpo
         callbacks.update_head_output_items(None, bpy.context)  # type: ignore[arg-type]
         # now we can evaluate the dependency graph again
         window_manager_properties.evaluate_dependency_graph = True
-        bpy.ops.meta_human_dna.force_evaluate()  # type: ignore[attr-defined]
-
-        bpy.ops.meta_human_dna.metrics_collection_consent("INVOKE_DEFAULT")  # type: ignore[attr-defined]
+        ops = utilities.get_addon_ops_module()
+        ops.force_evaluate()
+        ops.metrics_collection_consent("INVOKE_DEFAULT")
 
         return {"FINISHED"}
 
@@ -748,7 +751,7 @@ class ImportMetaHumanDna(bpy.types.Operator, importer.ImportAsset, MetahumanImpo
 class DNA_FH_import_dna(bpy.types.FileHandler):
     bl_idname = "DNA_FH_import_dna"
     bl_label = "File handler for .dna files"
-    bl_import_operator = "meta_human_dna.import_dna"
+    bl_import_operator = f"{ToolInfo.NAME}.import_dna"
     bl_file_extensions = ".dna"
 
     @classmethod
@@ -767,7 +770,7 @@ class DNA_FH_import_dna(bpy.types.FileHandler):
 class ConvertSelectedToDna(bpy.types.Operator, MetahumanImportProperties):
     """Converts the selected mesh object to a valid mesh that matches the provided base DNA file"""
 
-    bl_idname = "meta_human_dna.convert_selected_to_dna"
+    bl_idname = f"{ToolInfo.NAME}.convert_selected_to_dna"
     bl_label = "Convert Selected to DNA"
 
     new_name: bpy.props.StringProperty(
@@ -826,7 +829,7 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanImportProperties):
     )  # pyright: ignore[reportInvalidTypeForm]
 
     def execute(self, context: "Context") -> set[str]:  # noqa: PLR0911, PLR0912, PLR0915
-        window_manager_properties = context.window_manager.meta_human_dna
+        window_manager_properties = utilities.get_addon_window_manager_properties(context)
 
         # If values passed to the operator, we update them.
         # This allows clean programmatic access to the operator properties.
@@ -975,10 +978,11 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanImportProperties):
 
         # now we can evaluate the dependency graph again
         window_manager_properties.evaluate_dependency_graph = True
-        bpy.ops.meta_human_dna.force_evaluate()  # type: ignore[attr-defined]
+        ops = utilities.get_addon_ops_module()
+        ops.force_evaluate()
 
         # Ask the user for consent to collect metrics
-        bpy.ops.meta_human_dna.metrics_collection_consent("INVOKE_DEFAULT")  # type: ignore[attr-defined]
+        ops.metrics_collection_consent("INVOKE_DEFAULT")
 
         return {"FINISHED"}
 
@@ -991,7 +995,7 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanImportProperties):
             return False
 
         selected_object = context.active_object
-        properties = context.scene.meta_human_dna
+        properties = utilities.get_addon_scene_properties(context)
         if selected_object and selected_object.type == "MESH" and selected_object.select_get():
             for instance in properties.rig_instance_list:
                 for item in instance.output_head_item_list:
@@ -1016,7 +1020,7 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanImportProperties):
     def draw(self, context: "Context"):
         if not self.layout:
             return
-        window_manager_properties = context.window_manager.meta_human_dna
+        window_manager_properties = utilities.get_addon_window_manager_properties(context)
 
         row = self.layout.row()
 
@@ -1061,7 +1065,7 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanImportProperties):
 class GenerateMaterial(bpy.types.Operator):
     """Generates a material for the head mesh object that you can then customize"""
 
-    bl_idname = "meta_human_dna.generate_material"
+    bl_idname = f"{ToolInfo.NAME}.generate_material"
     bl_label = "Generate Material"
 
     def execute(self, context: "Context") -> set[str]:
@@ -1084,7 +1088,7 @@ class GenerateMaterial(bpy.types.Operator):
 class ImportShapeKeys(GenericProgressQueueOperator):
     """Imports the shape keys from the DNA file and their deltas"""
 
-    bl_idname = "meta_human_dna.import_shape_keys"
+    bl_idname = f"{ToolInfo.NAME}.import_shape_keys"
     bl_label = "Import Shape Keys"
 
     def validate(self, context: "Context") -> bool:
@@ -1092,13 +1096,14 @@ class ImportShapeKeys(GenericProgressQueueOperator):
 
     def set_commands_queue(self, context: "Context", component: MetaHumanComponentHead, commands_queue: queue.Queue):
         component.import_shape_keys(commands_queue)
-        bpy.ops.meta_human_dna.force_evaluate()  # type: ignore[attr-defined]
+        ops = utilities.get_addon_ops_module()
+        ops.force_evaluate()
 
 
 class ForceEvaluate(bpy.types.Operator):
     """Force the rig logic to evaluate on the active rig instance"""
 
-    bl_idname = "meta_human_dna.force_evaluate"
+    bl_idname = f"{ToolInfo.NAME}.force_evaluate"
     bl_label = "Force Evaluate"
 
     def execute(self, context: "Context") -> set[str]:
@@ -1118,14 +1123,15 @@ class ForceEvaluate(bpy.types.Operator):
 
             utilities.set_context(current_context)
 
-        context.window_manager.meta_human_dna.evaluate_dependency_graph = True
+        window_manager_properties = utilities.get_addon_window_manager_properties(context)
+        window_manager_properties.evaluate_dependency_graph = True
         return {"FINISHED"}
 
 
 class TestSentry(bpy.types.Operator):
     """Test the Sentry error reporting system"""
 
-    bl_idname = "meta_human_dna.test_sentry"
+    bl_idname = f"{ToolInfo.NAME}.test_sentry"
     bl_label = "Test Sentry"
 
     def execute(self, context: "Context") -> set[str]:
@@ -1136,19 +1142,20 @@ class TestSentry(bpy.types.Operator):
 class MigrateLegacyData(bpy.types.Operator):
     """Migrate legacy data to the latest format"""
 
-    bl_idname = "meta_human_dna.migrate_legacy_data"
+    bl_idname = f"{ToolInfo.NAME}.migrate_legacy_data"
     bl_label = "Migrate Legacy Data"
 
     def execute(self, context: "Context") -> set[str]:
         utilities.migrate_legacy_data(context)
-        bpy.ops.meta_human_dna.force_evaluate()  # type: ignore[attr-defined]
+        ops = utilities.get_addon_ops_module()
+        ops.force_evaluate()
         return {"FINISHED"}
 
 
 class OpenBuildToolDocumentation(bpy.types.Operator):
     """Opens the Build Tool documentation in the default web browser"""
 
-    bl_idname = "meta_human_dna.open_build_tool_documentation"
+    bl_idname = f"{ToolInfo.NAME}.open_build_tool_documentation"
     bl_label = "Open Build Tool Documentation"
 
     def execute(self, context: "Context") -> set[str]:
@@ -1159,7 +1166,7 @@ class OpenBuildToolDocumentation(bpy.types.Operator):
 class OpenMetricsCollectionAgreement(bpy.types.Operator):
     """Opens the metrics collection agreement in the default web browser"""
 
-    bl_idname = "meta_human_dna.open_metrics_collection_agreement"
+    bl_idname = f"{ToolInfo.NAME}.open_metrics_collection_agreement"
     bl_label = "Open Metrics Collection Agreement"
 
     def execute(self, context: "Context") -> set[str]:
@@ -1170,7 +1177,7 @@ class OpenMetricsCollectionAgreement(bpy.types.Operator):
 class SendToMetaHumanCreator(bpy.types.Operator):
     """Exports the MetaHuman DNA head and body components, as well as, textures in a format supported by MetaHuman Creator."""  # noqa: E501
 
-    bl_idname = "meta_human_dna.send_to_meta_human_creator"
+    bl_idname = f"{ToolInfo.NAME}.send_to_meta_human_creator"
     bl_label = "Send to MetaHuman Creator"
 
     def execute(self, context: "Context") -> set[str]:
@@ -1239,7 +1246,8 @@ class SendToMetaHumanCreator(bpy.types.Operator):
             # write a manifest file to the output folder similar to the MetaHuman Creator DCC export
             if last_component:
                 last_component.write_export_manifest()
-                bpy.ops.meta_human_dna.force_evaluate()  # type: ignore[attr-defined]
+                ops = utilities.get_addon_ops_module()
+                ops.force_evaluate()
 
             utilities.set_context(current_context)
 
@@ -1253,7 +1261,7 @@ class SendToMetaHumanCreator(bpy.types.Operator):
 class ExportSelectedComponent(bpy.types.Operator):
     """Export only the selected component to a single DNA file. No textures or supporting files will be exported."""
 
-    bl_idname = "meta_human_dna.export_selected_component"
+    bl_idname = f"{ToolInfo.NAME}.export_selected_component"
     bl_label = "Export Selected Component"
 
     def execute(self, context: "Context") -> set[str]:
@@ -1296,7 +1304,8 @@ class ExportSelectedComponent(bpy.types.Operator):
                 )
 
             valid, title, message, fix = dna_io_instance.run()
-            bpy.ops.meta_human_dna.force_evaluate()  # type: ignore[attr-defined]
+            ops = utilities.get_addon_ops_module()
+            ops.force_evaluate()
 
             if not valid:
                 utilities.report_error_panel(title=title, message=message, fix=fix, width=300)
@@ -1311,7 +1320,7 @@ class ExportSelectedComponent(bpy.types.Operator):
 class MirrorSelectedBones(bpy.types.Operator):
     """Mirrors the selected bone positions to the other side of the head mesh"""
 
-    bl_idname = "meta_human_dna.mirror_selected_bones"
+    bl_idname = f"{ToolInfo.NAME}.mirror_selected_bones"
     bl_label = "Mirror Selected Bones"
 
     def execute(self, context: "Context") -> set[str]:
@@ -1333,11 +1342,12 @@ class MirrorSelectedBones(bpy.types.Operator):
 class ShrinkWrapVertexGroup(bpy.types.Operator):
     """Shrink wraps the active vertex group on the head mesh using the shrink wrap modifier"""
 
-    bl_idname = "meta_human_dna.shrink_wrap_vertex_group"
+    bl_idname = f"{ToolInfo.NAME}.shrink_wrap_vertex_group"
     bl_label = "Shrink Wrap Active Group"
 
     def execute(self, context: "Context") -> set[str]:
-        current_component_type = context.window_manager.meta_human_dna.current_component_type
+        addon_window_manager_properties = utilities.get_addon_window_manager_properties(context)
+        current_component_type = addon_window_manager_properties.current_component_type
         head = utilities.get_active_head()
         body = utilities.get_active_body()
         if head and current_component_type == "head":
@@ -1350,7 +1360,7 @@ class ShrinkWrapVertexGroup(bpy.types.Operator):
 class AutoFitSelectedBones(bpy.types.Operator):
     """Auto-fits the selected bones to the head mesh"""
 
-    bl_idname = "meta_human_dna.auto_fit_selected_bones"
+    bl_idname = f"{ToolInfo.NAME}.auto_fit_selected_bones"
     bl_label = "Auto Fit Selected Bones"
 
     def execute(self, context: "Context") -> set[str]:
@@ -1392,7 +1402,7 @@ class AutoFitSelectedBones(bpy.types.Operator):
 class RevertBoneTransformsToDna(bpy.types.Operator):
     """Revert the selected bone's transforms to their values in the DNA file"""
 
-    bl_idname = "meta_human_dna.revert_bone_transforms_to_dna"
+    bl_idname = f"{ToolInfo.NAME}.revert_bone_transforms_to_dna"
     bl_label = "Revert Bone Transforms to DNA"
 
     def execute(self, context: "Context") -> set[str]:
@@ -1492,7 +1502,7 @@ class ShapeKeyOperatorBase(bpy.types.Operator):
 
 
 class ReportError(bpy.types.Operator):
-    bl_idname = "meta_human_dna.report_error"
+    bl_idname = f"{ToolInfo.NAME}.report_error"
     bl_label = "Error"
 
     message: bpy.props.StringProperty(default="")  # pyright: ignore[reportInvalidTypeForm]
@@ -1505,7 +1515,7 @@ class ReportError(bpy.types.Operator):
 class ReportErrorWithFix(ShapeKeyOperatorBase):
     """Reports and error message to the user with a optional fix"""
 
-    bl_idname = "meta_human_dna.report_error_with_fix"
+    bl_idname = f"{ToolInfo.NAME}.report_error_with_fix"
     bl_label = "Error"
 
     title: bpy.props.StringProperty(default="")  # pyright: ignore[reportInvalidTypeForm]
@@ -1513,8 +1523,8 @@ class ReportErrorWithFix(ShapeKeyOperatorBase):
     width: bpy.props.IntProperty(default=300)  # pyright: ignore[reportInvalidTypeForm]
 
     def execute(self, context: "Context") -> set[str]:
-        wm = context.window_manager
-        fix = wm.meta_human_dna.errors.get(self.title, {}).get("fix", None)
+        addon_window_manager_properties = utilities.get_addon_window_manager_properties(context)
+        fix = addon_window_manager_properties.errors.get(self.title, {}).get("fix", None)
         if fix:
             fix()
         return {"FINISHED"}
@@ -1524,7 +1534,8 @@ class ReportErrorWithFix(ShapeKeyOperatorBase):
         if not wm:
             return None
 
-        fix = wm.meta_human_dna.errors.get(self.title, {}).get("fix", None)
+        addon_window_manager_properties = utilities.get_addon_window_manager_properties(context)
+        fix = addon_window_manager_properties.errors.get(self.title, {}).get("fix", None)
         return wm.invoke_props_dialog(self, confirm_text="Fix" if fix else "OK", cancel_default=False, width=self.width)  # type: ignore[return-value]
 
     def draw(self, context: "Context"):
@@ -1544,7 +1555,7 @@ class ReportErrorWithFix(ShapeKeyOperatorBase):
 class MetricsCollectionConsent(bpy.types.Operator):
     """Tell the user that we collect metrics and ask for their consent"""
 
-    bl_idname = "meta_human_dna.metrics_collection_consent"
+    bl_idname = f"{ToolInfo.NAME}.metrics_collection_consent"
     bl_label = "MetaHuman DNA Addon Metrics"
 
     def execute(self, context: "Context") -> set[str]:
@@ -1553,7 +1564,8 @@ class MetricsCollectionConsent(bpy.types.Operator):
             return {"CANCELLED"}
         addon_preferences.metrics_collection = True
         utilities.init_sentry()
-        bpy.ops.meta_human_dna.force_evaluate()  # type: ignore[attr-defined]
+        ops = utilities.get_addon_ops_module()
+        ops.force_evaluate()
         return {"FINISHED"}
 
     def invoke(self, context: "Context", event: bpy.types.Event) -> set[str] | None:
@@ -1585,7 +1597,8 @@ class MetricsCollectionConsent(bpy.types.Operator):
         # wait 30 days before asking again
         addon_preferences.next_metrics_consent_timestamp = (datetime.now(UTC) + timedelta(days=30)).timestamp()
         addon_preferences.metrics_collection = False
-        bpy.ops.meta_human_dna.force_evaluate()  # type: ignore[attr-defined]
+        ops = utilities.get_addon_ops_module()
+        ops.force_evaluate()
 
     def draw(self, context: "Context"):
         if not self.layout:
@@ -1597,13 +1610,13 @@ class MetricsCollectionConsent(bpy.types.Operator):
         row.label(text="No personal data is collected.")
         row = self.layout.row()
         row.label(text="Will you allow us to collect bug reports?")
-        row.operator("meta_human_dna.open_metrics_collection_agreement", text="", icon="URL")
+        row.operator(f"{ToolInfo.NAME}.open_metrics_collection_agreement", text="", icon="URL")
 
 
 class SculptThisShapeKey(ShapeKeyOperatorBase):
     """Sculpt this shape key"""
 
-    bl_idname = "meta_human_dna.sculpt_this_shape_key"
+    bl_idname = f"{ToolInfo.NAME}.sculpt_this_shape_key"
     bl_label = "Edit this Shape Key"
 
     def execute(self, context: "Context") -> set[str]:
@@ -1629,7 +1642,7 @@ class SculptThisShapeKey(ShapeKeyOperatorBase):
 class EditThisShapeKey(ShapeKeyOperatorBase):
     """Edit this shape key"""
 
-    bl_idname = "meta_human_dna.edit_this_shape_key"
+    bl_idname = f"{ToolInfo.NAME}.edit_this_shape_key"
     bl_label = "Edit this Shape Key"
 
     def execute(self, context: "Context") -> set[str]:
@@ -1655,7 +1668,7 @@ class EditThisShapeKey(ShapeKeyOperatorBase):
 class ReImportThisShapeKey(ShapeKeyOperatorBase):
     """Re-Import this shape key from the DNA file"""
 
-    bl_idname = "meta_human_dna.reimport_this_shape_key"
+    bl_idname = f"{ToolInfo.NAME}.reimport_this_shape_key"
     bl_label = "Re-Import this Shape Key"
 
     shape_key_name: bpy.props.StringProperty(name="Shape Key Name")  # pyright: ignore[reportInvalidTypeForm]
@@ -1730,7 +1743,7 @@ class ReImportThisShapeKey(ShapeKeyOperatorBase):
 class DuplicateRigInstance(bpy.types.Operator):
     """Duplicate the active Rig Instance. This copies all it's associated data and offsets it to the right"""
 
-    bl_idname = "meta_human_dna.duplicate_rig_instance"
+    bl_idname = f"{ToolInfo.NAME}.duplicate_rig_instance"
     bl_label = "Duplicate Rig Instance"
 
     new_name: bpy.props.StringProperty(
@@ -1759,6 +1772,7 @@ class DuplicateRigInstance(bpy.types.Operator):
             return {"CANCELLED"}
 
         instance = callbacks.get_active_rig_instance()
+        addon_scene_properties = utilities.get_addon_scene_properties(context)
         if instance:
             for component_type, mesh_object, rig_object in [
                 ("body", instance.body_mesh, instance.body_rig),
@@ -1868,7 +1882,7 @@ class DuplicateRigInstance(bpy.types.Operator):
                             )
 
                     # move the duplicated rig to the right of the last mesh
-                    last_instance = context.scene.meta_human_dna.rig_instance_list[-1]
+                    last_instance = addon_scene_properties.rig_instance_list[-1]
 
                     if component_type == "body":
                         new_rig_object.location.x = utilities.get_bounding_box_left_x(last_instance.body_mesh) - (
@@ -1901,12 +1915,12 @@ class DuplicateRigInstance(bpy.types.Operator):
                     shutil.copy(instance.head_dna_file_path, new_dna_file_path)
 
                     # add the duplicated instance to the list if it doesn't already exist
-                    for _rig_instance in context.scene.meta_human_dna.rig_instance_list:
+                    for _rig_instance in addon_scene_properties.rig_instance_list:
                         if _rig_instance.name == self.new_name:
                             new_instance = _rig_instance
                             break
                     else:
-                        new_instance = context.scene.meta_human_dna.rig_instance_list.add()
+                        new_instance = addon_scene_properties.rig_instance_list.add()
 
                     # now set the values on the instance
                     new_instance.name = self.new_name
@@ -1920,8 +1934,8 @@ class DuplicateRigInstance(bpy.types.Operator):
                     new_instance.output_folder_path = self.new_folder
 
                     # set the new instance as the active one
-                    context.scene.meta_human_dna.rig_instance_list_active_index = (
-                        len(context.scene.meta_human_dna.rig_instance_list) - 1
+                    addon_scene_properties.rig_instance_list_active_index = (
+                        len(addon_scene_properties.rig_instance_list) - 1
                     )
 
         return {"FINISHED"}
@@ -1944,7 +1958,7 @@ class DuplicateRigInstance(bpy.types.Operator):
 class AddRigLogicTextureNode(bpy.types.Operator):
     """Add a new Rig Logic Texture Node to the active material. This is used to control the wrinkle map blending on Metahuman faces"""  # noqa: E501
 
-    bl_idname = "meta_human_dna.add_rig_logic_texture_node"
+    bl_idname = f"{ToolInfo.NAME}.add_rig_logic_texture_node"
     bl_label = "Add Rig Logic Texture Node"
 
     @classmethod
@@ -1995,7 +2009,7 @@ class AddRigLogicTextureNode(bpy.types.Operator):
 class UILIST_ADDON_PREFERENCES_OT_extra_dna_entry_remove(GenericUIListOperator, bpy.types.Operator):
     """Remove the selected entry from the list"""
 
-    bl_idname = "meta_human_dna.addon_preferences_extra_dna_entry_remove"
+    bl_idname = f"{ToolInfo.NAME}.addon_preferences_extra_dna_entry_remove"
     bl_label = "Remove Selected Entry"
 
     def execute(self, context: "Context") -> set[str]:
@@ -2013,7 +2027,7 @@ class UILIST_ADDON_PREFERENCES_OT_extra_dna_entry_remove(GenericUIListOperator, 
 class UILIST_ADDON_PREFERENCES_OT_extra_dna_entry_add(GenericUIListOperator, bpy.types.Operator):
     """Add an entry to the list after the current active item"""
 
-    bl_idname = "meta_human_dna.addon_preferences_extra_dna_entry_add"
+    bl_idname = f"{ToolInfo.NAME}.addon_preferences_extra_dna_entry_add"
     bl_label = "Add Entry"
 
     def execute(self, context: "Context") -> set[str]:
@@ -2032,7 +2046,7 @@ class UILIST_ADDON_PREFERENCES_OT_extra_dna_entry_add(GenericUIListOperator, bpy
 class UILIST_RIG_INSTANCE_OT_entry_remove(GenericUIListOperator, bpy.types.Operator):
     """Remove the selected entry from the list"""
 
-    bl_idname = "meta_human_dna.rig_instance_entry_remove"
+    bl_idname = f"{ToolInfo.NAME}.rig_instance_entry_remove"
     bl_label = "Remove Selected Entry"
 
     delete_associated_data: bpy.props.BoolProperty(
@@ -2042,10 +2056,11 @@ class UILIST_RIG_INSTANCE_OT_entry_remove(GenericUIListOperator, bpy.types.Opera
     )  # pyright: ignore[reportInvalidTypeForm]
 
     def execute(self, context: "Context") -> set[str]:
-        my_list = context.scene.meta_human_dna.rig_instance_list
+        addon_scene_properties = utilities.get_addon_scene_properties(context)
+        my_list = addon_scene_properties.rig_instance_list
 
         if self.delete_associated_data:
-            instance = context.scene.meta_human_dna.rig_instance_list[self.active_index]
+            instance = addon_scene_properties.rig_instance_list[self.active_index]
             for component_type in ["body", "head"]:
                 for item in getattr(instance, f"output_{component_type}_item_list"):
                     if item.scene_object:
@@ -2063,11 +2078,12 @@ class UILIST_RIG_INSTANCE_OT_entry_remove(GenericUIListOperator, bpy.types.Opera
 
         my_list.remove(self.active_index)
         to_index = min(self.active_index, len(my_list) - 1)
-        context.scene.meta_human_dna.rig_instance_list_active_index = to_index
+        addon_scene_properties.rig_instance_list_active_index = to_index
         return {"FINISHED"}
 
     def invoke(self, context: "Context", event: bpy.types.Event) -> set[str] | None:
-        instance = context.scene.meta_human_dna.rig_instance_list[self.active_index]
+        addon_scene_properties = utilities.get_addon_scene_properties(context)
+        instance = addon_scene_properties.rig_instance_list[self.active_index]
         self.instance_name = instance.name if instance else "this instance"
         return context.window_manager.invoke_props_dialog(  # type: ignore[return-value]
             self, title=f"Remove: {self.instance_name}", confirm_text="Remove", width=400
@@ -2086,7 +2102,7 @@ class UILIST_RIG_INSTANCE_OT_entry_remove(GenericUIListOperator, bpy.types.Opera
 class UILIST_RIG_INSTANCE_OT_entry_add(GenericUIListOperator, bpy.types.Operator):
     """Add an entry to the list after the current active item"""
 
-    bl_idname = "meta_human_dna.rig_instance_entry_add"
+    bl_idname = f"{ToolInfo.NAME}.rig_instance_entry_add"
     bl_label = "Add Entry"
 
     def execute(self, context: "Context") -> set[str]:
@@ -2101,7 +2117,7 @@ class UILIST_RIG_INSTANCE_OT_entry_add(GenericUIListOperator, bpy.types.Operator
 class UILIST_RIG_INSTANCE_OT_entry_move(GenericUIListOperator, bpy.types.Operator):
     """Move an entry in the list up or down"""
 
-    bl_idname = "meta_human_dna.rig_instance_entry_move"
+    bl_idname = f"{ToolInfo.NAME}.rig_instance_entry_move"
     bl_label = "Move Entry"
 
     direction: bpy.props.EnumProperty(
@@ -2114,7 +2130,8 @@ class UILIST_RIG_INSTANCE_OT_entry_move(GenericUIListOperator, bpy.types.Operato
     )  # pyright: ignore[reportInvalidTypeForm]
 
     def execute(self, context: "Context") -> set[str]:
-        my_list = context.scene.meta_human_dna.rig_instance_list
+        addon_scene_properties = utilities.get_addon_scene_properties(context)
+        my_list = addon_scene_properties.rig_instance_list
         delta = {
             "DOWN": 1,
             "UP": -1,
@@ -2122,8 +2139,8 @@ class UILIST_RIG_INSTANCE_OT_entry_move(GenericUIListOperator, bpy.types.Operato
 
         to_index = (self.active_index + delta) % len(my_list)
 
-        from_instance = context.scene.meta_human_dna.rig_instance_list[self.active_index]
-        to_instance = context.scene.meta_human_dna.rig_instance_list[to_index]
+        from_instance = addon_scene_properties.rig_instance_list[self.active_index]
+        to_instance = addon_scene_properties.rig_instance_list[to_index]
 
         if from_instance.body_rig and to_instance.body_rig:
             to_x = to_instance.body_rig.location.x
@@ -2151,5 +2168,5 @@ class UILIST_RIG_INSTANCE_OT_entry_move(GenericUIListOperator, bpy.types.Operato
             from_instance.face_board.location.x += to_x - from_x
 
         my_list.move(self.active_index, to_index)
-        context.scene.meta_human_dna.rig_instance_list_active_index = to_index
+        addon_scene_properties.rig_instance_list_active_index = to_index
         return {"FINISHED"}

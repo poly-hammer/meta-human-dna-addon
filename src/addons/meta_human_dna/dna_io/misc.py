@@ -13,7 +13,12 @@ from mathutils import Matrix, Vector
 # local imports
 from ..constants import SHAPE_KEY_BASIS_NAME, ComponentType
 from ..typing import *  # noqa: F403
-from ..utilities import exclude_rig_instance_evaluation, switch_to_object_mode, update_mesh
+from ..utilities import (
+    exclude_rig_instance_evaluation,
+    get_addon_window_manager_properties,
+    switch_to_object_mode,
+    update_mesh,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -39,7 +44,7 @@ def get_dna_reader(
     data_layer: DataLayer = "All",
     memory_resource: "riglogic.MemoryResource| None" = None,
 ) -> "riglogic.BinaryStreamReader":
-    from ..bindings import riglogic
+    from ..bindings import riglogic  # type: ignore[reportAttributeAccessIssue]
 
     file_path = Path(file_path)
     if not file_path.exists():
@@ -84,7 +89,7 @@ def get_dna_reader(
 
 
 def get_dna_writer(file_path: Path, file_format: FileFormat = "binary") -> "riglogic.BinaryStreamWriter":
-    from ..bindings import riglogic
+    from ..bindings import riglogic  # type: ignore[reportAttributeAccessIssue]
 
     file_path = Path(file_path)
     file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -146,7 +151,7 @@ def create_shape_key(
     if not mesh_object.data.shape_keys:
         mesh_object.shape_key_add(name=SHAPE_KEY_BASIS_NAME, from_mix=False)
 
-    window_manager_properties: "MetahumanWindowMangerProperties" = bpy.context.window_manager.meta_human_dna  # type: ignore[attr-defined]  # noqa: UP037
+    window_manager_properties = get_addon_window_manager_properties()
     window_manager_properties.progress_mesh_name = mesh_object.name
     # create the new key block on the shape key
     logger.info(f"Creating shape key {name}")

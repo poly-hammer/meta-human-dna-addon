@@ -9,7 +9,7 @@ import bpy
 
 # local imports
 from ... import utilities
-from ...constants import RBF_SOLVER_POSTFIX
+from ...constants import RBF_SOLVER_POSTFIX, ToolInfo
 from ...dna_io import get_dna_reader, get_dna_writer
 
 # type checking imports
@@ -75,7 +75,7 @@ class RBFEditorOperatorBase(bpy.types.Operator):
 class AddRBFSolver(RBFEditorOperatorBase):
     """Add a new RBF Solver based on the selected pose bone."""
 
-    bl_idname = "meta_human_dna.add_rbf_solver"
+    bl_idname = f"{ToolInfo.NAME}.add_rbf_solver"
     bl_label = "Add RBF Solver"
     bl_options = {"REGISTER", "UNDO"}
 
@@ -130,7 +130,7 @@ class AddRBFSolver(RBFEditorOperatorBase):
 class RemoveRBFSolver(RBFEditorOperatorBase):
     """Remove the selected RBF Solver."""
 
-    bl_idname = "meta_human_dna.remove_rbf_solver"
+    bl_idname = f"{ToolInfo.NAME}.remove_rbf_solver"
     bl_label = "Remove RBF Solver"
     bl_options = {"REGISTER", "UNDO"}
 
@@ -164,7 +164,7 @@ class RemoveRBFSolver(RBFEditorOperatorBase):
 class EvaluateRBFSolvers(RBFEditorOperatorBase):
     """Evaluate the RBF Solvers"""
 
-    bl_idname = "meta_human_dna.evaluate_rbf_solvers"
+    bl_idname = f"{ToolInfo.NAME}.evaluate_rbf_solvers"
     bl_label = "Evaluate RBF Solvers"
 
     def run(self, instance: "RigInstance"):
@@ -174,7 +174,7 @@ class EvaluateRBFSolvers(RBFEditorOperatorBase):
 class RevertRBFSolver(RBFEditorOperatorBase):
     """Revert RBF solver back to the original DNA."""
 
-    bl_idname = "meta_human_dna.revert_rbf_solver"
+    bl_idname = f"{ToolInfo.NAME}.revert_rbf_solver"
     bl_label = "Revert RBF Solver"
 
     def run(self, instance: "RigInstance"):
@@ -188,7 +188,8 @@ class RevertRBFSolver(RBFEditorOperatorBase):
         # Clear change tracking and toasts
         change_tracker.clear_tracking(instance)
         clear_toasts()
-        bpy.ops.meta_human_dna.force_evaluate()  # type: ignore[attr-defined]
+        ops = utilities.get_addon_ops_module()
+        ops.force_evaluate()
 
         toast_warning(f"Reverted {change_count} edit(s)", duration=3.0)
         # Unregister the draw handler after the final toast has been shown
@@ -198,7 +199,7 @@ class RevertRBFSolver(RBFEditorOperatorBase):
 class EditRBFSolver(RBFEditorOperatorBase):
     """Switch to Editing mode for the selected RBF solver. Changes will not take effect until committed to the .dna file."""  # noqa: E501
 
-    bl_idname = "meta_human_dna.edit_rbf_solver"
+    bl_idname = f"{ToolInfo.NAME}.edit_rbf_solver"
     bl_label = "Edit RBF Solver"
 
     @classmethod
@@ -224,7 +225,7 @@ class EditRBFSolver(RBFEditorOperatorBase):
 class CommitRBFSolverChanges(RBFEditorOperatorBase):
     """Commit the current changes for the selected RBF solver to the .dna file"""
 
-    bl_idname = "meta_human_dna.commit_rbf_solver_changes"
+    bl_idname = f"{ToolInfo.NAME}.commit_rbf_solver_changes"
     bl_label = "Commit RBF Solver Changes"
 
     @classmethod
@@ -348,7 +349,7 @@ class RBFPoseOperatorBase(RBFEditorOperatorBase):
 class AddRBFPose(RBFPoseOperatorBase):
     """Add a new RBF Pose to the selected solver."""
 
-    bl_idname = "meta_human_dna.add_rbf_pose"
+    bl_idname = f"{ToolInfo.NAME}.add_rbf_pose"
     bl_label = "Add RBF Pose"
     bl_options = {"REGISTER", "UNDO"}
 
@@ -366,18 +367,18 @@ class AddRBFPose(RBFPoseOperatorBase):
             instance.body_initialize(update_rbf_solver_list=False)
 
         # Use window manager to store the collection (persists across draw calls)
-        wm = context.window_manager
-        if not hasattr(wm.meta_human_dna, "add_pose_driven_bones"):
+        addon_window_manager_properties = utilities.get_addon_window_manager_properties(context)
+        if not hasattr(addon_window_manager_properties, "add_pose_driven_bones"):
             return
 
         # Clear existing selections
-        wm.meta_human_dna.add_pose_driven_bones.clear()
+        addon_window_manager_properties.add_pose_driven_bones.clear()  # type: ignore[reportAttributeAccessIssue]
 
         # Get available driven bones
         available_bones = core.get_available_driven_bones(instance)
 
         for bone_name, joint_index, is_in_existing in available_bones:
-            item = wm.meta_human_dna.add_pose_driven_bones.add()
+            item = addon_window_manager_properties.add_pose_driven_bones.add()  # type: ignore[reportAttributeAccessIssue]
             item.name = bone_name
             # Pre-select bones that are already in the joint group
             item.selected = is_in_existing
@@ -390,12 +391,12 @@ class AddRBFPose(RBFPoseOperatorBase):
         if not instance or not instance.body_rig:
             return []
 
-        wm = context.window_manager
-        if not hasattr(wm.meta_human_dna, "add_pose_driven_bones"):
+        addon_window_manager_properties = utilities.get_addon_window_manager_properties(context)
+        if not hasattr(addon_window_manager_properties, "add_pose_driven_bones"):
             return []
 
         driven_bones = []
-        for item in wm.meta_human_dna.add_pose_driven_bones:
+        for item in addon_window_manager_properties.add_pose_driven_bones:
             if item.selected:
                 pose_bone = instance.body_rig.pose.bones.get(item.name)
                 if pose_bone:
@@ -482,7 +483,7 @@ class AddRBFPose(RBFPoseOperatorBase):
             return
 
         layout = self.layout
-        wm = context.window_manager
+        addon_window_manager_properties = utilities.get_addon_window_manager_properties(context)
 
         # Pose name input
         row = layout.row()
@@ -508,9 +509,9 @@ class AddRBFPose(RBFPoseOperatorBase):
                 col.label(text="Adding new bones will update all poses.")
 
         # Draw driven bone selections as UIList
-        if hasattr(wm.meta_human_dna, "add_pose_driven_bones"):
+        if hasattr(addon_window_manager_properties, "add_pose_driven_bones"):
             # Count selected bones for display
-            selected_count = sum(1 for item in wm.meta_human_dna.add_pose_driven_bones if item.selected)
+            selected_count = sum(1 for item in addon_window_manager_properties.add_pose_driven_bones if item.selected)
             row = layout.row()
             row.label(text=f"Selected: {selected_count} bones")
 
@@ -518,9 +519,9 @@ class AddRBFPose(RBFPoseOperatorBase):
             layout.template_list(
                 "META_HUMAN_DNA_UL_bone_selection",
                 "",
-                wm.meta_human_dna,
+                addon_window_manager_properties,
                 "add_pose_driven_bones",
-                wm.meta_human_dna,
+                addon_window_manager_properties,
                 "add_pose_driven_bones_active_index",
                 rows=8,
             )
@@ -538,7 +539,7 @@ class AddRBFPose(RBFPoseOperatorBase):
 class DuplicateRBFPose(RBFPoseOperatorBase):
     """Duplicate the selected RBF Pose"""
 
-    bl_idname = "meta_human_dna.duplicate_rbf_pose"
+    bl_idname = f"{ToolInfo.NAME}.duplicate_rbf_pose"
     bl_label = "Duplicate RBF Pose"
 
     @classmethod
@@ -594,7 +595,7 @@ class DuplicateRBFPose(RBFPoseOperatorBase):
 
 
 class ApplyRBFPoseEdits(RBFEditorOperatorBase):
-    bl_idname = "meta_human_dna.apply_rbf_pose_edits"
+    bl_idname = f"{ToolInfo.NAME}.apply_rbf_pose_edits"
     bl_label = "Apply RBF Pose Edits"
     bl_options = {"REGISTER", "UNDO"}
     bl_description = (
@@ -677,7 +678,7 @@ class ApplyRBFPoseEdits(RBFEditorOperatorBase):
 
 
 class RemoveRBFPose(RBFEditorOperatorBase):
-    bl_idname = "meta_human_dna.remove_rbf_pose"
+    bl_idname = f"{ToolInfo.NAME}.remove_rbf_pose"
     bl_label = "Remove RBF Pose"
     bl_description = "Remove the active RBF Pose from the selected solver. Note: the default pose cannot be removed."
 
@@ -709,7 +710,7 @@ class RemoveRBFPose(RBFEditorOperatorBase):
 
 
 class AddRBFDriven(RBFEditorOperatorBase):
-    bl_idname = "meta_human_dna.add_rbf_driven"
+    bl_idname = f"{ToolInfo.NAME}.add_rbf_driven"
     bl_label = "Add RBF Driven Bone"
     bl_options = {"REGISTER", "UNDO"}
     bl_description = (
@@ -770,7 +771,7 @@ class AddRBFDriven(RBFEditorOperatorBase):
 
 
 class RemoveRBFDriven(RBFEditorOperatorBase):
-    bl_idname = "meta_human_dna.remove_rbf_driven"
+    bl_idname = f"{ToolInfo.NAME}.remove_rbf_driven"
     bl_label = "Remove RBF Driven Bone"
     bl_options = {"REGISTER", "UNDO"}
     bl_description = (
@@ -827,7 +828,7 @@ class RemoveRBFDriven(RBFEditorOperatorBase):
 class MirrorRBFSolver(RBFEditorOperatorBase):
     """Mirror the active RBF solver to the opposite side, creating a new solver with mirrored poses."""
 
-    bl_idname = "meta_human_dna.mirror_rbf_solver"
+    bl_idname = f"{ToolInfo.NAME}.mirror_rbf_solver"
     bl_label = "Mirror RBF Solver"
     bl_options = {"REGISTER", "UNDO"}
     bl_description = (
@@ -888,7 +889,7 @@ class MirrorRBFSolver(RBFEditorOperatorBase):
 class MirrorRBFPose(RBFEditorOperatorBase):
     """Mirror the active RBF pose to the mirrored solver on the opposite side."""
 
-    bl_idname = "meta_human_dna.mirror_rbf_pose"
+    bl_idname = f"{ToolInfo.NAME}.mirror_rbf_pose"
     bl_label = "Mirror RBF Pose"
     bl_options = {"REGISTER", "UNDO"}
     bl_description = (
