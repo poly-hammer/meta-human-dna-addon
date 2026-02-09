@@ -328,7 +328,8 @@ def init_sentry():
             # events that are not relevant to us.
             before_send=before_send,
         )
-        sentry_sdk.metrics.count("addon.initialized", value=1, attributes=default_tags)
+        sentry_sdk.set_tags(default_tags)
+        sentry_sdk.capture_event({"message": "addon.initialized"})
     except ImportError:
         logger.warning("The sentry-sdk package is not installed. Un-able to use the Sentry error tracking service.")
     except Exception as error:
@@ -383,12 +384,26 @@ def post_redo(*args: Any) -> None:
     post_undo(*args)
 
 
-def pre_render(*args: Any) -> None:
-    pre_undo(*args)
+def pre_render(*_: Any) -> None:
+    addon_window_manager_properties = get_addon_window_manager_properties(bpy.context)
+    addon_window_manager_properties.is_rendering = True
 
 
-def post_render(*args: Any) -> None:
-    post_undo(*args)
+def _delayed_post_render():
+    addon_window_manager_properties = get_addon_window_manager_properties(bpy.context)
+    addon_window_manager_properties.is_rendering = False
+    addon_window_manager_properties.evaluate_dependency_graph = True
+
+
+def post_render(*_: Any) -> None:
+    # Immediately disable evaluation to prevent any depsgraph/frame_change handlers from running
+    # during post-render cleanup. The render thread may still fire depsgraph updates after
+    # render_complete, and those must not trigger rig evaluation.
+    addon_window_manager_properties = get_addon_window_manager_properties(bpy.context)
+    addon_window_manager_properties.evaluate_dependency_graph = False
+    # Turn off the rendering flag after a short delay to ensure that any render threads have completed
+    # and are no longer accessing rig data before we allow evaluation again.
+    bpy.app.timers.register(_delayed_post_render, first_interval=3.0)
 
 
 def post_save(*_: Any) -> None:

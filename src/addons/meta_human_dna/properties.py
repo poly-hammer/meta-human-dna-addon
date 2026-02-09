@@ -222,6 +222,7 @@ class MetahumanWindowMangerProperties(bpy.types.PropertyGroup, MetahumanImportPr
     progress_mesh_name: bpy.props.StringProperty(default="")  # pyright: ignore[reportInvalidTypeForm]
     evaluate_dependency_graph: bpy.props.BoolProperty(default=True)  # pyright: ignore[reportInvalidTypeForm]
     is_undoing: bpy.props.BoolProperty(default=False)  # pyright: ignore[reportInvalidTypeForm]
+    is_rendering: bpy.props.BoolProperty(default=False)  # pyright: ignore[reportInvalidTypeForm]
 
     face_pose_previews: bpy.props.EnumProperty(
         name="Face Poses",

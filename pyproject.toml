@@ -10,22 +10,21 @@ classifiers = [
   "Development Status :: 4 - Beta",
   "Environment :: Plugins",
   "Intended Audience :: End Users/Desktop",
-  "License :: Other/Proprietary License",
+  "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
   "Topic :: Multimedia :: Graphics :: 3D Modeling"
 ]
 dependencies = [
-  "sentry-sdk>=2.49.0"
+  "sentry-sdk>=2.52.0"
 ]
 description = "Blender addon for importing/exporting MetaHuman DNA files with RigLogic integration"
 keywords = ["blender", "metahuman", "dna", "riglogic", "animation", "3d"]
-license = {text = "Proprietary"}
 name = "meta-human-dna-addon"
 readme = "README.md"
 requires-python = ">=3.11"
-version = "0.5.21"
+version = "0.5.22"
 
 [project.optional-dependencies]
 dev = [

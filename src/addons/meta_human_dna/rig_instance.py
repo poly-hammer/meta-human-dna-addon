@@ -37,6 +37,11 @@ def rig_instance_listener(scene: "Scene", dependency_graph: bpy.types.Depsgraph,
     if not addon_window_manager.evaluate_dependency_graph:
         return
 
+    # this condition prevents 2 evaluations per frame change, causes issues with
+    # render threads accessing data while it's being updated, and causing a crash.
+    if addon_window_manager.is_rendering and not is_frame_change:
+        return
+
     # this condition prevents evaluation after an undo operation
     if addon_window_manager.is_undoing:
         addon_window_manager.is_undoing = False
@@ -620,17 +625,23 @@ class RigInstance(bpy.types.PropertyGroup):
 
     @property
     def evaluated_head_rig(self) -> bpy.types.Object | None:
-        return self.data.get(
-            f"{self.name}_evaluated_head_rig",
-            self.head_rig.evaluated_get(bpy.context.evaluated_depsgraph_get()) if self.head_rig else None,
-        )
+        result = self.data.get(f"{self.name}_evaluated_head_rig")
+        if result is not None:
+            return result
+        # Lazy fallback: only call evaluated_depsgraph_get() when the cached value is missing.
+        if self.head_rig:
+            return self.head_rig.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        return None
 
     @property
     def evaluated_body_rig(self) -> bpy.types.Object | None:
-        return self.data.get(
-            f"{self.name}_evaluated_body_rig",
-            self.body_rig.evaluated_get(bpy.context.evaluated_depsgraph_get()) if self.body_rig else None,
-        )
+        result = self.data.get(f"{self.name}_evaluated_body_rig")
+        if result is not None:
+            return result
+        # Lazy fallback: only call evaluated_depsgraph_get() when the cached value is missing.
+        if self.body_rig:
+            return self.body_rig.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        return None
 
     @property
     def is_pro(self) -> bool:
