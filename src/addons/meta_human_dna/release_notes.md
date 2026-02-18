@@ -1,6 +1,6 @@
 ## Minor Changes
 
-* Added confirm option when deleting rig instances with option to delete linked data [#202](https://github.com/poly-hammer/meta-human-dna-addon/issues/202)
+* RigLogic evaluation now works while rendering. Baking before a render it no longer required.
 
 ## Patch Changes
 
