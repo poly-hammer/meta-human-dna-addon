@@ -6,7 +6,7 @@ from mathutils import Quaternion, Vector
 from constants import EXCLUDE_FINGER_POSES
 from meta_human_dna.ui.callbacks import get_active_rig_instance
 from meta_human_dna.utilities import reset_pose
-from utilities.pose_editor import assert_body_pose, get_all_body_pose_names, set_body_pose
+from tests.utilities.rbf_editor import assert_body_pose, get_all_body_pose_names, set_body_pose
 
 
 TOLERANCE = 1e-5
