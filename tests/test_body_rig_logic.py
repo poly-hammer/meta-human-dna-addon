@@ -1,7 +1,7 @@
 import pytest
 
 from constants import EXCLUDE_FINGER_POSES
-from tests.utilities.rbf_editor import assert_body_pose, get_all_body_pose_names
+from utilities.rbf_editor import assert_body_pose, get_all_body_pose_names
 
 
 @pytest.mark.parametrize(

@@ -16,7 +16,7 @@ from constants import (
 from meta_human_dna.ui.callbacks import get_active_rig_instance
 from meta_human_dna.utilities import reset_pose
 from utilities.dna_data import get_dna_json_data
-from tests.utilities.rbf_editor import set_body_pose
+from utilities.rbf_editor import set_body_pose
 
 
 TOLERANCE = 1e-5
