@@ -190,7 +190,7 @@ def invalidate_previews() -> None:
 def ensure_function_curves_exist() -> None:
     """Ensure the function curve previews are generated.
 
-    Call this during addon registration or when the pose editor is opened.
+    Call this during addon registration or when the RBF editor is opened.
     """
     # Pre-generate default size previews
     for func_type in FUNCTION_TYPES:

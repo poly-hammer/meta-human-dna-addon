@@ -1139,15 +1139,11 @@ def add_rbf_pose(  # noqa: PLR0912, PLR0915
         source_driven_lookup = {d.name: d for d in from_pose.driven}
 
         # Get driven bones from source pose or from driven_bones parameter
-        bones_to_process = (
-            driven_bones
-            if driven_bones
-            else [
-                instance.body_rig.pose.bones.get(d.name)
-                for d in from_pose.driven
-                if instance.body_rig.pose.bones.get(d.name)
-            ]
-        )
+        bones_to_process = driven_bones or [
+            instance.body_rig.pose.bones.get(d.name)
+            for d in from_pose.driven
+            if instance.body_rig.pose.bones.get(d.name)
+        ]
 
         for pose_bone in bones_to_process:
             driven = pose.driven.add()

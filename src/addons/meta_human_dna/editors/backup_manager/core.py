@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 class BackupType(Enum):
     """Enumeration of backup trigger types."""
 
-    PRE_POSE_EDITOR_COMMIT = "Pre Pose Editor Commit"
-    POST_POSE_EDITOR_COMMIT = "Post Pose Editor Commit"
+    PRE_RBF_EDITOR_COMMIT = "Pre RBF Editor Commit"
+    POST_RBF_EDITOR_COMMIT = "Post RBF Editor Commit"
     EXPRESSION_EDITOR = "Expression Editor Commit"
     BLENDER_FILE_SAVE = "Blender File Saved"
     MANUAL = "Manual Backup"

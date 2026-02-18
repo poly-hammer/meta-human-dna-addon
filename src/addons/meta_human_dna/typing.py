@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from .components.body import MetaHumanComponentBody  # noqa: TC004
     from .components.head import MetaHumanComponentHead  # noqa: TC004
     from .editors.backup_manager.properties import DnaBackupEntry  # noqa: TC004
-    from .editors.pose_editor.properties import (  # noqa: TC004
+    from .editors.rbf_editor.properties import (  # noqa: TC004
         RBFDrivenBoneSelectionItem,
         RBFDrivenData,
         RBFDriverData,
@@ -67,7 +67,7 @@ if TYPE_CHECKING:
     # properties these are added at runtime in properties.py register() function
     # =========================================================================
     class MetahumanWindowMangerProperties(_MetahumanWindowMangerProperties):
-        """Extended WindowManager properties with Pose Editor properties."""
+        """Extended WindowManager properties with RBF Editor properties."""
 
         add_pose_driven_bones: bpy_prop_collection[RBFDrivenBoneSelectionItem]
         add_pose_driven_bones_active_index: int
@@ -80,10 +80,10 @@ if TYPE_CHECKING:
 
         bl_idname: str
         metrics_collection: bool
-        pose_editor_show_viewport_overlay: bool
-        pose_editor_solver_mirror_regex_pattern: str
-        pose_editor_pose_mirror_regex_pattern: str
-        pose_editor_bone_mirror_regex_pattern: str
+        rbf_editor_show_viewport_overlay: bool
+        rbf_editor_solver_mirror_regex_pattern: str
+        rbf_editor_pose_mirror_regex_pattern: str
+        rbf_editor_bone_mirror_regex_pattern: str
         dna_backups_enable: bool
         dna_backups_max: int
         next_metrics_consent_timestamp: float

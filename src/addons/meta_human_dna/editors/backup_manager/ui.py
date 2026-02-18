@@ -43,7 +43,9 @@ class META_HUMAN_DNA_PT_dna_backups(bpy.types.Panel):
 
     @classmethod
     def poll(cls, _: "Context") -> bool:
-        return get_active_rig_instance() is not None
+        # return get_active_rig_instance() is not None  # noqa: ERA001
+        # TODO: Enable panel later in later release
+        return False
 
     def draw(self, context: "Context"):
         layout = self.layout

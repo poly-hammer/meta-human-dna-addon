@@ -557,7 +557,7 @@ def poll_shrink_wrap_target(self: "RigInstance", scene_object: bpy.types.Object)
 
 def update_evaluate_rbfs_value(self: "RigInstance", context: "Context"):
     # Avoid circular import
-    from ..editors.pose_editor.core import update_evaluate_rbfs_value as _update_evaluate_rbfs_value
+    from ..editors.rbf_editor.core import update_evaluate_rbfs_value as _update_evaluate_rbfs_value
 
     _update_evaluate_rbfs_value(self, context)
 

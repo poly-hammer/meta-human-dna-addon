@@ -1720,11 +1720,11 @@ class RigInstance(bpy.types.PropertyGroup):
 
     def update_body_rbf_solver_list(self):
         try:
-            from .editors.pose_editor.core import update_body_rbf_solver_list
+            from .editors.rbf_editor.core import update_body_rbf_solver_list
 
             update_body_rbf_solver_list(self)  # pyright: ignore[reportArgumentType]
         except ImportError:
-            logger.debug("Could not import the pose editor module to update the body RBF solver list.")
+            logger.debug("Could not import the RBF editor module to update the body RBF solver list.")
 
     def evaluate(
         self, component: Literal["head", "body", "all"] = "all", dependency_graph: bpy.types.Depsgraph | None = None

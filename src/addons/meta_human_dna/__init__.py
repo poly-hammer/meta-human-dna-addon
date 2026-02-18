@@ -11,8 +11,8 @@ from . import constants, key_maps, manual_map, operators, properties, rig_instan
 # Backup Manager
 from .editors.backup_manager import operators as backup_manager_operators, ui as backup_manager_ui
 
-# Pose Editor
-from .editors.pose_editor import operators as pose_editor_operators, ui as pose_editor_ui
+# RBF Editor
+from .editors.rbf_editor import operators as rbf_editor_operators, ui as rbf_editor_ui
 from .ui import addon_preferences, importer, menus, view_3d
 
 
@@ -21,7 +21,7 @@ logger = logging.getLogger(constants.ToolInfo.NAME)
 bl_info = {
     "name": "MetaHuman DNA",
     "author": "Poly Hammer",
-    "version": (0, 5, 22),
+    "version": (0, 5, 23),
     "blender": (4, 5, 0),
     "location": "File > Import > MetaHuman DNA",
     "description": (
@@ -33,35 +33,35 @@ bl_info = {
     "category": "Rigging",
 }
 
-# Pose Editor
-pose_editor_operator_classes = [
-    pose_editor_operators.AddRBFSolver,
-    pose_editor_operators.RemoveRBFSolver,
-    pose_editor_operators.EvaluateRBFSolvers,
-    pose_editor_operators.EditRBFSolver,
-    pose_editor_operators.RevertRBFSolver,
-    pose_editor_operators.CommitRBFSolverChanges,
-    pose_editor_operators.AddRBFPose,
-    pose_editor_operators.DuplicateRBFPose,
-    pose_editor_operators.RemoveRBFPose,
-    pose_editor_operators.ApplyRBFPoseEdits,
-    pose_editor_operators.AddRBFDriven,
-    pose_editor_operators.RemoveRBFDriven,
-    pose_editor_operators.MirrorRBFSolver,
-    pose_editor_operators.MirrorRBFPose,
+# RBF Editor
+rbf_editor_operator_classes = [
+    rbf_editor_operators.AddRBFSolver,
+    rbf_editor_operators.RemoveRBFSolver,
+    rbf_editor_operators.EvaluateRBFSolvers,
+    rbf_editor_operators.EditRBFSolver,
+    rbf_editor_operators.RevertRBFSolver,
+    rbf_editor_operators.CommitRBFSolverChanges,
+    rbf_editor_operators.AddRBFPose,
+    rbf_editor_operators.DuplicateRBFPose,
+    rbf_editor_operators.RemoveRBFPose,
+    rbf_editor_operators.ApplyRBFPoseEdits,
+    rbf_editor_operators.AddRBFDriven,
+    rbf_editor_operators.RemoveRBFDriven,
+    rbf_editor_operators.MirrorRBFSolver,
+    rbf_editor_operators.MirrorRBFPose,
 ]
-pose_editor_ui_classes = [
-    pose_editor_ui.META_HUMAN_DNA_PT_pose_editor,
-    pose_editor_ui.META_HUMAN_DNA_PT_pose_editor_solver_settings_sub_panel,
-    pose_editor_ui.META_HUMAN_DNA_PT_pose_editor_poses_sub_panel,
-    pose_editor_ui.META_HUMAN_DNA_PT_pose_editor_drivers_sub_panel,
-    pose_editor_ui.META_HUMAN_DNA_PT_pose_editor_driven_sub_panel,
-    pose_editor_ui.META_HUMAN_DNA_PT_pose_editor_footer_sub_panel,
-    pose_editor_ui.META_HUMAN_DNA_UL_bone_selection,
-    pose_editor_ui.META_HUMAN_DNA_UL_rbf_solvers,
-    pose_editor_ui.META_HUMAN_DNA_UL_rbf_poses,
-    pose_editor_ui.META_HUMAN_DNA_UL_rbf_drivers,
-    pose_editor_ui.META_HUMAN_DNA_UL_rbf_driven,
+rbf_editor_ui_classes = [
+    rbf_editor_ui.META_HUMAN_DNA_PT_rbf_editor,
+    rbf_editor_ui.META_HUMAN_DNA_PT_rbf_editor_solver_settings_sub_panel,
+    rbf_editor_ui.META_HUMAN_DNA_PT_rbf_editor_poses_sub_panel,
+    rbf_editor_ui.META_HUMAN_DNA_PT_rbf_editor_drivers_sub_panel,
+    rbf_editor_ui.META_HUMAN_DNA_PT_rbf_editor_driven_sub_panel,
+    rbf_editor_ui.META_HUMAN_DNA_PT_rbf_editor_footer_sub_panel,
+    rbf_editor_ui.META_HUMAN_DNA_UL_bone_selection,
+    rbf_editor_ui.META_HUMAN_DNA_UL_rbf_solvers,
+    rbf_editor_ui.META_HUMAN_DNA_UL_rbf_poses,
+    rbf_editor_ui.META_HUMAN_DNA_UL_rbf_drivers,
+    rbf_editor_ui.META_HUMAN_DNA_UL_rbf_driven,
 ]
 
 # Backup Manager
@@ -114,7 +114,7 @@ classes = [
     operators.UILIST_ADDON_PREFERENCES_OT_extra_dna_entry_add,
     operators.UILIST_ADDON_PREFERENCES_OT_extra_dna_entry_remove,
     *backup_manager_operator_classes,
-    *pose_editor_operator_classes,
+    *rbf_editor_operator_classes,
     importer.META_HUMAN_DNA_FILE_DATA_PT_panel,
     importer.META_HUMAN_DNA_LODS_PT_panel,
     importer.META_HUMAN_DNA_EXTRAS_PT_panel,
@@ -131,7 +131,7 @@ classes = [
     view_3d.META_HUMAN_DNA_PT_animation_utilities_sub_panel,
     # view_3d.META_HUMAN_DNA_PT_materials_utilities_sub_panel,
     view_3d.META_HUMAN_DNA_PT_utilities_sub_panel,
-    *pose_editor_ui_classes,
+    *rbf_editor_ui_classes,
     view_3d.META_HUMAN_DNA_PT_shape_keys,
     view_3d.META_HUMAN_DNA_UL_shape_keys,
     *backup_manager_ui_classes,
@@ -222,7 +222,8 @@ def unregister():
 
         # unregister the classes
         for cls in reversed(classes):
-            bpy.utils.unregister_class(cls)
+            if hasattr(cls, "bl_rna"):
+                bpy.utils.unregister_class(cls)
 
         # unregister the properties
         properties.unregister()

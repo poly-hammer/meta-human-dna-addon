@@ -7,7 +7,7 @@ import bpy
 from bl_ui.generic_ui_list import draw_ui_list
 
 # local imports
-from ..constants import LEGACY_DATA_KEYS, SHAPE_KEY_BASIS_NAME, ToolInfo
+from ..constants import ADDON_IDS, LEGACY_DATA_KEYS, SHAPE_KEY_BASIS_NAME, ToolInfo
 from ..typing import *  # noqa: F403
 
 
@@ -950,7 +950,10 @@ class META_HUMAN_DNA_PT_migrate_legacy_data(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: "Context") -> bool:
-        return any(getattr(context.scene, ToolInfo.NAME).get(key) for key in LEGACY_DATA_KEYS)
+        for addon_id in ADDON_IDS:
+            if any(getattr(context.scene, addon_id, {}).get(key) for key in LEGACY_DATA_KEYS):
+                return True
+        return False
 
     def draw(self, context: "Context"):
         if not self.layout:

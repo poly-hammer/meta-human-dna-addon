@@ -74,15 +74,15 @@ class MetahumanAddonProperties:
         description="This will send anonymous usage data to Poly Hammer to help improve the addon and help catch bugs",
     )  # pyright: ignore[reportInvalidTypeForm]
 
-    # ------- Pose Editor Properties -------
+    # ------- RBF Editor Properties -------
 
-    pose_editor_show_viewport_overlay: bpy.props.BoolProperty(
-        name="Show Pose Editor Viewport Overlay",
+    rbf_editor_show_viewport_overlay: bpy.props.BoolProperty(
+        name="Show RBF Editor Viewport Overlay",
         default=True,
-        description="Display an overlay in the 3D viewport when the Pose Editor is in edit mode",
+        description="Display an overlay in the 3D viewport when the RBF Editor is in edit mode",
     )  # pyright: ignore[reportInvalidTypeForm]
 
-    pose_editor_solver_mirror_regex_pattern: bpy.props.StringProperty(
+    rbf_editor_solver_mirror_regex_pattern: bpy.props.StringProperty(
         name="Solver Mirror Regex Pattern",
         default=r"(?P<prefix>.+)?(?P<side>_[lr]_)(?P<suffix>.+)?",
         description=(
@@ -91,7 +91,7 @@ class MetahumanAddonProperties:
         ),
     )  # pyright: ignore[reportInvalidTypeForm]
 
-    pose_editor_pose_mirror_regex_pattern: bpy.props.StringProperty(
+    rbf_editor_pose_mirror_regex_pattern: bpy.props.StringProperty(
         name="Pose Mirror Regex Pattern",
         default=r"(?P<prefix>.+)?(?P<side>_[lr]_)(?P<suffix>.+)?",
         description=(
@@ -100,7 +100,7 @@ class MetahumanAddonProperties:
         ),
     )  # pyright: ignore[reportInvalidTypeForm]
 
-    pose_editor_bone_mirror_regex_pattern: bpy.props.StringProperty(
+    rbf_editor_bone_mirror_regex_pattern: bpy.props.StringProperty(
         name="Bone Mirror Regex Pattern",
         default=r"(?P<prefix>.+)?(?P<side>_[lr])",
         description=(
@@ -116,7 +116,7 @@ class MetahumanAddonProperties:
         default=True,
         description=(
             "Automatically backup DNA files when saving the blend file, or committing edit mode changes "
-            "from the Pose Editor or Expression Editor"
+            "from the RBF Editor or Facial Editor"
         ),
     )  # pyright: ignore[reportInvalidTypeForm]
 
@@ -314,23 +314,23 @@ def register():
     )
     RigInstance.__annotations__["dna_backup_list_active_index"] = bpy.props.IntProperty()
 
-    # ----------------- Pose Editor Properties -----------------
-    from .editors.pose_editor import properties as pose_editor_properties
+    # ----------------- RBF Editor Properties -----------------
+    from .editors.rbf_editor import properties as rbf_editor_properties
 
-    pose_editor_properties.register()
-    bpy.utils.register_class(pose_editor_properties.RBFDrivenBoneSelectionItem)
-    bpy.utils.register_class(pose_editor_properties.RBFDriverData)
-    bpy.utils.register_class(pose_editor_properties.RBFDrivenData)
-    bpy.utils.register_class(pose_editor_properties.RBFPoseData)
-    bpy.utils.register_class(pose_editor_properties.RBFSolverData)
+    rbf_editor_properties.register()
+    bpy.utils.register_class(rbf_editor_properties.RBFDrivenBoneSelectionItem)
+    bpy.utils.register_class(rbf_editor_properties.RBFDriverData)
+    bpy.utils.register_class(rbf_editor_properties.RBFDrivenData)
+    bpy.utils.register_class(rbf_editor_properties.RBFPoseData)
+    bpy.utils.register_class(rbf_editor_properties.RBFSolverData)
     RigInstance.__annotations__["rbf_solver_list"] = bpy.props.CollectionProperty(
-        type=pose_editor_properties.RBFSolverData
+        type=rbf_editor_properties.RBFSolverData
     )
     RigInstance.__annotations__["rbf_solver_list_active_index"] = bpy.props.IntProperty()
 
     # Add the bone selection collection for the AddRBFPose operator to window manager properties
     MetahumanWindowMangerProperties.__annotations__["add_pose_driven_bones"] = bpy.props.CollectionProperty(
-        type=pose_editor_properties.RBFDrivenBoneSelectionItem
+        type=rbf_editor_properties.RBFDrivenBoneSelectionItem
     )
     MetahumanWindowMangerProperties.__annotations__["add_pose_driven_bones_active_index"] = bpy.props.IntProperty(
         name="Active Driven Bone Index",
@@ -383,7 +383,7 @@ def unregister():
     bpy.utils.unregister_class(RigInstance)
 
     try:
-        # ----------------- Pose Editor Properties -----------------
+        # ----------------- RBF Editor Properties -----------------
         if "rbf_solver_list" in RigInstance.__annotations__:
             del RigInstance.__annotations__["rbf_solver_list"]
         if "rbf_solver_list_active_index" in RigInstance.__annotations__:
@@ -392,14 +392,14 @@ def unregister():
             del MetahumanWindowMangerProperties.__annotations__["add_pose_driven_bones"]
         if "add_pose_driven_bones_active_index" in MetahumanWindowMangerProperties.__annotations__:
             del MetahumanWindowMangerProperties.__annotations__["add_pose_driven_bones_active_index"]
-        from .editors.pose_editor import properties as pose_editor_properties
+        from .editors.rbf_editor import properties as rbf_editor_properties
 
-        bpy.utils.unregister_class(pose_editor_properties.RBFSolverData)
-        bpy.utils.unregister_class(pose_editor_properties.RBFPoseData)
-        bpy.utils.unregister_class(pose_editor_properties.RBFDrivenData)
-        bpy.utils.unregister_class(pose_editor_properties.RBFDriverData)
-        bpy.utils.unregister_class(pose_editor_properties.RBFDrivenBoneSelectionItem)
-        pose_editor_properties.unregister()
+        bpy.utils.unregister_class(rbf_editor_properties.RBFSolverData)
+        bpy.utils.unregister_class(rbf_editor_properties.RBFPoseData)
+        bpy.utils.unregister_class(rbf_editor_properties.RBFDrivenData)
+        bpy.utils.unregister_class(rbf_editor_properties.RBFDriverData)
+        bpy.utils.unregister_class(rbf_editor_properties.RBFDrivenBoneSelectionItem)
+        rbf_editor_properties.unregister()
 
         # ----------------- Backup Manager Properties -----------------
         if "dna_backup_list" in RigInstance.__annotations__:

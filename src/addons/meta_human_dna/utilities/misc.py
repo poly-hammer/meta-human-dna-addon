@@ -23,6 +23,7 @@ from mathutils import Vector
 
 # local imports
 from ..constants import (
+    ADDON_IDS,
     DEFAULT_UV_TOLERANCE,
     EYE_AIM_BONES,
     FACE_BOARD_FILE_PATH,
@@ -329,7 +330,7 @@ def init_sentry():
             before_send=before_send,
         )
         sentry_sdk.set_tags(default_tags)
-        sentry_sdk.capture_event({"message": "addon.initialized"})
+        sentry_sdk.metrics.count("addon.initialized", 1, attributes=default_tags)
     except ImportError:
         logger.warning("The sentry-sdk package is not installed. Un-able to use the Sentry error tracking service.")
     except Exception as error:
@@ -1003,14 +1004,23 @@ def collection_to_list(collection: bpy.types.bpy_prop_collection) -> list:
 
 
 @exclude_rig_instance_evaluation
-def migrate_legacy_data(context: "Context") -> None:  # noqa: PLR0912
-    addon_scene_properties = get_addon_scene_properties(context)
+def migrate_legacy_data(context: "Context") -> None:  # noqa: PLR0912, PLR0915
+    addon_scene_properties = None
+    for addon_id in ADDON_IDS:
+        addon_scene_properties = get_addon_scene_properties(context, id_override=addon_id)
+        if addon_scene_properties:
+            break
+
+    if not addon_scene_properties:
+        logger.error("Failed to find addon scene properties for data migration.")
+        return
+
     rig_instance_names = [instance.name for instance in addon_scene_properties.rig_instance_list]
     for key in LEGACY_DATA_KEYS:
         # Migrate rig instance data from old format to new format
         old_data = addon_scene_properties.get(key, [])
         for _instance_data in old_data:
-            name = _instance_data.get("name")
+            name = _instance_data.get("name", _instance_data.get("instance_name"))
             if name is not None and name not in rig_instance_names:
                 instance = addon_scene_properties.rig_instance_list.add()
                 instance.name = name
@@ -1071,7 +1081,10 @@ def migrate_legacy_data(context: "Context") -> None:  # noqa: PLR0912
                     instance.head_to_body_constraint_influence = head_to_body_constraint_influence
 
         # Remove old data after migration
-        del getattr(context.scene, ToolInfo.NAME)[key]
+        for addon_id in ADDON_IDS:
+            if addon_id == ToolInfo.NAME:
+                continue
+            del getattr(context.scene, ToolInfo.NAME)[key]
 
 
 def get_addon_preferences() -> "MetahumanAddonProperties | None":
@@ -1113,7 +1126,9 @@ def get_addon_window_manager_properties(context: bpy.types.Context | None = None
     return None  # type: ignore[reportReturnType]
 
 
-def get_addon_scene_properties(context: bpy.types.Context | None = None) -> "MetahumanSceneProperties":
+def get_addon_scene_properties(
+    context: bpy.types.Context | None = None, id_override: str = ToolInfo.NAME
+) -> "MetahumanSceneProperties":
     """
     Gets the scene properties for the MetaHuman DNA addon.
 
@@ -1123,8 +1138,8 @@ def get_addon_scene_properties(context: bpy.types.Context | None = None) -> "Met
     if context is None:
         context = bpy.context
 
-    if context.scene and hasattr(context.scene, ToolInfo.NAME):
-        return getattr(context.scene, ToolInfo.NAME)
+    if context.scene and hasattr(context.scene, id_override):
+        return getattr(context.scene, id_override)
     return None  # type: ignore[reportReturnType]
 
 

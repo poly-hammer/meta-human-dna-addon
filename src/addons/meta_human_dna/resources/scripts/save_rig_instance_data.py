@@ -7,6 +7,16 @@ import argparse
 import addon_utils # pyright: ignore[reportMissingImports]
 from pathlib import Path
 
+ADDON_IDS = [
+    "meta_human_dna",
+    "meta_human_dna_pro",
+]
+
+DATA_KEYS = [
+    "rig_instance_list",
+    "rig_logic_instance_list"
+]
+
 def is_addon_installed(addon_name: str) -> bool:
     for mod in addon_utils.modules(): # type: ignore
         if mod.__name__ == addon_name:
@@ -56,24 +66,33 @@ def main():
     os.makedirs(data_file.parent, exist_ok=True)
     data = {}
 
-    scene_properties = getattr(bpy.context.scene, args.addon_name)
-
     try:
-        data = {
-            i.name: {
-                'face_board': i.face_board.name if i.face_board else None,
-                'head_mesh': i.head_mesh.name if i.head_mesh else None,
-                'head_rig': i.head_rig.name if i.head_rig else None,
-                'head_material': i.head_material.name if i.head_material else None,
-                'head_dna_file_path': i.head_dna_file_path,
-                'body_mesh': i.body_mesh.name if i.body_mesh else None,
-                'body_rig': i.body_rig.name if i.body_rig else None,
-                'body_material': i.body_material.name if i.body_material else None,
-                'body_dna_file_path': i.body_dna_file_path,
-                'output_folder_path': i.output_folder_path,
-            }
-            for i in scene_properties.rig_instance_list
-        }
+        for addon_id in ADDON_IDS:
+            scene_properties = getattr(bpy.context.scene, addon_id, None)
+            if not scene_properties:
+                continue
+
+            rig_instance_list = []
+            for key in DATA_KEYS:
+                rig_instance_list = scene_properties.get(key, [])
+                if rig_instance_list:
+                    break
+
+            data.update({
+                i.get('name', i.get('instance_name')): {
+                    'face_board': i.get('face_board').name if i.get('face_board') else None,
+                    'head_mesh': i.get('head_mesh').name if i.get('head_mesh') else None,
+                    'head_rig': i.get('head_rig').name if i.get('head_rig') else None,
+                    'head_material': i.get('head_material').name if i.get('head_material') else None,
+                    'head_dna_file_path': i.get('head_dna_file_path', ''),
+                    'body_mesh': i.get('body_mesh').name if i.get('body_mesh') else None,
+                    'body_rig': i.get('body_rig').name if i.get('body_rig') else None,
+                    'body_material': i.get('body_material').name if i.get('body_material') else None,
+                    'body_dna_file_path': i.get('body_dna_file_path', ''),
+                    'output_folder_path': i.get('output_folder_path', ''),
+                }
+                for i in rig_instance_list
+            })
     except Exception as error:
         with open(f'{data_file.parent / data_file.stem}_error.log', 'w') as f:
             f.write(str(error) + traceback.format_exc())

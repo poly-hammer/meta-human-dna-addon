@@ -219,7 +219,7 @@ class EditRBFSolver(RBFEditorOperatorBase):
 
         # Initialize change tracking when entering edit mode
         change_tracker.initialize_tracking(instance)
-        toast_info("Entered Pose Editor edit mode", duration=2.0)
+        toast_info("Entered RBF Editor edit mode", duration=2.0)
 
 
 class CommitRBFSolverChanges(RBFEditorOperatorBase):
@@ -261,7 +261,7 @@ class CommitRBFSolverChanges(RBFEditorOperatorBase):
         # Create a backup before committing edit mode changes
         from ..backup_manager.core import BackupType, create_backup
 
-        create_backup(instance, BackupType.PRE_POSE_EDITOR_COMMIT)
+        create_backup(instance, BackupType.PRE_RBF_EDITOR_COMMIT)
 
         from ...bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
 
@@ -302,7 +302,7 @@ class CommitRBFSolverChanges(RBFEditorOperatorBase):
         bpy.app.timers.register(unregister_draw_handler, first_interval=3.0)
 
         # Create a backup with can toggle back too
-        create_backup(instance, BackupType.POST_POSE_EDITOR_COMMIT)
+        create_backup(instance, BackupType.POST_RBF_EDITOR_COMMIT)
 
 
 class RBFPoseOperatorBase(RBFEditorOperatorBase):
@@ -853,8 +853,8 @@ class MirrorRBFSolver(RBFEditorOperatorBase):
         if not addon_preferences:
             return False, "Addon preferences not found."
 
-        solver_regex = addon_preferences.pose_editor_solver_mirror_regex_pattern
-        bone_regex = addon_preferences.pose_editor_bone_mirror_regex_pattern
+        solver_regex = addon_preferences.rbf_editor_solver_mirror_regex_pattern
+        bone_regex = addon_preferences.rbf_editor_bone_mirror_regex_pattern
 
         return core.validate_mirror_solver(instance, solver_regex, bone_regex)
 
@@ -865,9 +865,9 @@ class MirrorRBFSolver(RBFEditorOperatorBase):
             self.report({"ERROR"}, "Addon preferences not found.")
             return
 
-        solver_regex = addon_preferences.pose_editor_solver_mirror_regex_pattern
-        bone_regex = addon_preferences.pose_editor_bone_mirror_regex_pattern
-        pose_regex = addon_preferences.pose_editor_pose_mirror_regex_pattern
+        solver_regex = addon_preferences.rbf_editor_solver_mirror_regex_pattern
+        bone_regex = addon_preferences.rbf_editor_bone_mirror_regex_pattern
+        pose_regex = addon_preferences.rbf_editor_pose_mirror_regex_pattern
 
         success, message, _ = core.mirror_solver(
             instance=instance,
@@ -915,8 +915,8 @@ class MirrorRBFPose(RBFEditorOperatorBase):
         if not addon_preferences:
             return False, "Addon preferences not found."
 
-        solver_regex = addon_preferences.pose_editor_solver_mirror_regex_pattern
-        pose_regex = addon_preferences.pose_editor_pose_mirror_regex_pattern
+        solver_regex = addon_preferences.rbf_editor_solver_mirror_regex_pattern
+        pose_regex = addon_preferences.rbf_editor_pose_mirror_regex_pattern
 
         return core.validate_mirror_pose(instance=instance, solver_regex=solver_regex, pose_regex=pose_regex)
 
@@ -927,9 +927,9 @@ class MirrorRBFPose(RBFEditorOperatorBase):
             self.report({"ERROR"}, "Addon preferences not found.")
             return
 
-        solver_regex = addon_preferences.pose_editor_solver_mirror_regex_pattern
-        bone_regex = addon_preferences.pose_editor_bone_mirror_regex_pattern
-        pose_regex = addon_preferences.pose_editor_pose_mirror_regex_pattern
+        solver_regex = addon_preferences.rbf_editor_solver_mirror_regex_pattern
+        bone_regex = addon_preferences.rbf_editor_bone_mirror_regex_pattern
+        pose_regex = addon_preferences.rbf_editor_pose_mirror_regex_pattern
 
         success, message, _ = core.mirror_pose(
             instance=instance,

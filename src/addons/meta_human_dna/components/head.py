@@ -183,9 +183,8 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
             head_center = utilities.get_bounding_box_center(self.head_mesh_object)
             delta = target_center - head_center
 
-            # translate the head rig and the face board
+            # translate the head rig
             self.head_rig_object.location += delta
-            self.face_board_object.location += delta
 
             # must be unhidden to switch to edit bone mode
             self.head_rig_object.hide_set(False)
@@ -246,6 +245,14 @@ class MetaHumanComponentHead(MetaHumanComponentBase):
             if constrain:
                 self.snap_head_bones_to_body_bones()
                 self.constrain_head_to_body()
+
+            # reposition the face board based on the new head mesh vertex positions
+            utilities.position_face_board(
+                head_mesh_object=self.head_mesh_object,
+                head_rig_object=self.head_rig_object,
+                face_board_object=self.face_board_object,
+            )
+            self.face_board_object.location += delta
 
     def export(self):
         pass

@@ -212,7 +212,7 @@ class RBFSolverData(bpy.types.PropertyGroup):
 
 
 def register():
-    """Register the pose editor properties and ensure function curves exist."""
+    """Register the RBF editor properties and ensure function curves exist."""
     ensure_function_curves_exist()
 
 

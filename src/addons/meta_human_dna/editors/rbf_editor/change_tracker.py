@@ -15,8 +15,8 @@ from ...typing import *  # noqa: F403
 logger = logging.getLogger(__name__)
 
 
-# Storage key for pose editor data in RigInstance.data
-POSE_EDITOR_DATA_KEY = "pose_editor_data"
+# Storage key for RBF editor data in RigInstance.data
+RBF_EDITOR_DATA_KEY = "rbf_editor_data"
 
 
 class ChangeType(Enum):
@@ -478,8 +478,8 @@ def get_change_tracker(instance: "RigInstance") -> PoseEditorChangeTracker | Non
     Returns:
         The PoseEditorChangeTracker, or None if not initialized.
     """
-    pose_editor_data = instance.data.get(POSE_EDITOR_DATA_KEY, {})
-    return pose_editor_data.get("change_tracker")
+    rbf_editor_data = instance.data.get(RBF_EDITOR_DATA_KEY, {})
+    return rbf_editor_data.get("change_tracker")
 
 
 def initialize_tracking(instance: "RigInstance") -> PoseEditorChangeTracker:
@@ -504,12 +504,12 @@ def initialize_tracking(instance: "RigInstance") -> PoseEditorChangeTracker:
     tracker = PoseEditorChangeTracker(initial_snapshot=snapshot)
 
     # Store in instance data
-    if POSE_EDITOR_DATA_KEY not in instance.data:
-        instance.data[POSE_EDITOR_DATA_KEY] = {}
-    instance.data[POSE_EDITOR_DATA_KEY]["change_tracker"] = tracker
-    instance.data[POSE_EDITOR_DATA_KEY]["initial_snapshot"] = snapshot
+    if RBF_EDITOR_DATA_KEY not in instance.data:
+        instance.data[RBF_EDITOR_DATA_KEY] = {}
+    instance.data[RBF_EDITOR_DATA_KEY]["change_tracker"] = tracker
+    instance.data[RBF_EDITOR_DATA_KEY]["initial_snapshot"] = snapshot
 
-    logger.debug(f"Initialized pose editor change tracking with {len(snapshot.solvers)} solvers")
+    logger.debug(f"Initialized RBF editor change tracking with {len(snapshot.solvers)} solvers")
     return tracker
 
 
@@ -525,8 +525,8 @@ def update_tracking(instance: "RigInstance") -> PoseEditorChangeTracker:
     Returns:
         The updated PoseEditorChangeTracker.
     """
-    pose_editor_data = instance.data.get(POSE_EDITOR_DATA_KEY, {})
-    initial_snapshot = pose_editor_data.get("initial_snapshot")
+    rbf_editor_data = instance.data.get(RBF_EDITOR_DATA_KEY, {})
+    initial_snapshot = rbf_editor_data.get("initial_snapshot")
 
     if initial_snapshot is None:
         # Not initialized, do it now
@@ -535,7 +535,7 @@ def update_tracking(instance: "RigInstance") -> PoseEditorChangeTracker:
     tracker = compute_changes(instance, initial_snapshot)
 
     # Update stored tracker
-    instance.data[POSE_EDITOR_DATA_KEY]["change_tracker"] = tracker
+    instance.data[RBF_EDITOR_DATA_KEY]["change_tracker"] = tracker
 
     return tracker
 
@@ -544,11 +544,11 @@ def clear_tracking(instance: "RigInstance") -> None:
     """
     Clear all change tracking data.
 
-    This should be called when exiting pose editing mode.
+    This should be called when exiting RBF editing mode.
 
     Args:
         instance: The active rig instance.
     """
-    if POSE_EDITOR_DATA_KEY in instance.data:
-        del instance.data[POSE_EDITOR_DATA_KEY]
-    logger.debug("Cleared pose editor change tracking")
+    if RBF_EDITOR_DATA_KEY in instance.data:
+        del instance.data[RBF_EDITOR_DATA_KEY]
+    logger.debug("Cleared RBF editor change tracking")

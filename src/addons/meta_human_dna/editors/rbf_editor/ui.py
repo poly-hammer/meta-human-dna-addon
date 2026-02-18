@@ -113,8 +113,8 @@ class META_HUMAN_DNA_UL_rbf_driven(bpy.types.UIList):
         #     sub.label(text="S") # noqa: ERA001
 
 
-class META_HUMAN_DNA_PT_pose_editor(bpy.types.Panel):
-    bl_label = "Pose Editor"
+class META_HUMAN_DNA_PT_rbf_editor(bpy.types.Panel):
+    bl_label = "RBF Editor"
     bl_category = "MetaHuman DNA"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -122,6 +122,8 @@ class META_HUMAN_DNA_PT_pose_editor(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: "Context") -> bool:
+        return False
+        # TODO: Enable panel later in later release
         properties = getattr(context.scene, ToolInfo.NAME)
         if not len(properties.rig_instance_list) > 0:
             return False
@@ -189,8 +191,8 @@ class META_HUMAN_DNA_PT_pose_editor(bpy.types.Panel):
             sub.separator(factor=1.5)
 
 
-class META_HUMAN_DNA_PT_pose_editor_footer_sub_panel(RigInstanceDependentPanel):
-    bl_parent_id = "META_HUMAN_DNA_PT_pose_editor"
+class META_HUMAN_DNA_PT_rbf_editor_footer_sub_panel(RigInstanceDependentPanel):
+    bl_parent_id = "META_HUMAN_DNA_PT_rbf_editor"
     bl_label = "(Not Shown)"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -242,8 +244,8 @@ class RbfEditorSubPanelBase(bpy.types.Panel):
         return False
 
 
-class META_HUMAN_DNA_PT_pose_editor_solver_settings_sub_panel(RbfEditorSubPanelBase):
-    bl_parent_id = "META_HUMAN_DNA_PT_pose_editor"
+class META_HUMAN_DNA_PT_rbf_editor_solver_settings_sub_panel(RbfEditorSubPanelBase):
+    bl_parent_id = "META_HUMAN_DNA_PT_rbf_editor"
     bl_label = "Settings"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -317,8 +319,8 @@ class META_HUMAN_DNA_PT_pose_editor_solver_settings_sub_panel(RbfEditorSubPanelB
         row.prop(active_rbf_solver, "automatic_radius", text="Automatic Radius")
 
 
-class META_HUMAN_DNA_PT_pose_editor_poses_sub_panel(RbfEditorSubPanelBase):
-    bl_parent_id = "META_HUMAN_DNA_PT_pose_editor"
+class META_HUMAN_DNA_PT_rbf_editor_poses_sub_panel(RbfEditorSubPanelBase):
+    bl_parent_id = "META_HUMAN_DNA_PT_rbf_editor"
     bl_label = "Poses"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -384,8 +386,8 @@ class META_HUMAN_DNA_PT_pose_editor_poses_sub_panel(RbfEditorSubPanelBase):
             # split.prop(active_rbf_pose, 'target_enable', text='Target Enabled') # noqa: ERA001
 
 
-class META_HUMAN_DNA_PT_pose_editor_drivers_sub_panel(RbfEditorSubPanelBase):
-    bl_parent_id = "META_HUMAN_DNA_PT_pose_editor"
+class META_HUMAN_DNA_PT_rbf_editor_drivers_sub_panel(RbfEditorSubPanelBase):
+    bl_parent_id = "META_HUMAN_DNA_PT_rbf_editor"
     bl_label = "Drivers"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -423,8 +425,8 @@ class META_HUMAN_DNA_PT_pose_editor_drivers_sub_panel(RbfEditorSubPanelBase):
         )
 
 
-class META_HUMAN_DNA_PT_pose_editor_driven_sub_panel(bpy.types.Panel):
-    bl_parent_id = "META_HUMAN_DNA_PT_pose_editor"
+class META_HUMAN_DNA_PT_rbf_editor_driven_sub_panel(bpy.types.Panel):
+    bl_parent_id = "META_HUMAN_DNA_PT_rbf_editor"
     bl_label = "Driven"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"

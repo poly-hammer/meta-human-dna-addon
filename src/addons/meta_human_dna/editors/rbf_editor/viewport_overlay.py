@@ -13,7 +13,7 @@ from .change_tracker import get_change_tracker
 
 
 # Global storage for draw handler
-_meta_human_dna_pose_editor_draw_handler = None
+_meta_human_dna_rbf_editor_draw_handler = None
 
 
 def draw_text_2d(
@@ -86,12 +86,12 @@ def draw_rounded_rect(
     gpu.state.blend_set("NONE")
 
 
-def draw_pose_editor_overlay() -> None:
+def draw_rbf_editor_overlay() -> None:
     """
-    Draw the Pose Editor overlay when in edit mode.
+    Draw the RBF Editor overlay when in edit mode.
 
     This function is called by the draw handler and renders an overlay
-    in the 3D viewport indicating that the Pose Editor is in edit mode.
+    in the 3D viewport indicating that the RBF Editor is in edit mode.
     Positioned in the lower left corner of the viewport.
     Also draws toast notifications regardless of edit mode state.
     """
@@ -100,7 +100,7 @@ def draw_pose_editor_overlay() -> None:
     if region is None:
         return
 
-    # Always draw toasts, regardless of pose editor state
+    # Always draw toasts, regardless of RBF editor state
     _draw_toasts()
 
     if not bpy.context.preferences:
@@ -111,7 +111,7 @@ def draw_pose_editor_overlay() -> None:
         return
 
     # Check if overlay is enabled in preferences
-    if not addon_preferences.pose_editor_show_viewport_overlay:
+    if not addon_preferences.rbf_editor_show_viewport_overlay:
         return
 
     instance = get_active_rig_instance()
@@ -144,7 +144,7 @@ def draw_pose_editor_overlay() -> None:
     line_spacing = 3
 
     # Build the overlay text lines
-    title_text = "POSE EDITOR - EDIT MODE"
+    title_text = "RBF EDITOR - EDIT MODE"
     solver_text = f"Solver: {solver_name}" if solver_name else "Solver: (none)"
     pose_text = f"Pose: {pose_name}" if pose_name else "Pose: (none)"
     hint_text = "'Commit' to save | 'Revert' to cancel"
@@ -309,30 +309,30 @@ def _draw_toasts() -> None:
 
 def register_draw_handler() -> None:
     """
-    Register the draw handler for the Pose Editor overlay.
+    Register the draw handler for the RBF Editor overlay.
 
     This should be called during addon registration to enable the overlay
     drawing in the 3D viewport.
     """
-    global _meta_human_dna_pose_editor_draw_handler
+    global _meta_human_dna_rbf_editor_draw_handler
 
-    if _meta_human_dna_pose_editor_draw_handler is not None:
+    if _meta_human_dna_rbf_editor_draw_handler is not None:
         return  # Already registered
 
-    _meta_human_dna_pose_editor_draw_handler = bpy.types.SpaceView3D.draw_handler_add(
-        draw_pose_editor_overlay, (), "WINDOW", "POST_PIXEL"
+    _meta_human_dna_rbf_editor_draw_handler = bpy.types.SpaceView3D.draw_handler_add(
+        draw_rbf_editor_overlay, (), "WINDOW", "POST_PIXEL"
     )
 
 
 def unregister_draw_handler() -> None:
     """
-    Unregister the draw handler for the Pose Editor overlay.
+    Unregister the draw handler for the RBF Editor overlay.
 
     This should be called during addon un-registration to clean up
     the draw handler.
     """
-    global _meta_human_dna_pose_editor_draw_handler
+    global _meta_human_dna_rbf_editor_draw_handler
 
-    if _meta_human_dna_pose_editor_draw_handler is not None:
-        bpy.types.SpaceView3D.draw_handler_remove(_meta_human_dna_pose_editor_draw_handler, "WINDOW")
-        _meta_human_dna_pose_editor_draw_handler = None
+    if _meta_human_dna_rbf_editor_draw_handler is not None:
+        bpy.types.SpaceView3D.draw_handler_remove(_meta_human_dna_rbf_editor_draw_handler, "WINDOW")
+        _meta_human_dna_rbf_editor_draw_handler = None
