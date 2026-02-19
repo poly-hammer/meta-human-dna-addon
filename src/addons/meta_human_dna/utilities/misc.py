@@ -7,6 +7,7 @@ import os
 import re
 import subprocess
 import sys
+import tomllib
 import uuid
 
 from collections.abc import Callable, Generator
@@ -255,11 +256,16 @@ def init_sentry():
     if not addon_preferences.metrics_collection:
         return
 
-    from .. import bl_info
+    addon_version = "unknown"
+    blender_manifest = Path(__file__).parent.parent / "blender_manifest.toml"
+    if blender_manifest.exists():
+        with blender_manifest.open("rb") as f:
+            data = tomllib.load(f)
+            addon_version = data.get("version", addon_version)
 
     default_tags = {
         "blender_version": bpy.app.version_string,
-        "addon_version": ".".join([str(i) for i in bl_info.get("version", [])]),
+        "addon_version": addon_version,
         "platform": sys.platform,
     }
 

@@ -11,7 +11,7 @@ schema_version = "1.0.0"
 id = "meta_human_dna"
 name = "MetaHuman DNA"
 tagline = "Customize MetaHuman DNA files with RigLogic evaluation support"
-version = "0.5.23"
+version = "0.5.24"
 type = "add-on"
 
 # =============================================================================
