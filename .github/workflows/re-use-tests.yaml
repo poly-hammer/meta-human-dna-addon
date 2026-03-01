@@ -28,7 +28,7 @@ jobs:
 
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: "meta-human-dna-addon"
           lfs: true
@@ -36,21 +36,21 @@ jobs:
           token: ${{ secrets.GH_PAT }}
 
       - name: Checkout meta-human-dna-bindings Repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: "poly-hammer/meta-human-dna-bindings"
           path: "meta-human-dna-bindings"
           token: ${{ secrets.GH_PAT }}
 
       - name: Checkout meta-human-dna-core Repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: "poly-hammer/meta-human-dna-core"
           path: "meta-human-dna-core"
           token: ${{ secrets.GH_PAT }}
 
       - name: Set up Python ${{ inputs.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ inputs.python-version }}
 
@@ -98,7 +98,7 @@ jobs:
           report_type: "test_results"
 
       - name: Publish Test Report
-        uses: mikepenz/action-junit-report@v4
+        uses: mikepenz/action-junit-report@v6
         # always run even if the previous step fails
         if: success() || failure()
         with:
