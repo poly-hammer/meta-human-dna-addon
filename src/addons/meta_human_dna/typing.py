@@ -1,4 +1,4 @@
-# Type checking utilities for the MetaHuman DNA addon.
+# Type checking utilities for the Character DNA addon.
 
 from typing import TYPE_CHECKING
 
@@ -9,8 +9,8 @@ if TYPE_CHECKING:
     from bpy.types import bpy_prop_collection, bpy_struct
 
     from .bindings import riglogic  # pyright: ignore[reportAttributeAccessIssue] # noqa: TC004
-    from .components.body import MetaHumanComponentBody  # noqa: TC004
-    from .components.head import MetaHumanComponentHead  # noqa: TC004
+    from .components.body import CharacterComponentBody  # noqa: TC004
+    from .components.head import CharacterComponentHead  # noqa: TC004
     from .editors.backup_manager.properties import DnaBackupEntry  # noqa: TC004
     from .editors.rbf_editor.properties import (  # noqa: TC004
         RBFDrivenBoneSelectionItem,
@@ -21,11 +21,11 @@ if TYPE_CHECKING:
     )
     from .operators import BakeAnimationBase, DuplicateRigInstance  # noqa: TC004
     from .properties import (
+        CharacterAddonProperties,  # noqa: TC004
+        CharacterImportProperties,  # noqa: TC004
+        CharacterSceneProperties,  # noqa: TC004
+        CharacterWindowMangerProperties as _CharacterWindowMangerProperties,
         ExtraDnaFolder,
-        MetahumanAddonProperties,  # noqa: TC004
-        MetahumanImportProperties,  # noqa: TC004
-        MetahumanSceneProperties,  # noqa: TC004
-        MetahumanWindowMangerProperties as _MetahumanWindowMangerProperties,
     )
     from .rig_instance import OutputData, RigInstance as _RigInstanceBase, ShapeKeyData  # noqa: TC004
 
@@ -63,10 +63,10 @@ if TYPE_CHECKING:
         rbf_solver_list_active_index: int
 
     # =========================================================================
-    # Extended MetahumanWindowMangerProperties with dynamically assigned editor
-    # properties these are added at runtime in properties.py register() function
+    # Extended CharacterWindowMangerProperties with dynamically assigned editor properties
+    # These are added at runtime in properties.py register() function
     # =========================================================================
-    class MetahumanWindowMangerProperties(_MetahumanWindowMangerProperties):
+    class CharacterWindowMangerProperties(_CharacterWindowMangerProperties):
         """Extended WindowManager properties with RBF Editor properties."""
 
         add_pose_driven_bones: bpy_prop_collection[RBFDrivenBoneSelectionItem]
@@ -75,8 +75,8 @@ if TYPE_CHECKING:
     # =========================================================================
     # Addon Preferences Types
     # =========================================================================
-    class _MetaHumanAddonPreferences(MetahumanAddonProperties, bpy.types.AddonPreferences):
-        """Typed addon preferences for MetaHuman DNA."""
+    class _CharacterAddonPreferences(CharacterAddonProperties, bpy.types.AddonPreferences):
+        """Typed addon preferences for Character DNA."""
 
         bl_idname: str
         metrics_collection: bool
@@ -90,16 +90,16 @@ if TYPE_CHECKING:
         extra_dna_folder_list: ExtraDnaFolders
         extra_dna_folder_list_active_index: int
 
-    class _MetaHumanAddon:
+    class _CharacterAddon(bpy.types.Addon):
         """Typed addon module reference."""
 
-        preferences: _MetaHumanAddonPreferences
+        preferences: _CharacterAddonPreferences
 
-    class _MetaHumanAddons(bpy.types.bpy_prop_collection[bpy.types.Addon]):
-        """Typed addons collection with MetaHuman DNA addon."""
+    class _CharacterAddons(bpy.types.bpy_prop_collection[bpy.types.Addon]):
+        """Typed addons collection with Character DNA addon."""
 
-        def get(self, name: str, default: _MetaHumanAddon | None = None) -> _MetaHumanAddon | None: ...
-        def __getitem__(self, name: str) -> _MetaHumanAddon: ...
+        def get(self, name: str, default: _CharacterAddon | None = None) -> _CharacterAddon | None: ...
+        def __getitem__(self, name: str) -> _CharacterAddon: ...
         def __contains__(self, name: str) -> bool: ...
 
     # =========================================================================
@@ -108,23 +108,23 @@ if TYPE_CHECKING:
     class Preferences(bpy.types.Preferences):
         """Extended Preferences type with typed addons access."""
 
-        addons: _MetaHumanAddons
+        addons: _CharacterAddons
 
     # =========================================================================
     # Patch bpy.types.Scene
     # =========================================================================
     class Scene(bpy.types.Scene):
-        """Extended Scene type with MetaHuman DNA properties."""
+        """Extended Scene type with Character DNA properties."""
 
-        meta_human_dna: MetahumanSceneProperties
+        meta_human_dna: CharacterSceneProperties
 
     # =========================================================================
     # Patch bpy.types.WindowManager
     # =========================================================================
     class WindowManager(bpy.types.WindowManager):
-        """Extended WindowManager type with MetaHuman DNA properties."""
+        """Extended WindowManager type with Character DNA properties."""
 
-        meta_human_dna: MetahumanWindowMangerProperties
+        meta_human_dna: CharacterWindowMangerProperties
 
     # =========================================================================
     # Patch bpy.types.Context
@@ -138,15 +138,15 @@ if TYPE_CHECKING:
 
     __all__ = [
         "BakeAnimationBase",
+        "CharacterAddonProperties",
+        "CharacterComponentBody",
+        "CharacterComponentHead",
+        "CharacterImportProperties",
+        "CharacterSceneProperties",
+        "CharacterWindowMangerProperties",
         "Context",
         "DnaBackupEntry",
         "DuplicateRigInstance",
-        "MetaHumanComponentBody",
-        "MetaHumanComponentHead",
-        "MetahumanAddonProperties",
-        "MetahumanImportProperties",
-        "MetahumanSceneProperties",
-        "MetahumanWindowMangerProperties",
         "OutputData",
         "Preferences",
         "RBFDrivenBoneSelectionItem",

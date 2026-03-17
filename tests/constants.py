@@ -42,5 +42,4 @@ IGNORED_BONE_ROTATIONS_ON_EXPORT = ["FACIAL_C_FacialRoot", "FACIAL_C_Neck1Root",
 
 FINGER_NAMES = ["index", "middle", "ring", "pinky", "thumb"]
 
-# EXCLUDE_FINGER_POSES = int(os.environ.get('META_HUMAN_DNA_ADDON_TESTS_BODY_EXCLUDE_FINGER_POSES', '0')) == 1
 EXCLUDE_FINGER_POSES = True

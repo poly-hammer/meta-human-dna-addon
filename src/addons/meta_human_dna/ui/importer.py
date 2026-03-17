@@ -8,12 +8,12 @@ from bpy_extras.io_utils import ImportHelper  # type: ignore
 
 # local imports
 from .. import utilities
-from ..constants import NUMBER_OF_HEAD_LODS
+from ..constants import NUMBER_OF_HEAD_LODS, ToolInfo
 from ..dna_io import get_dna_reader
 from ..typing import *  # noqa: F403
 
 
-class META_HUMAN_DNA_FILE_DATA_PT_panel(bpy.types.Panel):
+class CHARACTER_DNA_FILE_DATA_PT_panel(bpy.types.Panel):
     bl_space_type = "FILE_BROWSER"
     bl_region_type = "TOOL_PROPS"
     bl_label = "File Data"
@@ -22,7 +22,7 @@ class META_HUMAN_DNA_FILE_DATA_PT_panel(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: "Context") -> bool:
-        return context.space_data.active_operator.bl_idname == "META_HUMAN_DNA_OT_import_dna"  # type: ignore[attr-defined]
+        return context.space_data.active_operator.bl_idname == f"{ToolInfo.NAME.upper()}_OT_import_dna"  # type: ignore[attr-defined]
 
     def draw(self, context: "Context"):
         if not self.layout:
@@ -53,16 +53,16 @@ class META_HUMAN_DNA_FILE_DATA_PT_panel(bpy.types.Panel):
             row.prop(operator, "import_face_board")
 
 
-class META_HUMAN_DNA_LODS_PT_panel(bpy.types.Panel):
+class CHARACTER_DNA_LODS_PT_panel(bpy.types.Panel):
     bl_space_type = "FILE_BROWSER"
     bl_region_type = "TOOL_PROPS"
-    bl_label = "Lods"
+    bl_label = "LODs"
     bl_parent_id = "FILE_PT_operator"
     bl_options = {"HEADER_LAYOUT_EXPAND"}
 
     @classmethod
     def poll(cls, context: "Context") -> bool:
-        return context.space_data.active_operator.bl_idname == "META_HUMAN_DNA_OT_import_dna"  # type: ignore[attr-defined]
+        return context.space_data.active_operator.bl_idname == f"{ToolInfo.NAME.upper()}_OT_import_dna"  # type: ignore[attr-defined]
 
     def draw(self, context: "Context"):
         if not self.layout:
@@ -82,7 +82,7 @@ class META_HUMAN_DNA_LODS_PT_panel(bpy.types.Panel):
             row = layout.row()
 
 
-class META_HUMAN_DNA_EXTRAS_PT_panel(bpy.types.Panel):
+class CHARACTER_DNA_EXTRAS_PT_panel(bpy.types.Panel):
     bl_space_type = "FILE_BROWSER"
     bl_region_type = "TOOL_PROPS"
     bl_label = "Extras"
@@ -91,7 +91,7 @@ class META_HUMAN_DNA_EXTRAS_PT_panel(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: "Context") -> bool:
-        return context.space_data.active_operator.bl_idname == "META_HUMAN_DNA_OT_import_dna"  # type: ignore[attr-defined]
+        return context.space_data.active_operator.bl_idname == f"{ToolInfo.NAME.upper()}_OT_import_dna"  # type: ignore[attr-defined]
 
     def _get_path_error(self, folder_path: str) -> str:
         if not folder_path:
@@ -135,7 +135,7 @@ class META_HUMAN_DNA_EXTRAS_PT_panel(bpy.types.Panel):
             row.label(text=path_error, icon="ERROR")
 
 
-class META_HUMAN_DNA_FILE_INFO_PT_panel(bpy.types.Panel):
+class CHARACTER_DNA_FILE_INFO_PT_panel(bpy.types.Panel):
     bl_space_type = "FILE_BROWSER"
     bl_region_type = "TOOL_PROPS"
     bl_label = "DNA File Info"
@@ -145,7 +145,7 @@ class META_HUMAN_DNA_FILE_INFO_PT_panel(bpy.types.Panel):
     @classmethod
     def poll(cls, context: "Context") -> bool:
         operator = context.space_data.active_operator  # type: ignore[attr-defined]
-        is_dna_importer = context.space_data.active_operator.bl_idname == "META_HUMAN_DNA_OT_import_dna"  # type: ignore[attr-defined]
+        is_dna_importer = context.space_data.active_operator.bl_idname == f"{ToolInfo.NAME.upper()}_OT_import_dna"  # type: ignore[attr-defined]
         if not hasattr(operator, "filepath"):
             return False
 

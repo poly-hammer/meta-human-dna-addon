@@ -1,4 +1,7 @@
-# MetaHuman DNA Addon
+<div align="center">
+    <img src="https://www.polyhammer.com/images/products/character-dna-dark.png" alt="Example Custom MetaHuman" width="250px" style="margin-right: 10px;">
+    <h1>Character DNA Addon</h1>
+</div>
 
 ![GitHub Release](https://img.shields.io/github/v/release/poly-hammer/meta-human-dna-addon)
 [![Release](https://github.com/poly-hammer/meta-human-dna-addon/actions/workflows/release.yaml/badge.svg)](https://github.com/poly-hammer/meta-human-dna-addon/actions/workflows/release.yaml)
@@ -28,9 +31,9 @@ The addon is compatible with MetaHuman `.dna` files that have been created with 
 | 4.5             | Windows  | x64          |
 | 4.5             | Linux    | x64          |
 | 4.5             | Mac OS   | arm64        |
-| 5.0             | Windows  | amd64        |
+| 5.0             | Windows  | x64          |
 | 5.0             | Linux    | x64          |
-| 5.0             | Mac OS   | x64          |
+| 5.0             | Mac OS   | arm64        |
 
 ## Dependencies
 

@@ -7,7 +7,7 @@ import bpy
 # local imports
 from .. import __package__ as package_name
 from ..constants import ToolInfo
-from ..properties import ExtraDnaFolder, MetahumanAddonProperties
+from ..properties import CharacterAddonProperties, ExtraDnaFolder
 from ..typing import *  # noqa: F403
 
 
@@ -29,7 +29,7 @@ class FOLDER_UL_extra_dna_path(bpy.types.UIList):
         row.prop(item, "folder_path", text="", emboss=False)
 
 
-class MetaHumanDnaPreferences(MetahumanAddonProperties, bpy.types.AddonPreferences):
+class MetaHumanDnaPreferences(CharacterAddonProperties, bpy.types.AddonPreferences):
     bl_idname = str(package_name)
 
     def draw(self, context: "Context"):

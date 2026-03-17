@@ -115,7 +115,7 @@ def get_pose_differences(
     skip_fbx_import: bool = False,
     tolerance: float = 0.001,
 ) -> list:
-    use_fbx_files = os.environ.get("META_HUMAN_DNA_ADDON_TESTS_UPDATE_BODY_JSON_POSES")
+    use_fbx_files = os.environ.get("CHARACTER_DNA_ADDON_TESTS_UPDATE_BODY_JSON_POSES")
 
     if not instance:
         pytest.fail("No active rig instance found.")

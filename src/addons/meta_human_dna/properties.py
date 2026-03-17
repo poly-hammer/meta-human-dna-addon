@@ -63,7 +63,7 @@ class ExtraDnaFolder(bpy.types.PropertyGroup):
     )  # pyright: ignore[reportInvalidTypeForm]
 
 
-class MetahumanAddonProperties:
+class CharacterAddonProperties:
     """
     This class holds the properties for the addon.
     """
@@ -148,7 +148,7 @@ class MetahumanAddonProperties:
     extra_dna_folder_list_active_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
 
 
-class MetahumanImportProperties(get_dna_import_property_group_base_class()):
+class CharacterImportProperties(get_dna_import_property_group_base_class()):
     import_mesh: bpy.props.BoolProperty(default=True, name="Mesh", description="Whether to import the head meshes")  # pyright: ignore[reportInvalidTypeForm]
     import_normals: bpy.props.BoolProperty(
         default=False, name="Normals", description="Whether to import custom split normals on the head meshes"
@@ -207,7 +207,7 @@ class MetahumanImportProperties(get_dna_import_property_group_base_class()):
     )  # pyright: ignore[reportInvalidTypeForm]
 
 
-class MetahumanWindowMangerProperties(bpy.types.PropertyGroup, MetahumanImportProperties):
+class CharacterWindowMangerProperties(bpy.types.PropertyGroup, CharacterImportProperties):
     """
     Defines a property group that stores constants in the window manager context.
     """
@@ -263,7 +263,7 @@ class MetahumanWindowMangerProperties(bpy.types.PropertyGroup, MetahumanImportPr
     )  # pyright: ignore[reportInvalidTypeForm]
 
 
-class MetahumanSceneProperties(bpy.types.PropertyGroup):
+class CharacterSceneProperties(bpy.types.PropertyGroup):
     """
     Defines a property group that lives in the scene.
     """
@@ -329,10 +329,10 @@ def register():
     RigInstance.__annotations__["rbf_solver_list_active_index"] = bpy.props.IntProperty()
 
     # Add the bone selection collection for the AddRBFPose operator to window manager properties
-    MetahumanWindowMangerProperties.__annotations__["add_pose_driven_bones"] = bpy.props.CollectionProperty(
+    CharacterWindowMangerProperties.__annotations__["add_pose_driven_bones"] = bpy.props.CollectionProperty(
         type=rbf_editor_properties.RBFDrivenBoneSelectionItem
     )
-    MetahumanWindowMangerProperties.__annotations__["add_pose_driven_bones_active_index"] = bpy.props.IntProperty(
+    CharacterWindowMangerProperties.__annotations__["add_pose_driven_bones_active_index"] = bpy.props.IntProperty(
         name="Active Driven Bone Index",
         default=0,
     )
@@ -342,14 +342,14 @@ def register():
     bpy.utils.register_class(BlendFileMetaHumanCollection)
 
     try:
-        bpy.utils.register_class(MetahumanSceneProperties)
-        setattr(bpy.types.Scene, ToolInfo.NAME, bpy.props.PointerProperty(type=MetahumanSceneProperties))  # type: ignore[attr-defined]
+        bpy.utils.register_class(CharacterSceneProperties)
+        setattr(bpy.types.Scene, ToolInfo.NAME, bpy.props.PointerProperty(type=CharacterSceneProperties))  # type: ignore[attr-defined]
     except ValueError as error:
         logger.debug(error)
 
     try:
-        bpy.utils.register_class(MetahumanWindowMangerProperties)
-        setattr(bpy.types.WindowManager, ToolInfo.NAME, bpy.props.PointerProperty(type=MetahumanWindowMangerProperties))  # type: ignore[attr-defined]
+        bpy.utils.register_class(CharacterWindowMangerProperties)
+        setattr(bpy.types.WindowManager, ToolInfo.NAME, bpy.props.PointerProperty(type=CharacterWindowMangerProperties))  # type: ignore[attr-defined]
     except ValueError as error:
         logger.debug(error)
 
@@ -370,12 +370,12 @@ def unregister():
     face_pose_preview_collections.clear()
 
     window_manager_property_class = bpy.types.PropertyGroup.bl_rna_get_subclass_py(
-        MetahumanWindowMangerProperties.__name__
+        CharacterWindowMangerProperties.__name__
     )
     if window_manager_property_class:
         bpy.utils.unregister_class(window_manager_property_class)
 
-    scene_property_class = bpy.types.PropertyGroup.bl_rna_get_subclass_py(MetahumanSceneProperties.__name__)
+    scene_property_class = bpy.types.PropertyGroup.bl_rna_get_subclass_py(CharacterSceneProperties.__name__)
     if scene_property_class:
         bpy.utils.unregister_class(scene_property_class)
 
@@ -388,10 +388,10 @@ def unregister():
             del RigInstance.__annotations__["rbf_solver_list"]
         if "rbf_solver_list_active_index" in RigInstance.__annotations__:
             del RigInstance.__annotations__["rbf_solver_list_active_index"]
-        if "add_pose_driven_bones" in MetahumanWindowMangerProperties.__annotations__:
-            del MetahumanWindowMangerProperties.__annotations__["add_pose_driven_bones"]
-        if "add_pose_driven_bones_active_index" in MetahumanWindowMangerProperties.__annotations__:
-            del MetahumanWindowMangerProperties.__annotations__["add_pose_driven_bones_active_index"]
+        if "add_pose_driven_bones" in CharacterWindowMangerProperties.__annotations__:
+            del CharacterWindowMangerProperties.__annotations__["add_pose_driven_bones"]
+        if "add_pose_driven_bones_active_index" in CharacterWindowMangerProperties.__annotations__:
+            del CharacterWindowMangerProperties.__annotations__["add_pose_driven_bones_active_index"]
         from .editors.rbf_editor import properties as rbf_editor_properties
 
         bpy.utils.unregister_class(rbf_editor_properties.RBFSolverData)

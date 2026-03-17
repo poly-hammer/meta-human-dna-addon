@@ -28,7 +28,7 @@ from .base import MetaHumanComponentBase
 logger = logging.getLogger(__name__)
 
 
-class MetaHumanComponentHead(MetaHumanComponentBase):
+class CharacterComponentHead(MetaHumanComponentBase):
     @exclude_rig_instance_evaluation
     def import_action(
         self,

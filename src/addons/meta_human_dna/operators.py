@@ -16,7 +16,7 @@ from mathutils import Matrix, Vector
 
 # local imports
 from . import constants, utilities
-from .components import MetaHumanComponentBody, MetaHumanComponentHead, get_meta_human_component
+from .components import CharacterComponentBody, CharacterComponentHead, get_meta_human_component
 from .constants import (
     DEFAULT_UV_TOLERANCE,
     FACE_BOARD_NAME,
@@ -27,7 +27,7 @@ from .constants import (
     ToolInfo,
 )
 from .dna_io import DNACalibrator, DNAExporter, get_dna_reader
-from .properties import BlendFileMetaHumanCollection, MetahumanImportProperties
+from .properties import BlendFileMetaHumanCollection, CharacterImportProperties
 from .typing import *  # noqa: F403
 from .ui import callbacks, importer
 
@@ -116,7 +116,7 @@ class GenericProgressQueueOperator(bpy.types.Operator):
     def set_commands_queue(
         self,
         context: "Context",
-        component: MetaHumanComponentHead | MetaHumanComponentBody,
+        component: CharacterComponentHead | CharacterComponentBody,
         commands_queue: queue.Queue,
     ):
         pass
@@ -674,7 +674,7 @@ class BakeComponentAnimation(BakeAnimationBase):
         return False
 
 
-class ImportMetaHumanDna(bpy.types.Operator, importer.ImportAsset, MetahumanImportProperties):
+class ImportMetaHumanDna(bpy.types.Operator, importer.ImportAsset, CharacterImportProperties):
     """Import a metahuman head from a DNA file"""
 
     bl_idname = f"{ToolInfo.NAME}.import_dna"
@@ -767,7 +767,7 @@ class DNA_FH_import_dna(bpy.types.FileHandler):
         )
 
 
-class ConvertSelectedToDna(bpy.types.Operator, MetahumanImportProperties):
+class ConvertSelectedToDna(bpy.types.Operator, CharacterImportProperties):
     """Converts the selected mesh object to a valid mesh that matches the provided base DNA file"""
 
     bl_idname = f"{ToolInfo.NAME}.convert_selected_to_dna"
@@ -887,14 +887,14 @@ class ConvertSelectedToDna(bpy.types.Operator, MetahumanImportProperties):
             return {"CANCELLED"}
 
         if window_manager_properties.current_component_type == "head":
-            component = MetaHumanComponentHead(
+            component = CharacterComponentHead(
                 name=new_name,
                 dna_file_path=base_dna_file,
                 component_type="head",
                 dna_import_properties=self.properties,  # type: ignore[arg-type]
             )
         elif window_manager_properties.current_component_type == "body":
-            component = MetaHumanComponentBody(
+            component = CharacterComponentBody(
                 name=new_name,
                 dna_file_path=base_dna_file,
                 component_type="body",
@@ -1094,7 +1094,7 @@ class ImportShapeKeys(GenericProgressQueueOperator):
     def validate(self, context: "Context") -> bool:
         return True
 
-    def set_commands_queue(self, context: "Context", component: MetaHumanComponentHead, commands_queue: queue.Queue):
+    def set_commands_queue(self, context: "Context", component: CharacterComponentHead, commands_queue: queue.Queue):
         component.import_shape_keys(commands_queue)
         ops = utilities.get_addon_ops_module()
         ops.force_evaluate()
@@ -1175,7 +1175,7 @@ class OpenMetricsCollectionAgreement(bpy.types.Operator):
 
 
 class SendToMetaHumanCreator(bpy.types.Operator):
-    """Exports the MetaHuman DNA head and body components, as well as, textures in a format supported by MetaHuman Creator."""  # noqa: E501
+    """Exports the DNA head and body components, as well as, textures in a format supported by MetaHuman Creator."""
 
     bl_idname = f"{ToolInfo.NAME}.send_to_meta_human_creator"
     bl_label = "Send to MetaHuman Creator"
@@ -1556,7 +1556,7 @@ class MetricsCollectionConsent(bpy.types.Operator):
     """Tell the user that we collect metrics and ask for their consent"""
 
     bl_idname = f"{ToolInfo.NAME}.metrics_collection_consent"
-    bl_label = "MetaHuman DNA Addon Metrics"
+    bl_label = "Character DNA Addon Metrics"
 
     def execute(self, context: "Context") -> set[str]:
         addon_preferences = utilities.get_addon_preferences()
@@ -1605,7 +1605,7 @@ class MetricsCollectionConsent(bpy.types.Operator):
             return
 
         row = self.layout.row()
-        row.label(text="We collect anonymous metrics and bug reports to help improve the MetaHuman DNA addon.")
+        row.label(text="We collect anonymous metrics and bug reports to help improve the Character DNA addon.")
         row = self.layout.row()
         row.label(text="No personal data is collected.")
         row = self.layout.row()

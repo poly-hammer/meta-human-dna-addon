@@ -57,7 +57,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
         name: str | None = None,
         rig_instance: "RigInstance | None" = None,
         dna_file_path: Path | None = None,
-        dna_import_properties: "MetahumanImportProperties | None" = None,
+        dna_import_properties: "CharacterImportProperties | None" = None,
         component_type: ComponentType = "head",
     ):
         # make sure dna file path is a Path object
@@ -82,12 +82,12 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
                 self.asset_root_folder = Path(bpy.path.abspath(str(rig_instance.body_dna_file_path))).parent
 
         self.rig_instance: "RigInstance" = rig_instance  # type: ignore[assignment]  # noqa: UP037
-        self.addon_properties: "MetahumanAddonProperties" = utilities.get_addon_preferences()  # pyright: ignore[reportAttributeAccessIssue]  # noqa: UP037
+        self.addon_properties: "CharacterAddonProperties" = utilities.get_addon_preferences()  # pyright: ignore[reportAttributeAccessIssue]  # noqa: UP037
         self.window_manager_properties: MetahumanWindowMangerProperties = (
             utilities.get_addon_window_manager_properties()
         )
-        self.scene_properties: "MetahumanSceneProperties" = utilities.get_addon_scene_properties()  # noqa: UP037
-        self.dna_import_properties: "MetahumanImportProperties" = dna_import_properties  # noqa: UP037
+        self.scene_properties: "CharacterSceneProperties" = utilities.get_addon_scene_properties()  # noqa: UP037
+        self.dna_import_properties: "CharacterImportProperties" = dna_import_properties  # noqa: UP037
 
         # if no rig_instance is provided, create a new one and supply the dna_file_path to it
         if not self.rig_instance and dna_file_path:
@@ -626,14 +626,12 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
         """
         Writes the export manifest to a JSON file like MetaHuman Creator does for a DCC export.
         """
-        from .. import bl_info
-
         file_path = Path(bpy.path.abspath(str(self.rig_instance.output_folder_path))) / "ExportManifest.json"
         with file_path.open("w") as file:
             json.dump(
                 {
                     "metaHumanName": self.name,
-                    "exportBlenderAddonVersion": ".".join([str(i) for i in bl_info.get("version", [])]),
+                    "exportBlenderAddonVersion": utilities.get_addon_version(),
                     "exportPluginVersion": self.metadata.get("exportPluginVersion", "1.0.0"),
                     "exportEngineVersion": self.metadata.get("exportEngineVersion", "5.6.0-0+UE5"),
                     "exportedAt": datetime.now(tz=UTC).strftime("%Y.%m.%d-%H.%M.%S"),

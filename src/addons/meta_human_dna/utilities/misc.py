@@ -3,7 +3,6 @@ import hashlib
 import json
 import logging
 import math
-import os
 import re
 import subprocess
 import sys
@@ -36,7 +35,6 @@ from ..constants import (
     MATERIALS_FILE_PATH,
     NUMBER_OF_HEAD_LODS,
     SCRIPTS_FOLDER,
-    SENTRY_DSN,
     TEMP_FOLDER,
     ToolInfo,
 )
@@ -236,111 +234,14 @@ def set_viewport_shading(mode: str) -> None:
                     space.shading.type = mode  # type: ignore[attr-defined]
 
 
-def init_sentry():
-    # Don't collect metrics when in dev mode
-    if os.environ.get("META_HUMAN_DNA_DEV"):
-        return
-
-    if not bpy.context.preferences:
-        return
-
-    # Don't collect metrics if the user has disabled online access
-    if not bpy.app.online_access:
-        return
-
-    addon_preferences = get_addon_preferences()
-    if not addon_preferences:
-        return
-
-    # Don't collect metrics if the user has disabled it
-    if not addon_preferences.metrics_collection:
-        return
-
+def get_addon_version() -> str:
     addon_version = "unknown"
     blender_manifest = Path(__file__).parent.parent / "blender_manifest.toml"
     if blender_manifest.exists():
         with blender_manifest.open("rb") as f:
             data = tomllib.load(f)
             addon_version = data.get("version", addon_version)
-
-    default_tags = {
-        "blender_version": bpy.app.version_string,
-        "addon_version": addon_version,
-        "platform": sys.platform,
-    }
-
-    try:
-        import sentry_sdk
-
-        from sentry_sdk.types import Event, Hint
-
-        def before_send(event: Event, hint: Hint) -> Event | None:  # noqa: ARG001
-            # Filter based on module origin. We only want to send errors related
-            # to the MetaHuman DNA addon.
-            exception = event.get("exception")
-            if exception and exception.get("values"):
-                # Check all exception values (handles chained exceptions)
-                for exception_value in exception["values"]:
-                    stacktrace = exception_value.get("stacktrace")
-                    if stacktrace and stacktrace.get("frames"):
-                        # Walk from the top of the stack (where the error was raised) backwards
-                        # to determine if the error originated in our addon code
-                        for frame in reversed(stacktrace["frames"]):
-                            module_name = frame.get("module", "")
-                            abs_path = frame.get("abs_path", "")
-                            if module_name and module_name.endswith(ToolInfo.NAME):
-                                break
-                            if abs_path and ToolInfo.NAME in abs_path:
-                                break
-                            # Hit a non-addon frame at the top of the stack — error did not originate from us
-                            if module_name:
-                                break
-                        else:
-                            # No frames at all, skip this exception value
-                            continue
-                        # Check if the loop broke on an addon frame
-                        module_name = frame.get("module", "")  # type: ignore[possibly-undefined]
-                        abs_path = frame.get("abs_path", "")  # type: ignore[possibly-undefined]
-                        if module_name and module_name.endswith(ToolInfo.NAME):
-                            break
-                        if abs_path and ToolInfo.NAME in abs_path:
-                            break
-                else:
-                    # No exception value had frames originating in our addon
-                    return None
-            else:
-                # No exception data — don't send
-                return None
-
-            # Add tags to the event
-            if "tags" not in event:
-                event["tags"] = default_tags
-
-            event["tags"]["blender_mode"] = bpy.context.mode
-
-            return event
-
-        sentry_sdk.init(
-            dsn=SENTRY_DSN,
-            # Set traces_sample_rate to 1.0 to capture 100%
-            # of transactions for performance monitoring.
-            traces_sample_rate=1.0,
-            # Dont send personal identifiable information
-            send_default_pii=False,
-            # Set profiles_sample_rate to 1.0 to profile 100%
-            # of sampled transactions.
-            # We recommend adjusting this value in production.
-            profiles_sample_rate=1.0,
-            # Do some client-side filtering to avoid sending
-            # events that are not relevant to us.
-            before_send=before_send,
-        )
-        sentry_sdk.set_tags(default_tags)
-        sentry_sdk.metrics.count("addon.initialized", 1, attributes=default_tags)
-    except ImportError:
-        logger.warning("The sentry-sdk package is not installed. Un-able to use the Sentry error tracking service.")
-    except Exception as error:
-        logger.error(error)
+    return addon_version
 
 
 def setup_scene(*_: Any) -> None:
@@ -473,33 +374,33 @@ def focus_on_selected():
                                 bpy.ops.view3d.view_selected()
 
 
-def get_head(name: str) -> "MetaHumanComponentHead | None":
+def get_head(name: str) -> "CharacterComponentHead | None":
     # avoid circular import
-    from ..components.head import MetaHumanComponentHead
+    from ..components.head import CharacterComponentHead
 
     scene_properties = get_addon_scene_properties()
     for instance in scene_properties.rig_instance_list:
         if instance.name == name:
-            return MetaHumanComponentHead(rig_instance=instance, component_type="head")
+            return CharacterComponentHead(rig_instance=instance, component_type="head")
 
     logger.error(f'No existing head "{name}" was found')
     return None
 
 
-def get_body(name: str) -> "MetaHumanComponentBody | None":
+def get_body(name: str) -> "CharacterComponentBody | None":
     # avoid circular import
-    from ..components.body import MetaHumanComponentBody
+    from ..components.body import CharacterComponentBody
 
     scene_properties = get_addon_scene_properties()
     for instance in scene_properties.rig_instance_list:
         if instance.name == name:
-            return MetaHumanComponentBody(rig_instance=instance, component_type="body")
+            return CharacterComponentBody(rig_instance=instance, component_type="body")
 
     logger.error(f'No existing body "{name}" was found')
     return None
 
 
-def get_active_head() -> "MetaHumanComponentHead | None":
+def get_active_head() -> "CharacterComponentHead | None":
     """
     Gets the active head object.
     """
@@ -509,7 +410,7 @@ def get_active_head() -> "MetaHumanComponentHead | None":
     return None
 
 
-def get_active_body() -> "MetaHumanComponentBody | None":
+def get_active_body() -> "CharacterComponentBody | None":
     """
     Gets the active body object.
     """
@@ -1093,12 +994,12 @@ def migrate_legacy_data(context: "Context") -> None:  # noqa: PLR0912, PLR0915
             del getattr(context.scene, ToolInfo.NAME)[key]
 
 
-def get_addon_preferences() -> "MetahumanAddonProperties | None":
+def get_addon_preferences() -> "CharacterAddonProperties | None":
     """
-    Gets the addon preferences for the MetaHuman DNA addon.
+    Gets the addon preferences for the Character DNA addon.
 
     Returns:
-        MetahumanAddonProperties | None: The addon preferences or None if not found.
+        CharacterAddonProperties | None: The addon preferences or None if not found.
     """
     if not bpy.context.preferences:
         return None
@@ -1117,12 +1018,12 @@ def get_addon_preferences() -> "MetahumanAddonProperties | None":
     return None
 
 
-def get_addon_window_manager_properties(context: bpy.types.Context | None = None) -> "MetahumanWindowMangerProperties":
+def get_addon_window_manager_properties(context: bpy.types.Context | None = None) -> "CharacterWindowManagerProperties":
     """
-    Gets the window manager properties for the MetaHuman DNA addon.
+    Gets the window manager properties for the Character DNA addon.
 
     Returns:
-        MetahumanWindowManagerProperties: The window manager properties.
+        CharacterWindowManagerProperties: The window manager properties.
     """
     if context is None:
         context = bpy.context
@@ -1134,12 +1035,12 @@ def get_addon_window_manager_properties(context: bpy.types.Context | None = None
 
 def get_addon_scene_properties(
     context: bpy.types.Context | None = None, id_override: str = ToolInfo.NAME
-) -> "MetahumanSceneProperties":
+) -> "CharacterSceneProperties":
     """
-    Gets the scene properties for the MetaHuman DNA addon.
+    Gets the scene properties for the Character DNA addon.
 
     Returns:
-        MetahumanSceneProperties: The scene properties.
+        CharacterSceneProperties: The scene properties.
     """
     if context is None:
         context = bpy.context
@@ -1151,7 +1052,7 @@ def get_addon_scene_properties(
 
 def get_addon_ops_module() -> ModuleType:
     """
-    Gets the operator module for the MetaHuman DNA addon.
+    Gets the operator module for the Character DNA addon.
 
     Returns:
         ModuleType: The operator's module for the addon.

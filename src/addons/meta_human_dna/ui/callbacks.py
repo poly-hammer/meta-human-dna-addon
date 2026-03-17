@@ -30,14 +30,14 @@ from ..typing import *  # noqa: F403
 logger = logging.getLogger(__name__)
 
 
-def get_active_head() -> "MetaHumanComponentHead | None":
+def get_active_head() -> "CharacterComponentHead | None":
     # Avoid circular import
     from ..utilities import get_active_head as _get_active_head
 
     return _get_active_head()
 
 
-def get_active_body() -> "MetaHumanComponentBody | None":
+def get_active_body() -> "CharacterComponentBody | None":
     # Avoid circular import
     from ..utilities import get_active_body as _get_active_body
 
@@ -62,7 +62,7 @@ def get_active_rig_instance() -> "RigInstance | None":
     """
     Gets the active rig instance.
     """
-    scene_properties: "MetahumanSceneProperties" = getattr(bpy.context.scene, ToolInfo.NAME)  # noqa: UP037
+    scene_properties: "CharacterSceneProperties" = getattr(bpy.context.scene, ToolInfo.NAME)  # noqa: UP037
     if not hasattr(bpy.context.scene, ToolInfo.NAME):
         return None
 
@@ -331,7 +331,7 @@ def get_active_shape_key_mesh_names(self: "RigInstance", context: "Context") -> 
     return items
 
 
-def set_highlight_matching_active_bone(self: "MetahumanSceneProperties", value: bool):
+def set_highlight_matching_active_bone(self: "CharacterSceneProperties", value: bool):
     gpu_draw_handler = self.context.pop("gpu_draw_highlight_matching_active_bone_handler", None)
     if gpu_draw_handler:
         bpy.types.SpaceView3D.draw_handler_remove(gpu_draw_handler, "WINDOW")
@@ -342,7 +342,7 @@ def set_highlight_matching_active_bone(self: "MetahumanSceneProperties", value: 
             if bpy.context.mode == "POSE":
                 pose_bone = bpy.context.active_pose_bone
                 if pose_bone:
-                    scene_properties: "MetahumanSceneProperties" = getattr(bpy.context.scene, ToolInfo.NAME)  # noqa: UP037
+                    scene_properties: "CharacterSceneProperties" = getattr(bpy.context.scene, ToolInfo.NAME)  # noqa: UP037
                     for instance in scene_properties.rig_instance_list:
                         if (
                             instance
@@ -373,7 +373,7 @@ def set_highlight_matching_active_bone(self: "MetahumanSceneProperties", value: 
     self["highlight_matching_active_bone"] = value
 
 
-def get_highlight_matching_active_bone(self: "MetahumanSceneProperties") -> bool:
+def get_highlight_matching_active_bone(self: "CharacterSceneProperties") -> bool:
     return self.get("highlight_matching_active_bone", False)
 
 
