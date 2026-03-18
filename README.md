@@ -1,6 +1,6 @@
 <div align="center">
     <img src="https://www.polyhammer.com/images/products/character-dna-dark.png" alt="Example Custom MetaHuman" width="250px" style="margin-right: 10px;">
-    <h1>Character DNA Addon</h1>
+    <h1>Character DNA Blender Addon</h1>
 </div>
 
 ![GitHub Release](https://img.shields.io/github/v/release/poly-hammer/meta-human-dna-addon)
@@ -17,7 +17,7 @@ Imports MetaHuman head and body components into Blender from a their DNA files, 
 
 ## Overview
 
-Welcome to the project! We are working hard to make this the best solution for customizing Metahumans for Unreal Engine. We are very proud to make this the first open source project related to Metahuman DNA customization in Blender. [Code contributions](https://docs.polyhammer.com/meta-human-dna-addon/contributing/development/), and suggestions are welcome and we are excited to work with the community to make this even better! Also please consider [financially supporting](https://polyhammer.com/meta-human-dna-addon) the project by purchasing some of the available resources we offer for individuals and studios in regards to the addon. We heavily rely on your support to keep this project going! Thank you!
+Welcome to the project! We are working hard to make this the best solution for customizing MetaHumans for Unreal Engine. We are very proud to make this the first open source project related to MetaHuman DNA customization in Blender. [Code contributions](https://docs.polyhammer.com/meta-human-dna-addon/contributing/development/), and suggestions are welcome and we are excited to work with the community to make this even better! Also please consider [financially supporting](https://polyhammer.com/meta-human-dna-addon) the project by purchasing some of the available resources we offer for individuals and studios in regards to the addon. We heavily rely on your support to keep this project going! Thank you!
 
 > [!NOTE]
 > The addon is still in beta and has missing features that will be added very soon. The supporting resources are discounted while in the beta, but will continue to work after the v1 launch. Also the addon code will continue to receive updates in the future.
