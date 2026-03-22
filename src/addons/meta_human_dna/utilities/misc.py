@@ -297,7 +297,7 @@ def pre_render(*_: Any) -> None:
     addon_window_manager_properties.is_rendering = True
 
 
-def _delayed_post_render():
+def _deferred_post_render():
     addon_window_manager_properties = get_addon_window_manager_properties(bpy.context)
     addon_window_manager_properties.is_rendering = False
     addon_window_manager_properties.evaluate_dependency_graph = True
@@ -311,7 +311,9 @@ def post_render(*_: Any) -> None:
     addon_window_manager_properties.evaluate_dependency_graph = False
     # Turn off the rendering flag after a short delay to ensure that any render threads have completed
     # and are no longer accessing rig data before we allow evaluation again.
-    bpy.app.timers.register(_delayed_post_render, first_interval=3.0)
+    if bpy.app.timers.is_registered(_deferred_post_render):
+        bpy.app.timers.unregister(_deferred_post_render)
+    bpy.app.timers.register(_deferred_post_render, first_interval=0)
 
 
 def post_save(*_: Any) -> None:
@@ -991,7 +993,9 @@ def migrate_legacy_data(context: "Context") -> None:  # noqa: PLR0912, PLR0915
         for addon_id in ADDON_IDS:
             if addon_id == ToolInfo.NAME:
                 continue
-            del getattr(context.scene, ToolInfo.NAME)[key]
+            scene_data = getattr(context.scene, ToolInfo.NAME)
+            if scene_data is not None and hasattr(scene_data, key):
+                del scene_data[key]
 
 
 def get_addon_preferences() -> "CharacterAddonProperties | None":

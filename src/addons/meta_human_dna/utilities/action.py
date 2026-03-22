@@ -630,7 +630,7 @@ def bake_face_board_to_action(  # noqa: PLR0912
             )
             instance.auto_evaluate_head = False
 
-            window_manager_properties: MetahumanWindowMangerProperties = getattr(
+            window_manager_properties: CharacterWindowMangerProperties = getattr(
                 bpy.context.window_manager, ToolInfo.NAME
             )
             window_manager_properties.evaluate_dependency_graph = False

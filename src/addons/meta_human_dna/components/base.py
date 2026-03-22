@@ -83,7 +83,7 @@ class MetaHumanComponentBase(metaclass=ABCMeta):
 
         self.rig_instance: "RigInstance" = rig_instance  # type: ignore[assignment]  # noqa: UP037
         self.addon_properties: "CharacterAddonProperties" = utilities.get_addon_preferences()  # pyright: ignore[reportAttributeAccessIssue]  # noqa: UP037
-        self.window_manager_properties: MetahumanWindowMangerProperties = (
+        self.window_manager_properties: CharacterWindowMangerProperties = (
             utilities.get_addon_window_manager_properties()
         )
         self.scene_properties: "CharacterSceneProperties" = utilities.get_addon_scene_properties()  # noqa: UP037

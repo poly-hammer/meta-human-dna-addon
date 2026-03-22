@@ -222,7 +222,7 @@ def get_body_rig_bone_groups(self: "RigInstance", context: "Context") -> list[tu
     return enum_items
 
 
-def get_base_dna_folder(self: "MetahumanWindowMangerProperties", context: "Context") -> list[tuple[str, str, str]]:  # noqa: ARG001
+def get_base_dna_folder(self: "CharacterWindowMangerProperties", context: "Context") -> list[tuple[str, str, str]]:  # noqa: ARG001
     from ..utilities import get_addon_preferences
 
     # get all the dna files in the addon's dna folder

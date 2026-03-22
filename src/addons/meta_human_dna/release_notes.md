@@ -1,5 +1,6 @@
 ## Patch Changes
 
+* Fixed Migrate Legacy Data Error [272](https://github.com/poly-hammer/meta-human-dna-addon/issues/272)
 * Fixed Error exporting manifest when running the Convert to DNA operator.
 
 > [!WARNING]

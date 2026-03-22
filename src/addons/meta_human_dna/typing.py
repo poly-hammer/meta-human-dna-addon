@@ -1,6 +1,6 @@
 # Type checking utilities for the Character DNA addon.
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 
 if TYPE_CHECKING:
@@ -28,6 +28,8 @@ if TYPE_CHECKING:
         ExtraDnaFolder,
     )
     from .rig_instance import OutputData, RigInstance as _RigInstanceBase, ShapeKeyData  # noqa: TC004
+
+    ComponentType = Literal["head", "body", "all"]
 
     # =========================================================================
     # Custom Collections
@@ -144,6 +146,7 @@ if TYPE_CHECKING:
         "CharacterImportProperties",
         "CharacterSceneProperties",
         "CharacterWindowMangerProperties",
+        "ComponentType",
         "Context",
         "DnaBackupEntry",
         "DuplicateRigInstance",

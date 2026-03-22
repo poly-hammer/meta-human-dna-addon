@@ -1,6 +1,6 @@
 <div align="center">
     <img src="https://www.polyhammer.com/images/products/character-dna-dark.png" alt="Example Custom MetaHuman" width="250px" style="margin-right: 10px;">
-    <h1>Character DNA Blender Addon</h1>
+    <h1>Character DNA Addon</h1>
 </div>
 
 ![GitHub Release](https://img.shields.io/github/v/release/poly-hammer/meta-human-dna-addon)
