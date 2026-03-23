@@ -675,13 +675,13 @@ class RigInstance(bpy.types.PropertyGroup):
             dependency_graph = bpy.context.evaluated_depsgraph_get()
 
         if self.head_rig:
-            self.data[f"{self.name}_evaluated_head_rig"] = self.head_rig.evaluated_get(dependency_graph)
+            self.data[f"{self.name}_head_rig_evaluated"] = self.head_rig.evaluated_get(dependency_graph)
         if self.body_rig:
-            self.data[f"{self.name}_evaluated_body_rig"] = self.body_rig.evaluated_get(dependency_graph)
+            self.data[f"{self.name}_body_rig_evaluated"] = self.body_rig.evaluated_get(dependency_graph)
 
     @property
-    def evaluated_head_rig(self) -> bpy.types.Object | None:
-        result = self.data.get(f"{self.name}_evaluated_head_rig")
+    def head_rig_evaluated(self) -> bpy.types.Object | None:
+        result = self.data.get(f"{self.name}_head_rig_evaluated")
         if result is not None:
             return result
         # Lazy fallback: only call evaluated_depsgraph_get() when the cached value is missing.
@@ -700,8 +700,8 @@ class RigInstance(bpy.types.PropertyGroup):
         return result
 
     @property
-    def evaluated_body_rig(self) -> bpy.types.Object | None:
-        result = self.data.get(f"{self.name}_evaluated_body_rig")
+    def body_rig_evaluated(self) -> bpy.types.Object | None:
+        result = self.data.get(f"{self.name}_body_rig_evaluated")
         if result is not None:
             return result
         # Lazy fallback: only call evaluated_depsgraph_get() when the cached value is missing.
@@ -945,8 +945,8 @@ class RigInstance(bpy.types.PropertyGroup):
             return rest_pose
 
         # make sure the rig bone are using the correct rotation mode
-        if self.evaluated_head_rig and self.evaluated_head_rig.pose:
-            for pose_bone in self.evaluated_head_rig.pose.bones:
+        if self.head_rig_evaluated and self.head_rig_evaluated.pose:
+            for pose_bone in self.head_rig_evaluated.pose.bones:
                 if pose_bone.name in self.head_driver_bone_names:
                     pose_bone.rotation_mode = "QUATERNION"
                 else:
@@ -1001,8 +1001,8 @@ class RigInstance(bpy.types.PropertyGroup):
             return rest_pose
 
         # make sure the rig bone are using the correct rotation mode
-        if self.evaluated_body_rig and self.evaluated_body_rig.pose:
-            for pose_bone in self.evaluated_body_rig.pose.bones:
+        if self.body_rig_evaluated and self.body_rig_evaluated.pose:
+            for pose_bone in self.body_rig_evaluated.pose.bones:
                 # make sure the body bones are using the correct rotation mode
                 if pose_bone.name in self.body_driver_bone_names:
                     pose_bone.rotation_mode = "QUATERNION"
@@ -1320,21 +1320,21 @@ class RigInstance(bpy.types.PropertyGroup):
 
     def update_head_raw_control_values(self, override_values: dict[str, dict[str, float]] | None = None):
         # skip if the body rig is not set
-        if not self.head_rig or not self.evaluated_head_rig or not self.head_dna_reader:
+        if not self.head_rig or not self.head_rig_evaluated or not self.head_dna_reader:
             return
 
         # skip if the rest pose is not initialized
         if not self.head_rest_pose:
             return
 
-        if not self.evaluated_head_rig.pose:
+        if not self.head_rig_evaluated.pose:
             return
 
         missing_raw_controls = []
         converted_quaternions = {}
 
         # convert the quaternion values to the correct coordinate system
-        for pose_bone in self.evaluated_head_rig.pose.bones:
+        for pose_bone in self.head_rig_evaluated.pose.bones:
             if pose_bone.name in self.head_driver_bone_names:
                 # get the local quaternion, but from the world matrix to account for constraints, since we
                 # can't always assume the local quaternion value is what is driving the bone rotation. For
@@ -1351,7 +1351,7 @@ class RigInstance(bpy.types.PropertyGroup):
                 continue
 
             axis = axis.rsplit("q", -1)[-1].lower()
-            if self.evaluated_head_rig:
+            if self.head_rig_evaluated:
                 # override the values can be provided to update values based on them vs current head rig bone locations
                 # This can be used for baking the values to an action
                 if override_values:
@@ -1693,21 +1693,21 @@ class RigInstance(bpy.types.PropertyGroup):
 
     def update_body_raw_control_values(self, override_values: dict[str, dict[str, float]] | None = None):
         # skip if the body rig is not set
-        if not self.body_rig or not self.evaluated_body_rig or not self.body_dna_reader:
+        if not self.body_rig or not self.body_rig_evaluated or not self.body_dna_reader:
             return
 
         # skip if the rest pose is not initialized
         if not self.body_rest_pose:
             return
 
-        if not self.evaluated_body_rig.pose:
+        if not self.body_rig_evaluated.pose:
             return
 
         missing_raw_controls = []
         converted_quaternions = {}
 
         # convert the quaternion values to the correct coordinate system
-        for pose_bone in self.evaluated_body_rig.pose.bones:
+        for pose_bone in self.body_rig_evaluated.pose.bones:
             if pose_bone.name in self.body_driver_bone_names:
                 # get the local quaternion, but from the world matrix to account for constraints, since we
                 # can't always assume the local quaternion value is what is driving the bone rotation. For
@@ -1720,7 +1720,7 @@ class RigInstance(bpy.types.PropertyGroup):
             full_name = self.body_dna_reader.getRawControlName(index)
             control_name, axis = full_name.split(".")
             axis = axis.rsplit("q", -1)[-1].lower()
-            if self.evaluated_body_rig:
+            if self.body_rig_evaluated:
                 # override the values can be provided to update values based on them vs current body rig bone locations
                 # This can be used for baking the values to an action
                 if override_values:
