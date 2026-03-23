@@ -1,3 +1,8 @@
+## Major Changes
+
+* RBF Editor - Allows for editing of RBF poses on the MetaHuman body rig.
+* Backup Manager - Automatically backs up your DNA files as you make change to them. This allows for easy restoring of your work.
+
 ## Patch Changes
 
 * Fixed Invalid Pose bone keyframe on Face Board Import [261](https://github.com/poly-hammer/meta-human-dna-addon/issues/261)
