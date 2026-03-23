@@ -392,6 +392,9 @@ def import_face_board_action_from_fbx(  # noqa: PLR0912
             continue
 
         curve_name = action.name.split(".")[0]
+        # skip the face board action, only import controls
+        if curve_name == action.name:
+            continue
 
         # TODO: Change this to actually support these?
         # skip any eye aim controls
@@ -630,7 +633,7 @@ def bake_face_board_to_action(  # noqa: PLR0912
             )
             instance.auto_evaluate_head = False
 
-            window_manager_properties: MetahumanWindowMangerProperties = getattr(
+            window_manager_properties: CharacterWindowMangerProperties = getattr(
                 bpy.context.window_manager, ToolInfo.NAME
             )
             window_manager_properties.evaluate_dependency_graph = False

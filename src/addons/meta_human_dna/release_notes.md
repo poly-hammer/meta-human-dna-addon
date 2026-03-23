@@ -1,14 +1,19 @@
-## Minor Changes
+## Major Changes
 
-* RigLogic evaluation now works while rendering. Baking before a render it no longer required.
+* RBF Editor - Allows for editing of RBF poses on the MetaHuman body rig.
+* Backup Manager - Automatically backs up your DNA files as you make changes to them. This allows for easy restoring of your work.
 
 ## Patch Changes
 
-* Fixed Auto Evaluation Bug [#257](https://github.com/poly-hammer/meta-human-dna-addon/issues/257)
-* Fixed Link/Append Bug [#248](https://github.com/poly-hammer/meta-human-dna-addon/issues/248) [#232](https://github.com/poly-hammer/meta-human-dna-addon/issues/232)
+* Fixed Invalid Pose bone keyframe on Face Board Import [261](https://github.com/poly-hammer/meta-human-dna-addon/issues/261)
+* Fixed Body Rig Resets After Adjusting and Undoing head board rig [281](https://github.com/poly-hammer/meta-human-dna-addon/issues/281)
+* Fixed Pushing Down face board Action in NLA editor breaks rig/bones connection [280](https://github.com/poly-hammer/meta-human-dna-addon/issues/280)
+* Fixed Render crash issues [279](https://github.com/poly-hammer/meta-human-dna-addon/issues/279)
+* Fixed Migrate Legacy Data Error [272](https://github.com/poly-hammer/meta-human-dna-addon/issues/272)
+* Fixed Error exporting manifest when running the Convert to DNA operator.
 
 > [!WARNING]
-> You must use [poly-hammer-build-tool-workflow](https://github.com/poly-hammer/poly-hammer-build-tool-workflow) `0.8.0` or higher. If you have an older version, you will need to re-copy the template repo and [follow the setup tutorial again](https://www.youtube.com/watch?v=BAyCV8GwmCM). This is essential for your compiled dependencies to work correctly.
+> You must use [poly-hammer-build-tool-workflow](https://github.com/poly-hammer/poly-hammer-build-tool-workflow) `0.8.1` or higher. If you have an older version, you will need to re-copy the template repo and [follow the setup tutorial again](https://www.youtube.com/watch?v=BAyCV8GwmCM). This is essential for your compiled dependencies to work correctly.
 
 ## Tests Passing On
 

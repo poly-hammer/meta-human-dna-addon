@@ -7,7 +7,7 @@ import bpy
 # local imports
 from .. import __package__ as package_name
 from ..constants import ToolInfo
-from ..properties import ExtraDnaFolder, MetahumanAddonProperties
+from ..properties import CharacterAddonProperties, ExtraDnaFolder
 from ..typing import *  # noqa: F403
 
 
@@ -16,10 +16,10 @@ class FOLDER_UL_extra_dna_path(bpy.types.UIList):
         self,
         context: "Context",
         layout: bpy.types.UILayout,
-        data: "MetaHumanDnaPreferences",
+        data: "CharacterDnaPreferences",
         item: "ExtraDnaFolder",
         icon: int | None,
-        active_data: "MetaHumanDnaPreferences",
+        active_data: "CharacterDnaPreferences",
         active_prop_name: str,
     ):
         row = layout.row()
@@ -29,7 +29,7 @@ class FOLDER_UL_extra_dna_path(bpy.types.UIList):
         row.prop(item, "folder_path", text="", emboss=False)
 
 
-class MetaHumanDnaPreferences(MetahumanAddonProperties, bpy.types.AddonPreferences):
+class CharacterDnaPreferences(CharacterAddonProperties, bpy.types.AddonPreferences):
     bl_idname = str(package_name)
 
     def draw(self, context: "Context"):
@@ -39,30 +39,29 @@ class MetaHumanDnaPreferences(MetahumanAddonProperties, bpy.types.AddonPreferenc
         row.prop(self, "metrics_collection", text="Allow Metrics Collection")
         row = layout.row()
 
-        # TODO: Enable RBF Editor settings later in later release
-        # # RBF Editor Settings
-        # layout.separator()  # noqa: ERA001
-        # box = layout.box() # noqa: ERA001
-        # box.label(text="RBF Editor Settings:", icon="POSE_HLT") # noqa: ERA001
-        # row = box.row() # noqa: ERA001
-        # row.prop(self, "rbf_editor_show_viewport_overlay", text="Show RBF Editor Viewport Overlay") # noqa: ERA001
-        # row = box.row() # noqa: ERA001
-        # row.prop(self, "rbf_editor_solver_mirror_regex_pattern") # noqa: ERA001
-        # row = box.row() # noqa: ERA001
-        # row.prop(self, "rbf_editor_pose_mirror_regex_pattern") # noqa: ERA001
-        # row = box.row() # noqa: ERA001
-        # row.prop(self, "rbf_editor_bone_mirror_regex_pattern") # noqa: ERA001
+        # RBF Editor Settings
+        layout.separator()
+        box = layout.box()
+        box.label(text="RBF Editor Settings:", icon="POSE_HLT")
+        row = box.row()
+        row.prop(self, "rbf_editor_show_viewport_overlay", text="Show RBF Editor Viewport Overlay")
+        row = box.row()
+        row.prop(self, "rbf_editor_solver_mirror_regex_pattern")
+        row = box.row()
+        row.prop(self, "rbf_editor_pose_mirror_regex_pattern")
+        row = box.row()
+        row.prop(self, "rbf_editor_bone_mirror_regex_pattern")
 
-        # # DNA Backup Settings
-        # layout.separator() # noqa: ERA001
-        # box = layout.box() # noqa: ERA001
-        # box.label(text="Backup Manager Settings:", icon="FILE_BACKUP") # noqa: ERA001
-        # row = box.row() # noqa: ERA001
-        # row.prop(self, "dna_backups_enable", text="Enable Auto DNA Backups") # noqa: ERA001
-        # row.enabled = self.dna_backups_enable # noqa: ERA001
-        # row.prop(self, "dna_backups_max", text="Maximum Backups to Keep") # noqa: ERA001
-        # row = box.row() # noqa: ERA001
-        # row.prop(self, "dna_backups_folder_path", text="DNA Backup Folder") # noqa: ERA001
+        # DNA Backup Settings
+        layout.separator()
+        box = layout.box()
+        box.label(text="Backup Manager Settings:", icon="FILE_BACKUP")
+        row = box.row()
+        row.prop(self, "dna_backups_enable", text="Enable Auto DNA Backups")
+        row.enabled = self.dna_backups_enable
+        row.prop(self, "dna_backups_max", text="Maximum Backups to Keep")
+        row = box.row()
+        row.prop(self, "dna_backups_folder_path", text="DNA Backup Folder")
 
         # Extra DNA Folder Paths
         layout.separator()
@@ -94,10 +93,10 @@ class MetaHumanDnaPreferences(MetahumanAddonProperties, bpy.types.AddonPreferenc
 def register():
     bpy.utils.register_class(ExtraDnaFolder)
     bpy.utils.register_class(FOLDER_UL_extra_dna_path)
-    bpy.utils.register_class(MetaHumanDnaPreferences)
+    bpy.utils.register_class(CharacterDnaPreferences)
 
 
 def unregister():
-    bpy.utils.unregister_class(MetaHumanDnaPreferences)
+    bpy.utils.unregister_class(CharacterDnaPreferences)
     bpy.utils.unregister_class(FOLDER_UL_extra_dna_path)
     bpy.utils.unregister_class(ExtraDnaFolder)

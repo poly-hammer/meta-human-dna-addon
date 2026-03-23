@@ -7,7 +7,7 @@ from ...typing import *  # noqa: F403
 from ...utilities import get_active_rig_instance
 
 
-class META_HUMAN_DNA_UL_dna_backups(bpy.types.UIList):
+class CHARACTER_DNA_UL_dna_backups(bpy.types.UIList):
     """UIList for displaying DNA backup entries."""
 
     def draw_item(
@@ -31,21 +31,15 @@ class META_HUMAN_DNA_UL_dna_backups(bpy.types.UIList):
             layout.label(text=item.timestamp, icon="TIME")
 
 
-class META_HUMAN_DNA_PT_dna_backups(bpy.types.Panel):
+class CHARACTER_DNA_PT_dna_backups(bpy.types.Panel):
     """Panel for displaying and managing DNA backups."""
 
     bl_label = "Backup Manager"
-    bl_idname = "META_HUMAN_DNA_PT_dna_backups"
+    bl_idname = "CHARACTER_DNA_PT_dna_backups"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "MetaHuman DNA"
+    bl_category = "Character DNA"
     bl_options = {"DEFAULT_CLOSED"}
-
-    @classmethod
-    def poll(cls, _: "Context") -> bool:
-        # return get_active_rig_instance() is not None  # noqa: ERA001
-        # TODO: Enable panel later in later release
-        return False
 
     def draw(self, context: "Context"):
         layout = self.layout
@@ -54,13 +48,13 @@ class META_HUMAN_DNA_PT_dna_backups(bpy.types.Panel):
 
         instance = get_active_rig_instance()
         if instance is None:
-            layout.label(text="No active MetaHuman instance", icon="INFO")
+            layout.label(text="No active rig instance", icon="INFO")
             return
 
         # Backup list
         row = layout.row()
         row.template_list(
-            "META_HUMAN_DNA_UL_dna_backups",
+            "CHARACTER_DNA_UL_dna_backups",
             "dna_backup_list_id",
             instance,
             "dna_backup_list",

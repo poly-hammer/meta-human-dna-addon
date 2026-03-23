@@ -13,17 +13,17 @@ from ...ui.view_3d import RigInstanceDependentPanel, valid_rig_instance_exists
 from .function_curves import get_function_preview_icon
 
 
-class META_HUMAN_DNA_UL_bone_selection(bpy.types.UIList):
+class CHARACTER_DNA_UL_bone_selection(bpy.types.UIList):
     """UIList for selecting bones in the AddRBFPose dialog."""
 
     def draw_item(
         self,
         context: "Context",
         layout: bpy.types.UILayout,
-        data: "MetahumanWindowMangerProperties",
+        data: "CharacterWindowMangerProperties",
         item: "RBFDrivenBoneSelectionItem",
         icon: int | None,
-        active_data: "MetahumanWindowMangerProperties",
+        active_data: "CharacterWindowMangerProperties",
         active_prop_name: str,
     ) -> None:
         row = layout.row(align=True)
@@ -39,7 +39,7 @@ class META_HUMAN_DNA_UL_bone_selection(bpy.types.UIList):
             row.label(text="", icon="LINKED")
 
 
-class META_HUMAN_DNA_UL_rbf_solvers(bpy.types.UIList):
+class CHARACTER_DNA_UL_rbf_solvers(bpy.types.UIList):
     def draw_item(
         self,
         context: "Context",
@@ -53,7 +53,7 @@ class META_HUMAN_DNA_UL_rbf_solvers(bpy.types.UIList):
         layout.label(text=item.name)
 
 
-class META_HUMAN_DNA_UL_rbf_poses(bpy.types.UIList):
+class CHARACTER_DNA_UL_rbf_poses(bpy.types.UIList):
     def draw_item(
         self,
         context: "Context",
@@ -73,7 +73,7 @@ class META_HUMAN_DNA_UL_rbf_poses(bpy.types.UIList):
             layout.label(text=item.name, icon="ARMATURE_DATA")
 
 
-class META_HUMAN_DNA_UL_rbf_drivers(bpy.types.UIList):
+class CHARACTER_DNA_UL_rbf_drivers(bpy.types.UIList):
     def draw_item(
         self,
         context: "Context",
@@ -87,7 +87,7 @@ class META_HUMAN_DNA_UL_rbf_drivers(bpy.types.UIList):
         layout.label(text=item.name, icon="BONE_DATA")
 
 
-class META_HUMAN_DNA_UL_rbf_driven(bpy.types.UIList):
+class CHARACTER_DNA_UL_rbf_driven(bpy.types.UIList):
     def draw_item(
         self,
         context: "Context",
@@ -113,17 +113,15 @@ class META_HUMAN_DNA_UL_rbf_driven(bpy.types.UIList):
         #     sub.label(text="S") # noqa: ERA001
 
 
-class META_HUMAN_DNA_PT_rbf_editor(bpy.types.Panel):
+class CHARACTER_DNA_PT_rbf_editor(bpy.types.Panel):
     bl_label = "RBF Editor"
-    bl_category = "MetaHuman DNA"
+    bl_category = "Character DNA"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
     def poll(cls, context: "Context") -> bool:
-        return False
-        # TODO: Enable panel later in later release
         properties = getattr(context.scene, ToolInfo.NAME)
         if not len(properties.rig_instance_list) > 0:
             return False
@@ -151,7 +149,7 @@ class META_HUMAN_DNA_PT_rbf_editor(bpy.types.Panel):
         draw_ui_list(
             row,
             context,  # type: ignore[arg-type]
-            class_name="META_HUMAN_DNA_UL_rbf_solvers",
+            class_name="CHARACTER_DNA_UL_rbf_solvers",
             list_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].rbf_solver_list",
             active_index_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].rbf_solver_list_active_index",
             unique_id="active_rbf_solver_list_id",
@@ -169,7 +167,7 @@ class META_HUMAN_DNA_PT_rbf_editor(bpy.types.Panel):
             draw_ui_list(
                 row,
                 context,  # type: ignore[arg-type]
-                class_name="META_HUMAN_DNA_UL_rbf_poses",
+                class_name="CHARACTER_DNA_UL_rbf_poses",
                 list_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses",
                 active_index_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses_active_index",
                 unique_id="active_rbf_poses_list_id",
@@ -191,12 +189,12 @@ class META_HUMAN_DNA_PT_rbf_editor(bpy.types.Panel):
             sub.separator(factor=1.5)
 
 
-class META_HUMAN_DNA_PT_rbf_editor_footer_sub_panel(RigInstanceDependentPanel):
-    bl_parent_id = "META_HUMAN_DNA_PT_rbf_editor"
+class CHARACTER_DNA_PT_rbf_editor_footer_sub_panel(RigInstanceDependentPanel):
+    bl_parent_id = "CHARACTER_DNA_PT_rbf_editor"
     bl_label = "(Not Shown)"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "MetaHuman DNA"
+    bl_category = "Character DNA"
     bl_options = {"HIDE_HEADER"}
 
     def draw(self, context: "Context"):
@@ -244,12 +242,12 @@ class RbfEditorSubPanelBase(bpy.types.Panel):
         return False
 
 
-class META_HUMAN_DNA_PT_rbf_editor_solver_settings_sub_panel(RbfEditorSubPanelBase):
-    bl_parent_id = "META_HUMAN_DNA_PT_rbf_editor"
+class CHARACTER_DNA_PT_rbf_editor_solver_settings_sub_panel(RbfEditorSubPanelBase):
+    bl_parent_id = "CHARACTER_DNA_PT_rbf_editor"
     bl_label = "Settings"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "MetaHuman DNA"
+    bl_category = "Character DNA"
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context: "Context"):
@@ -319,12 +317,12 @@ class META_HUMAN_DNA_PT_rbf_editor_solver_settings_sub_panel(RbfEditorSubPanelBa
         row.prop(active_rbf_solver, "automatic_radius", text="Automatic Radius")
 
 
-class META_HUMAN_DNA_PT_rbf_editor_poses_sub_panel(RbfEditorSubPanelBase):
-    bl_parent_id = "META_HUMAN_DNA_PT_rbf_editor"
+class CHARACTER_DNA_PT_rbf_editor_poses_sub_panel(RbfEditorSubPanelBase):
+    bl_parent_id = "CHARACTER_DNA_PT_rbf_editor"
     bl_label = "Poses"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "MetaHuman DNA"
+    bl_category = "Character DNA"
 
     def draw(self, context: "Context"):
         if not self.layout:
@@ -346,7 +344,7 @@ class META_HUMAN_DNA_PT_rbf_editor_poses_sub_panel(RbfEditorSubPanelBase):
         draw_ui_list(
             row,
             context,  # type: ignore[arg-type]
-            class_name="META_HUMAN_DNA_UL_rbf_poses",
+            class_name="CHARACTER_DNA_UL_rbf_poses",
             list_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses",
             active_index_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses_active_index",
             unique_id="active_rbf_poses_list_id",
@@ -386,12 +384,12 @@ class META_HUMAN_DNA_PT_rbf_editor_poses_sub_panel(RbfEditorSubPanelBase):
             # split.prop(active_rbf_pose, 'target_enable', text='Target Enabled') # noqa: ERA001
 
 
-class META_HUMAN_DNA_PT_rbf_editor_drivers_sub_panel(RbfEditorSubPanelBase):
-    bl_parent_id = "META_HUMAN_DNA_PT_rbf_editor"
+class CHARACTER_DNA_PT_rbf_editor_drivers_sub_panel(RbfEditorSubPanelBase):
+    bl_parent_id = "CHARACTER_DNA_PT_rbf_editor"
     bl_label = "Drivers"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "MetaHuman DNA"
+    bl_category = "Character DNA"
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context: "Context"):
@@ -416,7 +414,7 @@ class META_HUMAN_DNA_PT_rbf_editor_drivers_sub_panel(RbfEditorSubPanelBase):
         draw_ui_list(
             row,
             context,  # type: ignore[arg-type]
-            class_name="META_HUMAN_DNA_UL_rbf_drivers",
+            class_name="CHARACTER_DNA_UL_rbf_drivers",
             list_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses[{active_rbf_pose_index}].drivers",
             active_index_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses[{active_rbf_pose_index}].drivers_active_index",
             unique_id="active_rbf_driver_list_id",
@@ -425,12 +423,12 @@ class META_HUMAN_DNA_PT_rbf_editor_drivers_sub_panel(RbfEditorSubPanelBase):
         )
 
 
-class META_HUMAN_DNA_PT_rbf_editor_driven_sub_panel(bpy.types.Panel):
-    bl_parent_id = "META_HUMAN_DNA_PT_rbf_editor"
+class CHARACTER_DNA_PT_rbf_editor_driven_sub_panel(bpy.types.Panel):
+    bl_parent_id = "CHARACTER_DNA_PT_rbf_editor"
     bl_label = "Driven"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "MetaHuman DNA"
+    bl_category = "Character DNA"
 
     @classmethod
     def poll(cls, context: "Context") -> bool:
@@ -485,7 +483,7 @@ class META_HUMAN_DNA_PT_rbf_editor_driven_sub_panel(bpy.types.Panel):
         draw_ui_list(
             row,
             context,  # type: ignore[arg-type]
-            class_name="META_HUMAN_DNA_UL_rbf_driven",
+            class_name="CHARACTER_DNA_UL_rbf_driven",
             list_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses[{active_rbf_pose_index}].driven",
             active_index_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].rbf_solver_list[{active_rbf_solver_index}].poses[{active_rbf_pose_index}].driven_active_index",
             unique_id="active_rbf_driven_list_id",

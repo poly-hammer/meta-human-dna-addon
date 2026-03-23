@@ -12,7 +12,7 @@ from ...utilities import get_active_rig_instance
 from . import core
 
 
-class META_HUMAN_DNA_OT_restore_backup(bpy.types.Operator):
+class CHARACTER_DNA_OT_restore_backup(bpy.types.Operator):
     """Restore DNA files from the selected backup."""
 
     bl_idname = f"{ToolInfo.NAME}.restore_dna_backup"
@@ -49,7 +49,7 @@ class META_HUMAN_DNA_OT_restore_backup(bpy.types.Operator):
         return {"CANCELLED"}
 
 
-class META_HUMAN_DNA_OT_delete_backup(bpy.types.Operator):
+class CHARACTER_DNA_OT_delete_backup(bpy.types.Operator):
     """Delete the selected backup."""
 
     bl_idname = f"{ToolInfo.NAME}.delete_dna_backup"
@@ -91,7 +91,7 @@ class META_HUMAN_DNA_OT_delete_backup(bpy.types.Operator):
         return {"CANCELLED"}
 
 
-class META_HUMAN_DNA_OT_open_backup_folder(bpy.types.Operator):
+class CHARACTER_DNA_OT_open_backup_folder(bpy.types.Operator):
     """Open the backup folder in the file explorer."""
 
     bl_idname = f"{ToolInfo.NAME}.open_backup_folder"
@@ -116,7 +116,7 @@ class META_HUMAN_DNA_OT_open_backup_folder(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class META_HUMAN_DNA_OT_sync_backups(bpy.types.Operator):
+class CHARACTER_DNA_OT_sync_backups(bpy.types.Operator):
     """Synchronize the backup list with files on disk."""
 
     bl_idname = f"{ToolInfo.NAME}.sync_dna_backups"
@@ -138,7 +138,7 @@ class META_HUMAN_DNA_OT_sync_backups(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class META_HUMAN_DNA_OT_create_manual_backup(bpy.types.Operator):
+class CHARACTER_DNA_OT_create_manual_backup(bpy.types.Operator):
     """Create a manual backup of the DNA files with a custom description."""
 
     bl_idname = f"{ToolInfo.NAME}.create_manual_backup"

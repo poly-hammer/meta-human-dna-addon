@@ -4,7 +4,6 @@ import math
 
 from pathlib import Path
 from pprint import pformat
-from typing import Literal
 
 # third party imports
 import bpy
@@ -25,9 +24,22 @@ ATTR_COUNT_PER_EULER_JOINT = 9
 
 logger = logging.getLogger(__name__)
 
+# Deferred evaluation state: Handlers can run in a restricted context that blocks writes to
+# content ID classes (pose bones,shape keys, materials). We collect pending evaluations in the
+# handler and apply them via a zero-delay timer callback which runs in the main event loop with full write access.
+_pending_evaluations: list[tuple["RigInstance", "ComponentType"]] = []
+
+
+def _apply_deferred_evaluation() -> None:
+    """Timer callback that applies pending rig evaluations in a writable context."""
+    pending = list(_pending_evaluations)
+    _pending_evaluations.clear()
+    for instance, component in pending:
+        instance.evaluate(component=component)
+
 
 def rig_instance_listener(scene: "Scene", dependency_graph: bpy.types.Depsgraph, is_frame_change: bool = False):  # noqa: PLR0912
-    addon_window_manager: "MetahumanWindowMangerProperties | None" = getattr(  # noqa: UP037
+    addon_window_manager: "CharacterWindowMangerProperties | None" = getattr(  # noqa: UP037
         bpy.context.window_manager, ToolInfo.NAME, None
     )
     if not addon_window_manager:
@@ -71,23 +83,58 @@ def rig_instance_listener(scene: "Scene", dependency_graph: bpy.types.Depsgraph,
                         and instance.face_board.animation_data
                         and instance.face_board.animation_data.action
                         and instance.face_board.animation_data.action.name == update.id.name
+                    ) or (
+                        instance.auto_evaluate
+                        and instance.auto_evaluate_head
+                        and instance.face_board
+                        and instance.face_board.animation_data
+                        and any(
+                            strip.action and strip.action.name == update.id.name
+                            for track in instance.face_board.animation_data.nla_tracks
+                            for strip in track.strips
+                        )
                     ):
                         instance_updates.add((instance, "head"))
                     # Check if the action is being used by the body rig
                     elif (
-                        instance.auto_evaluate
-                        and instance.auto_evaluate_body
-                        and instance.body_rig
-                        and instance.body_rig.animation_data
-                        and instance.body_rig.animation_data.action
-                        and instance.body_rig.animation_data.action.name == update.id.name
-                    ) or (
-                        instance.auto_evaluate
-                        and instance.auto_evaluate_body
-                        and instance.control_rig
-                        and instance.control_rig.animation_data
-                        and instance.control_rig.animation_data.action
-                        and instance.control_rig.animation_data.action.name == update.id.name
+                        (
+                            instance.auto_evaluate
+                            and instance.auto_evaluate_body
+                            and instance.body_rig
+                            and instance.body_rig.animation_data
+                            and instance.body_rig.animation_data.action
+                            and instance.body_rig.animation_data.action.name == update.id.name
+                        )
+                        or (
+                            instance.auto_evaluate
+                            and instance.auto_evaluate_body
+                            and instance.control_rig
+                            and instance.control_rig.animation_data
+                            and instance.control_rig.animation_data.action
+                            and instance.control_rig.animation_data.action.name == update.id.name
+                        )
+                        or (
+                            instance.auto_evaluate
+                            and instance.auto_evaluate_body
+                            and instance.body_rig
+                            and instance.body_rig.animation_data
+                            and any(
+                                strip.action and strip.action.name == update.id.name
+                                for track in instance.body_rig.animation_data.nla_tracks
+                                for strip in track.strips
+                            )
+                        )
+                        or (
+                            instance.auto_evaluate
+                            and instance.auto_evaluate_body
+                            and instance.control_rig
+                            and instance.control_rig.animation_data
+                            and any(
+                                strip.action and strip.action.name == update.id.name
+                                for track in instance.control_rig.animation_data.nla_tracks
+                                for strip in track.strips
+                            )
+                        )
                     ):
                         # heads have rbf driven bones that move based on neck quaternions, so if head rig is present,
                         # evaluate all
@@ -139,9 +186,13 @@ def rig_instance_listener(scene: "Scene", dependency_graph: bpy.types.Depsgraph,
         else:
             final_instance_updates.add((instance, component))
 
-    # apply the updates to the instances
+    # Defer evaluation to a timer callback where Blender allows writing to ID data.
+    _pending_evaluations.clear()
     for instance, component in final_instance_updates:
-        instance.evaluate(component=component, dependency_graph=dependency_graph)
+        _pending_evaluations.append((instance, component))
+
+    if _pending_evaluations and not bpy.app.timers.is_registered(_apply_deferred_evaluation):
+        bpy.app.timers.register(_apply_deferred_evaluation, first_interval=0)
 
 
 def frame_change_handler(scene: "Scene", dependency_graph: bpy.types.Depsgraph):
@@ -149,6 +200,11 @@ def frame_change_handler(scene: "Scene", dependency_graph: bpy.types.Depsgraph):
 
 
 def stop_listening():
+    # Cancel any pending deferred evaluation
+    if bpy.app.timers.is_registered(_apply_deferred_evaluation):
+        bpy.app.timers.unregister(_apply_deferred_evaluation)
+    _pending_evaluations.clear()
+
     for handler in bpy.app.handlers.depsgraph_update_post:
         if handler.__name__ == rig_instance_listener.__name__:
             bpy.app.handlers.depsgraph_update_post.remove(handler)
@@ -619,29 +675,49 @@ class RigInstance(bpy.types.PropertyGroup):
             dependency_graph = bpy.context.evaluated_depsgraph_get()
 
         if self.head_rig:
-            self.data[f"{self.name}_evaluated_head_rig"] = self.head_rig.evaluated_get(dependency_graph)
+            self.data[f"{self.name}_head_rig_evaluated"] = self.head_rig.evaluated_get(dependency_graph)
         if self.body_rig:
-            self.data[f"{self.name}_evaluated_body_rig"] = self.body_rig.evaluated_get(dependency_graph)
+            self.data[f"{self.name}_body_rig_evaluated"] = self.body_rig.evaluated_get(dependency_graph)
 
     @property
-    def evaluated_head_rig(self) -> bpy.types.Object | None:
-        result = self.data.get(f"{self.name}_evaluated_head_rig")
+    def head_rig_evaluated(self) -> bpy.types.Object | None:
+        result = self.data.get(f"{self.name}_head_rig_evaluated")
         if result is not None:
             return result
         # Lazy fallback: only call evaluated_depsgraph_get() when the cached value is missing.
+        # Temporarily disable the dependency graph flag to prevent re-entrant handler execution,
+        # since evaluated_depsgraph_get() can trigger depsgraph_update_post handlers.
         if self.head_rig:
-            return self.head_rig.evaluated_get(bpy.context.evaluated_depsgraph_get())
-        return None
+            window_manager_properties = utilities.get_addon_window_manager_properties()
+            prev_flag = window_manager_properties.evaluate_dependency_graph if window_manager_properties else True
+            if window_manager_properties:
+                window_manager_properties.evaluate_dependency_graph = False
+            try:
+                result = self.head_rig.evaluated_get(bpy.context.evaluated_depsgraph_get())
+            finally:
+                if window_manager_properties:
+                    window_manager_properties.evaluate_dependency_graph = prev_flag
+        return result
 
     @property
-    def evaluated_body_rig(self) -> bpy.types.Object | None:
-        result = self.data.get(f"{self.name}_evaluated_body_rig")
+    def body_rig_evaluated(self) -> bpy.types.Object | None:
+        result = self.data.get(f"{self.name}_body_rig_evaluated")
         if result is not None:
             return result
         # Lazy fallback: only call evaluated_depsgraph_get() when the cached value is missing.
+        # Temporarily disable the dependency graph flag to prevent re-entrant handler execution,
+        # since evaluated_depsgraph_get() can trigger depsgraph_update_post handlers.
         if self.body_rig:
-            return self.body_rig.evaluated_get(bpy.context.evaluated_depsgraph_get())
-        return None
+            window_manager_properties = utilities.get_addon_window_manager_properties()
+            prev_flag = window_manager_properties.evaluate_dependency_graph if window_manager_properties else True
+            if window_manager_properties:
+                window_manager_properties.evaluate_dependency_graph = False
+            try:
+                result = self.body_rig.evaluated_get(bpy.context.evaluated_depsgraph_get())
+            finally:
+                if window_manager_properties:
+                    window_manager_properties.evaluate_dependency_graph = prev_flag
+        return result
 
     @property
     def is_pro(self) -> bool:
@@ -869,8 +945,8 @@ class RigInstance(bpy.types.PropertyGroup):
             return rest_pose
 
         # make sure the rig bone are using the correct rotation mode
-        if self.evaluated_head_rig and self.evaluated_head_rig.pose:
-            for pose_bone in self.evaluated_head_rig.pose.bones:
+        if self.head_rig_evaluated and self.head_rig_evaluated.pose:
+            for pose_bone in self.head_rig_evaluated.pose.bones:
                 if pose_bone.name in self.head_driver_bone_names:
                     pose_bone.rotation_mode = "QUATERNION"
                 else:
@@ -925,8 +1001,8 @@ class RigInstance(bpy.types.PropertyGroup):
             return rest_pose
 
         # make sure the rig bone are using the correct rotation mode
-        if self.evaluated_body_rig and self.evaluated_body_rig.pose:
-            for pose_bone in self.evaluated_body_rig.pose.bones:
+        if self.body_rig_evaluated and self.body_rig_evaluated.pose:
+            for pose_bone in self.body_rig_evaluated.pose.bones:
                 # make sure the body bones are using the correct rotation mode
                 if pose_bone.name in self.body_driver_bone_names:
                     pose_bone.rotation_mode = "QUATERNION"
@@ -1120,11 +1196,23 @@ class RigInstance(bpy.types.PropertyGroup):
 
             _sync_backup_list_with_disk(instance=self)  # pyright: ignore[reportArgumentType]
 
-    def destroy(self):
-        # clears these data items from the dictionary, this frees them up to be garbage collected
-        self.data.clear()
+    def destroy_head(self):
+        # clear the head rig logic data, this frees them up to be garbage collected
+        for key in list(self.data.keys()):
+            if key.startswith(f"{self.name}_head_"):
+                del self.data[key]
         self.data[f"{self.name}_head_initialized"] = False
+
+    def destroy_body(self):
+        # clear the body rig logic data, this frees them up to be garbage collected
+        for key in list(self.data.keys()):
+            if key.startswith(f"{self.name}_body_"):
+                del self.data[key]
         self.data[f"{self.name}_body_initialized"] = False
+
+    def destroy(self):
+        self.destroy_head()
+        self.destroy_body()
 
     def update_head_switch_values(self):  # noqa: PLR0912
         if not self.face_board:
@@ -1232,21 +1320,21 @@ class RigInstance(bpy.types.PropertyGroup):
 
     def update_head_raw_control_values(self, override_values: dict[str, dict[str, float]] | None = None):
         # skip if the body rig is not set
-        if not self.head_rig or not self.evaluated_head_rig or not self.head_dna_reader:
+        if not self.head_rig or not self.head_rig_evaluated or not self.head_dna_reader:
             return
 
         # skip if the rest pose is not initialized
         if not self.head_rest_pose:
             return
 
-        if not self.evaluated_head_rig.pose:
+        if not self.head_rig_evaluated.pose:
             return
 
         missing_raw_controls = []
         converted_quaternions = {}
 
         # convert the quaternion values to the correct coordinate system
-        for pose_bone in self.evaluated_head_rig.pose.bones:
+        for pose_bone in self.head_rig_evaluated.pose.bones:
             if pose_bone.name in self.head_driver_bone_names:
                 # get the local quaternion, but from the world matrix to account for constraints, since we
                 # can't always assume the local quaternion value is what is driving the bone rotation. For
@@ -1263,7 +1351,7 @@ class RigInstance(bpy.types.PropertyGroup):
                 continue
 
             axis = axis.rsplit("q", -1)[-1].lower()
-            if self.evaluated_head_rig:
+            if self.head_rig_evaluated:
                 # override the values can be provided to update values based on them vs current head rig bone locations
                 # This can be used for baking the values to an action
                 if override_values:
@@ -1391,7 +1479,13 @@ class RigInstance(bpy.types.PropertyGroup):
         for index, value in enumerate(self.head_instance.getBlendShapeOutputs()):
             for shape_key in self.head_shape_key_blocks.get(index, []):
                 if shape_key:
-                    shape_key.value = value
+                    try:
+                        shape_key.value = value
+                    except AttributeError as error:
+                        logger.error(
+                            f'Failed to update the shape key "{shape_key.name}" on "{self.head_mesh.name}": {error}'
+                        )
+                        return []
                     shape_key_values.append((shape_key, value))
                 else:
                     missing_shape_keys.append(index)
@@ -1453,7 +1547,14 @@ class RigInstance(bpy.types.PropertyGroup):
 
             mask_slider = head_texture_masks_node.inputs.get(slider_name)
             if mask_slider:
-                mask_slider.default_value = value  # type: ignore[attr-defined]
+                try:
+                    mask_slider.default_value = value  # type: ignore[attr-defined]
+                except AttributeError as error:
+                    logger.error(
+                        f'Failed to update the texture mask slider "{slider_name}" on '
+                        f'"{self.head_material.name}": {error}'
+                    )
+                    return []
                 texture_mask_values.append((slider_name, value))
             else:
                 logger.warning(
@@ -1520,9 +1621,9 @@ class RigInstance(bpy.types.PropertyGroup):
                 # update the bone matrix
                 modified_matrix = Matrix.LocRotScale(location, rotation, scale)
                 try:
-                    pose_bone.matrix_basis = rest_to_parent_matrix.inverted() @ modified_matrix
-                except ValueError as error:
-                    logger.warning(f'Error updating bone "{name}" matrix: {error}')
+                    pose_bone.matrix_basis = rest_to_parent_matrix.inverted_safe() @ modified_matrix
+                except AttributeError as error:
+                    logger.error(f'Failed to update the bone "{name}" on "{self.head_rig.name}": {error}')
                     continue
 
                 # if the bone is not a leaf bone, we need to update the rotation again
@@ -1592,21 +1693,21 @@ class RigInstance(bpy.types.PropertyGroup):
 
     def update_body_raw_control_values(self, override_values: dict[str, dict[str, float]] | None = None):
         # skip if the body rig is not set
-        if not self.body_rig or not self.evaluated_body_rig or not self.body_dna_reader:
+        if not self.body_rig or not self.body_rig_evaluated or not self.body_dna_reader:
             return
 
         # skip if the rest pose is not initialized
         if not self.body_rest_pose:
             return
 
-        if not self.evaluated_body_rig.pose:
+        if not self.body_rig_evaluated.pose:
             return
 
         missing_raw_controls = []
         converted_quaternions = {}
 
         # convert the quaternion values to the correct coordinate system
-        for pose_bone in self.evaluated_body_rig.pose.bones:
+        for pose_bone in self.body_rig_evaluated.pose.bones:
             if pose_bone.name in self.body_driver_bone_names:
                 # get the local quaternion, but from the world matrix to account for constraints, since we
                 # can't always assume the local quaternion value is what is driving the bone rotation. For
@@ -1619,7 +1720,7 @@ class RigInstance(bpy.types.PropertyGroup):
             full_name = self.body_dna_reader.getRawControlName(index)
             control_name, axis = full_name.split(".")
             axis = axis.rsplit("q", -1)[-1].lower()
-            if self.evaluated_body_rig:
+            if self.body_rig_evaluated:
                 # override the values can be provided to update values based on them vs current body rig bone locations
                 # This can be used for baking the values to an action
                 if override_values:
@@ -1708,9 +1809,9 @@ class RigInstance(bpy.types.PropertyGroup):
                 # update the bone matrix
                 modified_matrix = Matrix.LocRotScale(location, rotation, scale)
                 try:
-                    pose_bone.matrix_basis = rest_to_parent_matrix.inverted() @ modified_matrix
-                except ValueError as error:
-                    logger.warning(f'Error updating bone "{name}" matrix: {error}')
+                    pose_bone.matrix_basis = rest_to_parent_matrix.inverted_safe() @ modified_matrix
+                except AttributeError as error:
+                    logger.error(f'Failed to update the bone "{name}" on "{self.body_rig.name}": {error}')
                     continue
 
             else:
@@ -1726,44 +1827,43 @@ class RigInstance(bpy.types.PropertyGroup):
         except ImportError:
             logger.debug("Could not import the RBF editor module to update the body RBF solver list.")
 
-    def evaluate(
-        self, component: Literal["head", "body", "all"] = "all", dependency_graph: bpy.types.Depsgraph | None = None
-    ):
+    def evaluate(self, component: "ComponentType" = "all", dependency_graph: bpy.types.Depsgraph | None = None):
         window_manager_properties = utilities.get_addon_window_manager_properties()
         # this condition prevents constant evaluation
         if window_manager_properties.evaluate_dependency_graph:
             # turn off the dependency graph evaluation so we can update the controls without triggering an update
             window_manager_properties.evaluate_dependency_graph = False
 
-            if not self.head_initialized:
-                self.head_initialize()
+            try:
+                if not self.head_initialized:
+                    self.head_initialize()
 
-            if not self.body_initialized:
-                self.body_initialize()
+                if not self.body_initialized:
+                    self.body_initialize()
 
-            # apply the dependency graph update so we have the latest evaluated bone transforms
-            self.apply_dependency_graph_update(dependency_graph)
+                # apply the dependency graph update so we have the latest evaluated bone transforms
+                self.apply_dependency_graph_update(dependency_graph)
 
-            if component in ("body", "all") and self.body_initialized:
-                if self.evaluate_rbfs:
-                    self.update_body_raw_control_values()
+                if component in ("body", "all") and self.body_initialized:
+                    if self.evaluate_rbfs:
+                        self.update_body_raw_control_values()
 
-                # apply the changes
-                if self.evaluate_bones:
-                    self.update_body_bone_transforms()
+                    # apply the changes
+                    if self.evaluate_bones:
+                        self.update_body_bone_transforms()
 
-            if component in ("head", "all") and self.head_initialized:
-                # update the gui controls
-                self.update_head_switch_values()
-                self.update_head_gui_control_values()
+                if component in ("head", "all") and self.head_initialized:
+                    # update the gui controls
+                    self.update_head_switch_values()
+                    self.update_head_gui_control_values()
 
-                # apply the changes
-                if self.evaluate_bones:
-                    self.update_head_bone_transforms()
-                if self.evaluate_shape_keys:
-                    self.update_head_shape_keys()
-                if self.evaluate_texture_masks:
-                    self.update_head_texture_masks()
-
-            # turn on the dependency graph evaluation back on
-            window_manager_properties.evaluate_dependency_graph = True
+                    # apply the changes
+                    if self.evaluate_bones:
+                        self.update_head_bone_transforms()
+                    if self.evaluate_shape_keys:
+                        self.update_head_shape_keys()
+                    if self.evaluate_texture_masks:
+                        self.update_head_texture_masks()
+            finally:
+                # always restore the flag so evaluation isn't permanently disabled by an exception
+                window_manager_properties.evaluate_dependency_graph = True

@@ -23,7 +23,7 @@ jobs:
     runs-on: ${{ inputs.runner-os }}
     env:
       PYTHONUNBUFFERED: 1
-      META_HUMAN_DNA_DEV: 1
+      CHARACTER_DNA_DEV: 1
       RUNNING_CI: 1
 
     steps:

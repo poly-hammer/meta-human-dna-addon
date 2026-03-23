@@ -13,10 +13,10 @@ def test_addons_are_enabled(addons):
 @pytest.mark.parametrize(
     "panel_class",
     [
-        view_3d.META_HUMAN_DNA_PT_output_panel,
-        view_3d.META_HUMAN_DNA_PT_rig_instance,
-        view_3d.META_HUMAN_DNA_PT_view_options,
-        view_3d.META_HUMAN_DNA_PT_face_board,
+        view_3d.CHARACTER_DNA_PT_output_panel,
+        view_3d.CHARACTER_DNA_PT_rig_instance,
+        view_3d.CHARACTER_DNA_PT_view_options,
+        view_3d.CHARACTER_DNA_PT_face_board,
     ],
 )
 def test_view_3d(panel_class):
