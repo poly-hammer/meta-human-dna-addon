@@ -271,8 +271,14 @@ def pre_undo(*_: Any) -> None:
     if context.area and context.area.type == "VIEW_3D" and context.region and context.region.type == "WINDOW":
         addon_window_manager_properties.evaluate_dependency_graph = False
         addon_window_manager_properties.is_undoing = True
+        active_object = bpy.context.active_object
+        # destroy cached data related rig instances, since undo can change the data
+        # in a way that makes the cached data invalid
         for instance in addon_scene_properties.rig_instance_list:
-            instance.destroy()
+            if active_object in [instance.head_mesh, instance.head_rig, instance.face_board]:
+                instance.destroy_head()
+            if active_object in [instance.body_mesh, instance.body_rig, instance.control_rig]:
+                instance.destroy_body()
 
 
 def post_undo(*_: Any) -> None:

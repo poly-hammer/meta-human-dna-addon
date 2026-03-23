@@ -392,6 +392,9 @@ def import_face_board_action_from_fbx(  # noqa: PLR0912
             continue
 
         curve_name = action.name.split(".")[0]
+        # skip the face board action, only import controls
+        if curve_name == action.name:
+            continue
 
         # TODO: Change this to actually support these?
         # skip any eye aim controls

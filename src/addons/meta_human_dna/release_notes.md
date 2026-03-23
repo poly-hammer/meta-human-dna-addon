@@ -1,5 +1,9 @@
 ## Patch Changes
 
+* Fixed Invalid Pose bone keyframe on Face Board Import [261](https://github.com/poly-hammer/meta-human-dna-addon/issues/261)
+* Fixed Body Rig Resets After Adjusting and Undoing head board rig [281](https://github.com/poly-hammer/meta-human-dna-addon/issues/281)
+* Fixed Pushing Down face board Action in NLA editor breaks rig/bones connection [280](https://github.com/poly-hammer/meta-human-dna-addon/issues/280)
+* Fixed Render crash issues [279](https://github.com/poly-hammer/meta-human-dna-addon/issues/279)
 * Fixed Migrate Legacy Data Error [272](https://github.com/poly-hammer/meta-human-dna-addon/issues/272)
 * Fixed Error exporting manifest when running the Convert to DNA operator.
 

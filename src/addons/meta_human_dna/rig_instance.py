@@ -83,23 +83,58 @@ def rig_instance_listener(scene: "Scene", dependency_graph: bpy.types.Depsgraph,
                         and instance.face_board.animation_data
                         and instance.face_board.animation_data.action
                         and instance.face_board.animation_data.action.name == update.id.name
+                    ) or (
+                        instance.auto_evaluate
+                        and instance.auto_evaluate_head
+                        and instance.face_board
+                        and instance.face_board.animation_data
+                        and any(
+                            strip.action and strip.action.name == update.id.name
+                            for track in instance.face_board.animation_data.nla_tracks
+                            for strip in track.strips
+                        )
                     ):
                         instance_updates.add((instance, "head"))
                     # Check if the action is being used by the body rig
                     elif (
-                        instance.auto_evaluate
-                        and instance.auto_evaluate_body
-                        and instance.body_rig
-                        and instance.body_rig.animation_data
-                        and instance.body_rig.animation_data.action
-                        and instance.body_rig.animation_data.action.name == update.id.name
-                    ) or (
-                        instance.auto_evaluate
-                        and instance.auto_evaluate_body
-                        and instance.control_rig
-                        and instance.control_rig.animation_data
-                        and instance.control_rig.animation_data.action
-                        and instance.control_rig.animation_data.action.name == update.id.name
+                        (
+                            instance.auto_evaluate
+                            and instance.auto_evaluate_body
+                            and instance.body_rig
+                            and instance.body_rig.animation_data
+                            and instance.body_rig.animation_data.action
+                            and instance.body_rig.animation_data.action.name == update.id.name
+                        )
+                        or (
+                            instance.auto_evaluate
+                            and instance.auto_evaluate_body
+                            and instance.control_rig
+                            and instance.control_rig.animation_data
+                            and instance.control_rig.animation_data.action
+                            and instance.control_rig.animation_data.action.name == update.id.name
+                        )
+                        or (
+                            instance.auto_evaluate
+                            and instance.auto_evaluate_body
+                            and instance.body_rig
+                            and instance.body_rig.animation_data
+                            and any(
+                                strip.action and strip.action.name == update.id.name
+                                for track in instance.body_rig.animation_data.nla_tracks
+                                for strip in track.strips
+                            )
+                        )
+                        or (
+                            instance.auto_evaluate
+                            and instance.auto_evaluate_body
+                            and instance.control_rig
+                            and instance.control_rig.animation_data
+                            and any(
+                                strip.action and strip.action.name == update.id.name
+                                for track in instance.control_rig.animation_data.nla_tracks
+                                for strip in track.strips
+                            )
+                        )
                     ):
                         # heads have rbf driven bones that move based on neck quaternions, so if head rig is present,
                         # evaluate all
@@ -1161,11 +1196,23 @@ class RigInstance(bpy.types.PropertyGroup):
 
             _sync_backup_list_with_disk(instance=self)  # pyright: ignore[reportArgumentType]
 
-    def destroy(self):
-        # clears these data items from the dictionary, this frees them up to be garbage collected
-        self.data.clear()
+    def destroy_head(self):
+        # clear the head rig logic data, this frees them up to be garbage collected
+        for key in list(self.data.keys()):
+            if key.startswith(f"{self.name}_head_"):
+                del self.data[key]
         self.data[f"{self.name}_head_initialized"] = False
+
+    def destroy_body(self):
+        # clear the body rig logic data, this frees them up to be garbage collected
+        for key in list(self.data.keys()):
+            if key.startswith(f"{self.name}_body_"):
+                del self.data[key]
         self.data[f"{self.name}_body_initialized"] = False
+
+    def destroy(self):
+        self.destroy_head()
+        self.destroy_body()
 
     def update_head_switch_values(self):  # noqa: PLR0912
         if not self.face_board:
