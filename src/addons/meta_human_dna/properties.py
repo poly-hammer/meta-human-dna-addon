@@ -41,7 +41,7 @@ def get_dna_import_property_group_base_class() -> type:
     )
 
 
-class BlendFileMetaHumanCollection(bpy.types.PropertyGroup):
+class BlendFileCharacterCollection(bpy.types.PropertyGroup):
     include: bpy.props.BoolProperty(
         default=True,
         description=(
@@ -339,7 +339,7 @@ def register():
 
     # Now register RigLogicInstance
     bpy.utils.register_class(RigInstance)
-    bpy.utils.register_class(BlendFileMetaHumanCollection)
+    bpy.utils.register_class(BlendFileCharacterCollection)
 
     try:
         bpy.utils.register_class(CharacterSceneProperties)
@@ -412,7 +412,7 @@ def unregister():
 
         bpy.utils.unregister_class(ShapeKeyData)
         bpy.utils.unregister_class(OutputData)
-        bpy.utils.unregister_class(BlendFileMetaHumanCollection)
+        bpy.utils.unregister_class(BlendFileCharacterCollection)
 
     except RuntimeError as error:
         logger.debug(error)

@@ -51,7 +51,7 @@ from ..utilities import preserve_context
 logger = logging.getLogger(__name__)
 
 
-class MetaHumanComponentBase(metaclass=ABCMeta):
+class CharacterComponentBase(metaclass=ABCMeta):
     def __init__(
         self,
         name: str | None = None,

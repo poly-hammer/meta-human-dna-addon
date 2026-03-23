@@ -16,10 +16,10 @@ class FOLDER_UL_extra_dna_path(bpy.types.UIList):
         self,
         context: "Context",
         layout: bpy.types.UILayout,
-        data: "MetaHumanDnaPreferences",
+        data: "CharacterDnaPreferences",
         item: "ExtraDnaFolder",
         icon: int | None,
-        active_data: "MetaHumanDnaPreferences",
+        active_data: "CharacterDnaPreferences",
         active_prop_name: str,
     ):
         row = layout.row()
@@ -29,7 +29,7 @@ class FOLDER_UL_extra_dna_path(bpy.types.UIList):
         row.prop(item, "folder_path", text="", emboss=False)
 
 
-class MetaHumanDnaPreferences(CharacterAddonProperties, bpy.types.AddonPreferences):
+class CharacterDnaPreferences(CharacterAddonProperties, bpy.types.AddonPreferences):
     bl_idname = str(package_name)
 
     def draw(self, context: "Context"):
@@ -93,10 +93,10 @@ class MetaHumanDnaPreferences(CharacterAddonProperties, bpy.types.AddonPreferenc
 def register():
     bpy.utils.register_class(ExtraDnaFolder)
     bpy.utils.register_class(FOLDER_UL_extra_dna_path)
-    bpy.utils.register_class(MetaHumanDnaPreferences)
+    bpy.utils.register_class(CharacterDnaPreferences)
 
 
 def unregister():
-    bpy.utils.unregister_class(MetaHumanDnaPreferences)
+    bpy.utils.unregister_class(CharacterDnaPreferences)
     bpy.utils.unregister_class(FOLDER_UL_extra_dna_path)
     bpy.utils.unregister_class(ExtraDnaFolder)

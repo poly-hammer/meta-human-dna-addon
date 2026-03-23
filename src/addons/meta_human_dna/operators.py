@@ -27,7 +27,7 @@ from .constants import (
     ToolInfo,
 )
 from .dna_io import DNACalibrator, DNAExporter, get_dna_reader
-from .properties import BlendFileMetaHumanCollection, CharacterImportProperties
+from .properties import BlendFileCharacterCollection, CharacterImportProperties
 from .typing import *  # noqa: F403
 from .ui import callbacks, importer
 
@@ -144,7 +144,7 @@ class AppendOrLinkMetaHuman(bpy.types.Operator, importer.LinkAppendMetaHumanImpo
         ],
         default="APPEND",
     )  # pyright: ignore[reportInvalidTypeForm]
-    meta_human_list: bpy.props.CollectionProperty(type=BlendFileMetaHumanCollection)  # pyright: ignore[reportInvalidTypeForm]
+    meta_human_list: bpy.props.CollectionProperty(type=BlendFileCharacterCollection)  # pyright: ignore[reportInvalidTypeForm]
     meta_human_names: bpy.props.StringProperty(default="")  # pyright: ignore[reportInvalidTypeForm]
 
     def execute(self, context: "Context") -> set[str]:  # noqa: PLR0912
