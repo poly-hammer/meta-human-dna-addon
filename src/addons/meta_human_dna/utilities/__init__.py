@@ -13,3 +13,4 @@ from .armature import *  # noqa: E402
 from .material import *  # noqa: E402
 from .mesh import *  # noqa: E402
 from .misc import *  # noqa: E402
+from .sentry import *  # noqa: E402

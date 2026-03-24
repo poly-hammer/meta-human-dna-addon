@@ -22,13 +22,13 @@ from ..constants import (
 )
 from ..dna_io import DNAExporter, create_shape_key
 from ..utilities import exclude_rig_instance_evaluation, preserve_context
-from .base import MetaHumanComponentBase
+from .base import CharacterComponentBase
 
 
 logger = logging.getLogger(__name__)
 
 
-class MetaHumanComponentHead(MetaHumanComponentBase):
+class CharacterComponentHead(CharacterComponentBase):
     @exclude_rig_instance_evaluation
     def import_action(
         self,

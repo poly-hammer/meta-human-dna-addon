@@ -30,6 +30,7 @@
         "env",
         "bpy",
         "rbf",
+        "cpython",
         "Raasch",
         "Steagall",
         "PYTHONUNBUFFERED"
@@ -95,6 +96,7 @@
                 "RUF",
                 "tga",
                 "tol",
+                "DEDUP",
                 "TOPO",
                 "TRIA",
                 "TRIS",

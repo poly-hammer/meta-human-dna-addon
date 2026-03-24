@@ -111,7 +111,7 @@ class MeshDependentPanel(bpy.types.Panel):
         )
 
 
-class META_HUMAN_DNA_UL_output_items(bpy.types.UIList):
+class CHARACTER_DNA_UL_output_items(bpy.types.UIList):
     def draw_item(
         self,
         context: "Context",
@@ -143,15 +143,15 @@ class META_HUMAN_DNA_UL_output_items(bpy.types.UIList):
         row.prop(item, prop_name, text="", emboss=False)
 
 
-class META_HUMAN_DNA_UL_rig_instances(bpy.types.UIList):
+class CHARACTER_DNA_UL_rig_instances(bpy.types.UIList):
     def draw_item(
         self,
         context: "Context",
         layout: bpy.types.UILayout,
-        data: "MetahumanSceneProperties",
+        data: "CharacterSceneProperties",
         item: "RigInstance",
         icon: int | None,
-        active_data: "MetahumanSceneProperties",
+        active_data: "CharacterSceneProperties",
         active_prop_name: str,
     ):
         layout.prop(item, "auto_evaluate", text="")
@@ -183,7 +183,7 @@ class META_HUMAN_DNA_UL_rig_instances(bpy.types.UIList):
         col.prop(item, "evaluate_rbfs", text="", icon="DRIVER_ROTATIONAL_DIFFERENCE", emboss=False)
 
 
-class META_HUMAN_DNA_UL_shape_keys(bpy.types.UIList):
+class CHARACTER_DNA_UL_shape_keys(bpy.types.UIList):
     filter_by_name: bpy.props.StringProperty(
         default="", name="Filter by Name", description="Filter shape keys by name", options={"TEXTEDIT_UPDATE"}
     )  # pyright: ignore[reportInvalidTypeForm]
@@ -265,9 +265,9 @@ class META_HUMAN_DNA_UL_shape_keys(bpy.types.UIList):
         return filtered, ordered
 
 
-class META_HUMAN_DNA_PT_face_board(RigInstanceDependentPanel):
+class CHARACTER_DNA_PT_face_board(RigInstanceDependentPanel):
     bl_label = "Face Board"
-    bl_category = "MetaHuman DNA"
+    bl_category = "Character DNA"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_options = {"DEFAULT_CLOSED"}
@@ -295,9 +295,9 @@ class META_HUMAN_DNA_PT_face_board(RigInstanceDependentPanel):
             draw_rig_instance_error(self.layout, error)
 
 
-class META_HUMAN_DNA_PT_utilities(bpy.types.Panel):
+class CHARACTER_DNA_PT_utilities(bpy.types.Panel):
     bl_label = "Utilities"
-    bl_category = "MetaHuman DNA"
+    bl_category = "Character DNA"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_options = {"DEFAULT_CLOSED"}
@@ -313,12 +313,12 @@ class META_HUMAN_DNA_PT_utilities(bpy.types.Panel):
         row.prop(getattr(context.window_manager, ToolInfo.NAME), "current_component_type", text="")
 
 
-class META_HUMAN_DNA_PT_mesh_utilities_sub_panel(MeshDependentPanel):
-    bl_parent_id = "META_HUMAN_DNA_PT_utilities"
+class CHARACTER_DNA_PT_mesh_utilities_sub_panel(MeshDependentPanel):
+    bl_parent_id = "CHARACTER_DNA_PT_utilities"
     bl_label = "Mesh"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "MetaHuman DNA"
+    bl_category = "Character DNA"
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context: "Context"):
@@ -375,12 +375,12 @@ class META_HUMAN_DNA_PT_mesh_utilities_sub_panel(MeshDependentPanel):
             draw_rig_instance_error(self.layout, error)
 
 
-class META_HUMAN_DNA_PT_armature_utilities_sub_panel(ArmatureDependentPanel):
-    bl_parent_id = "META_HUMAN_DNA_PT_utilities"
+class CHARACTER_DNA_PT_armature_utilities_sub_panel(ArmatureDependentPanel):
+    bl_parent_id = "CHARACTER_DNA_PT_utilities"
     bl_label = "Armature"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "MetaHuman DNA"
+    bl_category = "Character DNA"
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context: "Context"):
@@ -441,12 +441,12 @@ class META_HUMAN_DNA_PT_armature_utilities_sub_panel(ArmatureDependentPanel):
             draw_rig_instance_error(self.layout, error)
 
 
-class META_HUMAN_DNA_PT_animation_utilities_sub_panel(ArmatureDependentPanel):
-    bl_parent_id = "META_HUMAN_DNA_PT_utilities"
+class CHARACTER_DNA_PT_animation_utilities_sub_panel(ArmatureDependentPanel):
+    bl_parent_id = "CHARACTER_DNA_PT_utilities"
     bl_label = "Animation"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "MetaHuman DNA"
+    bl_category = "Character DNA"
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context: "Context"):
@@ -473,12 +473,12 @@ class META_HUMAN_DNA_PT_animation_utilities_sub_panel(ArmatureDependentPanel):
             ).component_type = current_component_type
 
 
-class META_HUMAN_DNA_PT_materials_utilities_sub_panel(RigInstanceDependentPanel):
-    bl_parent_id = "META_HUMAN_DNA_PT_utilities"
+class CHARACTER_DNA_PT_materials_utilities_sub_panel(RigInstanceDependentPanel):
+    bl_parent_id = "CHARACTER_DNA_PT_utilities"
     bl_label = "Material"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "MetaHuman DNA"
+    bl_category = "Character DNA"
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context: "Context"):
@@ -493,12 +493,12 @@ class META_HUMAN_DNA_PT_materials_utilities_sub_panel(RigInstanceDependentPanel)
             draw_rig_instance_error(self.layout, error)
 
 
-class META_HUMAN_DNA_PT_utilities_sub_panel(bpy.types.Panel):
-    bl_parent_id = "META_HUMAN_DNA_PT_utilities"
+class CHARACTER_DNA_PT_utilities_sub_panel(bpy.types.Panel):
+    bl_parent_id = "CHARACTER_DNA_PT_utilities"
     bl_label = "(Not Shown)"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "MetaHuman DNA"
+    bl_category = "Character DNA"
     bl_options = {"HIDE_HEADER"}
 
     def draw(self, context: "Context"):
@@ -509,9 +509,9 @@ class META_HUMAN_DNA_PT_utilities_sub_panel(bpy.types.Panel):
         row.operator(f"{ToolInfo.NAME}.convert_selected_to_dna", icon="RNA")
 
 
-class META_HUMAN_DNA_PT_view_options(RigInstanceDependentPanel):
+class CHARACTER_DNA_PT_view_options(RigInstanceDependentPanel):
     bl_label = "View Options"
-    bl_category = "MetaHuman DNA"
+    bl_category = "Character DNA"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_options = {"DEFAULT_CLOSED"}
@@ -580,9 +580,9 @@ class META_HUMAN_DNA_PT_view_options(RigInstanceDependentPanel):
             draw_rig_instance_error(self.layout, error)
 
 
-class META_HUMAN_DNA_PT_rig_instance(bpy.types.Panel):
+class CHARACTER_DNA_PT_rig_instance(bpy.types.Panel):
     bl_label = "Rig Instances"
-    bl_category = "MetaHuman DNA"
+    bl_category = "Character DNA"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_options = {"DEFAULT_CLOSED"}
@@ -597,7 +597,7 @@ class META_HUMAN_DNA_PT_rig_instance(bpy.types.Panel):
         col = draw_ui_list(
             row,
             context,  # type: ignore[arg-type]
-            class_name="META_HUMAN_DNA_UL_rig_instances",
+            class_name="CHARACTER_DNA_UL_rig_instances",
             list_path=f"scene.{ToolInfo.NAME}.rig_instance_list",
             active_index_path=f"scene.{ToolInfo.NAME}.rig_instance_list_active_index",
             unique_id="rig_instance_list_id",
@@ -635,12 +635,12 @@ class META_HUMAN_DNA_PT_rig_instance(bpy.types.Panel):
             row.label(text="Rig Logic Linked Data:")
 
 
-class META_HUMAN_DNA_PT_rig_instance_head_sub_panel(bpy.types.Panel):
-    bl_parent_id = "META_HUMAN_DNA_PT_rig_instance"
+class CHARACTER_DNA_PT_rig_instance_head_sub_panel(bpy.types.Panel):
+    bl_parent_id = "CHARACTER_DNA_PT_rig_instance"
     bl_label = ""
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "MetaHuman DNA"
+    bl_category = "Character DNA"
     bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
@@ -693,12 +693,12 @@ class META_HUMAN_DNA_PT_rig_instance_head_sub_panel(bpy.types.Panel):
             row.prop(instance, "head_material", icon="MATERIAL")
 
 
-class META_HUMAN_DNA_PT_rig_instance_body_sub_panel(bpy.types.Panel):
-    bl_parent_id = "META_HUMAN_DNA_PT_rig_instance"
+class CHARACTER_DNA_PT_rig_instance_body_sub_panel(bpy.types.Panel):
+    bl_parent_id = "CHARACTER_DNA_PT_rig_instance"
     bl_label = ""
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "MetaHuman DNA"
+    bl_category = "Character DNA"
     bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
@@ -748,12 +748,12 @@ class META_HUMAN_DNA_PT_rig_instance_body_sub_panel(bpy.types.Panel):
             row.prop(instance, "body_material", icon="MATERIAL")
 
 
-class META_HUMAN_DNA_PT_rig_instance_footer_sub_panel(RigInstanceDependentPanel):
-    bl_parent_id = "META_HUMAN_DNA_PT_rig_instance"
+class CHARACTER_DNA_PT_rig_instance_footer_sub_panel(RigInstanceDependentPanel):
+    bl_parent_id = "CHARACTER_DNA_PT_rig_instance"
     bl_label = "(Not Shown)"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "MetaHuman DNA"
+    bl_category = "Character DNA"
     bl_options = {"HIDE_HEADER"}
 
     def draw(self, context: "Context"):
@@ -765,9 +765,9 @@ class META_HUMAN_DNA_PT_rig_instance_footer_sub_panel(RigInstanceDependentPanel)
         row.operator(f"{ToolInfo.NAME}.force_evaluate", icon="FILE_REFRESH")
 
 
-class META_HUMAN_DNA_PT_shape_keys(RigInstanceDependentPanel):
+class CHARACTER_DNA_PT_shape_keys(RigInstanceDependentPanel):
     bl_label = "Shape Keys"
-    bl_category = "MetaHuman DNA"
+    bl_category = "Character DNA"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_options = {"DEFAULT_CLOSED"}
@@ -815,7 +815,7 @@ class META_HUMAN_DNA_PT_shape_keys(RigInstanceDependentPanel):
             draw_ui_list(
                 row,
                 context,  # type: ignore[arg-type]
-                class_name="META_HUMAN_DNA_UL_shape_keys",
+                class_name="CHARACTER_DNA_UL_shape_keys",
                 list_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].shape_key_list",
                 active_index_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].shape_key_list_active_index",
                 unique_id="active_shape_key_list_id",
@@ -841,7 +841,7 @@ class META_HUMAN_DNA_PT_shape_keys(RigInstanceDependentPanel):
             draw_rig_instance_error(self.layout, error)
 
 
-class META_HUMAN_DNA_PT_output_panel(RigInstanceDependentPanel):
+class CHARACTER_DNA_PT_output_panel(RigInstanceDependentPanel):
     """
     This class defines the user interface for the panel in the tab in the 3d view
     """
@@ -849,7 +849,7 @@ class META_HUMAN_DNA_PT_output_panel(RigInstanceDependentPanel):
     bl_label = "Output"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "MetaHuman DNA"
+    bl_category = "Character DNA"
 
     def draw(self, context: "Context"):
         if not self.layout:
@@ -875,7 +875,7 @@ class META_HUMAN_DNA_PT_output_panel(RigInstanceDependentPanel):
                 draw_ui_list(
                     row,
                     context,  # type: ignore[arg-type]
-                    class_name="META_HUMAN_DNA_UL_output_items",
+                    class_name="CHARACTER_DNA_UL_output_items",
                     list_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].output_head_item_list",
                     active_index_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].output_head_item_active_index",
                     unique_id="output_head_item_list_id",
@@ -886,7 +886,7 @@ class META_HUMAN_DNA_PT_output_panel(RigInstanceDependentPanel):
                 draw_ui_list(
                     row,
                     context,  # type: ignore[arg-type]
-                    class_name="META_HUMAN_DNA_UL_output_items",
+                    class_name="CHARACTER_DNA_UL_output_items",
                     list_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].output_body_item_list",
                     active_index_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].output_body_item_active_index",
                     unique_id="output_body_item_list_id",
@@ -907,12 +907,12 @@ class META_HUMAN_DNA_PT_output_panel(RigInstanceDependentPanel):
             draw_rig_instance_error(self.layout, error)
 
 
-class META_HUMAN_DNA_PT_output_buttons_sub_panel(bpy.types.Panel):
-    bl_parent_id = "META_HUMAN_DNA_PT_output_panel"
+class CHARACTER_DNA_PT_output_buttons_sub_panel(bpy.types.Panel):
+    bl_parent_id = "CHARACTER_DNA_PT_output_panel"
     bl_label = "(Not Shown)"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "MetaHuman DNA"
+    bl_category = "Character DNA"
     bl_options = {"HIDE_HEADER"}
 
     def draw(self, context: "Context"):
@@ -941,9 +941,9 @@ class META_HUMAN_DNA_PT_output_buttons_sub_panel(bpy.types.Panel):
             row.operator(f"{ToolInfo.NAME}.send_to_meta_human_creator", icon="UV_SYNC_SELECT", text="MetaHuman Creator")
 
 
-class META_HUMAN_DNA_PT_migrate_legacy_data(bpy.types.Panel):
+class CHARACTER_DNA_PT_migrate_legacy_data(bpy.types.Panel):
     bl_label = "Migrate Legacy Data"
-    bl_category = "MetaHuman DNA"
+    bl_category = "Character DNA"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_options = {"HEADER_LAYOUT_EXPAND"}

@@ -517,7 +517,7 @@ class AddRBFPose(RBFPoseOperatorBase):
 
             # UIList for bone selection with search/filter capability
             layout.template_list(
-                "META_HUMAN_DNA_UL_bone_selection",
+                "CHARACTER_DNA_UL_bone_selection",
                 "",
                 addon_window_manager_properties,
                 "add_pose_driven_bones",

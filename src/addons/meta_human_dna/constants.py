@@ -252,5 +252,5 @@ class BodyBoneCollection:
     SWINGS = "Swings"
 
 
-ADDON_IDS = ["meta_human_dna", "meta_human_dna_pro"]
+ADDON_IDS = ["meta_human_dna", "meta_human_dna_pro", "character_dna", "character_dna_pro"]
 LEGACY_DATA_KEYS = ["rig_logic_instance_list"]

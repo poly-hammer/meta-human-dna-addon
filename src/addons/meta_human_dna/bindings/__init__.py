@@ -8,7 +8,7 @@ from ..exceptions import UnsupportedPlatformError
 BINDINGS_FOLDER = Path(__file__).parent
 
 already_loaded = any(key for key in sys.modules.keys() if key.endswith('riglogic'))
-is_dev_mode = os.getenv('META_HUMAN_DNA_DEV', '0') == '1'
+is_dev_mode = os.getenv('CHARACTER_DNA_DEV', '0') == '1'
 
 # prevents reloading issues with compiled dependencies in releases
 if is_dev_mode:

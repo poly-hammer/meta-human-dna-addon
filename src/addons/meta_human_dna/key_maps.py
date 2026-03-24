@@ -44,7 +44,7 @@ def register():
     )
     addon_keymaps.append((km, key_map_item))
 
-    logger.debug("Registered MetaHuman DNA addon keymaps")
+    logger.debug("Registered Character DNA addon keymaps")
 
 
 def unregister():
@@ -55,4 +55,4 @@ def unregister():
         key_map.keymap_items.remove(key_map_item)
     addon_keymaps.clear()
 
-    logger.debug("Unregistered MetaHuman DNA addon keymaps")
+    logger.debug("Unregistered Character DNA addon keymaps")

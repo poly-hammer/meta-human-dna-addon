@@ -36,7 +36,7 @@ class DNAImporter:
     def __init__(
         self,
         instance: "RigInstance",
-        import_properties: "MetahumanImportProperties",
+        import_properties: "CharacterImportProperties",
         linear_modifier: float,
         component_type: ComponentType = "head",
         create_extra_bones: bool = True,

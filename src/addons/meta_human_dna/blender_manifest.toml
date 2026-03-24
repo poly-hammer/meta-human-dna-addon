@@ -9,9 +9,9 @@ schema_version = "1.0.0"
 # Extension Identification
 # =============================================================================
 id = "meta_human_dna"
-name = "MetaHuman DNA"
+name = "Character DNA"
 tagline = "Customize MetaHuman DNA files with RigLogic evaluation support"
-version = "0.5.25"
+version = "0.6.2"
 type = "add-on"
 
 # =============================================================================
@@ -38,7 +38,7 @@ copyright = ["2026 Poly Hammer"]
 # Extension Description
 # =============================================================================
 description = """
-MetaHuman DNA is a industry grade Blender addon that provides comprehensive support
+Character DNA is a industry grade Blender addon that provides comprehensive support
 for Epic Games' MetaHuman DNA file format.
 
 ## Key Features

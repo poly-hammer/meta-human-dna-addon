@@ -14,13 +14,13 @@ from .. import utilities
 from ..constants import BODY_TOPOLOGY_VERTEX_GROUPS_FILE_PATH, IS_BLENDER_5, TOPO_GROUP_PREFIX
 from ..dna_io import DNAExporter
 from ..utilities import exclude_rig_instance_evaluation, preserve_context
-from .base import MetaHumanComponentBase
+from .base import CharacterComponentBase
 
 
 logger = logging.getLogger(__name__)
 
 
-class MetaHumanComponentBody(MetaHumanComponentBase):
+class CharacterComponentBody(CharacterComponentBase):
     @exclude_rig_instance_evaluation
     def import_action(
         self,
