@@ -1,4 +1,4 @@
-# Meta-Human DNA Addon
+# Character DNA Addon
 
 ## Build a Release
 
