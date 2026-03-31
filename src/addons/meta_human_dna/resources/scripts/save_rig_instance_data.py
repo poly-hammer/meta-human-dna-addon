@@ -58,15 +58,16 @@ def main():
 
     data_file = Path(args.data_file)
 
-    bpy.ops.wm.open_mainfile(filepath=args.blend_file)
-
-    # Ensure the addon is enabled
-    ensure_addon_enabled(args.addon_name, Path(args.addon_folder))
-
-    os.makedirs(data_file.parent, exist_ok=True)
-    data = {}
-
     try:
+        bpy.ops.wm.open_mainfile(filepath=args.blend_file)
+
+        # Ensure the addon is enabled
+        ensure_addon_enabled(args.addon_name, Path(args.addon_folder))
+
+        os.makedirs(data_file.parent, exist_ok=True)
+        data = {}
+
+
         for addon_id in ADDON_IDS:
             scene_properties = getattr(bpy.context.scene, addon_id, None)
             if not scene_properties:
@@ -85,6 +86,7 @@ def main():
                     'head_rig': i.get('head_rig').name if i.get('head_rig') else None,
                     'head_material': i.get('head_material').name if i.get('head_material') else None,
                     'head_dna_file_path': i.get('head_dna_file_path', ''),
+                    'control_rig': i.get('control_rig').name if i.get('control_rig') else None,
                     'body_mesh': i.get('body_mesh').name if i.get('body_mesh') else None,
                     'body_rig': i.get('body_rig').name if i.get('body_rig') else None,
                     'body_material': i.get('body_material').name if i.get('body_material') else None,

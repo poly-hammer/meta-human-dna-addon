@@ -307,6 +307,18 @@ class LinkAppendMetaHumanImportHelper(ImportHelper):
         if not file_path.exists() or not file_path.is_file() or file_path.suffix.lower() != ".blend":
             return
 
+        # check the blend file version against the running Blender version
+        blend_version = utilities.read_blend_file_version(file_path)
+        if blend_version and (blend_version[0], blend_version[1]) != (bpy.app.version[0], bpy.app.version[1]):
+            box = layout.box()
+            col = box.column(align=True)
+            col.alert = True
+            col.label(text="Version Mismatch", icon="ERROR")
+            col.label(text=f"File saved in Blender {utilities.blend_file_version_string(blend_version)}")
+            col.label(text=f"Running Blender {bpy.app.version_string}")
+            col.separator()
+            col.label(text="This may cause import issues.")
+
         row = layout.row()
         row.label(text=f"Choose MetaHuman(s) to {operator.operation_type.lower()}:")
 
