@@ -10,6 +10,7 @@ def get_active_rig_instance() -> "RigInstance | None":
 
 from .action import *  # noqa: E402
 from .armature import *  # noqa: E402
+from .blend_file import *  # noqa: E402
 from .material import *  # noqa: E402
 from .mesh import *  # noqa: E402
 from .misc import *  # noqa: E402

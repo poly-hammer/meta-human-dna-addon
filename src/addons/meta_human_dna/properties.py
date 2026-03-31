@@ -207,7 +207,7 @@ class CharacterImportProperties(get_dna_import_property_group_base_class()):
     )  # pyright: ignore[reportInvalidTypeForm]
 
 
-class CharacterWindowMangerProperties(bpy.types.PropertyGroup, CharacterImportProperties):
+class CharacterWindowManagerProperties(bpy.types.PropertyGroup, CharacterImportProperties):
     """
     Defines a property group that stores constants in the window manager context.
     """
@@ -329,10 +329,10 @@ def register():
     RigInstance.__annotations__["rbf_solver_list_active_index"] = bpy.props.IntProperty()
 
     # Add the bone selection collection for the AddRBFPose operator to window manager properties
-    CharacterWindowMangerProperties.__annotations__["add_pose_driven_bones"] = bpy.props.CollectionProperty(
+    CharacterWindowManagerProperties.__annotations__["add_pose_driven_bones"] = bpy.props.CollectionProperty(
         type=rbf_editor_properties.RBFDrivenBoneSelectionItem
     )
-    CharacterWindowMangerProperties.__annotations__["add_pose_driven_bones_active_index"] = bpy.props.IntProperty(
+    CharacterWindowManagerProperties.__annotations__["add_pose_driven_bones_active_index"] = bpy.props.IntProperty(
         name="Active Driven Bone Index",
         default=0,
     )
@@ -348,8 +348,10 @@ def register():
         logger.debug(error)
 
     try:
-        bpy.utils.register_class(CharacterWindowMangerProperties)
-        setattr(bpy.types.WindowManager, ToolInfo.NAME, bpy.props.PointerProperty(type=CharacterWindowMangerProperties))  # type: ignore[attr-defined]
+        bpy.utils.register_class(CharacterWindowManagerProperties)
+        setattr(
+            bpy.types.WindowManager, ToolInfo.NAME, bpy.props.PointerProperty(type=CharacterWindowManagerProperties)
+        )  # type: ignore[attr-defined]
     except ValueError as error:
         logger.debug(error)
 
@@ -370,7 +372,7 @@ def unregister():
     face_pose_preview_collections.clear()
 
     window_manager_property_class = bpy.types.PropertyGroup.bl_rna_get_subclass_py(
-        CharacterWindowMangerProperties.__name__
+        CharacterWindowManagerProperties.__name__
     )
     if window_manager_property_class:
         bpy.utils.unregister_class(window_manager_property_class)
@@ -388,10 +390,10 @@ def unregister():
             del RigInstance.__annotations__["rbf_solver_list"]
         if "rbf_solver_list_active_index" in RigInstance.__annotations__:
             del RigInstance.__annotations__["rbf_solver_list_active_index"]
-        if "add_pose_driven_bones" in CharacterWindowMangerProperties.__annotations__:
-            del CharacterWindowMangerProperties.__annotations__["add_pose_driven_bones"]
-        if "add_pose_driven_bones_active_index" in CharacterWindowMangerProperties.__annotations__:
-            del CharacterWindowMangerProperties.__annotations__["add_pose_driven_bones_active_index"]
+        if "add_pose_driven_bones" in CharacterWindowManagerProperties.__annotations__:
+            del CharacterWindowManagerProperties.__annotations__["add_pose_driven_bones"]
+        if "add_pose_driven_bones_active_index" in CharacterWindowManagerProperties.__annotations__:
+            del CharacterWindowManagerProperties.__annotations__["add_pose_driven_bones_active_index"]
         from .editors.rbf_editor import properties as rbf_editor_properties
 
         bpy.utils.unregister_class(rbf_editor_properties.RBFSolverData)

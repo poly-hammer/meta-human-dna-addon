@@ -83,7 +83,7 @@ class CharacterComponentBase(metaclass=ABCMeta):
 
         self.rig_instance: "RigInstance" = rig_instance  # type: ignore[assignment]  # noqa: UP037
         self.addon_properties: "CharacterAddonProperties" = utilities.get_addon_preferences()  # pyright: ignore[reportAttributeAccessIssue]  # noqa: UP037
-        self.window_manager_properties: CharacterWindowMangerProperties = (
+        self.window_manager_properties: CharacterWindowManagerProperties = (
             utilities.get_addon_window_manager_properties()
         )
         self.scene_properties: "CharacterSceneProperties" = utilities.get_addon_scene_properties()  # noqa: UP037
@@ -262,7 +262,7 @@ class CharacterComponentBase(metaclass=ABCMeta):
         if not image_file.exists():
             # check for alternate file names with different extensions
             for extension in ALTERNATE_TEXTURE_FILE_EXTENSIONS:
-                alternate_file_name = mapping.get(image_file.name, None)
+                alternate_file_name = mapping.get(image_file.name)
                 if alternate_file_name:
                     # check for lowercase extension
                     alternate_image_path = self.maps_folder / f"{alternate_file_name}{extension.lower()}"

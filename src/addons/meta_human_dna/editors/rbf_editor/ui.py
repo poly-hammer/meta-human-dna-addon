@@ -20,10 +20,10 @@ class CHARACTER_DNA_UL_bone_selection(bpy.types.UIList):
         self,
         context: "Context",
         layout: bpy.types.UILayout,
-        data: "CharacterWindowMangerProperties",
+        data: "CharacterWindowManagerProperties",
         item: "RBFDrivenBoneSelectionItem",
         icon: int | None,
-        active_data: "CharacterWindowMangerProperties",
+        active_data: "CharacterWindowManagerProperties",
         active_prop_name: str,
     ) -> None:
         row = layout.row(align=True)

@@ -489,6 +489,9 @@ def rename_rig_instance(instance: "RigInstance", old_name: str, new_name: str):
     if instance.body_rig:
         instance.body_rig.name = instance.body_rig.name.replace(old_name, new_name)
         instance.body_rig.data.name = instance.body_rig.data.name.replace(old_name, new_name)
+    if instance.control_rig:
+        instance.control_rig.name = instance.control_rig.name.replace(old_name, new_name)
+        instance.control_rig.data.name = instance.control_rig.data.name.replace(old_name, new_name)
     if instance.body_material:
         instance.body_material.name = instance.body_material.name.replace(old_name, new_name)
 
@@ -500,6 +503,7 @@ def rename_rig_instance(instance: "RigInstance", old_name: str, new_name: str):
             instance.head_rig,
             instance.body_mesh,
             instance.body_rig,
+            instance.control_rig,
         ]:
             continue
 
@@ -950,6 +954,7 @@ def migrate_legacy_data(context: "Context") -> None:  # noqa: PLR0912, PLR0915
                 output_folder_path = _instance_data.get("output_folder_path")
                 if output_folder_path is not None:
                     instance.output_folder_path = _instance_data.get("output_folder_path")
+
                 # Rigs
                 _body_rig = _instance_data.get("body_rig")
                 if _body_rig:
@@ -968,6 +973,13 @@ def migrate_legacy_data(context: "Context") -> None:  # noqa: PLR0912, PLR0915
                     face_board = bpy.data.objects.get(_face_board.name)
                     if face_board is not None:
                         instance.face_board = face_board
+
+                _control_rig = _instance_data.get("control_rig")
+                if _control_rig:
+                    control_rig = bpy.data.objects.get(_control_rig.name)
+                    if control_rig is not None:
+                        instance.control_rig = control_rig
+
                 # Meshes
                 _body_mesh = _instance_data.get("body_mesh")
                 if _body_mesh:
@@ -979,6 +991,7 @@ def migrate_legacy_data(context: "Context") -> None:  # noqa: PLR0912, PLR0915
                     head_mesh = bpy.data.objects.get(_head_mesh.name)
                     if head_mesh is not None:
                         instance.head_mesh = head_mesh
+
                 # Materials
                 _body_material = _instance_data.get("body_material")
                 if _body_material:
@@ -990,6 +1003,7 @@ def migrate_legacy_data(context: "Context") -> None:  # noqa: PLR0912, PLR0915
                     head_material = bpy.data.materials.get(_head_material.name)
                     if head_material is not None:
                         instance.head_material = head_material
+
                 # Other Properties
                 head_to_body_constraint_influence = _instance_data.get("head_to_body_constraint_influence")
                 if head_to_body_constraint_influence is not None:

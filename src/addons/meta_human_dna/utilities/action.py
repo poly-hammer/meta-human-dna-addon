@@ -7,12 +7,13 @@ from pathlib import Path
 # third party imports
 import bpy
 
-from mathutils import Quaternion
+from bpy.types import Action  # pyright: ignore[reportUnusedImport]
+from mathutils import Euler, Quaternion, Vector
 
 # local imports
 from ..constants import EYE_AIM_BONES, FACE_BOARD_SWITCHES, IS_BLENDER_5, SCALE_FACTOR, Axis, ComponentType, ToolInfo
 from ..typing import *  # noqa: F403
-from .misc import apply_transforms, switch_to_object_mode, switch_to_pose_mode
+from .misc import apply_transforms
 
 
 # blender 4.5 and 5.0 support
@@ -504,13 +505,18 @@ def import_face_board_action_from_json(file_path: Path, armature: bpy.types.Obje
     armature.animation_data.action = action
 
 
-def bake_control_curve_values_for_frame(
+def bake_control_curve_values_for_frame(  # noqa: PLR0912
     instance: "RigInstance",
     texture_logic_node: bpy.types.ShaderNodeGroup | None,
     action: bpy.types.Action,
     frame: int,
     masks: bool = True,
     shape_keys: bool = True,
+    bones: bool = False,
+    bone_keyframe_buffer: dict[str, dict[str, list[tuple[float, float]]]] | None = None,
+    shape_key_buffer: dict[bpy.types.ShapeKey, list[tuple[float, float]]] | None = None,
+    mask_buffer: dict[str, list[tuple[float, float]]] | None = None,
+    channel_types: set[str] | None = None,
     component: ComponentType = "head",
 ):
     index_lookup = {0: "x", 1: "y", 2: "z"}
@@ -540,8 +546,12 @@ def bake_control_curve_values_for_frame(
     if shape_keys:
         if component == "head":
             for shape_key, value in instance.update_head_shape_keys():
-                shape_key.value = value
-                shape_key.keyframe_insert("value", frame=frame)
+                if shape_key_buffer is not None:
+                    if shape_key not in shape_key_buffer:
+                        shape_key_buffer[shape_key] = []
+                    shape_key_buffer[shape_key].append((float(frame), value))
+                else:
+                    shape_key.keyframe_insert("value", frame=frame)
         elif component == "body":
             # TODO: implement body shape key baking
             pass
@@ -550,14 +560,278 @@ def bake_control_curve_values_for_frame(
     if texture_logic_node and masks:
         if component == "head":
             for slider_name, value in instance.update_head_texture_masks():
-                texture_logic_node.inputs[slider_name].default_value = value  # type: ignore[attr-defined]
-                texture_logic_node.inputs[slider_name].keyframe_insert("default_value", frame=frame)
+                if mask_buffer is not None:
+                    if slider_name not in mask_buffer:
+                        mask_buffer[slider_name] = []
+                    mask_buffer[slider_name].append((float(frame), value))
+                else:
+                    texture_logic_node.inputs[slider_name].default_value = value  # type: ignore[attr-defined]
+                    texture_logic_node.inputs[slider_name].keyframe_insert("default_value", frame=frame)
         elif component == "body":
             # TODO: implement body texture mask baking
             pass
 
+    # accumulate bone transforms into the buffer for bulk writing later
+    if bones and bone_keyframe_buffer is not None:
+        if component == "head":
+            bone_transforms = instance.update_head_bone_transforms()
+        elif component == "body":
+            bone_transforms = instance.update_body_bone_transforms()
+        else:
+            bone_transforms = []
 
-def bake_face_board_to_action(  # noqa: PLR0912
+        accumulate_bone_keyframes(bone_transforms, frame, bone_keyframe_buffer, channel_types)
+
+
+def accumulate_bone_keyframes(
+    bone_transforms: list[tuple[str, Vector, Euler, Vector]],
+    frame: int,
+    buffer: dict[str, dict[str, list[tuple[float, float]]]],
+    channel_types: set[str] | None = None,
+) -> None:
+    """Accumulate bone transform data for a single frame into the keyframe buffer.
+
+    Args:
+        bone_transforms: List of (bone_name, location, rotation_euler, scale) tuples.
+        frame: The frame number.
+        buffer: The keyframe buffer dict to accumulate into.
+        channel_types: Set of channel types to include (e.g. {"LOCATION", "ROTATION", "SCALE"}).
+    """
+    if channel_types is None:
+        channel_types = {"LOCATION", "ROTATION", "SCALE"}
+
+    for bone_name, location, rotation_euler, scale in bone_transforms:
+        if bone_name not in buffer:
+            buffer[bone_name] = {}
+
+        bone_data = buffer[bone_name]
+
+        if "LOCATION" in channel_types:
+            for i, axis_val in enumerate((location.x, location.y, location.z)):
+                key = f"location.{i}"
+                if key not in bone_data:
+                    bone_data[key] = []
+                bone_data[key].append((float(frame), axis_val))
+
+        if "ROTATION" in channel_types:
+            for i, axis_val in enumerate((rotation_euler.x, rotation_euler.y, rotation_euler.z)):
+                key = f"rotation_euler.{i}"
+                if key not in bone_data:
+                    bone_data[key] = []
+                bone_data[key].append((float(frame), axis_val))
+
+        if "SCALE" in channel_types:
+            for i, axis_val in enumerate((scale.x, scale.y, scale.z)):
+                key = f"scale.{i}"
+                if key not in bone_data:
+                    bone_data[key] = []
+                bone_data[key].append((float(frame), axis_val))
+
+
+def flush_bone_keyframes_to_action(
+    action: bpy.types.Action,
+    buffer: dict[str, dict[str, list[tuple[float, float]]]],
+    clean_curves: bool = True,
+) -> None:
+    """Bulk-write accumulated bone keyframes to an action using foreach_set for performance.
+
+    Args:
+        action: The Blender action to write keyframes to.
+        buffer: The keyframe buffer dict populated by accumulate_bone_keyframes.
+        clean_curves: Whether to clean redundant keyframes from curves after writing.
+    """
+    if anim_utils:
+        channel_bag = anim_utils.action_ensure_channelbag_for_slot(action, action.slots[0])
+    else:
+        channel_bag = action
+
+    if not channel_bag:
+        return
+
+    for bone_name, channels in buffer.items():
+        for channel_key, keyframes in channels.items():
+            # parse "location.0" -> ("location", 0)
+            data_path_base, index_str = channel_key.rsplit(".", 1)
+            array_index = int(index_str)
+            data_path = f'pose.bones["{bone_name}"].{data_path_base}'
+
+            fcurve = channel_bag.fcurves.new(data_path=data_path, index=array_index)
+
+            # bulk insert using foreach_set (much faster than per-keyframe insertion)
+            num_keys = len(keyframes)
+            fcurve.keyframe_points.add(num_keys)
+
+            # build flat co array: [frame0, value0, frame1, value1, ...]
+            flat_co = [0.0] * (num_keys * 2)
+            for i, (frame, value) in enumerate(keyframes):
+                flat_co[i * 2] = frame
+                flat_co[i * 2 + 1] = value
+
+            fcurve.keyframe_points.foreach_set("co", flat_co)
+
+            # update the fcurve to recalculate handles
+            fcurve.update()
+
+            if clean_curves:
+                # remove redundant keyframes where all values are identical
+                # check if all values are the same
+                values = flat_co[1::2]
+                if len(set(values)) == 1:
+                    # keep only the first and last keyframe
+                    while len(fcurve.keyframe_points) > 2:
+                        fcurve.keyframe_points.remove(fcurve.keyframe_points[1])
+                    fcurve.update()
+
+
+def _bulk_write_scalar_keyframes(
+    channel_bag: "ActionChannelBag | Action",  # pyright: ignore[reportUndefinedVariable]
+    data_path: str,
+    keyframes: list[tuple[float, float]],
+    clean_curves: bool = True,
+) -> None:
+    """Write a list of (frame, value) keyframes to a single scalar fcurve using foreach_set."""
+    # remove any existing fcurve for this data path to avoid conflicts on re-bake
+    existing = channel_bag.fcurves.find(data_path, index=0)
+    if existing:
+        channel_bag.fcurves.remove(existing)
+
+    fcurve = channel_bag.fcurves.new(data_path=data_path, index=0)
+
+    num_keys = len(keyframes)
+    fcurve.keyframe_points.add(num_keys)
+
+    flat_co = [0.0] * (num_keys * 2)
+    for i, (frame, value) in enumerate(keyframes):
+        flat_co[i * 2] = frame
+        flat_co[i * 2 + 1] = value
+
+    fcurve.keyframe_points.foreach_set("co", flat_co)
+    fcurve.update()
+
+    if clean_curves:
+        values = flat_co[1::2]
+        if len(set(values)) == 1:
+            while len(fcurve.keyframe_points) > 2:
+                fcurve.keyframe_points.remove(fcurve.keyframe_points[1])
+            fcurve.update()
+
+
+def flush_shape_key_keyframes_to_action(
+    buffer: dict[bpy.types.ShapeKey, list[tuple[float, float]]],
+    clean_curves: bool = True,
+) -> None:
+    """Bulk-write accumulated shape key keyframes using foreach_set for performance.
+
+    Groups shape keys by their owning Key data-block and writes all fcurves
+    in batch rather than using per-frame keyframe_insert calls.
+
+    Args:
+        buffer: Maps ShapeKey references to their accumulated (frame, value) keyframes.
+        clean_curves: Whether to clean redundant keyframes from curves after writing.
+    """
+    if not buffer:
+        return
+
+    # group shape keys by their owning Key data-block
+    key_groups: dict[bpy.types.Key, list[tuple[bpy.types.ShapeKey, list[tuple[float, float]]]]] = {}
+    for shape_key, keyframes in buffer.items():
+        if not shape_key.id_data or not isinstance(shape_key.id_data, bpy.types.Key):
+            continue
+
+        key_id: bpy.types.Key = shape_key.id_data
+        if key_id not in key_groups:
+            key_groups[key_id] = []
+        key_groups[key_id].append((shape_key, keyframes))
+
+    for key_data, shape_key_entries in key_groups.items():
+        if not key_data.animation_data:
+            key_data.animation_data_create()
+        if not key_data.animation_data:
+            continue
+
+        action = key_data.animation_data.action
+        if not action:
+            action = bpy.data.actions.new(name=f"{key_data.name}Action")
+            key_data.animation_data.action = action
+
+        if anim_utils:
+            if len(action.slots) == 0:
+                action.slots.new("KEY", name=key_data.name)
+            channel_bag = anim_utils.action_ensure_channelbag_for_slot(action, action.slots[0])
+            if action.slots:
+                key_data.animation_data.action_slot = action.slots[0]
+        else:
+            channel_bag = action
+
+        if not channel_bag:
+            continue
+
+        for shape_key, keyframes in shape_key_entries:
+            data_path = shape_key.path_from_id("value")
+            _bulk_write_scalar_keyframes(channel_bag, data_path, keyframes, clean_curves)
+
+
+def flush_texture_mask_keyframes_to_action(
+    texture_logic_node: bpy.types.ShaderNodeGroup,
+    buffer: dict[str, list[tuple[float, float]]],
+    action_name: str | None = None,
+    clean_curves: bool = True,
+) -> bpy.types.Action | None:
+    """Bulk-write accumulated texture mask keyframes using foreach_set for performance.
+
+    Args:
+        texture_logic_node: The shader node group containing the mask inputs.
+        buffer: Maps slider names to their accumulated (frame, value) keyframes.
+        action_name: Name for the created action. Defaults to node tree name + "Action".
+        clean_curves: Whether to clean redundant keyframes from curves after writing.
+
+    Returns:
+        The created or updated action, or None if the buffer is empty.
+    """
+    if not buffer:
+        return None
+
+    node_tree = texture_logic_node.id_data
+    if not isinstance(node_tree, bpy.types.NodeTree):
+        return None
+
+    if not node_tree.animation_data:
+        node_tree.animation_data_create()
+    if not node_tree.animation_data:
+        return None
+
+    action = node_tree.animation_data.action
+    if not action:
+        action = bpy.data.actions.new(name=action_name or f"{node_tree.name}Action")
+        node_tree.animation_data.action = action
+
+    if anim_utils:
+        if len(action.slots) == 0:
+            action.slots.new("NODETREE", name=node_tree.name)
+        channel_bag = anim_utils.action_ensure_channelbag_for_slot(action, action.slots[0])
+        if action.slots:
+            node_tree.animation_data.action_slot = action.slots[0]
+    else:
+        channel_bag = action
+
+    if not channel_bag:
+        return None
+
+    for slider_name, keyframes in buffer.items():
+        input_socket = texture_logic_node.inputs.get(slider_name)
+        if not input_socket:
+            continue
+        data_path = input_socket.path_from_id("default_value")
+        _bulk_write_scalar_keyframes(channel_bag, data_path, keyframes, clean_curves)
+
+    # set the action name if provided
+    if action_name:
+        action.name = action_name
+
+    return action
+
+
+def bake_face_board_to_action(
     instance: "RigInstance",
     armature_object: bpy.types.Object,
     action_name: str,
@@ -577,108 +851,73 @@ def bake_face_board_to_action(  # noqa: PLR0912
             channel_types = {"LOCATION", "ROTATION", "SCALE"}
 
         if instance.face_board and instance.face_board.animation_data:
-            action = instance.face_board.animation_data.action
-            if not action or not armature_object.pose:
+            source_action = instance.face_board.animation_data.action
+            if not source_action or not armature_object.pose:
                 return
 
-            instance.auto_evaluate_head = True
-            switch_to_object_mode()
-            armature_object.hide_set(False)
-            if bpy.context.view_layer:
-                bpy.context.view_layer.objects.active = armature_object
-            switch_to_pose_mode(armature_object)
-
-            # TODO: Do we want to provide more granular control over which bones to bake?
-            # collect all bone names to be baked
-            baked_bone_names = [bone.name for bone in armature_object.data.bones]  # type: ignore[attr-defined]
-
-            # select all secondary bones that are effected by rig logic
-            for pose_bone in armature_object.pose.bones:
-                if pose_bone.name in baked_bone_names:
-                    if IS_BLENDER_5:
-                        pose_bone.select = True  # pyright: ignore[reportAttributeAccessIssue]
-                    else:
-                        pose_bone.bone.select = True
-                        pose_bone.bone.select_head = True
-                        pose_bone.bone.select_tail = True
-                elif IS_BLENDER_5:
-                    pose_bone.select = False  # pyright: ignore[reportAttributeAccessIssue]
-                else:
-                    pose_bone.bone.select = False
-                    pose_bone.bone.select_head = False
-                    pose_bone.bone.select_tail = False
-
-            if IS_BLENDER_5:
-                current_object_actions = [
-                    a for a in bpy.data.actions if len(a.slots) > 0 and a.slots[0].target_id_type == "OBJECT"
-                ]
-                current_node_tree_actions = [
-                    a for a in bpy.data.actions if len(a.slots) > 0 and a.slots[0].target_id_type == "NODETREE"
-                ]
-            else:
-                current_object_actions = [a for a in bpy.data.actions if a.id_root == "OBJECT"]
-                current_node_tree_actions = [a for a in bpy.data.actions if a.id_root == "NODETREE"]
-
-            # bake the visual keying of the pose bones
-            bpy.ops.nla.bake(
-                frame_start=start_frame,
-                frame_end=end_frame,
-                step=step,
-                only_selected=True,
-                visual_keying=True,
-                use_current_action=replace_action,
-                bake_types={"POSE"},
-                clean_curves=clean_curves,
-                channel_types=channel_types,
-            )
-            instance.auto_evaluate_head = False
-
-            window_manager_properties: CharacterWindowMangerProperties = getattr(
+            window_manager_properties: CharacterWindowManagerProperties = getattr(
                 bpy.context.window_manager, ToolInfo.NAME
             )
             window_manager_properties.evaluate_dependency_graph = False
+
+            # create or replace the target action for bone keyframes
+            if replace_action:
+                target_action = bpy.data.actions.get(action_name)
+                if target_action:
+                    bpy.data.actions.remove(target_action)
+            target_action = bpy.data.actions.new(name=action_name)
+
+            if anim_utils and len(target_action.slots) == 0:
+                target_action.slots.new("OBJECT", name=armature_object.name)
+
+            # assign the new action to the armature
+            if not armature_object.animation_data:
+                armature_object.animation_data_create()
+            armature_object.animation_data.action = target_action  # pyright: ignore[reportOptionalMemberAccess]
+            if anim_utils and target_action.slots:
+                armature_object.animation_data.action_slot = target_action.slots[0]  # pyright: ignore[reportOptionalMemberAccess]
+
             texture_logic_node = get_head_texture_logic_node(instance.head_material)
+            bone_keyframe_buffer: dict[str, dict[str, list[tuple[float, float]]]] = {}
+            shape_key_buffer: dict[bpy.types.ShapeKey, list[tuple[float, float]]] = {}
+            mask_buffer: dict[str, list[tuple[float, float]]] = {}
+
             for frame in range(start_frame, end_frame + 1):
                 # modulo the step to only bake every nth frame
                 if frame % step == 0:
                     bake_control_curve_values_for_frame(
                         instance=instance,
                         texture_logic_node=texture_logic_node,
-                        action=action,
+                        action=source_action,
                         frame=frame,
                         shape_keys=shape_keys,
                         masks=masks,
+                        bones=True,
+                        bone_keyframe_buffer=bone_keyframe_buffer,
+                        shape_key_buffer=shape_key_buffer,
+                        mask_buffer=mask_buffer,
+                        channel_types=channel_types,
                         component="head",
                     )
 
-            # rename the newly created object action
-            for _action in bpy.data.actions:
-                if (
-                    getattr(_action, "id_root", None) == "OBJECT"
-                    or (len(_action.slots) > 0 and _action.slots[0].target_id_type == "OBJECT")
-                ) and _action not in current_object_actions:
-                    _action.name = action_name
-                    break
+            # bulk-write all keyframes
+            flush_bone_keyframes_to_action(target_action, bone_keyframe_buffer, clean_curves=clean_curves)
 
-            # rename the newly created node tree action
-            for _action in bpy.data.actions:
-                if (
-                    getattr(_action, "id_root", None) == "NODETREE"
-                    or (len(_action.slots) > 0 and _action.slots[0].target_id_type == "NODETREE")
-                ) and _action not in current_node_tree_actions:
-                    _action.name = f"{action_name}_shader"
-                    break
+            if shape_keys:
+                flush_shape_key_keyframes_to_action(shape_key_buffer, clean_curves=clean_curves)
 
-            # cleanup old action if replacing
-            if replace_action:
-                old_action = instance.face_board.animation_data.action
-                instance.face_board.animation_data_clear()
-                bpy.data.actions.remove(old_action, do_unlink=True)
+            if texture_logic_node and masks:
+                flush_texture_mask_keyframes_to_action(
+                    texture_logic_node,
+                    mask_buffer,
+                    action_name=f"{action_name}_shader",
+                    clean_curves=clean_curves,
+                )
 
             window_manager_properties.evaluate_dependency_graph = True
 
 
-def bake_body_to_action(  # noqa: PLR0912
+def bake_body_to_action(  # noqa: PLR0912, PLR0915
     instance: "RigInstance",
     armature_object: bpy.types.Object,
     action_name: str,
@@ -696,109 +935,110 @@ def bake_body_to_action(  # noqa: PLR0912
     swing_bones: bool = True,
     other_bones: bool = True,
 ):
-    if instance:
+    from .armature import get_pose_bone_local_quaternion
+
+    if instance and bpy.context.scene:
         if channel_types is None:
             channel_types = {"LOCATION", "ROTATION", "SCALE"}
 
         if instance.body_rig and instance.body_rig.animation_data and armature_object.pose:
-            action = instance.body_rig.animation_data.action
-            if not action:
+            source_action = instance.body_rig.animation_data.action
+            if not source_action:
                 return
-
-            instance.auto_evaluate_body = True
-            switch_to_object_mode()
-            armature_object.hide_set(False)
-            if bpy.context.view_layer:
-                bpy.context.view_layer.objects.active = armature_object
-            switch_to_pose_mode(armature_object)
 
             # ensure the body is initialized
             if not instance.body_initialized:
                 instance.body_initialize()
 
-            # collect all bone names to be baked
-            baked_bone_names = []
-            if driven_bones:
-                baked_bone_names += instance.body_driven_bone_names
-            if twist_bones:
-                baked_bone_names += instance.body_twist_bone_names
-            if swing_bones:
-                baked_bone_names += instance.body_swing_bone_names
-            if driver_bones:
-                baked_bone_names += instance.body_driver_bone_names
-            if other_bones:
-                # these are bones that are not any of the above
-                baked_bone_names += [
-                    bone.name
-                    for bone in armature_object.data.bones  # type: ignore[attr-defined]
-                    if bone.name
-                    not in [
-                        *instance.body_driver_bone_names,
-                        *instance.body_driven_bone_names,
-                        *instance.body_twist_bone_names,
-                        *instance.body_swing_bone_names,
-                    ]
-                ]
-
-            # select all secondary bones that are effected by rig logic
-            for pose_bone in armature_object.pose.bones:
-                if pose_bone.name in baked_bone_names:
-                    if IS_BLENDER_5:
-                        pose_bone.select = True  # pyright: ignore[reportAttributeAccessIssue]
-                    else:
-                        pose_bone.bone.select = True
-                        pose_bone.bone.select_head = True
-                        pose_bone.bone.select_tail = True
-                elif IS_BLENDER_5:
-                    pose_bone.select = False  # pyright: ignore[reportAttributeAccessIssue]
-                else:
-                    pose_bone.bone.select = False
-                    pose_bone.bone.select_head = False
-                    pose_bone.bone.select_tail = False
-
-            if IS_BLENDER_5:
-                current_object_actions = [
-                    a for a in bpy.data.actions if len(a.slots) > 0 and a.slots[0].target_id_type == "OBJECT"
-                ]
-                current_node_tree_actions = [
-                    a for a in bpy.data.actions if len(a.slots) > 0 and a.slots[0].target_id_type == "NODETREE"
-                ]
-            else:
-                current_object_actions = [a for a in bpy.data.actions if a.id_root == "OBJECT"]
-                current_node_tree_actions = [a for a in bpy.data.actions if a.id_root == "NODETREE"]
-
-            # bake the visual keying of the pose bones
-            bpy.ops.nla.bake(
-                frame_start=start_frame,
-                frame_end=end_frame,
-                step=step,
-                only_selected=True,
-                visual_keying=True,
-                use_current_action=replace_action,
-                bake_types={"POSE"},
-                clean_curves=clean_curves,
-                channel_types=channel_types,
+            window_manager_properties: CharacterWindowManagerProperties = getattr(
+                bpy.context.window_manager, ToolInfo.NAME
             )
-            instance.auto_evaluate_body = False
+            window_manager_properties.evaluate_dependency_graph = False
 
-            # rename the newly created action
+            # create or replace the target action for baked bone keyframes
             if replace_action:
-                action.name = action_name
-            else:
-                # rename the newly created object action
-                for _action in bpy.data.actions:
-                    if (
-                        getattr(_action, "id_root", None) == "OBJECT"
-                        or (len(_action.slots) > 0 and _action.slots[0].target_id_type == "OBJECT")
-                    ) and _action not in current_object_actions:
-                        _action.name = action_name
-                        break
+                existing_action = bpy.data.actions.get(action_name)
+                if existing_action:
+                    bpy.data.actions.remove(existing_action)
+            target_action = bpy.data.actions.new(name=action_name)
 
-            # rename the newly created node tree action
-            for _action in bpy.data.actions:
-                if (
-                    getattr(_action, "id_root", None) == "NODETREE"
-                    or (len(_action.slots) > 0 and _action.slots[0].target_id_type == "NODETREE")
-                ) and _action not in current_node_tree_actions:
-                    _action.name = f"{action_name}_shader"
-                    break
+            if anim_utils and len(target_action.slots) == 0:
+                target_action.slots.new("OBJECT", name=armature_object.name)
+
+            # build bone name sets for filtering RigLogic-computed transforms
+            riglogic_bone_names: set[str] = set()
+            if driven_bones:
+                riglogic_bone_names.update(instance.body_driven_bone_names)
+            if twist_bones:
+                riglogic_bone_names.update(instance.body_twist_bone_names)
+            if swing_bones:
+                riglogic_bone_names.update(instance.body_swing_bone_names)
+
+            # build passthrough bone name set (read directly from pose after frame evaluation)
+            passthrough_bone_names: set[str] = set()
+            if driver_bones:
+                passthrough_bone_names.update(instance.body_driver_bone_names)
+            if other_bones:
+                all_bone_names = {bone.name for bone in armature_object.data.bones}  # type: ignore[attr-defined]
+                categorized = (
+                    set(instance.body_driver_bone_names)
+                    | set(instance.body_driven_bone_names)
+                    | set(instance.body_twist_bone_names)
+                    | set(instance.body_swing_bone_names)
+                )
+                passthrough_bone_names.update(all_bone_names - categorized)
+
+            bone_keyframe_buffer: dict[str, dict[str, list[tuple[float, float]]]] = {}
+
+            for frame in range(start_frame, end_frame + 1):
+                if frame % step != 0:
+                    continue
+
+                # evaluate animation at this frame so pose bones reflect the source action
+                bpy.context.scene.frame_set(frame)
+                instance.apply_dependency_graph_update()
+
+                # read driver bone quaternions from evaluated pose bones for RigLogic input
+                override_values: dict[str, dict[str, float]] = {}
+                body_rig_evaluated = instance.body_rig_evaluated
+                if body_rig_evaluated and body_rig_evaluated.pose:
+                    for bone_name in instance.body_driver_bone_names:
+                        pose_bone = body_rig_evaluated.pose.bones.get(bone_name)
+                        if pose_bone:
+                            q = get_pose_bone_local_quaternion(pose_bone)
+                            override_values[bone_name] = {"w": q.w, "x": q.x, "y": q.y, "z": q.z}
+
+                # compute driven/twist/swing bone transforms via RigLogic
+                instance.update_body_raw_control_values(override_values=override_values)
+                riglogic_transforms = instance.update_body_bone_transforms()
+
+                # filter to only requested RigLogic bone types
+                filtered_transforms = [
+                    (name, location, rotation, scale)
+                    for name, location, rotation, scale in riglogic_transforms
+                    if name in riglogic_bone_names
+                ]
+                accumulate_bone_keyframes(filtered_transforms, frame, bone_keyframe_buffer, channel_types)
+
+                # capture driver/other bone transforms directly from the pose
+                for bone_name in passthrough_bone_names:
+                    pose_bone = armature_object.pose.bones.get(bone_name)
+                    if pose_bone:
+                        location = pose_bone.location.copy()
+                        rotation = pose_bone.matrix_basis.to_euler("XYZ")
+                        scale = pose_bone.scale.copy()
+                        accumulate_bone_keyframes(
+                            [(bone_name, location, rotation, scale)], frame, bone_keyframe_buffer, channel_types
+                        )
+
+            # bulk-write all bone keyframes to the target action
+            flush_bone_keyframes_to_action(target_action, bone_keyframe_buffer, clean_curves=clean_curves)
+
+            # assign the baked action to the armature
+            if not armature_object.animation_data:
+                armature_object.animation_data_create()
+            armature_object.animation_data.action = target_action  # pyright: ignore[reportOptionalMemberAccess]
+            if anim_utils and target_action.slots:
+                armature_object.animation_data.action_slot = target_action.slots[0]  # pyright: ignore[reportOptionalMemberAccess]
+
+            window_manager_properties.evaluate_dependency_graph = True
