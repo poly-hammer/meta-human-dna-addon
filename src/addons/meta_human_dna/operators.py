@@ -147,7 +147,7 @@ class AppendOrLinkMetaHuman(bpy.types.Operator, importer.LinkAppendMetaHumanImpo
     meta_human_list: bpy.props.CollectionProperty(type=BlendFileCharacterCollection)  # pyright: ignore[reportInvalidTypeForm]
     meta_human_names: bpy.props.StringProperty(default="")  # pyright: ignore[reportInvalidTypeForm]
 
-    def execute(self, context: "Context") -> set[str]:  # noqa: PLR0912
+    def execute(self, context: "Context") -> set[str]:  # noqa: PLR0912, PLR0915
         file_path = self.filepath  # type: ignore[attr-defined]
         if not file_path:
             self.report({"ERROR"}, "You must select a .blend file")
@@ -160,6 +160,16 @@ class AppendOrLinkMetaHuman(bpy.types.Operator, importer.LinkAppendMetaHumanImpo
         if bpy.data.filepath == file_path:
             self.report({"ERROR"}, "You cannot import a MetaHuman from the current .blend file")
             return {"CANCELLED"}
+
+        # warn if the blend file was saved with a different major Blender version
+        abs_file_path = Path(bpy.path.abspath(file_path))
+        blend_version = utilities.read_blend_file_version(abs_file_path)
+        if blend_version and blend_version[0] != bpy.app.version[0]:
+            self.report(
+                {"WARNING"},
+                f"File was saved in Blender {utilities.blend_file_version_string(blend_version)}, "
+                f"running Blender {bpy.app.version_string}. This may cause import issues.",
+            )
 
         addon_scene_properties = utilities.get_addon_scene_properties(context)
 
@@ -196,6 +206,10 @@ class AppendOrLinkMetaHuman(bpy.types.Operator, importer.LinkAppendMetaHumanImpo
         if error:
             logger.error(error)
             self.report({"ERROR"}, f"Failed to extract rig instance data from blend file: {error}")
+            return {"CANCELLED"}
+
+        if not data:
+            self.report({"ERROR"}, "Failed to read rig instance data in blend file")
             return {"CANCELLED"}
 
         # link the collections to the scene
@@ -406,7 +420,9 @@ class BakeAnimationBase(bpy.types.Operator):
     )  # pyright: ignore[reportInvalidTypeForm]
 
     replace_action: bpy.props.BoolProperty(
-        name="Replace Action", default=False, description="Replaces the existing action with the baked action"
+        name="Replace Action",
+        default=True,
+        description="If there is an existing action with the same name, replaces it with the baked action",
     )  # pyright: ignore[reportInvalidTypeForm]
 
     start_frame: bpy.props.IntProperty(
@@ -488,6 +504,8 @@ class BakeAnimationBase(bpy.types.Operator):
         row = self.layout.row()
         row.prop(self, "replace_action")
         row = self.layout.row()
+        row.prop(self, "clean_curves")
+        row = self.layout.row()
         row.prop(self, "shape_keys")
         row = self.layout.row()
         row.prop(self, "masks")
@@ -545,6 +563,9 @@ class BakeFaceBoardAnimation(BakeAnimationBase):
                 masks=self.masks,
                 shape_keys=self.shape_keys,
             )
+            instance.head_rig.hide_set(False)
+            utilities.switch_to_pose_mode(instance.head_rig)
+            instance.auto_evaluate_head = False
         return {"FINISHED"}
 
     @classmethod
@@ -635,6 +656,9 @@ class BakeComponentAnimation(BakeAnimationBase):
                 swing_bones=self.swing_bones,
                 other_bones=self.other_bones,
             )
+            instance.body_rig.hide_set(False)
+            utilities.switch_to_pose_mode(instance.body_rig)
+            instance.auto_evaluate_body = False
         return {"FINISHED"}
 
     @property

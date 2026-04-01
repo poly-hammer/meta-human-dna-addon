@@ -39,7 +39,7 @@ def _apply_deferred_evaluation() -> None:
 
 
 def rig_instance_listener(scene: "Scene", dependency_graph: bpy.types.Depsgraph, is_frame_change: bool = False):  # noqa: PLR0912
-    addon_window_manager: "CharacterWindowMangerProperties | None" = getattr(  # noqa: UP037
+    addon_window_manager: "CharacterWindowManagerProperties | None" = getattr(  # noqa: UP037
         bpy.context.window_manager, ToolInfo.NAME, None
     )
     if not addon_window_manager:
@@ -655,8 +655,11 @@ class RigInstance(bpy.types.PropertyGroup):
 
     def get_shape_key_block(self, mesh_index: int, name: str) -> bpy.types.ShapeKey | None:
         cached_shape_key = self.get_shape_key(mesh_index)
-        if cached_shape_key and cached_shape_key.key_blocks:
-            return cached_shape_key.key_blocks.get(name)
+        try:
+            if cached_shape_key and cached_shape_key.key_blocks:
+                return cached_shape_key.key_blocks.get(name)
+        except ReferenceError:
+            pass
 
         mesh_object = self.head_mesh_index_lookup.get(mesh_index)
         if mesh_object:
@@ -1563,15 +1566,22 @@ class RigInstance(bpy.types.PropertyGroup):
 
         return texture_mask_values
 
-    def update_head_bone_transforms(self):
+    def update_head_bone_transforms(self) -> list[tuple[str, Vector, Euler, Vector]]:
+        """Update head bone transforms from RigLogic joint outputs.
+
+        Returns:
+            A list of (bone_name, location, rotation_euler, scale) tuples for each updated bone.
+        """
         # skip if the head rig is not set
         if not self.head_rig or not self.head_dna_reader:
-            return
+            return []
 
         # skip if the rest pose is not initialized
         # https://github.com/poly-hammer/meta-human-dna-addon/issues/58
         if not self.head_rest_pose:
-            return
+            return []
+
+        bone_transforms: list[tuple[str, Vector, Euler, Vector]] = []
 
         raw_joint_output = self.head_instance.getRawJointOutputs()
         # update joint transforms
@@ -1629,10 +1639,20 @@ class RigInstance(bpy.types.PropertyGroup):
                 # if the bone is not a leaf bone, we need to update the rotation again
                 if pose_bone.children:
                     pose_bone.rotation_euler = rotation_delta
+
+                # for non-leaf bones use the rotation_delta as the final euler, for leaf bones decompose
+                # from the matrix_basis
+                final_rotation = rotation_delta if pose_bone.children else pose_bone.matrix_basis.to_euler("XYZ")
+                final_location = pose_bone.matrix_basis.to_translation()
+                final_scale = pose_bone.matrix_basis.to_scale()
+
+                bone_transforms.append((name, final_location, final_rotation, final_scale))
             else:
                 logger.warning(
                     f'The bone "{name}" was not found on "{self.head_rig.name}". Rig Logic will not update the bone.'
                 )
+
+        return bone_transforms
 
     def reset_body_raw_control_values(self):
         # skip if the body rig is not set
@@ -1751,14 +1771,21 @@ class RigInstance(bpy.types.PropertyGroup):
         # calculate the changes
         self.body_manager.calculate(self.body_instance)
 
-    def update_body_bone_transforms(self):
+    def update_body_bone_transforms(self) -> list[tuple[str, Vector, Euler, Vector]]:
+        """Update body bone transforms from RigLogic joint outputs.
+
+        Returns:
+            A list of (bone_name, location, rotation_euler, scale) tuples for each updated bone.
+        """
         # skip if the body rig is not set
         if not self.body_rig or not self.body_dna_reader:
-            return
+            return []
 
         # skip if the rest pose is not initialized
         if not self.body_rest_pose:
-            return
+            return []
+
+        bone_transforms: list[tuple[str, Vector, Euler, Vector]] = []
 
         # get the delta values
         D = self.body_instance.getRawJointOutputs()
@@ -1814,10 +1841,18 @@ class RigInstance(bpy.types.PropertyGroup):
                     logger.error(f'Failed to update the bone "{name}" on "{self.body_rig.name}": {error}')
                     continue
 
+                # decompose the final matrix_basis for baking output
+                final_location = pose_bone.matrix_basis.to_translation()
+                final_rotation = pose_bone.matrix_basis.to_euler("XYZ")
+                final_scale = pose_bone.matrix_basis.to_scale()
+
+                bone_transforms.append((name, final_location, final_rotation, final_scale))
             else:
                 logger.warning(
                     f'The bone "{name}" was not found on "{self.body_rig.name}". Rig Logic will not update the bone.'
                 )
+
+        return bone_transforms
 
     def update_body_rbf_solver_list(self):
         try:

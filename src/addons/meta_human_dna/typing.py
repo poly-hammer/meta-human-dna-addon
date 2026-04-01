@@ -24,7 +24,7 @@ if TYPE_CHECKING:
         CharacterAddonProperties,  # noqa: TC004
         CharacterImportProperties,  # noqa: TC004
         CharacterSceneProperties,  # noqa: TC004
-        CharacterWindowMangerProperties as _CharacterWindowMangerProperties,
+        CharacterWindowManagerProperties as _CharacterWindowManagerProperties,
         ExtraDnaFolder,
     )
     from .rig_instance import OutputData, RigInstance as _RigInstanceBase, ShapeKeyData  # noqa: TC004
@@ -65,10 +65,10 @@ if TYPE_CHECKING:
         rbf_solver_list_active_index: int
 
     # =========================================================================
-    # Extended CharacterWindowMangerProperties with dynamically assigned editor properties
+    # Extended CharacterWindowManagerProperties with dynamically assigned editor properties
     # These are added at runtime in properties.py register() function
     # =========================================================================
-    class CharacterWindowMangerProperties(_CharacterWindowMangerProperties):
+    class CharacterWindowManagerProperties(_CharacterWindowManagerProperties):
         """Extended WindowManager properties with RBF Editor properties."""
 
         add_pose_driven_bones: bpy_prop_collection[RBFDrivenBoneSelectionItem]
@@ -126,7 +126,7 @@ if TYPE_CHECKING:
     class WindowManager(bpy.types.WindowManager):
         """Extended WindowManager type with Character DNA properties."""
 
-        meta_human_dna: CharacterWindowMangerProperties
+        meta_human_dna: CharacterWindowManagerProperties
 
     # =========================================================================
     # Patch bpy.types.Context
@@ -145,7 +145,7 @@ if TYPE_CHECKING:
         "CharacterComponentHead",
         "CharacterImportProperties",
         "CharacterSceneProperties",
-        "CharacterWindowMangerProperties",
+        "CharacterWindowManagerProperties",
         "ComponentType",
         "Context",
         "DnaBackupEntry",
