@@ -583,8 +583,8 @@ def bake_control_curve_values_for_frame(  # noqa: PLR0912
         accumulate_bone_keyframes(bone_transforms, frame, bone_keyframe_buffer, channel_types)
 
 
-def accumulate_bone_keyframes(
-    bone_transforms: list[tuple[str, Vector, Euler, Vector]],
+def accumulate_bone_keyframes(  # noqa: PLR0912
+    bone_transforms: list[tuple[str, Vector, Euler | Quaternion, Vector]],
     frame: int,
     buffer: dict[str, dict[str, list[tuple[float, float]]]],
     channel_types: set[str] | None = None,
@@ -592,7 +592,9 @@ def accumulate_bone_keyframes(
     """Accumulate bone transform data for a single frame into the keyframe buffer.
 
     Args:
-        bone_transforms: List of (bone_name, location, rotation_euler, scale) tuples.
+        bone_transforms: List of (bone_name, location, rotation, scale) tuples.
+            Rotation can be Euler (writes rotation_euler fcurves) or Quaternion
+            (writes rotation_quaternion fcurves).
         frame: The frame number.
         buffer: The keyframe buffer dict to accumulate into.
         channel_types: Set of channel types to include (e.g. {"LOCATION", "ROTATION", "SCALE"}).
@@ -600,7 +602,7 @@ def accumulate_bone_keyframes(
     if channel_types is None:
         channel_types = {"LOCATION", "ROTATION", "SCALE"}
 
-    for bone_name, location, rotation_euler, scale in bone_transforms:
+    for bone_name, location, rotation, scale in bone_transforms:
         if bone_name not in buffer:
             buffer[bone_name] = {}
 
@@ -614,11 +616,18 @@ def accumulate_bone_keyframes(
                 bone_data[key].append((float(frame), axis_val))
 
         if "ROTATION" in channel_types:
-            for i, axis_val in enumerate((rotation_euler.x, rotation_euler.y, rotation_euler.z)):
-                key = f"rotation_euler.{i}"
-                if key not in bone_data:
-                    bone_data[key] = []
-                bone_data[key].append((float(frame), axis_val))
+            if isinstance(rotation, Quaternion):
+                for i, axis_val in enumerate((rotation.w, rotation.x, rotation.y, rotation.z)):
+                    key = f"rotation_quaternion.{i}"
+                    if key not in bone_data:
+                        bone_data[key] = []
+                    bone_data[key].append((float(frame), axis_val))
+            else:
+                for i, axis_val in enumerate((rotation.x, rotation.y, rotation.z)):
+                    key = f"rotation_euler.{i}"
+                    if key not in bone_data:
+                        bone_data[key] = []
+                    bone_data[key].append((float(frame), axis_val))
 
         if "SCALE" in channel_types:
             for i, axis_val in enumerate((scale.x, scale.y, scale.z)):
@@ -917,6 +926,60 @@ def bake_face_board_to_action(
             window_manager_properties.evaluate_dependency_graph = True
 
 
+def _snapshot_source_fcurves(
+    source_action: bpy.types.Action,
+    frames: list[int],
+    bone_names: set[str] | None = None,
+) -> dict[str, dict[str, dict[int, list[float]]]]:
+    """Pre-evaluate all source action fcurves into pure Python data.
+
+    This snapshots all fcurve values so the source action can be safely removed
+    afterward (e.g. for replace_action=True when source == target action name).
+
+    Args:
+        source_action: The Blender action to read fcurves from.
+        frames: List of frame numbers to evaluate at.
+        bone_names: Optional set of bone names to include. If None, all bones are included.
+
+    Returns:
+        A nested dict: {bone_name: {channel_type: {array_index: [values_per_frame]}}}
+        where channel_type is "rotation_quaternion", "location", or "scale".
+    """
+    snapshot: dict[str, dict[str, dict[int, list[float]]]] = {}
+
+    if anim_utils:
+        channel_bag = anim_utils.action_ensure_channelbag_for_slot(source_action, source_action.slots[0])
+    else:
+        channel_bag = source_action
+
+    if not channel_bag:
+        return snapshot
+
+    for fcurve in channel_bag.fcurves:
+        # parse data_path like 'pose.bones["bone_name"].rotation_quaternion'
+        parts = fcurve.data_path.split('"')
+        if len(parts) < 2:
+            continue
+
+        bone_name = parts[1]
+        if bone_names is not None and bone_name not in bone_names:
+            continue
+
+        channel_type = fcurve.data_path.split(".")[-1]
+        if channel_type not in ("rotation_quaternion", "location", "scale"):
+            continue
+
+        if bone_name not in snapshot:
+            snapshot[bone_name] = {}
+        if channel_type not in snapshot[bone_name]:
+            snapshot[bone_name][channel_type] = {}
+
+        # pre-evaluate all frames into a list
+        snapshot[bone_name][channel_type][fcurve.array_index] = [fcurve.evaluate(f) for f in frames]
+
+    return snapshot
+
+
 def bake_body_to_action(  # noqa: PLR0912, PLR0915
     instance: "RigInstance",
     armature_object: bpy.types.Object,
@@ -935,8 +998,6 @@ def bake_body_to_action(  # noqa: PLR0912, PLR0915
     swing_bones: bool = True,
     other_bones: bool = True,
 ):
-    from .armature import get_pose_bone_local_quaternion
-
     if instance and bpy.context.scene:
         if channel_types is None:
             channel_types = {"LOCATION", "ROTATION", "SCALE"}
@@ -955,17 +1016,7 @@ def bake_body_to_action(  # noqa: PLR0912, PLR0915
             )
             window_manager_properties.evaluate_dependency_graph = False
 
-            # create or replace the target action for baked bone keyframes
-            if replace_action:
-                existing_action = bpy.data.actions.get(action_name)
-                if existing_action:
-                    bpy.data.actions.remove(existing_action)
-            target_action = bpy.data.actions.new(name=action_name)
-
-            if anim_utils and len(target_action.slots) == 0:
-                target_action.slots.new("OBJECT", name=armature_object.name)
-
-            # build bone name sets for filtering RigLogic-computed transforms
+            # determine which bones RigLogic will recompute
             riglogic_bone_names: set[str] = set()
             if driven_bones:
                 riglogic_bone_names.update(instance.body_driven_bone_names)
@@ -974,45 +1025,88 @@ def bake_body_to_action(  # noqa: PLR0912, PLR0915
             if swing_bones:
                 riglogic_bone_names.update(instance.body_swing_bone_names)
 
-            # build passthrough bone name set (read directly from pose after frame evaluation)
-            passthrough_bone_names: set[str] = set()
-            if driver_bones:
-                passthrough_bone_names.update(instance.body_driver_bone_names)
-            if other_bones:
-                all_bone_names = {bone.name for bone in armature_object.data.bones}  # type: ignore[attr-defined]
-                categorized = (
+            frames = [f for f in range(start_frame, end_frame + 1) if f % step == 0]
+
+            # snapshot driver bone quaternion values for RigLogic input before
+            # the source action is potentially removed by replace_action
+            driver_snapshot = _snapshot_source_fcurves(source_action, frames, set(instance.body_driver_bone_names))
+
+            # copy the entire source action to preserve ALL fcurves (driver bones,
+            # uncategorized bones like spine_03, custom properties, etc.)
+            target_action = source_action.copy()
+
+            if replace_action:
+                existing = bpy.data.actions.get(action_name)
+                if existing and existing != target_action:
+                    bpy.data.actions.remove(existing)
+            target_action.name = action_name
+
+            if anim_utils and len(target_action.slots) == 0:
+                target_action.slots.new("OBJECT", name=armature_object.name)
+
+            # get the channel bag for fcurve manipulation
+            if anim_utils:
+                channel_bag = anim_utils.action_ensure_channelbag_for_slot(target_action, target_action.slots[0])
+            else:
+                channel_bag = target_action
+
+            # remove fcurves for bones that RigLogic will recompute so they can
+            # be replaced with the RigLogic-calculated values
+            if riglogic_bone_names and channel_bag:
+                riglogic_prefixes = {f'pose.bones["{name}"]' for name in riglogic_bone_names}
+                fcurves_to_remove = [
+                    fc for fc in channel_bag.fcurves if any(fc.data_path.startswith(p) for p in riglogic_prefixes)
+                ]
+                for fc in fcurves_to_remove:
+                    channel_bag.fcurves.remove(fc)
+
+            # remove driver bone fcurves if not requested in the baked output
+            if not driver_bones and channel_bag:
+                driver_prefixes = {f'pose.bones["{name}"]' for name in instance.body_driver_bone_names}
+                fcurves_to_remove = [
+                    fc for fc in channel_bag.fcurves if any(fc.data_path.startswith(p) for p in driver_prefixes)
+                ]
+                for fc in fcurves_to_remove:
+                    channel_bag.fcurves.remove(fc)
+
+            # remove "other" bone fcurves (bones not categorized as driver/driven/twist/swing)
+            if not other_bones and channel_bag:
+                all_categorized = (
                     set(instance.body_driver_bone_names)
                     | set(instance.body_driven_bone_names)
                     | set(instance.body_twist_bone_names)
                     | set(instance.body_swing_bone_names)
                 )
-                passthrough_bone_names.update(all_bone_names - categorized)
+                fcurves_to_remove = []
+                for fc in channel_bag.fcurves:
+                    parts = fc.data_path.split('"')
+                    if len(parts) >= 2 and parts[1] not in all_categorized:
+                        fcurves_to_remove.append(fc)
+                for fc in fcurves_to_remove:
+                    channel_bag.fcurves.remove(fc)
 
+            # compute RigLogic bone transforms per frame and accumulate
             bone_keyframe_buffer: dict[str, dict[str, list[tuple[float, float]]]] = {}
 
-            for frame in range(start_frame, end_frame + 1):
-                if frame % step != 0:
-                    continue
-
-                # evaluate animation at this frame so pose bones reflect the source action
-                bpy.context.scene.frame_set(frame)
-                instance.apply_dependency_graph_update()
-
-                # read driver bone quaternions from evaluated pose bones for RigLogic input
+            for frame_index, frame in enumerate(frames):
+                # build RigLogic override_values from snapshotted driver bone quaternions
                 override_values: dict[str, dict[str, float]] = {}
-                body_rig_evaluated = instance.body_rig_evaluated
-                if body_rig_evaluated and body_rig_evaluated.pose:
-                    for bone_name in instance.body_driver_bone_names:
-                        pose_bone = body_rig_evaluated.pose.bones.get(bone_name)
-                        if pose_bone:
-                            q = get_pose_bone_local_quaternion(pose_bone)
-                            override_values[bone_name] = {"w": q.w, "x": q.x, "y": q.y, "z": q.z}
+                for bone_name in instance.body_driver_bone_names:
+                    bone_data = driver_snapshot.get(bone_name, {})
+                    quat_data = bone_data.get("rotation_quaternion")
+                    if quat_data:
+                        override_values[bone_name] = {
+                            "w": quat_data[0][frame_index] if 0 in quat_data else 1.0,
+                            "x": quat_data[1][frame_index] if 1 in quat_data else 0.0,
+                            "y": quat_data[2][frame_index] if 2 in quat_data else 0.0,
+                            "z": quat_data[3][frame_index] if 3 in quat_data else 0.0,
+                        }
 
                 # compute driven/twist/swing bone transforms via RigLogic
                 instance.update_body_raw_control_values(override_values=override_values)
                 riglogic_transforms = instance.update_body_bone_transforms()
 
-                # filter to only requested RigLogic bone types
+                # filter to only the requested RigLogic bone types
                 filtered_transforms = [
                     (name, location, rotation, scale)
                     for name, location, rotation, scale in riglogic_transforms
@@ -1020,18 +1114,7 @@ def bake_body_to_action(  # noqa: PLR0912, PLR0915
                 ]
                 accumulate_bone_keyframes(filtered_transforms, frame, bone_keyframe_buffer, channel_types)
 
-                # capture driver/other bone transforms directly from the pose
-                for bone_name in passthrough_bone_names:
-                    pose_bone = armature_object.pose.bones.get(bone_name)
-                    if pose_bone:
-                        location = pose_bone.location.copy()
-                        rotation = pose_bone.matrix_basis.to_euler("XYZ")
-                        scale = pose_bone.scale.copy()
-                        accumulate_bone_keyframes(
-                            [(bone_name, location, rotation, scale)], frame, bone_keyframe_buffer, channel_types
-                        )
-
-            # bulk-write all bone keyframes to the target action
+            # write RigLogic-computed bone fcurves to the target action
             flush_bone_keyframes_to_action(target_action, bone_keyframe_buffer, clean_curves=clean_curves)
 
             # assign the baked action to the armature
