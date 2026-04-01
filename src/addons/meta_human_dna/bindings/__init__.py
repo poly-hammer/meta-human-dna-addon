@@ -73,6 +73,7 @@ except ModuleNotFoundError:
         FileStream = object
         BinaryStreamWriter = object
         JSONStreamWriter = object
+        OpenMode = object
 
     class meta_human_dna_core:
         __is_fake__ = True
