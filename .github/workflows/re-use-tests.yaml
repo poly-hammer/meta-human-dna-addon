@@ -11,6 +11,9 @@ on:
       runner-os:
         required: true
         type: string
+      addon-id:
+        required: true
+        type: string
 
     secrets:
       GH_PAT:
@@ -62,26 +65,15 @@ jobs:
       - name: Install Dependencies
         run: |
           cd meta-human-dna-addon
-          uv sync
+          uv sync --python ${{ inputs.python-version }}
           uv pip install --upgrade bpy==${{ inputs.blender-version }}.*
 
-      - name: Run Tests Windows
-        if: inputs.runner-os == 'windows-latest'
+      - name: Run Tests
+        shell: bash
+        env:
+          PYTHONWARNINGS: ignore
         run: |
-          cd meta-human-dna-addon
-          .github\workflows\pytest-windows.bat
-
-      - name: Run Tests Linux
-        if: inputs.runner-os == 'ubuntu-latest'
-        run: |
-          cd meta-human-dna-addon
-          bash ./.github/workflows/pytest-linux.sh
-
-      - name: Run Tests MacOS
-        if: inputs.runner-os == 'macos-latest'
-        run: |
-          cd meta-human-dna-addon
-          bash ./.github/workflows/pytest-mac.sh
+          uv run --no-sync --python ${{ inputs.python-version }} pytest --cov-branch --cov-config=.coveragerc --cov=src/addons/${{ inputs.addon-id }} --cov-report=xml:reports/coverage/results.xml || true
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v6

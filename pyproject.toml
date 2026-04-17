@@ -23,7 +23,7 @@ description = "Blender addon for importing/exporting MetaHuman DNA files with Ri
 keywords = ["blender", "metahuman", "dna", "riglogic", "animation", "3d"]
 name = "meta-human-dna-addon"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.14"
 version = "0.6.4"
 
 [project.optional-dependencies]
@@ -375,6 +375,17 @@ staticmethod-decorators = ["staticmethod"]
   "ARG001",  # Allow unused arguments (fixtures)
   "ARG002",  # Allow unused arguments
   "SLF001"  # Allow private member access in tests
+]
+
+# =============================================================================
+# uv Configuration
+# =============================================================================
+[tool.uv]
+override-dependencies = [
+  # bpy pins numpy<2.0 but numpy 1.x has no pre-built wheels for Python 3.13,
+  # causing source builds that hang on Windows CI. bpy 5.1 works fine with
+  # numpy 2.x at runtime (Blender 5.1 bundles it internally).
+  "numpy>=2.0; python_version >= '3.13'",
 ]
 
 [tool.ruff.lint.pylint]

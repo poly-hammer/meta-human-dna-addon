@@ -472,6 +472,30 @@ def get_body_constraint_name(bone_name: str) -> str:
     return f"MH_DNA {bone_name} to body"
 
 
+def constrain_head_to_body(instance: "RigInstance"):
+    if not instance.head_rig or not instance.body_rig:
+        logger.warning("Head rig or body rig not found. Cannot constrain head rig to body rig.")
+        return
+
+    body_bone_names = [pose_bone.name for pose_bone in instance.body_rig.pose.bones]
+
+    # add copy transforms constraint to the head rig
+    for pose_bone in instance.head_rig.pose.bones:
+        if pose_bone.name in body_bone_names:
+            name = get_body_constraint_name(pose_bone.name)
+            constraint = pose_bone.constraints.get(name)
+            if not constraint:
+                constraint = pose_bone.constraints.new(type="COPY_TRANSFORMS")
+                constraint.name = name
+
+            constraint.target = instance.body_rig
+            constraint.subtarget = pose_bone.name
+            constraint.target_space = "WORLD"
+            constraint.owner_space = "WORLD"
+
+    instance.head_to_body_constraint_influence = 1.0
+
+
 def get_topology_group_surface_bones(
     mesh_object: bpy.types.Object,
     armature_object: bpy.types.Object,

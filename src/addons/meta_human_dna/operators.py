@@ -1779,6 +1779,14 @@ class DuplicateRigInstance(bpy.types.Operator):
     new_folder: bpy.props.StringProperty(
         name="New Output Folder", default="", subtype="DIR_PATH", options={"PATH_SUPPORTS_BLEND_RELATIVE"}
     )  # pyright: ignore[reportInvalidTypeForm]
+    copy_face_board: bpy.props.BoolProperty(
+        name="Copy Face Board",
+        description=(
+            "Whether to copy the face board to the new rig instance. Otherwise, the new rig instance will "
+            "reference the original rig instance's face board"
+        ),
+        default=True,
+    )  # pyright: ignore[reportInvalidTypeForm]
 
     def execute(self, context: "Context") -> set[str]:  # noqa: PLR0912, PLR0915
         new_folder = Path(bpy.path.abspath(self.new_folder))
@@ -1797,12 +1805,25 @@ class DuplicateRigInstance(bpy.types.Operator):
 
         instance = callbacks.get_active_rig_instance()
         addon_scene_properties = utilities.get_addon_scene_properties(context)
+        addon_window_manager_properties = utilities.get_addon_window_manager_properties(context)
+        # Pause dependency graph evaluation until the end of this operator to avoid unnecessary evaluations
+        # while we are copying and modifying objects
+        addon_window_manager_properties.evaluate_dependency_graph = False
         if instance:
+            # Cache instance name before the loop because CollectionProperty.add() can
+            # invalidate all existing Python wrappers to items in the collection, causing
+            # access violations when reading properties from the stale reference.
+            instance_name = instance.name
             for component_type, mesh_object, rig_object in [
                 ("body", instance.body_mesh, instance.body_rig),
                 ("head", instance.head_mesh, instance.head_rig),
             ]:
                 if mesh_object and rig_object:
+                    # Re-fetch instance at the start of each iteration since a previous
+                    # iteration's .add() may have invalidated the Python wrapper.
+                    instance = addon_scene_properties.rig_instance_list.get(instance_name)
+                    if not instance:
+                        break
                     new_mesh_object = utilities.copy_mesh(
                         mesh_object=mesh_object,
                         new_mesh_name=mesh_object.name.replace(instance.name, self.new_name),
@@ -1820,10 +1841,6 @@ class DuplicateRigInstance(bpy.types.Operator):
                     # move the new rig to the right collection
                     utilities.move_to_collection(
                         scene_objects=[new_rig_object], collection_name=self.new_name, exclusively=True
-                    )
-                    # move the face board also to the this collection
-                    utilities.move_to_collection(
-                        scene_objects=[instance.face_board], collection_name=self.new_name, exclusively=False
                     )
 
                     # duplicate the mesh materials
@@ -1928,6 +1945,7 @@ class DuplicateRigInstance(bpy.types.Operator):
                             delta = body_head_location - head_head_location
                             # move the head rig object to align with the body rig head bone
                             new_rig_object.location += delta
+
                     # otherwise move it to the right of the last instance's head mesh
                     elif component_type == "head":
                         new_rig_object.location.x = utilities.get_bounding_box_left_x(last_instance.head_mesh) - (
@@ -1936,15 +1954,26 @@ class DuplicateRigInstance(bpy.types.Operator):
 
                     new_dna_file_path = new_folder / self.new_name / f"{component_type}.dna"
                     new_dna_file_path.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy(instance.head_dna_file_path, new_dna_file_path)
+                    if (
+                        component_type == "head"
+                        and instance.head_dna_file_path
+                        and Path(bpy.path.abspath(instance.head_dna_file_path)).exists()
+                    ):
+                        shutil.copy(instance.head_dna_file_path, new_dna_file_path)
+                    if (
+                        component_type == "body"
+                        and instance.body_dna_file_path
+                        and Path(bpy.path.abspath(instance.body_dna_file_path)).exists()
+                    ):
+                        shutil.copy(instance.body_dna_file_path, new_dna_file_path)
 
                     # add the duplicated instance to the list if it doesn't already exist
                     for _rig_instance in addon_scene_properties.rig_instance_list:
                         if _rig_instance.name == self.new_name:
-                            new_instance = _rig_instance
+                            new_instance: "RigInstance" = _rig_instance  # noqa: UP037
                             break
                     else:
-                        new_instance = addon_scene_properties.rig_instance_list.add()
+                        new_instance: "RigInstance" = addon_scene_properties.rig_instance_list.add()  # noqa: UP037
 
                     # now set the values on the instance
                     new_instance.name = self.new_name
@@ -1962,6 +1991,44 @@ class DuplicateRigInstance(bpy.types.Operator):
                         len(addon_scene_properties.rig_instance_list) - 1
                     )
 
+                    # Duplicate the face board if copy_face_board is enabled
+                    if component_type == "head" and self.copy_face_board:
+                        new_face_board = utilities.duplicate_face_board(name=self.new_name)
+                        # switch to pose mode on the face gui object
+                        if new_face_board and bpy.context.view_layer:
+                            bpy.context.view_layer.objects.active = new_face_board
+                            utilities.position_face_board(
+                                head_mesh_object=new_instance.head_mesh,
+                                head_rig_object=new_instance.head_rig,
+                                face_board_object=new_face_board,
+                            )
+                            utilities.move_to_collection(
+                                scene_objects=[new_face_board], collection_name=self.new_name, exclusively=True
+                            )
+                            utilities.switch_to_pose_mode(new_face_board)
+                            # constrain the face board to the head rig
+                            utilities.constrain_face_board_to_head(
+                                face_board_object=new_face_board,
+                                head_rig_object=new_instance.head_rig,
+                                body_rig_object=new_instance.body_rig,
+                                bone_name="CTRL_faceGUI",
+                            )
+                            utilities.constrain_face_board_to_head(
+                                face_board_object=new_face_board,
+                                head_rig_object=new_instance.head_rig,
+                                body_rig_object=new_instance.body_rig,
+                                bone_name="CTRL_C_eyesAim",
+                            )
+                            # Assign the new face board to the new instance
+                            new_instance.face_board = new_face_board
+
+                    if component_type == "head":
+                        # constrain the head rig to the body rig with a copy transforms constraint
+                        utilities.constrain_head_to_body(new_instance)
+
+        # notify all handlers that the rig instance list has been updated
+        utilities.setup_scene()
+        addon_window_manager_properties.evaluate_dependency_graph = True
         return {"FINISHED"}
 
     def invoke(self, context: "Context", event: bpy.types.Event) -> set[str] | None:
@@ -1977,6 +2044,7 @@ class DuplicateRigInstance(bpy.types.Operator):
 
         self.layout.prop(self, "new_name")
         self.layout.prop(self, "new_folder")
+        self.layout.prop(self, "copy_face_board")
 
 
 class AddRigLogicTextureNode(bpy.types.Operator):

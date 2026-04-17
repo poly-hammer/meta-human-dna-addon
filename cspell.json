@@ -27,13 +27,14 @@
         "*.json"
     ],
     "words": [
-        "env",
         "bpy",
-        "rbf",
         "cpython",
+        "env",
+        "pyd",
+        "PYTHONUNBUFFERED",
         "Raasch",
-        "Steagall",
-        "PYTHONUNBUFFERED"
+        "rbf",
+        "Steagall"
     ],
     "dictionaries": [
         "python",
@@ -96,6 +97,7 @@
                 "RUF",
                 "tga",
                 "tol",
+                "OUTLINER",
                 "DEDUP",
                 "TOPO",
                 "TRIA",
@@ -119,6 +121,14 @@
                 "LFS",
                 "lod",
                 "tga"
+            ],
+            "flagWords": []
+        },
+        {
+            "filename": ".github/**",
+            "description": "GitHub configuration - technical terms and misspelling flags",
+            "words": [
+                "cov"
             ],
             "flagWords": []
         },

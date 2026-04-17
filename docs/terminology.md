@@ -4,7 +4,7 @@
 
 Rig Logic relies on a universal set of rules for defining the muscular system of a human face, and on a proprietary file format from 3Lateral called MetaHuman DNA, which is designed to store the complete description of a 3D object's rig and geometry.
 
-## RigLogic
+## Rig Logic
 
 This is the runtime evaluation system that powers Metahuman face rigs. The source for this ships as a Unreal Engine plugin. For the curious, here is the [white paper](https://cdn2.unrealengine.com/rig-logic-whitepaper-v2-5c9f23f7e210.pdf){: target="blank"} where you can read further.
 

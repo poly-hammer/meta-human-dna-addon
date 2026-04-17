@@ -51,7 +51,7 @@ jobs:
           ADDONS_FOLDER: ${{ github.workspace }}/src/addons
           BLENDER_VERSION: "4.5"
           ENVIRONMENT: ${{ inputs.environment }}
-          PORTAL_API_KEY: ${{ secrets.POLY_HAMMER_PORTAL_API_KEY }}
+          PORTAL_API_KEY: ${{ inputs.environment == 'production' && secrets.POLY_HAMMER_PORTAL_API_KEY_PRODUCTION || secrets.POLY_HAMMER_PORTAL_API_KEY_STAGING }}
         run: uv run python -m poly_hammer_utils.extension.meta_human_dna
 
       - name: Create Release

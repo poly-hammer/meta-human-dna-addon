@@ -1,10 +1,12 @@
 import logging
 import os
 
+from collections.abc import Callable
+
 import bpy
 
 # This import is necessary to register custom icons
-import bpy.utils.previews  # pyright: ignore[reportUnusedImport]
+import bpy.utils.previews  # pyright: ignore[reportMissingModuleSource, reportUnusedImport]
 
 from . import constants, key_maps, manual_map, operators, properties, rig_instance, utilities
 
@@ -32,6 +34,10 @@ bl_info = {
     "wiki_url": "https://docs.polyhammer.com/meta-human-dna-addon/",
     "category": "Rigging",
 }
+
+# Callbacks that other addons can register to be notified when a rig instance is set up
+# in the scene.
+post_setup_scene_callbacks: list[Callable[[rig_instance.RigInstance], None]] = []
 
 # RBF Editor
 rbf_editor_operator_classes = [

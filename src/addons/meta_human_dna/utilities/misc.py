@@ -245,11 +245,21 @@ def get_addon_version() -> str:
 
 
 def setup_scene(*_: Any) -> None:
+    from .. import post_setup_scene_callbacks
+
     scene_properties = getattr(bpy.context.scene, ToolInfo.NAME, object)
 
     # initialize the rig instances
     for instance in getattr(scene_properties, "rig_instance_list", []):
         instance.initialize()
+
+        # notify any registered callbacks that a rig instance has been set up in the scene, so they can perform
+        # any necessary actions
+        for callback in post_setup_scene_callbacks:
+            try:
+                callback(instance)
+            except Exception as error:
+                logger.exception(f"Error in post_setup_scene_callbacks: {error}")
 
     start_listening()
 

@@ -102,9 +102,10 @@ def init_sentry():
     if not addon_preferences.metrics_collection:
         return
 
+    addon_version = get_addon_version()
     default_tags = {
         "blender_version": bpy.app.version_string,
-        "addon_version": get_addon_version(),
+        "addon_version": addon_version,
         "platform": sys.platform,
     }
 
@@ -161,6 +162,7 @@ def init_sentry():
 
         sentry_sdk.init(
             dsn=SENTRY_DSN,
+            release=addon_version,
             # Set traces_sample_rate to 1.0 to capture 100%
             # of transactions for performance monitoring.
             sample_rate=0.1,
