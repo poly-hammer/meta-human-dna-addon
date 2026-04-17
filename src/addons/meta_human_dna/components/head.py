@@ -15,7 +15,9 @@ from mathutils import Matrix, Vector
 from .. import utilities
 from ..constants import (
     DEFAULT_HEAD_MESH_VERTEX_POSITION_COUNT,
+    EXCLUDED_FACE_BOARD_CONTROLS,
     EXTRA_BONES,
+    FACE_BOARD_SWITCHES,
     HEAD_TOPOLOGY_VERTEX_GROUPS_FILE_PATH,
     IS_BLENDER_5,
     TOPO_GROUP_PREFIX,
@@ -343,12 +345,16 @@ class CharacterComponentHead(CharacterComponentBase):
 
                     # clear the pose location for all the control bones
                     for pose_bone in self.rig_instance.face_board.pose.bones:
-                        if not pose_bone.bone.children and pose_bone.name.startswith("CTRL_"):
+                        if (
+                            not pose_bone.bone.children
+                            and pose_bone.name.startswith("CTRL_")
+                            and pose_bone.name not in FACE_BOARD_SWITCHES + EXCLUDED_FACE_BOARD_CONTROLS
+                        ):
                             pose_bone.location = Vector((0.0, 0.0, 0.0))
 
                     for bone_name, transform_data in data.items():
                         pose_bone = self.rig_instance.face_board.pose.bones.get(bone_name)
-                        if pose_bone:
+                        if pose_bone and bone_name not in FACE_BOARD_SWITCHES + EXCLUDED_FACE_BOARD_CONTROLS:
                             pose_bone.location = Vector(transform_data["location"])
 
                 self.window_manager_properties.evaluate_dependency_graph = True

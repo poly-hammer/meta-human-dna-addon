@@ -200,6 +200,8 @@ EYE_AIM_BONES = [
 
 FACE_BOARD_SWITCHES = ["CTRL_rigLogicSwitch", "CTRL_lookAtSwitch", "CTRL_faceGUIfollowHead", "CTRL_eyesAimFollowHead"]
 
+EXCLUDED_FACE_BOARD_CONTROLS = ["CTRL_rigLogic", "CTRL_expressions", "CTRL_faceGUI", "CTRL_C_eyesAim"]
+
 BODY_HIGH_LEVEL_TOPOLOGY_GROUPS = ["torso", "arm_L", "arm_R", "hand_R", "hand_L", "leg_L", "leg_R", "foot_L", "foot_R"]
 
 HEAD_TO_BODY_LOD_MAPPING = {0: 0, 1: 0, 2: 1, 3: 1, 4: 2, 5: 2, 6: 3, 7: 3}
