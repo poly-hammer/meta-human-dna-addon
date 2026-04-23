@@ -259,6 +259,7 @@ class CommitRBFSolverChanges(RBFEditorOperatorBase):
 
     def run(self, instance: "RigInstance"):
         # Create a backup before committing edit mode changes
+        from ...bindings import character_dna_core  # pyright: ignore[reportAttributeAccessIssue]
         from ..backup_manager.core import BackupType, create_backup
 
         create_backup(instance, BackupType.PRE_RBF_EDITOR_COMMIT)

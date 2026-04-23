@@ -188,6 +188,7 @@ def get_body_mesh_topology_groups(self: "RigInstance", _: "Context") -> list[tup
 
 
 def get_head_rig_bone_groups(self: "RigInstance", context: "Context") -> list[tuple[str, str, str]]:
+    from ..bindings import character_dna_core  # pyright: ignore[reportAttributeAccessIssue]
     enum_items = [
         (
             group_name,
@@ -205,6 +206,7 @@ def get_head_rig_bone_groups(self: "RigInstance", context: "Context") -> list[tu
 
 
 def get_body_rig_bone_groups(self: "RigInstance", context: "Context") -> list[tuple[str, str, str]]:  # noqa: ARG001
+    from ..bindings import character_dna_core  # pyright: ignore[reportAttributeAccessIssue]
     enum_items = [
         (
             group_name,

@@ -197,6 +197,8 @@ def create_snapshot(instance: "RigInstance") -> PoseEditorSnapshot:
     if not instance or not instance.body_dna_reader:
         return snapshot
 
+    from ...bindings import character_dna_core  # pyright: ignore[reportAttributeAccessIssue]
+
     # Get the original data from DNA
     for solver_data in character_dna_core.get_rbf_solver_data(instance.body_dna_reader):
         solver_name = solver_data.name

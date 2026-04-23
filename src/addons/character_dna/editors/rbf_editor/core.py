@@ -210,6 +210,8 @@ def update_body_rbf_poses_active_index(self: "RBFSolverData", context: "Context"
     if not utilities.dependencies_are_valid():
         return
 
+    from ...bindings import character_dna_core  # pyright: ignore[reportAttributeAccessIssue]
+
     instance = utilities.get_active_rig_instance()
 
     if not instance or not instance.body_rig:
@@ -325,6 +327,8 @@ def update_evaluate_rbfs_value(self: "RigInstance", context: "Context"):
 def update_body_rbf_solver_list(self: "RigInstance"):  # noqa: PLR0912
     if not utilities.dependencies_are_valid():
         return
+
+    from ...bindings import character_dna_core  # pyright: ignore[reportAttributeAccessIssue]
 
     # skip if the body rig is not set
     if not self.body_rig or not self.body_dna_reader:
@@ -488,6 +492,7 @@ def diff_rbf_pose_data(instance: "RigInstance") -> None:  # noqa: PLR0912
     Args:
         instance: The active rig instance.
     """
+    from ...bindings import character_dna_core  # pyright: ignore[reportAttributeAccessIssue]
     from . import change_tracker
 
     if not instance or not instance.body_rig:
