@@ -52,13 +52,13 @@ jobs:
           BLENDER_VERSION: "4.5"
           ENVIRONMENT: ${{ inputs.environment }}
           PORTAL_API_KEY: ${{ inputs.environment == 'production' && secrets.POLY_HAMMER_PORTAL_API_KEY_PRODUCTION || secrets.POLY_HAMMER_PORTAL_API_KEY_STAGING }}
-        run: uv run python -m poly_hammer_utils.extension.meta_human_dna
+        run: uv run python -m poly_hammer_utils.extension.character_dna
 
       - name: Create Release
         if: github.ref == 'refs/heads/main'
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
-          ADDON_FOLDER: src/addons/meta_human_dna
+          ADDON_FOLDER: src/addons/character_dna
           GITHUB_REPO: ${{ github.repository }}
           CORE_REPO: ${{ secrets.CORE_REPO }}
         run: uv run python -m poly_hammer_utils.addon.release

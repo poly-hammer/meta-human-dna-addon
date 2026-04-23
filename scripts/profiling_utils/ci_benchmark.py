@@ -27,9 +27,7 @@ import os
 import platform
 import shutil
 import sys
-
 from pathlib import Path
-
 
 # Setup paths
 SCRIPT_DIR = Path(__file__).parent
@@ -61,7 +59,7 @@ elif sys.version_info.major == 3 and sys.version_info.minor == 13:
 # CI-specific paths for sibling repos (when checked out side-by-side in GitHub Actions)
 BINDINGS_SOURCE_PATH = ADDON_ROOT.parent / "character-dna-bindings"
 CORE_SOURCE_PATH = ADDON_ROOT.parent / "character-dna-core"
-BINDINGS_DEST_PATH = ADDON_ROOT / "src" / "addons" / "meta_human_dna" / "bindings"
+BINDINGS_DEST_PATH = ADDON_ROOT / "src" / "addons" / "character_dna" / "bindings"
 
 if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
@@ -166,20 +164,28 @@ def setup_environment() -> bool:
             return False
 
         print(f"  Copying bindings from {bindings_specific_source}...")
-        shutil.copytree(src=bindings_specific_source, dst=bindings_specific_dest, dirs_exist_ok=True)
+        shutil.copytree(
+            src=bindings_specific_source, dst=bindings_specific_dest, dirs_exist_ok=True
+        )
 
     # Copy core if running in CI and it exists
-    core_dest = bindings_specific_dest / "meta_human_dna_core"
-    if CORE_SOURCE_PATH.exists() and not core_dest.exists() and os.environ.get("RUNNING_CI"):
+    core_dest = bindings_specific_dest / "character_dna_core"
+    if (
+        CORE_SOURCE_PATH.exists()
+        and not core_dest.exists()
+        and os.environ.get("RUNNING_CI")
+    ):
         print(f"  Copying core from {CORE_SOURCE_PATH}...")
         shutil.copytree(src=CORE_SOURCE_PATH, dst=core_dest, dirs_exist_ok=True)
 
     # Register the addon with Blender (mirrors tests/fixtures/addon.py)
-    addon_name = "meta_human_dna"
+    addon_name = "character_dna"
     scripts_folder = ADDON_ROOT / "src"
 
     # Add script directory to Blender preferences
-    script_directory = bpy.context.preferences.filepaths.script_directories.get(addon_name)
+    script_directory = bpy.context.preferences.filepaths.script_directories.get(
+        addon_name
+    )
     if script_directory:
         bpy.context.preferences.filepaths.script_directories.remove(script_directory)
 
@@ -200,7 +206,9 @@ def setup_environment() -> bool:
 
     # Disable auto DNA backups for benchmarking performance
     try:
-        bpy.context.preferences.addons[addon_name].preferences.enable_auto_dna_backups = False
+        bpy.context.preferences.addons[
+            addon_name
+        ].preferences.enable_auto_dna_backups = False
         print("  ✓ Auto DNA backups disabled for benchmarking")
     except Exception:
         pass  # Preference may not exist
@@ -244,7 +252,7 @@ def load_dna_file(dna_path: str, import_shape_keys: bool = False) -> bool:
 
     try:
         # Import the DNA file
-        bpy.ops.meta_human_dna.import_dna(
+        bpy.ops.character_dna.import_dna(
             filepath=dna_path_str,
             include_body=True,
         )
@@ -254,7 +262,7 @@ def load_dna_file(dna_path: str, import_shape_keys: bool = False) -> bool:
         if import_shape_keys:
             print("  Importing shape keys (this may take a while)...")
             try:
-                bpy.ops.meta_human_dna.import_shape_keys()
+                bpy.ops.character_dna.import_shape_keys()
                 print("  ✓ Shape keys imported successfully")
             except Exception as e:
                 print(f"  ⚠️  Failed to import shape keys: {e}")
@@ -284,7 +292,9 @@ def run_benchmark(args: argparse.Namespace) -> int:
         return 1
 
     # Run profiler
-    print(f"\nRunning benchmark ({args.iterations} iterations, {args.warmup} warmup)...")
+    print(
+        f"\nRunning benchmark ({args.iterations} iterations, {args.warmup} warmup)..."
+    )
     results = run_profiler(
         iterations=args.iterations,
         warmup=args.warmup,
@@ -298,7 +308,9 @@ def run_benchmark(args: argparse.Namespace) -> int:
     # - Timestamped results go to the root output folder (e.g., reports/profiling/)
     # - Current snapshot goes to the "current" subfolder for easy comparison
     output_path = Path(ADDON_ROOT) / args.output
-    root_output_path = output_path.parent if output_path.name == "current" else output_path
+    root_output_path = (
+        output_path.parent if output_path.name == "current" else output_path
+    )
     current_folder = root_output_path / "current"
 
     # Export timestamped results to root output folder
@@ -409,7 +421,9 @@ def run_comparison(args: argparse.Namespace) -> int:
     for name, data in comparison["comparisons"].items():
         diff_str = f"{data['diff_pct']:+.1f}%"
         arrow = "↑" if data["diff_pct"] > 0 else "↓" if data["diff_pct"] < 0 else "→"
-        print(f"  {name}: {data['baseline_ms']:.3f}ms → {data['current_ms']:.3f}ms ({diff_str} {arrow})")
+        print(
+            f"  {name}: {data['baseline_ms']:.3f}ms → {data['current_ms']:.3f}ms ({diff_str} {arrow})"
+        )
     print()
 
     # Print regressions

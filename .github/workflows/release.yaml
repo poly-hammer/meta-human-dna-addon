@@ -48,7 +48,7 @@ jobs:
       python-version: "3.11"
       blender-version: "4.5"
       runner-os: "windows-latest"
-      addon-id: "meta_human_dna"
+      addon-id: "character_dna"
 
   test-blender-4-5-macos-latest:
     needs: [lint]
@@ -59,7 +59,7 @@ jobs:
       python-version: "3.11"
       blender-version: "4.5"
       runner-os: "macos-latest"
-      addon-id: "meta_human_dna"
+      addon-id: "character_dna"
 
   # Test with Blender 5.1
   test-blender-5-1-ubuntu-latest:
@@ -71,7 +71,7 @@ jobs:
       python-version: "3.13"
       blender-version: "5.1"
       runner-os: "ubuntu-latest"
-      addon-id: "meta_human_dna"
+      addon-id: "character_dna"
 
   test-blender-5-1-windows-latest:
     needs: [test-blender-4-5-windows-latest]
@@ -82,7 +82,7 @@ jobs:
       python-version: "3.13"
       blender-version: "5.1"
       runner-os: "windows-latest"
-      addon-id: "meta_human_dna"
+      addon-id: "character_dna"
 
   test-blender-5-1-macos-latest:
     needs: [test-blender-4-5-macos-latest]
@@ -93,7 +93,7 @@ jobs:
       python-version: "3.13"
       blender-version: "5.1"
       runner-os: "macos-latest"
-      addon-id: "meta_human_dna"
+      addon-id: "character_dna"
 
   release:
     needs:

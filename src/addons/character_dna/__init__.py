@@ -6,6 +6,8 @@ from collections.abc import Callable
 import bpy
 
 # This import is necessary to register custom icons
+import bpy.utils.previews  # pyright: ignore[reportMissingModuleSource, reportUnusedImport]
+
 from . import constants, key_maps, manual_map, operators, properties, rig_instance, utilities
 
 # Backup Manager
