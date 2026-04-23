@@ -699,7 +699,7 @@ wheels = [
 ]
 
 [[package]]
-name = "meta-human-dna-addon"
+name = "character-dna-addon"
 version = "0.6.5"
 source = { editable = "." }
 dependencies = [

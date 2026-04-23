@@ -385,7 +385,7 @@ def main() -> int:
     core_pyproject_path = core_base_path / "pyproject.toml"
     core_uv_lock_path = core_base_path / "uv.lock"
     core_version_py_path = core_base_path / "src" / "meta_human_dna_core" / "version.py"
-    core_package_name = "meta-human-dna-core"
+    core_package_name = "character-dna-core"
 
     # Convert addon name to package name format (underscores to hyphens)
     package_name = args.addon_name.replace("_", "-") + "-addon"

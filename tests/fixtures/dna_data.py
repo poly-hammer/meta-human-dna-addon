@@ -14,8 +14,8 @@ def original_head_dna_json_data(temp_folder, dna_folder_name: str) -> dict:
 
 @pytest.fixture(scope="session")
 def exported_head_dna_json_data(modify_head_scene, temp_folder, dna_folder_name: str) -> dict:
-    from meta_human_dna.dna_io import DNAExporter
-    from meta_human_dna.utilities import get_active_head
+    from character_dna.dna_io import DNAExporter
+    from character_dna.utilities import get_active_head
     from utilities.dna_data import get_dna_json_data
 
     head = get_active_head()
@@ -34,8 +34,8 @@ def exported_head_dna_json_data(modify_head_scene, temp_folder, dna_folder_name:
 
 @pytest.fixture(scope="session")
 def calibrated_head_dna_json_data(modify_head_scene, temp_folder, dna_folder_name: str) -> dict:
-    from meta_human_dna.dna_io import DNACalibrator
-    from meta_human_dna.utilities import get_active_head
+    from character_dna.dna_io import DNACalibrator
+    from character_dna.utilities import get_active_head
     from utilities.dna_data import get_dna_json_data
 
     head = get_active_head()

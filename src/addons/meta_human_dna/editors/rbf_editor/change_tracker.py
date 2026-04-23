@@ -191,7 +191,6 @@ def create_snapshot(instance: "RigInstance") -> PoseEditorSnapshot:
     Returns:
         A PoseEditorSnapshot capturing the current state.
     """
-    from ...bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
 
     snapshot = PoseEditorSnapshot()
 
@@ -199,7 +198,7 @@ def create_snapshot(instance: "RigInstance") -> PoseEditorSnapshot:
         return snapshot
 
     # Get the original data from DNA
-    for solver_data in meta_human_dna_core.get_rbf_solver_data(instance.body_dna_reader):
+    for solver_data in character_dna_core.get_rbf_solver_data(instance.body_dna_reader):
         solver_name = solver_data.name
         snapshot.solvers[solver_name] = {}
         snapshot.solver_poses[solver_name] = []

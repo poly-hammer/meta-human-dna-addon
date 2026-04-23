@@ -124,8 +124,6 @@ def set_bone_collection(
 
 
 def set_head_bone_collections(mesh_object: bpy.types.Object, rig_object: bpy.types.Object):
-    from ..bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
-
     if not rig_object.pose:
         return
 
@@ -144,13 +142,13 @@ def set_head_bone_collections(mesh_object: bpy.types.Object, rig_object: bpy.typ
         set_bone_collection(
             rig_object=rig_object,
             bone_names=weighted_leaf_bones,
-            collection_name=meta_human_dna_core.HeadBoneCollection.WEIGHTED_LEAF_BONES.value,
+            collection_name=character_dna_core.HeadBoneCollection.WEIGHTED_LEAF_BONES.value,
             theme="THEME01",
         )
         set_bone_collection(
             rig_object=rig_object,
             bone_names=weighted_non_leaf_bones,
-            collection_name=meta_human_dna_core.HeadBoneCollection.WEIGHTED_NON_LEAF_BONES.value,
+            collection_name=character_dna_core.HeadBoneCollection.WEIGHTED_NON_LEAF_BONES.value,
             theme="THEME03",
         )
 
@@ -166,13 +164,13 @@ def set_head_bone_collections(mesh_object: bpy.types.Object, rig_object: bpy.typ
         set_bone_collection(
             rig_object=rig_object,
             bone_names=non_weighted_leaf_bones,
-            collection_name=meta_human_dna_core.HeadBoneCollection.NON_WEIGHTED_LEAF_BONES.value,
+            collection_name=character_dna_core.HeadBoneCollection.NON_WEIGHTED_LEAF_BONES.value,
             theme="THEME04",
         )
         set_bone_collection(
             rig_object=rig_object,
             bone_names=non_weighted_non_leaf_bones,
-            collection_name=meta_human_dna_core.HeadBoneCollection.NON_WEIGHTED_NON_LEAF_BONES.value,
+            collection_name=character_dna_core.HeadBoneCollection.NON_WEIGHTED_NON_LEAF_BONES.value,
             theme="THEME09",
         )
 
@@ -180,12 +178,12 @@ def set_head_bone_collections(mesh_object: bpy.types.Object, rig_object: bpy.typ
         set_bone_collection(
             rig_object=rig_object,
             bone_names=weighted_bones,
-            collection_name=meta_human_dna_core.HeadBoneCollection.WEIGHTED_BONES.value,
+            collection_name=character_dna_core.HeadBoneCollection.WEIGHTED_BONES.value,
         )
         set_bone_collection(
             rig_object=rig_object,
             bone_names=weighted_leaf_bones + non_weighted_leaf_bones,
-            collection_name=meta_human_dna_core.HeadBoneCollection.LEAF_BONES.value,
+            collection_name=character_dna_core.HeadBoneCollection.LEAF_BONES.value,
         )
 
 
@@ -200,8 +198,6 @@ def set_body_bone_collections(
     from .misc import dependencies_are_valid
 
     if mesh_object and rig_object.pose and dependencies_are_valid():
-        from ..bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
-
         other_name_bones = [
             pose_bone.name
             for pose_bone in rig_object.pose.bones
@@ -264,31 +260,31 @@ def set_body_bone_collections(
         set_bone_collection(
             rig_object=rig_object,
             bone_names=driver_bones,
-            collection_name=meta_human_dna_core.BodyBoneCollection.DRIVER_BONES.value,
+            collection_name=character_dna_core.BodyBoneCollection.DRIVER_BONES.value,
             visible=False,
         )
         set_bone_collection(
             rig_object=rig_object,
             bone_names=driver_leaf_bones,
-            collection_name=meta_human_dna_core.BodyBoneCollection.DRIVER_LEAF_BONES.value,
+            collection_name=character_dna_core.BodyBoneCollection.DRIVER_LEAF_BONES.value,
             visible=False,
         )
         set_bone_collection(
             rig_object=rig_object,
             bone_names=twist_bones,
-            collection_name=meta_human_dna_core.BodyBoneCollection.TWIST_BONES.value,
+            collection_name=character_dna_core.BodyBoneCollection.TWIST_BONES.value,
             visible=False,
         )
         set_bone_collection(
             rig_object=rig_object,
             bone_names=twist_corrective_bones,
-            collection_name=meta_human_dna_core.BodyBoneCollection.TWIST_CORRECTIVE_BONES.value,
+            collection_name=character_dna_core.BodyBoneCollection.TWIST_CORRECTIVE_BONES.value,
             visible=False,
         )
         set_bone_collection(
             rig_object=rig_object,
             bone_names=corrective_root_bones,
-            collection_name=meta_human_dna_core.BodyBoneCollection.CORRECTIVE_ROOT_BONES.value,
+            collection_name=character_dna_core.BodyBoneCollection.CORRECTIVE_ROOT_BONES.value,
             visible=False,
         )
 
@@ -502,11 +498,9 @@ def get_topology_group_surface_bones(
     vertex_group_name: str,
     dna_reader: "riglogic.BinaryStreamReader",
 ) -> list[bpy.types.Bone]:
-    from ..bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
-
     bones = []
     vertex_indices = get_vertex_group_vertices(mesh_object, vertex_group_name)
-    vertex_to_bone_name = meta_human_dna_core.calculate_vertex_to_bone_name_mapping(dna_reader=dna_reader)
+    vertex_to_bone_name = character_dna_core.calculate_vertex_to_bone_name_mapping(dna_reader=dna_reader)
     for vertex_index in vertex_indices:
         bone_name = vertex_to_bone_name.get(vertex_index, None)
         if bone_name and armature_object.data and isinstance(armature_object.data, bpy.types.Armature):
@@ -518,12 +512,11 @@ def get_topology_group_surface_bones(
 
 def get_mouth_bone_names(armature_object: bpy.types.Object) -> list[str]:
     bones = []
-    from ..bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
 
     if not armature_object.data or not isinstance(armature_object.data, bpy.types.Armature):
         return bones
 
-    for bone_name in [meta_human_dna_core.TEETH_UPPER_BONE, meta_human_dna_core.TEETH_LOWER_BONE]:
+    for bone_name in [character_dna_core.TEETH_UPPER_BONE, character_dna_core.TEETH_LOWER_BONE]:
         bone = armature_object.data.bones.get(bone_name)
         if not bone:
             continue
@@ -531,9 +524,9 @@ def get_mouth_bone_names(armature_object: bpy.types.Object) -> list[str]:
         bones.extend([child.name for child in bone.children_recursive])
 
     for bone_name in (
-        meta_human_dna_core.INTERNAL_LIP_BONES
-        + meta_human_dna_core.JAW_BONES
-        + [meta_human_dna_core.MOUTH_UPPER_BONE, meta_human_dna_core.MOUTH_LOWER_BONE]
+        character_dna_core.INTERNAL_LIP_BONES
+        + character_dna_core.JAW_BONES
+        + [character_dna_core.MOUTH_UPPER_BONE, character_dna_core.MOUTH_LOWER_BONE]
     ):
         bone = armature_object.data.bones.get(bone_name)
         if bone:
@@ -543,16 +536,12 @@ def get_mouth_bone_names(armature_object: bpy.types.Object) -> list[str]:
 
 
 def get_eye_bones_names(side: Literal["l", "r"]) -> list[str]:
-    from ..bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
-
-    return meta_human_dna_core.EYE_BALL_L_BONES if side == "l" else meta_human_dna_core.EYE_BALL_R_BONES
+    return character_dna_core.EYE_BALL_L_BONES if side == "l" else character_dna_core.EYE_BALL_R_BONES
 
 
 def get_ignored_bones_names(armature_object: bpy.types.Object) -> list[str]:
-    from ..bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
-
     mouth_bone_names = get_mouth_bone_names(armature_object)
-    return mouth_bone_names + meta_human_dna_core.EYE_BALL_L_BONES + meta_human_dna_core.EYE_BALL_R_BONES
+    return mouth_bone_names + character_dna_core.EYE_BALL_L_BONES + character_dna_core.EYE_BALL_R_BONES
 
 
 @preserve_context
@@ -563,7 +552,6 @@ def auto_fit_bones(
     component_type: ComponentType,
     only_selected: bool = False,
 ):
-    from ..bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
     from ..dna_io import DNAExporter
 
     bmesh_object = DNAExporter.get_bmesh(mesh_object, rotation=0)
@@ -576,7 +564,7 @@ def auto_fit_bones(
         bone_names = [bone.name for bone in bpy.context.selected_pose_bones]
 
     switch_to_bone_edit_mode(armature_object)
-    result = meta_human_dna_core.calculate_fitted_bone_positions(
+    result = character_dna_core.calculate_fitted_bone_positions(
         data={
             "mesh_name": mesh_object.name,
             "vertex_indices": vertex_indices,

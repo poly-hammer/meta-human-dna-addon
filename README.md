@@ -3,12 +3,12 @@
     <h1>Character DNA Addon</h1>
 </div>
 
-![GitHub Release](https://img.shields.io/github/v/release/poly-hammer/meta-human-dna-addon)
-[![Release](https://github.com/poly-hammer/meta-human-dna-addon/actions/workflows/release.yaml/badge.svg)](https://github.com/poly-hammer/meta-human-dna-addon/actions/workflows/release.yaml)
-[![Dev](https://github.com/poly-hammer/meta-human-dna-addon/actions/workflows/on-pr.yaml/badge.svg?branch=dev)](https://github.com/poly-hammer/meta-human-dna-addon/actions/workflows/on-pr.yaml) [![Docs](https://github.com/poly-hammer/meta-human-dna-addon/actions/workflows/docs.yaml/badge.svg)](https://github.com/poly-hammer/meta-human-dna-addon/actions/workflows/docs.yaml)
-[![codecov](https://codecov.io/gh/poly-hammer/meta-human-dna-addon/graph/badge.svg?token=322E36CVR4)](https://codecov.io/gh/poly-hammer/meta-human-dna-addon)
+![GitHub Release](https://img.shields.io/github/v/release/poly-hammer/character-dna-addon)
+[![Release](https://github.com/poly-hammer/character-dna-addon/actions/workflows/release.yaml/badge.svg)](https://github.com/poly-hammer/character-dna-addon/actions/workflows/release.yaml)
+[![Dev](https://github.com/poly-hammer/character-dna-addon/actions/workflows/on-pr.yaml/badge.svg?branch=dev)](https://github.com/poly-hammer/character-dna-addon/actions/workflows/on-pr.yaml) [![Docs](https://github.com/poly-hammer/character-dna-addon/actions/workflows/docs.yaml/badge.svg)](https://github.com/poly-hammer/character-dna-addon/actions/workflows/docs.yaml)
+[![codecov](https://codecov.io/gh/poly-hammer/character-dna-addon/graph/badge.svg?token=322E36CVR4)](https://codecov.io/gh/poly-hammer/character-dna-addon)
 
-Imports MetaHuman head and body components into Blender from a their DNA files, lets you customize them, then send them back to MetaHuman Creator. [Get Now](https://polyhammer.com/meta-human-dna-addon).
+Imports MetaHuman head and body components into Blender from a their DNA files, lets you customize them, then send them back to MetaHuman Creator. [Get Now](https://polyhammer.com/character-dna-addon).
 
 <div align="center">
     <img src="docs/images/quick-start/0.gif" alt="Example Custom MetaHuman" height="250px" style="margin-right: 10px;">
@@ -17,7 +17,7 @@ Imports MetaHuman head and body components into Blender from a their DNA files, 
 
 ## Overview
 
-Welcome to the project! We are working hard to make this the best solution for customizing MetaHumans for Unreal Engine. We are very proud to make this the first open source project related to MetaHuman DNA customization in Blender. [Code contributions](https://docs.polyhammer.com/meta-human-dna-addon/contributing/development/), and suggestions are welcome and we are excited to work with the community to make this even better! Also please consider [financially supporting](https://polyhammer.com/meta-human-dna-addon) the project by purchasing some of the available resources we offer for individuals and studios in regards to the addon. We heavily rely on your support to keep this project going! Thank you!
+Welcome to the project! We are working hard to make this the best solution for customizing MetaHumans for Unreal Engine. We are very proud to make this the first open source project related to MetaHuman DNA customization in Blender. [Code contributions](https://docs.polyhammer.com/character-dna-addon/contributing/development/), and suggestions are welcome and we are excited to work with the community to make this even better! Also please consider [financially supporting](https://polyhammer.com/character-dna-addon) the project by purchasing some of the available resources we offer for individuals and studios in regards to the addon. We heavily rely on your support to keep this project going! Thank you!
 
 > [!NOTE]
 > The addon is still in beta and has missing features that will be added very soon. The supporting resources are discounted while in the beta, but will continue to work after the v1 launch. Also the addon code will continue to receive updates in the future.
@@ -38,7 +38,7 @@ The addon is compatible with MetaHuman `.dna` files that have been created with 
 ## Dependencies
 
 All the Blender addon code is open source and available here, however, it does rely on dependencies from Unreal Engine that you would need to compile into a standalone library, as well as our core algorithm
-for preforming the bone auto-fitting math. We made the compilation and installation process for these super simple with a [build tool](https://www.youtube.com/watch?v=BAyCV8GwmCM) and you can support our efforts by purchasing access to both [here](https://polyhammer.com/meta-human-dna-addon)
+for preforming the bone auto-fitting math. We made the compilation and installation process for these super simple with a [build tool](https://www.youtube.com/watch?v=BAyCV8GwmCM) and you can support our efforts by purchasing access to both [here](https://polyhammer.com/character-dna-addon)
 
 ## Get Notified on a New Release
 

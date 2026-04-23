@@ -21,7 +21,7 @@ dependencies = [
 ]
 description = "Blender addon for importing/exporting MetaHuman DNA files with RigLogic integration"
 keywords = ["blender", "metahuman", "dna", "riglogic", "animation", "3d"]
-name = "meta-human-dna-addon"
+name = "character-dna-addon"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
 version = "0.6.5"
@@ -50,8 +50,8 @@ stubs = [
 ]
 
 [project.urls]
-Documentation = "https://docs.polyhammer.com/meta-human-dna-addon/"
-Repository = "https://github.com/poly-hammer/meta-human-dna-addon"
+Documentation = "https://docs.polyhammer.com/character-dna-addon/"
+Repository = "https://github.com/poly-hammer/character-dna-addon"
 
 # =============================================================================
 # Bandit Configuration (Security Linting)

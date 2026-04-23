@@ -173,14 +173,14 @@ class CharacterComponentHead(CharacterComponentBase):
 
     @preserve_context
     def convert(self, mesh_object: bpy.types.Object, constrain: bool = True):
-        from ..bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
-
         if (
             self.head_mesh_object
             and self.face_board_object
             and self.head_rig_object
             and isinstance(self.head_rig_object.data, bpy.types.Armature)
         ):
+            from ..bindings import character_dna_core  # pyright: ignore[reportAttributeAccessIssue]
+
             target_center = utilities.get_bounding_box_center(mesh_object)
             head_center = utilities.get_bounding_box_center(self.head_mesh_object)
             delta = target_center - head_center
@@ -231,7 +231,7 @@ class CharacterComponentHead(CharacterComponentBase):
             from_bmesh_object.free()
             to_bmesh_object.free()
 
-            vertex_positions = meta_human_dna_core.calculate_dna_mesh_vertex_positions(from_data, to_data)
+            vertex_positions = character_dna_core.calculate_dna_mesh_vertex_positions(from_data, to_data)
             if isinstance(self.head_mesh_object.data, bpy.types.Mesh):
                 self.head_mesh_object.data.vertices.foreach_set("co", vertex_positions.ravel())  # type: ignore[attr-defined]
                 self.head_mesh_object.data.update()
@@ -296,6 +296,8 @@ class CharacterComponentHead(CharacterComponentBase):
 
     def select_bone_group(self):
         if self.rig_instance and self.rig_instance.head_rig:
+            from ..bindings import character_dna_core  # pyright: ignore[reportAttributeAccessIssue]
+
             self.rig_instance.head_rig.hide_set(False)
             utilities.switch_to_pose_mode(self.rig_instance.head_rig)
 
@@ -308,9 +310,7 @@ class CharacterComponentHead(CharacterComponentBase):
                     else:
                         pose_bone.bone.select = False
 
-            from ..bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
-
-            for bone_name in meta_human_dna_core.HEAD_BONE_SELECTION_GROUPS.get(
+            for bone_name in character_dna_core.HEAD_BONE_SELECTION_GROUPS.get(
                 self.rig_instance.head_rig_bone_groups, []
             ):
                 pose_bone = self.rig_instance.head_rig.pose.bones.get(bone_name)

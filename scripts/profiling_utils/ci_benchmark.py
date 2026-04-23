@@ -59,8 +59,8 @@ elif sys.version_info.major == 3 and sys.version_info.minor == 13:
     PYTHON_VERSION = "py313"
 
 # CI-specific paths for sibling repos (when checked out side-by-side in GitHub Actions)
-BINDINGS_SOURCE_PATH = ADDON_ROOT.parent / "meta-human-dna-bindings"
-CORE_SOURCE_PATH = ADDON_ROOT.parent / "meta-human-dna-core"
+BINDINGS_SOURCE_PATH = ADDON_ROOT.parent / "character-dna-bindings"
+CORE_SOURCE_PATH = ADDON_ROOT.parent / "character-dna-core"
 BINDINGS_DEST_PATH = ADDON_ROOT / "src" / "addons" / "meta_human_dna" / "bindings"
 
 if str(SRC_PATH) not in sys.path:
@@ -162,7 +162,7 @@ def setup_environment() -> bool:
     if not bindings_specific_dest.exists():
         if not bindings_specific_source.exists():
             print(f"  ✗ Bindings not found at {bindings_specific_source}")
-            print("    Please ensure meta-human-dna-bindings is available.")
+            print("    Please ensure character-dna-bindings is available.")
             return False
 
         print(f"  Copying bindings from {bindings_specific_source}...")

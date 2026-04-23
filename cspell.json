@@ -1,6 +1,6 @@
 {
     "$schema": "https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json",
-    "name": "meta-human-dna-addon",
+    "name": "character-dna-addon",
     "language": "en",
     "ignorePaths": [
         ".gitignore",
@@ -34,6 +34,7 @@
         "PYTHONUNBUFFERED",
         "Raasch",
         "rbf",
+        "character_dna",
         "Steagall"
     ],
     "dictionaries": [
@@ -71,6 +72,7 @@
                 "bmesh",
                 "BSDF",
                 "childof",
+                "character_dna_core",
                 "cls",
                 "DCC",
                 "depsgraph",

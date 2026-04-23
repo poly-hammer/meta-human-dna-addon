@@ -396,21 +396,21 @@ class RigInstance(bpy.types.PropertyGroup):
     show_face_board: bpy.props.BoolProperty(
         name="Show Face Board",
         default=False,
-        description="Whether to show or hide the face board that belongs to this MetaHuman instance in the 3D view",
+        description="Whether to show or hide the face board that belongs to this rig instance in the 3D view",
         set=callbacks.set_show_face_board,
         get=callbacks.get_show_face_board,
     )  # pyright: ignore[reportInvalidTypeForm]
     show_control_rig: bpy.props.BoolProperty(
         name="Show Control Rig",
         default=False,
-        description="Whether to show or hide the control rig that belongs to this MetaHuman instance in the 3D view",
+        description="Whether to show or hide the control rig that belongs to this rig instance in the 3D view",
         set=callbacks.set_show_control_rig,
         get=callbacks.get_show_control_rig,
     )  # pyright: ignore[reportInvalidTypeForm]
     show_head_bones: bpy.props.BoolProperty(
         name="Show Head Bones",
         default=False,
-        description="Whether to show or hide the head bones that belong to this MetaHuman instance in the 3D view",
+        description="Whether to show or hide the head bones that belong to this rig instance in the 3D view",
         set=callbacks.set_show_head_bones,
         get=callbacks.get_show_head_bones,
     )  # pyright: ignore[reportInvalidTypeForm]
@@ -1577,7 +1577,7 @@ class RigInstance(bpy.types.PropertyGroup):
             return []
 
         # skip if the rest pose is not initialized
-        # https://github.com/poly-hammer/meta-human-dna-addon/issues/58
+        # https://github.com/poly-hammer/character-dna-addon/issues/58
         if not self.head_rest_pose:
             return []
 

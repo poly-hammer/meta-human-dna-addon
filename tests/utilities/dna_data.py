@@ -2,8 +2,8 @@ import json
 
 from pathlib import Path
 
-from meta_human_dna.bindings import riglogic
-from meta_human_dna.dna_io import get_dna_reader, get_dna_writer
+from character_dna.bindings import riglogic
+from character_dna.dna_io import get_dna_reader, get_dna_writer
 
 
 def get_dna_json_data(dna_file_path: Path, json_file_path: Path, data_layer: str = "All") -> dict:

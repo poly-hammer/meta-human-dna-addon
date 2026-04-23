@@ -118,7 +118,7 @@ if TYPE_CHECKING:
     class Scene(bpy.types.Scene):
         """Extended Scene type with Character DNA properties."""
 
-        meta_human_dna: CharacterSceneProperties
+        character_dna: CharacterSceneProperties
 
     # =========================================================================
     # Patch bpy.types.WindowManager
@@ -126,7 +126,7 @@ if TYPE_CHECKING:
     class WindowManager(bpy.types.WindowManager):
         """Extended WindowManager type with Character DNA properties."""
 
-        meta_human_dna: CharacterWindowManagerProperties
+        character_dna: CharacterWindowManagerProperties
 
     # =========================================================================
     # Patch bpy.types.Context

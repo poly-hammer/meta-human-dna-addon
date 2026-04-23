@@ -46,22 +46,22 @@ else:
 
 try:
     if should_import and platform == "macos" and arch == "arm64" and python_version == "py311" and (BINDINGS_FOLDER / "macos" / "arm64" / "py311").exists():
-        from .macos.arm64.py311 import riglogic, meta_human_dna_core # pyright: ignore[reportUnusedImport, reportMissingImports, reportAssignmentType]
+        from .macos.arm64.py311 import riglogic, character_dna_core # pyright: ignore[reportUnusedImport, reportMissingImports, reportAssignmentType]
     elif should_import and platform == "macos" and arch == "arm64" and python_version == "py313" and (BINDINGS_FOLDER / "macos" / "arm64" / "py313").exists():
-        from .macos.arm64.py313 import riglogic, meta_human_dna_core # pyright: ignore[reportUnusedImport, reportMissingImports, reportAssignmentType]
+        from .macos.arm64.py313 import riglogic, character_dna_core # pyright: ignore[reportUnusedImport, reportMissingImports, reportAssignmentType]
     elif should_import and platform == "windows" and arch == "x64" and python_version == "py311" and (BINDINGS_FOLDER / "windows" / "x64" / "py311").exists():
-        from .windows.x64.py311 import riglogic, meta_human_dna_core # pyright: ignore[reportUnusedImport, reportMissingImports, reportAssignmentType]
+        from .windows.x64.py311 import riglogic, character_dna_core # pyright: ignore[reportUnusedImport, reportMissingImports, reportAssignmentType]
     elif should_import and platform == "windows" and arch == "x64" and python_version == "py313" and (BINDINGS_FOLDER / "windows" / "x64" / "py313").exists():
-        from .windows.x64.py313 import riglogic, meta_human_dna_core # pyright: ignore[reportUnusedImport, reportMissingImports, reportAssignmentType]
+        from .windows.x64.py313 import riglogic, character_dna_core # pyright: ignore[reportUnusedImport, reportMissingImports, reportAssignmentType]
     elif should_import and platform == "linux" and arch == "x64" and python_version == "py311" and (BINDINGS_FOLDER / "linux" / "x64" / "py311").exists():
-        from .linux.x64.py311 import riglogic, meta_human_dna_core # pyright: ignore[reportUnusedImport, reportMissingImports, reportAssignmentType]
+        from .linux.x64.py311 import riglogic, character_dna_core # pyright: ignore[reportUnusedImport, reportMissingImports, reportAssignmentType]
     elif should_import and platform == "linux" and arch == "x64" and python_version == "py313" and (BINDINGS_FOLDER / "linux" / "x64" / "py313").exists():
-        from .linux.x64.py313 import riglogic, meta_human_dna_core # pyright: ignore[reportUnusedImport, reportMissingImports, reportAssignmentType]
+        from .linux.x64.py313 import riglogic, character_dna_core # pyright: ignore[reportUnusedImport, reportMissingImports, reportAssignmentType]
     elif should_import:
         raise ModuleNotFoundError
 
-    if "meta_human_dna_core" in sys.modules:
-        sys.modules[__name__ + ".meta_human_dna_core"] = sys.modules.pop("meta_human_dna_core")
+    if "character_dna_core" in sys.modules:
+        sys.modules[__name__ + ".character_dna_core"] = sys.modules.pop("character_dna_core")
 
 except ModuleNotFoundError:
     class riglogic:
@@ -75,7 +75,7 @@ except ModuleNotFoundError:
         JSONStreamWriter = object
         OpenMode = object
 
-    class meta_human_dna_core:
+    class character_dna_core:
         __is_fake__ = True
         pass
 

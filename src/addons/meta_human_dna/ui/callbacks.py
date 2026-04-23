@@ -188,15 +188,13 @@ def get_body_mesh_topology_groups(self: "RigInstance", _: "Context") -> list[tup
 
 
 def get_head_rig_bone_groups(self: "RigInstance", context: "Context") -> list[tuple[str, str, str]]:
-    from ..bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
-
     enum_items = [
         (
             group_name,
             " ".join([i.capitalize() for i in group_name.split("_")]),
             f"Select bones in the group {group_name} on the head rig",
         )
-        for group_name in meta_human_dna_core.HEAD_BONE_SELECTION_GROUPS
+        for group_name in character_dna_core.HEAD_BONE_SELECTION_GROUPS
     ]
     instance = get_active_rig_instance()
     if instance and instance.head_mesh and instance.list_surface_bone_groups:
@@ -207,15 +205,13 @@ def get_head_rig_bone_groups(self: "RigInstance", context: "Context") -> list[tu
 
 
 def get_body_rig_bone_groups(self: "RigInstance", context: "Context") -> list[tuple[str, str, str]]:  # noqa: ARG001
-    from ..bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
-
     enum_items = [
         (
             group_name,
             " ".join([i.capitalize() for i in group_name.split("_")]),
             f"Select bones in the group {group_name} on the body rig",
         )
-        for group_name in meta_human_dna_core.BODY_BONE_SELECTION_GROUPS
+        for group_name in character_dna_core.BODY_BONE_SELECTION_GROUPS
     ]
 
     # TODO: Maybe add surface bone groups here as well

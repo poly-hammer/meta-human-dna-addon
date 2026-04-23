@@ -122,7 +122,7 @@ class GenericProgressQueueOperator(bpy.types.Operator):
         pass
 
 
-class AppendOrLinkMetaHuman(bpy.types.Operator, importer.LinkAppendMetaHumanImportHelper):
+class AppendOrLinkCharacter(bpy.types.Operator, importer.LinkAppendCharacterImportHelper):
     """Append or link a MetaHuman from a .blend file. The .blend file must contain a collection with all data related to the MetaHuman asset."""  # noqa: E501
 
     bl_idname = f"{ToolInfo.NAME}.append_or_link_metahuman"
@@ -698,7 +698,7 @@ class BakeComponentAnimation(BakeAnimationBase):
         return False
 
 
-class ImportMetaHumanDna(bpy.types.Operator, importer.ImportAsset, CharacterImportProperties):
+class ImportCharacterDna(bpy.types.Operator, importer.ImportAsset, CharacterImportProperties):
     """Import a metahuman head from a DNA file"""
 
     bl_idname = f"{ToolInfo.NAME}.import_dna"

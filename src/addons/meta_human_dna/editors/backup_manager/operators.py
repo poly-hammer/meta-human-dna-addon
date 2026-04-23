@@ -30,7 +30,7 @@ class CHARACTER_DNA_OT_restore_backup(bpy.types.Operator):
     def execute(self, context: "Context") -> set[str]:
         instance = get_active_rig_instance()
         if instance is None:
-            self.report({"ERROR"}, "No active MetaHuman instance")
+            self.report({"ERROR"}, "No active rig instance")
             return {"CANCELLED"}
 
         backup_list = instance.dna_backup_list
@@ -67,7 +67,7 @@ class CHARACTER_DNA_OT_delete_backup(bpy.types.Operator):
     def execute(self, context: "Context") -> set[str]:
         instance = get_active_rig_instance()
         if instance is None:
-            self.report({"ERROR"}, "No active MetaHuman instance")
+            self.report({"ERROR"}, "No active rig instance")
             return {"CANCELLED"}
 
         backup_list = instance.dna_backup_list
@@ -130,7 +130,7 @@ class CHARACTER_DNA_OT_sync_backups(bpy.types.Operator):
     def execute(self, context: "Context") -> set[str]:
         instance = get_active_rig_instance()
         if instance is None:
-            self.report({"ERROR"}, "No active MetaHuman instance")
+            self.report({"ERROR"}, "No active rig instance")
             return {"CANCELLED"}
 
         core.sync_backup_list_with_disk(instance)
@@ -172,7 +172,7 @@ class CHARACTER_DNA_OT_create_manual_backup(bpy.types.Operator):
     def execute(self, context: "Context") -> set[str]:
         instance = get_active_rig_instance()
         if instance is None:
-            self.report({"ERROR"}, "No active MetaHuman instance")
+            self.report({"ERROR"}, "No active rig instance")
             return {"CANCELLED"}
 
         # Use a default description if none provided

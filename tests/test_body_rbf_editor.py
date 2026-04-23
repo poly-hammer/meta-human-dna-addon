@@ -4,8 +4,8 @@ import pytest
 from mathutils import Quaternion, Vector
 
 from constants import EXCLUDE_FINGER_POSES
-from meta_human_dna.ui.callbacks import get_active_rig_instance
-from meta_human_dna.utilities import reset_pose
+from character_dna.ui.callbacks import get_active_rig_instance
+from character_dna.utilities import reset_pose
 from utilities.rbf_editor import assert_body_pose, get_all_body_pose_names, set_body_pose
 
 
@@ -35,10 +35,10 @@ def test_body_pose_roundtrip(
     _, solver_index, pose_index = set_body_pose(solver_name=solver_name, pose_name=pose_name)
 
     # update the rbf pose with the unmodified data
-    bpy.ops.meta_human_dna.apply_rbf_pose_edits()  # type: ignore
+    bpy.ops.character_dna.apply_rbf_pose_edits()  # type: ignore
 
     # commit these changes to the dna
-    bpy.ops.meta_human_dna.commit_rbf_solver_changes()  # type: ignore
+    bpy.ops.character_dna.commit_rbf_solver_changes()  # type: ignore
 
     # reset the pose to the default position
     reset_pose(instance.body_rig)
@@ -115,10 +115,10 @@ def test_body_pose_update(
                 # update the location
                 pose_bone.location = change_location
                 # update the driven bone transform in the pose
-                bpy.ops.meta_human_dna.apply_rbf_pose_edits()  # type: ignore
+                bpy.ops.character_dna.apply_rbf_pose_edits()  # type: ignore
 
     # commit these changes to the dna
-    bpy.ops.meta_human_dna.commit_rbf_solver_changes()  # type: ignore
+    bpy.ops.character_dna.commit_rbf_solver_changes()  # type: ignore
 
     # reset the pose to the default position
     reset_pose(instance.body_rig)
@@ -187,7 +187,7 @@ def test_body_pose_duplicate(
     _, solver_index, from_pose_index = set_body_pose(solver_name=solver_name, pose_name=from_pose_name)
 
     # duplicate the pose to create a new one to edit
-    bpy.ops.meta_human_dna.duplicate_rbf_pose(solver_index=solver_index, pose_index=from_pose_index)
+    bpy.ops.character_dna.duplicate_rbf_pose(solver_index=solver_index, pose_index=from_pose_index)
 
     solver = instance.rbf_solver_list[solver_index]
     new_pose_index = len(solver.poses) - 1
@@ -209,10 +209,10 @@ def test_body_pose_duplicate(
                 # update the location
                 pose_bone.location = change_location
                 # update the driven bone transform in the pose
-                bpy.ops.meta_human_dna.apply_rbf_pose_edits() # type: ignore
+                bpy.ops.character_dna.apply_rbf_pose_edits() # type: ignore
 
     # commit these changes to the dna
-    bpy.ops.meta_human_dna.commit_rbf_solver_changes() # type: ignore
+    bpy.ops.character_dna.commit_rbf_solver_changes() # type: ignore
 
     # check that all expected driven bones are present in the duplicated pose
     new_pose, _, _ = set_body_pose(solver_name=solver_name, pose_name=pose_name)

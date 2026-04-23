@@ -250,7 +250,7 @@ class ImportAnimation(ImportAsset):
         row.prop(operator, "prefix_component_name")
 
 
-class LinkAppendMetaHumanImportHelper(ImportHelper):
+class LinkAppendCharacterImportHelper(ImportHelper):
     """
     This class subclasses the import helper to define a custom file browser
     """

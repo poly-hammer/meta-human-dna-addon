@@ -6,8 +6,6 @@ from collections.abc import Callable
 import bpy
 
 # This import is necessary to register custom icons
-import bpy.utils.previews  # pyright: ignore[reportMissingModuleSource, reportUnusedImport]
-
 from . import constants, key_maps, manual_map, operators, properties, rig_instance, utilities
 
 # Backup Manager
@@ -31,7 +29,7 @@ bl_info = {
         "lets you customize them, then send them back to MetaHuman Creator."
     ),
     "warning": "",
-    "wiki_url": "https://docs.polyhammer.com/meta-human-dna-addon/",
+    "wiki_url": "https://docs.polyhammer.com/character-dna-addon/",
     "category": "Rigging",
 }
 
@@ -85,10 +83,10 @@ backup_manager_ui_classes = [
 
 # Main Addon
 classes = [
-    operators.ImportMetaHumanDna,
+    operators.ImportCharacterDna,
     operators.DNA_FH_import_dna,
     operators.ConvertSelectedToDna,
-    operators.AppendOrLinkMetaHuman,
+    operators.AppendOrLinkCharacter,
     operators.ImportFaceBoardAnimation,
     operators.ImportComponentAnimation,
     operators.BakeFaceBoardAnimation,

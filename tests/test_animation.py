@@ -2,8 +2,8 @@ import bpy
 import pytest
 
 from constants import TEST_ANIMATION_FOLDER
-from meta_human_dna.constants import IS_BLENDER_5
-from meta_human_dna.ui.callbacks import get_active_rig_instance
+from character_dna.constants import IS_BLENDER_5
+from character_dna.ui.callbacks import get_active_rig_instance
 
 
 @pytest.mark.parametrize(
@@ -17,7 +17,7 @@ def test_import_component_animation(load_full_dna_for_animation, component: str,
     instance = get_active_rig_instance()
     file_path = TEST_ANIMATION_FOLDER / component / file_name
 
-    bpy.ops.meta_human_dna.import_component_animation(component_type=component, filepath=str(file_path))
+    bpy.ops.character_dna.import_component_animation(component_type=component, filepath=str(file_path))
 
     if component == "body":
         assert instance.body_rig.animation_data.action.name == f"{instance.name}_{component}_{file_path.stem}"
@@ -35,7 +35,7 @@ def test_import_face_board_animation(load_full_dna_for_animation, file_name: str
     instance = get_active_rig_instance()
     file_path = TEST_ANIMATION_FOLDER / "head" / file_name
 
-    bpy.ops.meta_human_dna.import_face_board_animation(filepath=str(file_path))
+    bpy.ops.character_dna.import_face_board_animation(filepath=str(file_path))
 
     assert instance.face_board.animation_data.action.name == f"{instance.name}_face_board_{file_path.stem}"
 
@@ -57,7 +57,7 @@ def test_bake_component_animation(
     replace_action: bool,
 ):
     instance = get_active_rig_instance()
-    bpy.context.window_manager.meta_human_dna.current_component_type = component
+    bpy.context.window_manager.character_dna.current_component_type = component
 
     if IS_BLENDER_5:
         previous_object_action_names = [a.name for a in bpy.data.actions if a.slots[0].target_id_type == "OBJECT"]
@@ -66,7 +66,7 @@ def test_bake_component_animation(
         previous_object_action_names = [a.name for a in bpy.data.actions if a.id_root == "OBJECT"]
         [a.name for a in bpy.data.actions if a.id_root == "NODETREE"]
 
-    bpy.ops.meta_human_dna.bake_component_animation(
+    bpy.ops.character_dna.bake_component_animation(
         start_frame=1,
         end_frame=10,
         component_type=component,
@@ -131,7 +131,7 @@ def test_bake_face_board_animation(
             if a.id_root == "NODETREE" and a.name != f"{instance.name}_head_{action_name}_shader"
         ]
 
-    bpy.ops.meta_human_dna.bake_face_board_animation(
+    bpy.ops.character_dna.bake_face_board_animation(
         start_frame=1,
         end_frame=10,
         action_name=action_name,

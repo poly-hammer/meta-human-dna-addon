@@ -1,7 +1,7 @@
 from .constants import ToolInfo
 
 
-DOCUMENTATION_URL = "https://docs.polyhammer.com/meta-human-dna-addon/"
+DOCUMENTATION_URL = "https://docs.polyhammer.com/character-dna-addon/"
 
 
 def manual_map() -> tuple[str, tuple[tuple[str, str], ...]]:

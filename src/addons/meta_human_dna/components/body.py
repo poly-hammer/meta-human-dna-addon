@@ -99,9 +99,9 @@ class CharacterComponentBody(CharacterComponentBase):
 
     @preserve_context
     def convert(self, mesh_object: bpy.types.Object, constrain: bool = True):
-        from ..bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
-
         if self.body_mesh_object and self.body_rig_object:
+            from ..bindings import character_dna_core  # pyright: ignore[reportAttributeAccessIssue]
+
             target_height = utilities.get_bounding_box_height(mesh_object)
             body_height = utilities.get_bounding_box_height(self.body_mesh_object)
             delta = target_height / body_height
@@ -146,7 +146,7 @@ class CharacterComponentBody(CharacterComponentBase):
             from_bmesh_object.free()
             to_bmesh_object.free()
 
-            vertex_positions = meta_human_dna_core.calculate_dna_mesh_vertex_positions(from_data, to_data)
+            vertex_positions = character_dna_core.calculate_dna_mesh_vertex_positions(from_data, to_data)
             if isinstance(self.body_mesh_object.data, bpy.types.Mesh):
                 self.body_mesh_object.data.vertices.foreach_set("co", vertex_positions.ravel())  # type: ignore[attr-defined]
                 self.body_mesh_object.data.update()
@@ -203,6 +203,8 @@ class CharacterComponentBody(CharacterComponentBase):
 
     def select_bone_group(self):
         if self.rig_instance and self.rig_instance.body_rig:
+            from ..bindings import character_dna_core  # pyright: ignore[reportAttributeAccessIssue]
+
             if self.rig_instance.rig_bone_group_selection_mode != "add":
                 # deselect all bones first
                 for pose_bone in self.rig_instance.body_rig.pose.bones:
@@ -212,9 +214,7 @@ class CharacterComponentBody(CharacterComponentBase):
                     else:
                         pose_bone.bone.select = False
 
-            from ..bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
-
-            for bone_name in meta_human_dna_core.BODY_BONE_SELECTION_GROUPS.get(
+            for bone_name in character_dna_core.BODY_BONE_SELECTION_GROUPS.get(
                 self.rig_instance.body_rig_bone_groups, []
             ):
                 pose_bone = self.rig_instance.body_rig.pose.bones.get(bone_name)

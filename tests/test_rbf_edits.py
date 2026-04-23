@@ -13,8 +13,8 @@ from constants import (
     DNA_RBF_EXTENSION_VERSION,
     TEST_DNA_FOLDER,
 )
-from meta_human_dna.ui.callbacks import get_active_rig_instance
-from meta_human_dna.utilities import reset_pose
+from character_dna.ui.callbacks import get_active_rig_instance
+from character_dna.utilities import reset_pose
 from utilities.dna_data import get_dna_json_data
 from utilities.rbf_editor import set_body_pose
 
@@ -152,8 +152,8 @@ def test_rbf_pose_scale_factor_edit(
     pose.scale_factor = changed_scale_factor
 
     # Update and commit the pose changes
-    bpy.ops.meta_human_dna.apply_rbf_pose_edits()  # type: ignore
-    bpy.ops.meta_human_dna.commit_rbf_solver_changes()  # type: ignore
+    bpy.ops.character_dna.apply_rbf_pose_edits()  # type: ignore
+    bpy.ops.character_dna.commit_rbf_solver_changes()  # type: ignore
 
     # Export the modified DNA to JSON for verification
     json_file_path = temp_folder / dna_folder_name / f"body_modified_{pose_name}.json"
@@ -217,7 +217,7 @@ def test_rbf_pose_name_edit(
     pose.name = new_pose_name
 
     # Commit the pose changes (name change doesn't require apply_rbf_pose_edits)
-    bpy.ops.meta_human_dna.commit_rbf_solver_changes()  # type: ignore
+    bpy.ops.character_dna.commit_rbf_solver_changes()  # type: ignore
 
     # Export the modified DNA to JSON for verification
     json_file_path = temp_folder / dna_folder_name / f"body_renamed_{new_pose_name}.json"
@@ -287,13 +287,13 @@ def test_rbf_driven_bone_location_edit(
             pose_bone.location = location_delta
 
             # Update the driven bone transform in the pose
-            bpy.ops.meta_human_dna.apply_rbf_pose_edits()  # type: ignore
+            bpy.ops.character_dna.apply_rbf_pose_edits()  # type: ignore
             break
 
     assert driven_found, f"Driven bone '{driven_bone_name}' not found in pose '{pose_name}'"
 
     # Commit the pose changes
-    bpy.ops.meta_human_dna.commit_rbf_solver_changes()  # type: ignore
+    bpy.ops.character_dna.commit_rbf_solver_changes()  # type: ignore
 
     # Export the modified DNA to JSON for verification
     json_file_path = temp_folder / dna_folder_name / f"body_driven_{driven_bone_name}.json"
@@ -349,7 +349,7 @@ def test_rbf_pose_duplicate(
     assert pose is not None, f"Pose '{from_pose_name}' not found in solver '{solver_name}'"
 
     # Duplicate the pose
-    bpy.ops.meta_human_dna.duplicate_rbf_pose()  # type: ignore
+    bpy.ops.character_dna.duplicate_rbf_pose()  # type: ignore
 
     # Get the new pose
     solver = instance.rbf_solver_list[solver_index]
@@ -371,7 +371,7 @@ def test_rbf_pose_duplicate(
             driver_bone.rotation_quaternion = new_quat
 
             # Update the driver data
-            bpy.ops.meta_human_dna.apply_rbf_pose_edits()  # type: ignore
+            bpy.ops.character_dna.apply_rbf_pose_edits()  # type: ignore
 
     # Verify the duplicated pose has the expected number of driven bones
     assert (
@@ -379,7 +379,7 @@ def test_rbf_pose_duplicate(
     ), f"Duplicated pose should have at least {expected_driven_bone_count} driven bones, got {len(new_pose.driven)}"
 
     # Commit the changes
-    bpy.ops.meta_human_dna.commit_rbf_solver_changes()  # type: ignore
+    bpy.ops.character_dna.commit_rbf_solver_changes()  # type: ignore
 
     # Export the modified DNA to JSON for verification
     json_file_path = temp_folder / dna_folder_name / f"body_duplicate_{from_pose_name}.json"
@@ -449,7 +449,7 @@ def test_rbf_duplicated_pose_driven_edit(
     assert source_pose is not None, f"Pose '{from_pose_name}' not found in solver '{solver_name}'"
 
     # Duplicate the pose
-    bpy.ops.meta_human_dna.duplicate_rbf_pose()  # type: ignore
+    bpy.ops.character_dna.duplicate_rbf_pose()  # type: ignore
 
     # Get the new pose
     solver = instance.rbf_solver_list[solver_index]
@@ -472,7 +472,7 @@ def test_rbf_duplicated_pose_driven_edit(
             driver_bone.rotation_quaternion = unique_driver_quat
 
             # Update the driver data
-            bpy.ops.meta_human_dna.apply_rbf_pose_edits()  # type: ignore
+            bpy.ops.character_dna.apply_rbf_pose_edits()  # type: ignore
 
     # Reset the rig to rest position to get clean bone positions for driven bone edit
     reset_pose(instance.body_rig)
@@ -498,7 +498,7 @@ def test_rbf_duplicated_pose_driven_edit(
             pose_bone.location = location_delta
 
             # Update the driven bone transform in the pose
-            bpy.ops.meta_human_dna.apply_rbf_pose_edits()  # type: ignore
+            bpy.ops.character_dna.apply_rbf_pose_edits()  # type: ignore
             break
 
     assert driven_found, f"Driven bone '{driven_bone_name}' not found in duplicated pose"
@@ -511,7 +511,7 @@ def test_rbf_duplicated_pose_driven_edit(
     )
 
     # Commit the pose changes
-    bpy.ops.meta_human_dna.commit_rbf_solver_changes()  # type: ignore
+    bpy.ops.character_dna.commit_rbf_solver_changes()  # type: ignore
 
     # Export the modified DNA to JSON for verification
     json_file_path = temp_folder / dna_folder_name / f"body_dup_edit_{driven_bone_name}.json"
@@ -653,7 +653,7 @@ def test_get_solver_joint_group_bones(fresh_rbf_test_scene, dna_folder_name: str
     Test that get_solver_joint_group_bones returns the correct set of bone names
     for all driven bones in the active solver's poses.
     """
-    from meta_human_dna.editors.rbf_editor.core import get_solver_joint_group_bones
+    from character_dna.editors.rbf_editor.core import get_solver_joint_group_bones
 
     instance = get_active_rig_instance()
     assert instance is not None, "No active rig instance found"
@@ -680,7 +680,7 @@ def test_get_available_driven_bones_excludes_driver_bones(fresh_rbf_test_scene, 
     Test that get_available_driven_bones does not include driver bones,
     swing bones, or twist bones.
     """
-    from meta_human_dna.editors.rbf_editor.core import get_available_driven_bones
+    from character_dna.editors.rbf_editor.core import get_available_driven_bones
 
     instance = get_active_rig_instance()
     assert instance is not None, "No active rig instance found"
@@ -715,7 +715,7 @@ def test_get_available_driven_bones_excludes_driver_bones(fresh_rbf_test_scene, 
 
 
 def test_validate_driver_bone_detects_duplicate_quaternions(fresh_rbf_test_scene, dna_folder_name: str):
-    from meta_human_dna.editors.rbf_editor.core import validate_no_duplicate_driver_bone_values
+    from character_dna.editors.rbf_editor.core import validate_no_duplicate_driver_bone_values
 
     instance = get_active_rig_instance()
     assert instance is not None, "No active rig instance found"
@@ -727,7 +727,7 @@ def test_validate_driver_bone_detects_duplicate_quaternions(fresh_rbf_test_scene
     assert pose is not None, f"Pose not found in solver '{solver_name}'"
 
     # Duplicate the pose
-    bpy.ops.meta_human_dna.duplicate_rbf_pose()  # type: ignore
+    bpy.ops.character_dna.duplicate_rbf_pose()  # type: ignore
 
     # The duplicated pose has the same driver quaternion values as the original
     # Validation should fail
@@ -743,7 +743,7 @@ def test_validate_and_update_solver_joint_group_no_new_bones(fresh_rbf_test_scen
     Test that validate_and_update_solver_joint_group returns success
     when all driven bones are already in the joint group.
     """
-    from meta_human_dna.editors.rbf_editor.core import (
+    from character_dna.editors.rbf_editor.core import (
         get_solver_joint_group_bones,
         validate_and_update_solver_joint_group,
     )
@@ -771,7 +771,7 @@ def test_validate_and_update_solver_joint_group_expands_poses(fresh_rbf_test_sce
     Test that validate_and_update_solver_joint_group correctly adds new bones
     to all existing poses in the solver when new bones are added.
     """
-    from meta_human_dna.editors.rbf_editor.core import (
+    from character_dna.editors.rbf_editor.core import (
         get_available_driven_bones,
         get_solver_joint_group_bones,
         validate_and_update_solver_joint_group,
@@ -849,7 +849,7 @@ def test_add_pose_with_expanded_joint_group_commits_to_dna(
     - The expanded joint group contains the new bones
     - The DNA can be reloaded successfully
     """
-    from meta_human_dna.editors.rbf_editor.core import (
+    from character_dna.editors.rbf_editor.core import (
         get_available_driven_bones,
         get_solver_joint_group_bones,
     )
@@ -894,7 +894,7 @@ def test_add_pose_with_expanded_joint_group_commits_to_dna(
 
     # Manually simulate what the AddRBFPose operator does:
     # 1. Populate bone selections in window manager
-    wm = bpy.context.window_manager.meta_human_dna # type: ignore
+    wm = bpy.context.window_manager.character_dna # type: ignore
     wm.add_pose_driven_bones.clear() #
 
     # Add all existing bones (pre-selected)
@@ -917,7 +917,7 @@ def test_add_pose_with_expanded_joint_group_commits_to_dna(
     item.is_in_existing_joint_group = False
 
     # Call the AddRBFPose operator (without invoke, direct execute)
-    result = bpy.ops.meta_human_dna.add_rbf_pose()  # type: ignore
+    result = bpy.ops.character_dna.add_rbf_pose()  # type: ignore
     assert result == {"FINISHED"}, f"AddRBFPose operator failed: {result}"
 
     # Find the newly added pose by comparing with existing pose names
@@ -938,7 +938,7 @@ def test_add_pose_with_expanded_joint_group_commits_to_dna(
     )
 
     # Commit the changes to DNA
-    result = bpy.ops.meta_human_dna.commit_rbf_solver_changes()  # type: ignore
+    result = bpy.ops.character_dna.commit_rbf_solver_changes()  # type: ignore
     assert result == {"FINISHED"}, f"CommitRBFSolverChanges operator failed: {result}"
 
     # Export the modified DNA to JSON for verification
@@ -993,7 +993,7 @@ def test_add_rbf_driven_adds_bone_to_all_poses(
     Note: Tests the core function directly instead of the operator to avoid
     Blender 5.0 headless bone selection issues.
     """
-    from meta_human_dna.editors.rbf_editor.core import (
+    from character_dna.editors.rbf_editor.core import (
         add_driven_bones_to_solver,
         get_available_driven_bones,
         get_solver_joint_group_bones,
@@ -1067,7 +1067,7 @@ def test_remove_rbf_driven_removes_bone_from_all_poses(
     Note: Tests the core function directly instead of the operator to avoid
     Blender 5.0 headless bone selection issues.
     """
-    from meta_human_dna.editors.rbf_editor.core import (
+    from character_dna.editors.rbf_editor.core import (
         get_solver_joint_group_bones,
         remove_driven_bone_from_solver,
     )
@@ -1138,7 +1138,7 @@ def test_remove_rbf_driven_cannot_remove_all_bones(
     Note: Tests the core function directly instead of the operator to avoid
     Blender 5.0 headless bone selection issues.
     """
-    from meta_human_dna.editors.rbf_editor.core import (
+    from character_dna.editors.rbf_editor.core import (
         get_solver_joint_group_bones,
         remove_driven_bone_from_solver,
     )
@@ -1215,7 +1215,7 @@ def test_add_rbf_driven_validates_bone_type(
     )
 
     # Verify that driver bones are not in available driven bones (with is_in_existing=False)
-    from meta_human_dna.editors.rbf_editor.core import get_available_driven_bones
+    from character_dna.editors.rbf_editor.core import get_available_driven_bones
     available_bones = get_available_driven_bones(instance)
 
     # The driver bone should NOT be in available driven bones
@@ -1253,7 +1253,7 @@ def test_remove_and_add_rbf_driven_persists_after_commit(
     Note: Tests the core function directly instead of the operator to avoid
     Blender 5.0 headless bone selection issues.
     """
-    from meta_human_dna.editors.rbf_editor.core import (
+    from character_dna.editors.rbf_editor.core import (
         add_driven_bones_to_solver,
         get_solver_joint_group_bones,
         remove_driven_bone_from_solver,
@@ -1291,7 +1291,7 @@ def test_remove_and_add_rbf_driven_persists_after_commit(
         )
 
     # Step 2: Commit changes to DNA (first commit - removal)
-    bpy.ops.meta_human_dna.commit_rbf_solver_changes()  # type: ignore
+    bpy.ops.character_dna.commit_rbf_solver_changes()  # type: ignore
 
     # Export the modified DNA to JSON for verification
     json_file_path_removed = temp_folder / dna_folder_name / f"body_removed_{bone_to_test}.json"
@@ -1355,7 +1355,7 @@ def test_remove_and_add_rbf_driven_persists_after_commit(
         )
 
     # Step 4: Commit changes to DNA (second commit - adding back)
-    bpy.ops.meta_human_dna.commit_rbf_solver_changes()  # type: ignore
+    bpy.ops.character_dna.commit_rbf_solver_changes()  # type: ignore
 
     # Export the modified DNA to JSON for verification
     json_file_path_added = temp_folder / dna_folder_name / f"body_added_{bone_to_test}.json"
@@ -1445,7 +1445,7 @@ def test_remove_rbf_driven_persists_after_commit(
     Note: Tests the core function directly instead of the operator to avoid
     Blender 5.0 headless bone selection issues.
     """
-    from meta_human_dna.editors.rbf_editor.core import (
+    from character_dna.editors.rbf_editor.core import (
         get_solver_joint_group_bones,
         remove_driven_bone_from_solver,
     )
@@ -1486,7 +1486,7 @@ def test_remove_rbf_driven_persists_after_commit(
         )
 
     # Commit changes to DNA
-    bpy.ops.meta_human_dna.commit_rbf_solver_changes()  # type: ignore
+    bpy.ops.character_dna.commit_rbf_solver_changes()  # type: ignore
 
     # Export the modified DNA to JSON for verification
     json_file_path = temp_folder / dna_folder_name / f"body_remove_{bone_to_remove}.json"
@@ -1574,7 +1574,7 @@ def test_validate_add_rbf_solver_rejects_swing_bone(fresh_rbf_test_scene, dna_fo
     """
     Test that validate_add_rbf_solver rejects swing bones as driver bones.
     """
-    from meta_human_dna.editors.rbf_editor.core import validate_add_rbf_solver
+    from character_dna.editors.rbf_editor.core import validate_add_rbf_solver
 
     instance = get_active_rig_instance()
     assert instance is not None, "No active rig instance found"
@@ -1599,7 +1599,7 @@ def test_validate_add_rbf_solver_rejects_twist_bone(fresh_rbf_test_scene, dna_fo
     """
     Test that validate_add_rbf_solver rejects twist bones as driver bones.
     """
-    from meta_human_dna.editors.rbf_editor.core import validate_add_rbf_solver
+    from character_dna.editors.rbf_editor.core import validate_add_rbf_solver
 
     instance = get_active_rig_instance()
     assert instance is not None, "No active rig instance found"
@@ -1624,8 +1624,8 @@ def test_validate_add_rbf_solver_rejects_duplicate_solver(fresh_rbf_test_scene, 
     """
     Test that validate_add_rbf_solver rejects creating a solver for a bone that already has one.
     """
-    from meta_human_dna.constants import RBF_SOLVER_POSTFIX
-    from meta_human_dna.editors.rbf_editor.core import validate_add_rbf_solver
+    from character_dna.constants import RBF_SOLVER_POSTFIX
+    from character_dna.editors.rbf_editor.core import validate_add_rbf_solver
 
     instance = get_active_rig_instance()
     assert instance is not None, "No active rig instance found"
@@ -1649,7 +1649,7 @@ def test_validate_add_rbf_solver_rejects_nonexistent_bone(fresh_rbf_test_scene, 
     """
     Test that validate_add_rbf_solver rejects bones that don't exist in the rig.
     """
-    from meta_human_dna.editors.rbf_editor.core import validate_add_rbf_solver
+    from character_dna.editors.rbf_editor.core import validate_add_rbf_solver
 
     instance = get_active_rig_instance()
     assert instance is not None, "No active rig instance found"
@@ -1665,8 +1665,8 @@ def test_validate_add_rbf_solver_accepts_valid_bone(fresh_rbf_test_scene, dna_fo
     """
     Test that validate_add_rbf_solver accepts a valid bone that can be used as a driver.
     """
-    from meta_human_dna.constants import RBF_SOLVER_POSTFIX
-    from meta_human_dna.editors.rbf_editor.core import get_available_driven_bones, validate_add_rbf_solver
+    from character_dna.constants import RBF_SOLVER_POSTFIX
+    from character_dna.editors.rbf_editor.core import get_available_driven_bones, validate_add_rbf_solver
 
     instance = get_active_rig_instance()
     assert instance is not None, "No active rig instance found"
@@ -1702,8 +1702,8 @@ def test_add_rbf_solver_creates_new_solver(fresh_rbf_test_scene, dna_folder_name
     """
     Test that add_rbf_solver creates a new solver with the correct properties.
     """
-    from meta_human_dna.constants import RBF_SOLVER_POSTFIX
-    from meta_human_dna.editors.rbf_editor.core import add_rbf_solver, get_available_driven_bones
+    from character_dna.constants import RBF_SOLVER_POSTFIX
+    from character_dna.editors.rbf_editor.core import add_rbf_solver, get_available_driven_bones
 
     instance = get_active_rig_instance()
     assert instance is not None, "No active rig instance found"
@@ -1770,8 +1770,8 @@ def test_add_rbf_solver_with_custom_quaternion(fresh_rbf_test_scene, dna_folder_
     """
     Test that add_rbf_solver can accept a custom quaternion for the driver bone.
     """
-    from meta_human_dna.constants import RBF_SOLVER_POSTFIX
-    from meta_human_dna.editors.rbf_editor.core import add_rbf_solver, get_available_driven_bones
+    from character_dna.constants import RBF_SOLVER_POSTFIX
+    from character_dna.editors.rbf_editor.core import add_rbf_solver, get_available_driven_bones
 
     instance = get_active_rig_instance()
     assert instance is not None, "No active rig instance found"
@@ -1823,7 +1823,7 @@ def test_add_rbf_solver_fails_for_invalid_bone(fresh_rbf_test_scene, dna_folder_
     """
     Test that add_rbf_solver fails and returns an error for invalid bones.
     """
-    from meta_human_dna.editors.rbf_editor.core import add_rbf_solver
+    from character_dna.editors.rbf_editor.core import add_rbf_solver
 
     instance = get_active_rig_instance()
     assert instance is not None, "No active rig instance found"
@@ -1845,7 +1845,7 @@ def test_remove_rbf_solver_removes_active_solver(fresh_rbf_test_scene, dna_folde
     """
     Test that remove_rbf_solver removes the active solver and updates indices.
     """
-    from meta_human_dna.editors.rbf_editor.core import remove_rbf_solver
+    from character_dna.editors.rbf_editor.core import remove_rbf_solver
 
     instance = get_active_rig_instance()
     assert instance is not None, "No active rig instance found"
@@ -1885,7 +1885,7 @@ def test_remove_rbf_solver_by_index(fresh_rbf_test_scene, dna_folder_name: str):
     """
     Test that remove_rbf_solver can remove a solver by specific index.
     """
-    from meta_human_dna.editors.rbf_editor.core import remove_rbf_solver
+    from character_dna.editors.rbf_editor.core import remove_rbf_solver
 
     instance = get_active_rig_instance()
     assert instance is not None, "No active rig instance found"
@@ -1917,7 +1917,7 @@ def test_remove_rbf_solver_fails_when_no_solvers(fresh_rbf_test_scene, dna_folde
     """
     Test that remove_rbf_solver fails gracefully when there are no solvers.
     """
-    from meta_human_dna.editors.rbf_editor.core import remove_rbf_solver
+    from character_dna.editors.rbf_editor.core import remove_rbf_solver
 
     instance = get_active_rig_instance()
     assert instance is not None, "No active rig instance found"
@@ -1942,7 +1942,7 @@ def test_remove_rbf_solver_fails_for_invalid_index(fresh_rbf_test_scene, dna_fol
     """
     Test that remove_rbf_solver fails gracefully for invalid indices.
     """
-    from meta_human_dna.editors.rbf_editor.core import remove_rbf_solver
+    from character_dna.editors.rbf_editor.core import remove_rbf_solver
 
     instance = get_active_rig_instance()
     assert instance is not None, "No active rig instance found"
@@ -1975,8 +1975,8 @@ def test_new_solver_default_pose_has_no_driven_bones(fresh_rbf_test_scene, dna_f
     default pose on a new solver) are handled correctly and don't cause errors
     in the joint group finding logic.
     """
-    from meta_human_dna.constants import RBF_SOLVER_POSTFIX
-    from meta_human_dna.editors.rbf_editor.core import add_rbf_solver, get_available_driven_bones
+    from character_dna.constants import RBF_SOLVER_POSTFIX
+    from character_dna.editors.rbf_editor.core import add_rbf_solver, get_available_driven_bones
 
     instance = get_active_rig_instance()
     assert instance is not None, "No active rig instance found"
@@ -2029,8 +2029,8 @@ def test_add_then_remove_solver_restores_original_state(fresh_rbf_test_scene, dn
 
     This verifies the full add/remove lifecycle using only core functions.
     """
-    from meta_human_dna.constants import RBF_SOLVER_POSTFIX
-    from meta_human_dna.editors.rbf_editor.core import (
+    from character_dna.constants import RBF_SOLVER_POSTFIX
+    from character_dna.editors.rbf_editor.core import (
         add_rbf_solver,
         get_available_driven_bones,
         remove_rbf_solver,
@@ -2105,8 +2105,8 @@ def test_new_solver_with_pose_and_driven_bones_commits_without_crash(
     """
     import math
 
-    from meta_human_dna.constants import RBF_SOLVER_POSTFIX
-    from meta_human_dna.editors.rbf_editor.core import (
+    from character_dna.constants import RBF_SOLVER_POSTFIX
+    from character_dna.editors.rbf_editor.core import (
         add_rbf_pose,
         add_rbf_solver,
         remove_rbf_solver,
@@ -2186,7 +2186,7 @@ def test_new_solver_with_pose_and_driven_bones_commits_without_crash(
     assert len(new_pose.drivers) == 1, f"Pose should have 1 driver, got {len(new_pose.drivers)}"
 
     # Step 4: Commit changes to DNA - this writes the DNA file
-    result = bpy.ops.meta_human_dna.commit_rbf_solver_changes()  # type: ignore
+    result = bpy.ops.character_dna.commit_rbf_solver_changes()  # type: ignore
     assert result == {"FINISHED"}, f"CommitRBFSolverChanges should succeed, got {result}"
 
     # Step 5: Verify the DNA can be reloaded without crashing
@@ -2228,8 +2228,8 @@ def test_new_solver_driven_bone_transforms_persist_after_commit(
     """
     import math
 
-    from meta_human_dna.constants import RBF_SOLVER_POSTFIX
-    from meta_human_dna.editors.rbf_editor.core import (
+    from character_dna.constants import RBF_SOLVER_POSTFIX
+    from character_dna.editors.rbf_editor.core import (
         add_rbf_pose,
         add_rbf_solver,
         remove_rbf_solver,
@@ -2327,7 +2327,7 @@ def test_new_solver_driven_bone_transforms_persist_after_commit(
     ), f"calf_kneeBack_l rotation X before commit mismatch"
 
     # Step 4: Commit changes to DNA
-    result = bpy.ops.meta_human_dna.commit_rbf_solver_changes()  # type: ignore
+    result = bpy.ops.character_dna.commit_rbf_solver_changes()  # type: ignore
     assert result == {"FINISHED"}, f"CommitRBFSolverChanges should succeed, got {result}"
 
     # Step 5: Reload the DNA
@@ -2416,7 +2416,7 @@ def test_delete_solver_and_mirror_does_not_scramble_other_poses(fresh_rbf_test_s
     2. When has_stale_solvers triggered, joint groups were cleared but pose joint_group_index wasn't reset
     3. This caused poses to be written to wrong joint groups with wrong bone transformations
     """
-    from meta_human_dna.editors.rbf_editor.core import mirror_solver, remove_rbf_solver
+    from character_dna.editors.rbf_editor.core import mirror_solver, remove_rbf_solver
 
     instance = get_active_rig_instance()
     assert instance is not None, "No active rig instance found"
@@ -2500,7 +2500,7 @@ def test_delete_solver_and_mirror_does_not_scramble_other_poses(fresh_rbf_test_s
     assert calf_r_recreated, "calf_r_UERBFSolver should have been recreated by mirroring"
 
     # Step 3: Commit the changes to DNA
-    result = bpy.ops.meta_human_dna.commit_rbf_solver_changes()  # type: ignore
+    result = bpy.ops.character_dna.commit_rbf_solver_changes()  # type: ignore
     assert result == {"FINISHED"}, f"CommitRBFSolverChanges operator failed: {result}"
 
     # Step 4: Verify thigh_l_UERBFSolver poses are NOT scrambled
@@ -2572,7 +2572,7 @@ def test_delete_solver_and_mirror_does_not_scramble_other_poses(fresh_rbf_test_s
 )
 def test_get_mirrored_name(input_name: str, pattern: str, expected: str | None):
     """Test that get_mirrored_name correctly mirrors names based on patterns."""
-    from meta_human_dna.editors.rbf_editor.core import get_mirrored_name
+    from character_dna.editors.rbf_editor.core import get_mirrored_name
 
     result = get_mirrored_name(input_name, pattern)
     assert result == expected, f"Expected '{expected}', got '{result}'"
@@ -2591,7 +2591,7 @@ def test_get_mirrored_name(input_name: str, pattern: str, expected: str | None):
 )
 def test_can_mirror_name(input_name: str, pattern: str, expected: bool):
     """Test that can_mirror_name correctly identifies mirrorable names."""
-    from meta_human_dna.editors.rbf_editor.core import can_mirror_name
+    from character_dna.editors.rbf_editor.core import can_mirror_name
 
     result = can_mirror_name(input_name, pattern)
     assert result == expected, f"Expected {expected}, got {result}"
@@ -2614,7 +2614,7 @@ def test_mirror_solver_name_generation(
     """
     Test that solver names are correctly mirrored using the regex patterns.
     """
-    from meta_human_dna.editors.rbf_editor.core import get_mirrored_name
+    from character_dna.editors.rbf_editor.core import get_mirrored_name
 
     # Use the default solver mirror regex pattern (matches both _l_ and _r_)
     solver_regex = r"(?P<prefix>.+)?(?P<side>_[lr]_)(?P<suffix>.+)?"
@@ -2643,7 +2643,7 @@ def test_mirror_bone_name_generation(
     """
     Test that bone names are correctly mirrored using the regex patterns.
     """
-    from meta_human_dna.editors.rbf_editor.core import get_mirrored_name
+    from character_dna.editors.rbf_editor.core import get_mirrored_name
 
     # Use the default bone mirror regex pattern (matches both _l and _r)
     bone_regex = r"(?P<prefix>.+)?(?P<side>_[lr])"
@@ -2670,7 +2670,7 @@ def test_mirror_pose_name_generation(
     """
     Test that pose names are correctly mirrored using the regex patterns.
     """
-    from meta_human_dna.editors.rbf_editor.core import get_mirrored_name
+    from character_dna.editors.rbf_editor.core import get_mirrored_name
 
     # Use the default pose mirror regex pattern (matches both _l_ and _r_)
     pose_regex = r"(?P<prefix>.+)?(?P<side>_[lr]_)(?P<suffix>.+)?"
@@ -2684,7 +2684,7 @@ def test_validate_mirror_solver_target_exists(fresh_rbf_test_scene):
     """
     Test that validate_mirror_solver returns an error when the target solver already exists.
     """
-    from meta_human_dna.editors.rbf_editor.core import validate_mirror_solver
+    from character_dna.editors.rbf_editor.core import validate_mirror_solver
 
     instance = get_active_rig_instance()
     assert instance is not None, "No active rig instance found"
@@ -2713,7 +2713,7 @@ def test_validate_mirror_pose_no_target_solver(fresh_rbf_test_scene):
     """
     Test that validate_mirror_pose returns an error when the target solver doesn't exist.
     """
-    from meta_human_dna.editors.rbf_editor.core import validate_mirror_pose, add_rbf_solver
+    from character_dna.editors.rbf_editor.core import validate_mirror_pose, add_rbf_solver
 
     instance = get_active_rig_instance()
     assert instance is not None, "No active rig instance found"

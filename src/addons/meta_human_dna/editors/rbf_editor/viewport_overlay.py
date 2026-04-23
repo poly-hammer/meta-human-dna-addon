@@ -13,7 +13,7 @@ from .change_tracker import get_change_tracker
 
 
 # Global storage for draw handler
-_meta_human_dna_rbf_editor_draw_handler = None
+_character_dna_rbf_editor_draw_handler = None
 
 
 def draw_text_2d(
@@ -314,12 +314,12 @@ def register_draw_handler() -> None:
     This should be called during addon registration to enable the overlay
     drawing in the 3D viewport.
     """
-    global _meta_human_dna_rbf_editor_draw_handler
+    global _character_dna_rbf_editor_draw_handler
 
-    if _meta_human_dna_rbf_editor_draw_handler is not None:
+    if _character_dna_rbf_editor_draw_handler is not None:
         return  # Already registered
 
-    _meta_human_dna_rbf_editor_draw_handler = bpy.types.SpaceView3D.draw_handler_add(
+    _character_dna_rbf_editor_draw_handler = bpy.types.SpaceView3D.draw_handler_add(
         draw_rbf_editor_overlay, (), "WINDOW", "POST_PIXEL"
     )
 
@@ -331,8 +331,8 @@ def unregister_draw_handler() -> None:
     This should be called during addon un-registration to clean up
     the draw handler.
     """
-    global _meta_human_dna_rbf_editor_draw_handler
+    global _character_dna_rbf_editor_draw_handler
 
-    if _meta_human_dna_rbf_editor_draw_handler is not None:
-        bpy.types.SpaceView3D.draw_handler_remove(_meta_human_dna_rbf_editor_draw_handler, "WINDOW")
-        _meta_human_dna_rbf_editor_draw_handler = None
+    if _character_dna_rbf_editor_draw_handler is not None:
+        bpy.types.SpaceView3D.draw_handler_remove(_character_dna_rbf_editor_draw_handler, "WINDOW")
+        _character_dna_rbf_editor_draw_handler = None

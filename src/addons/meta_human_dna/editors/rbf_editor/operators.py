@@ -263,8 +263,6 @@ class CommitRBFSolverChanges(RBFEditorOperatorBase):
 
         create_backup(instance, BackupType.PRE_RBF_EDITOR_COMMIT)
 
-        from ...bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
-
         reader = get_dna_reader(file_path=instance.body_dna_file_path)
         writer = get_dna_writer(file_path=instance.body_dna_file_path)
         data = utilities.collection_to_list(instance.rbf_solver_list)
@@ -278,7 +276,7 @@ class CommitRBFSolverChanges(RBFEditorOperatorBase):
         instance.destroy()
 
         try:
-            meta_human_dna_core.commit_rbf_data_to_dna(reader=reader, writer=writer, data=data)
+            character_dna_core.commit_rbf_data_to_dna(reader=reader, writer=writer, data=data)
         except ValueError as error:
             self.report({"ERROR"}, str(error))
             return
@@ -461,7 +459,7 @@ class AddRBFPose(RBFPoseOperatorBase):
         # Get driven bones from our selection
         driven_bones = self._get_selected_driven_bones(bpy.context)  # pyright: ignore[reportArgumentType]
 
-        pose_name = self.new_pose_name if self.new_pose_name else f"Pose{new_pose_index}"
+        pose_name = self.new_pose_name or f"Pose{new_pose_index}"
         pose = self.add_pose(
             instance=instance,
             pose_name=pose_name,

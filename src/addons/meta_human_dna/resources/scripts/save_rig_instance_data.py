@@ -10,6 +10,8 @@ from pathlib import Path
 ADDON_IDS = [
     "meta_human_dna",
     "meta_human_dna_pro",
+    "character_dna",
+    "character_dna_pro",
 ]
 
 DATA_KEYS = [

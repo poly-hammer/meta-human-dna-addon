@@ -3,7 +3,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent
 
-ADDON_NAME = "meta_human_dna"
+ADDON_NAME = "character_dna"
 
 TEST_FILES_FOLDER = REPO_ROOT / "tests" / "test_files"
 EXTRA_TEST_FILES_FOLDER = REPO_ROOT / "tests" / "extra_test_files"

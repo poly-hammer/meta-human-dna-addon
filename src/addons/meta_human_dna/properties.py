@@ -45,14 +45,14 @@ class BlendFileCharacterCollection(bpy.types.PropertyGroup):
     include: bpy.props.BoolProperty(
         default=True,
         description=(
-            "Whether to include this MetaHuman data in the append or link operation. Note: you can not "
+            "Whether to include this rig instance data in the append or link operation. Note: you can not "
             "append or link rig instances that have the same name as another in the current scene. "
             "Names must be unique"
         ),
     )  # pyright: ignore[reportInvalidTypeForm]
     name: bpy.props.StringProperty(
         default="",
-        description="The name of the MetaHuman",
+        description="The name of the rig instance",
     )  # pyright: ignore[reportInvalidTypeForm]
     enabled: bpy.props.BoolProperty(default=True)  # pyright: ignore[reportInvalidTypeForm]
 

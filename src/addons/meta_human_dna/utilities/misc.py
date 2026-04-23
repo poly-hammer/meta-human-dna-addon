@@ -610,7 +610,7 @@ def import_head_texture_logic_node() -> bpy.types.NodeTree | None:
 
 
 def dependencies_are_valid() -> bool:
-    for module_name in ["riglogic", "meta_human_dna_core"]:
+    for module_name in ["riglogic", "character_dna_core"]:
         module = next((module for key, module in sys.modules.items() if key.endswith(module_name)), None)
         if module and getattr(module, "__is_fake__", False):
             return False
@@ -1043,7 +1043,7 @@ def get_addon_preferences() -> "CharacterAddonProperties | None":
         return bpy.context.preferences.addons[ToolInfo.EXTENSION_ID].preferences  # type: ignore[attr-defined]
 
     # search for the addon preferences, these can be defined under different names depending on how
-    # the addon was installed. E.g. "meta_human_dna" or "bl_ext.user_default.meta_human_dna"
+    # the addon was installed. E.g. "character_dna" or "bl_ext.user_default.character_dna"
     for extension_id in bpy.context.preferences.addons.keys():  # noqa: SIM118
         key = extension_id.split(".")[-1]
         if key == ToolInfo.NAME:
@@ -1122,8 +1122,8 @@ def file_path_hash(file_path: Path, length: int = 8) -> str:
 
 def disable_duplicate_addons():
     # If the pro version of the addon is enabled, disable any other versions to avoid conflicts
-    if ToolInfo.NAME == "meta_human_dna_pro":
+    if ToolInfo.NAME == "character_dna_pro":
         enabled_addons = [mod.__name__ for mod in addon_utils.modules() if addon_utils.check(mod.__name__)[1]]  # type: ignore[reportGeneralTypeIssues]
         for addon_name in enabled_addons:
-            if addon_name.endswith("meta_human_dna"):
+            if addon_name.endswith(("meta_human_dna", "character_dna")):
                 addon_utils.disable(addon_name)

@@ -11,8 +11,8 @@ import pytest
 from mathutils import Vector
 
 from constants import TEST_FBX_POSES_FOLDER, TEST_JSON_POSES_FOLDER
-from meta_human_dna.constants import CUSTOM_BONE_SHAPE_NAME, CUSTOM_BONE_SHAPE_SCALE, POSES_FOLDER
-from meta_human_dna.ui.callbacks import (
+from character_dna.constants import CUSTOM_BONE_SHAPE_NAME, CUSTOM_BONE_SHAPE_SCALE, POSES_FOLDER
+from character_dna.ui.callbacks import (
     get_active_rig_instance,
 )
 from utilities.bones import get_bone_differences, show_differences
@@ -101,7 +101,7 @@ def test_head_pose(
             armature_object = bpy.data.objects[f"{fbx_file_path.stem}_head_rig"]
 
         # set the current pose
-        bpy.context.window_manager.meta_human_dna.face_pose_previews = str(
+        bpy.context.window_manager.character_dna.face_pose_previews = str(
             POSES_FOLDER / pose_name / "thumbnail-preview.png"
         )  # type: ignore
 
@@ -124,7 +124,7 @@ def test_head_pose(
         with json_pose_file_path.open() as file:
             target_locations = json.load(file)
         # set the current pose
-        bpy.context.window_manager.meta_human_dna.face_pose_previews = str(
+        bpy.context.window_manager.character_dna.face_pose_previews = str(
             POSES_FOLDER / pose_name / "thumbnail-preview.png"
         )  # type: ignore
 
@@ -147,7 +147,7 @@ def test_head_pose(
 )
 def test_active_face_material(load_head_dna, enum_index, active_face_material_name):
     pytest.skip("TODO: Fix this")
-    bpy.context.scene.meta_human_dna.active_face_material = active_face_material_name  # type: ignore
+    bpy.context.scene.character_dna.active_face_material = active_face_material_name  # type: ignore
     instance = get_active_rig_instance()
     assert instance, "No active rig logic found"
 

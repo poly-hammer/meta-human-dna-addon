@@ -1,13 +1,13 @@
 import bpy
 import pytest
 
-from meta_human_dna import operators
-from meta_human_dna.ui import view_3d
+from character_dna import operators
+from character_dna.ui import view_3d
 
 
 def test_addons_are_enabled(addons):
     for addon_name, _ in addons:
-        assert "meta_human_dna" in bpy.context.preferences.addons, f"{addon_name} is not enabled"  # type: ignore
+        assert "character_dna" in bpy.context.preferences.addons, f"{addon_name} is not enabled"  # type: ignore
 
 
 @pytest.mark.parametrize(
@@ -27,7 +27,7 @@ def test_view_3d(panel_class):
     "operator_class",
     [
         operators.ForceEvaluate,
-        operators.ImportMetaHumanDna,
+        operators.ImportCharacterDna,
     ],
 )
 def test_operators(operator_class):

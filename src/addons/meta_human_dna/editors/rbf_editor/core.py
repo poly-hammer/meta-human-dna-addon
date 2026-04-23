@@ -210,8 +210,6 @@ def update_body_rbf_poses_active_index(self: "RBFSolverData", context: "Context"
     if not utilities.dependencies_are_valid():
         return
 
-    from ...bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
-
     instance = utilities.get_active_rig_instance()
 
     if not instance or not instance.body_rig:
@@ -246,7 +244,7 @@ def update_body_rbf_poses_active_index(self: "RBFSolverData", context: "Context"
             twist_blend_weights = pose_bone.get("twist_blend_weights", [])
 
             # calculate swing and twist outputs
-            swing_outputs, twist_outputs = meta_human_dna_core.calculate_swing_twist(
+            swing_outputs, twist_outputs = character_dna_core.calculate_swing_twist(
                 driver_quaternion_rotation=list(driver.quaternion_rotation[:]),
                 swing_bone_names=swing_bone_names,
                 swing_blend_weights=list(swing_blend_weights[:]),
@@ -328,8 +326,6 @@ def update_body_rbf_solver_list(self: "RigInstance"):  # noqa: PLR0912
     if not utilities.dependencies_are_valid():
         return
 
-    from ...bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
-
     # skip if the body rig is not set
     if not self.body_rig or not self.body_dna_reader:
         return
@@ -352,7 +348,7 @@ def update_body_rbf_solver_list(self: "RigInstance"):  # noqa: PLR0912
                 last_active_driver_index = _pose.drivers_active_index
 
     self.rbf_solver_list.clear()
-    for solver_data in meta_human_dna_core.get_rbf_solver_data(self.body_dna_reader):
+    for solver_data in character_dna_core.get_rbf_solver_data(self.body_dna_reader):
         solver = self.rbf_solver_list.add()
         for solver_field_name in solver_data.__annotations__:
             if solver_field_name == "poses":
@@ -503,13 +499,11 @@ def diff_rbf_pose_data(instance: "RigInstance") -> None:  # noqa: PLR0912
 
     driven = sorted(list(d for d in pose.driven), key=lambda x: x.name)  # noqa: C400, C414
 
-    from ...bindings import meta_human_dna_core  # pyright: ignore[reportAttributeAccessIssue]
-
     if not instance.body_initialized:
         instance.body_initialize(update_rbf_solver_list=False)
 
     # Update the driven bone edit flags by comparing to original DNA data
-    for solver_data in meta_human_dna_core.get_rbf_solver_data(instance.body_dna_reader):
+    for solver_data in character_dna_core.get_rbf_solver_data(instance.body_dna_reader):
         for solver_field_name in solver_data.__annotations__:
             if solver_field_name == "poses":
                 for pose_data in solver_data.poses:

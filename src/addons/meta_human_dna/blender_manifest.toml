@@ -8,7 +8,7 @@ schema_version = "1.0.0"
 # =============================================================================
 # Extension Identification
 # =============================================================================
-id = "meta_human_dna"
+id = "character_dna"
 name = "Character DNA"
 tagline = "Customize MetaHuman DNA files with RigLogic evaluation support"
 version = "0.6.5"
@@ -64,7 +64,7 @@ for Epic Games' MetaHuman DNA file format.
 - Platform-specific RigLogic bindings (available at polyhammer.com)
 - Sentry SDK for error reporting (bundled)
 
-For detailed documentation, visit: https://docs.polyhammer.com/meta-human-dna-addon/
+For detailed documentation, visit: https://docs.polyhammer.com/character-dna-addon/
 """
 
 # =============================================================================
@@ -90,9 +90,7 @@ permissions = { files = "Import and export DNA files", network = "Error reportin
 # =============================================================================
 # Python packages required by this extension
 # These will be installed automatically when the extension is enabled
-wheels = [
-    "./wheels/sentry_sdk-2.52.0-py2.py3-none-any.whl",
-]
+wheels = ["./wheels/sentry_sdk-2.52.0-py2.py3-none-any.whl"]
 
 # =============================================================================
 # Build Settings
