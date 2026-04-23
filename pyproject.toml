@@ -105,11 +105,11 @@ show_missing = true
 [tool.coverage.run]
 branch = true
 omit = [
-  "src/addons/meta_human_dna/resources/*",
-  "src/addons/meta_human_dna/bindings/*"
+  "src/addons/character_dna/resources/*",
+  "src/addons/character_dna/bindings/*"
 ]
 parallel = true
-source = ["src/addons/meta_human_dna"]
+source = ["src/addons/character_dna"]
 
 [tool.coverage.xml]
 output = "reports/coverage/results.xml"
@@ -117,7 +117,7 @@ output = "reports/coverage/results.xml"
 [tool.hatch]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/addons/meta_human_dna"]
+packages = ["src/addons/character_dna"]
 
 # =============================================================================
 # MyPy Configuration (optional, for those who prefer mypy)
@@ -149,17 +149,17 @@ exclude = [
   "scratches",
   "reports",
   "releases",
-  "src/addons/meta_human_dna/core",
-  "src/addons/meta_human_dna/resources",
-  "src/addons/meta_human_dna/bindings"
+  "src/addons/character_dna/core",
+  "src/addons/character_dna/resources",
+  "src/addons/character_dna/bindings"
 ]
 # Extra paths for imports
 extraPaths = [
   "src/addons",
   ".stubs-venv/Lib/site-packages",
-  "src/addons/meta_human_dna/resources/packages",
-  "src/addons/meta_human_dna/resources/unreal",
-  "src/addons/meta_human_dna/bindings/windows/amd64"
+  "src/addons/character_dna/resources/packages",
+  "src/addons/character_dna/resources/unreal",
+  "src/addons/character_dna/bindings/windows/amd64"
 ]
 # Source roots
 include = ["src/addons", "tests"]
@@ -230,8 +230,8 @@ exclude = [
   "scripts",
   "tests",
   "*.pyi",
-  "src/addons/meta_human_dna/resources/*",
-  "src/addons/meta_human_dna/bindings/*"
+  "src/addons/character_dna/resources/*",
+  "src/addons/character_dna/bindings/*"
 ]
 # Line length to match Black's default
 line-length = 120
@@ -345,7 +345,7 @@ ban-relative-imports = "parents"  # Allow relative imports from same/child modul
 combine-as-imports = true
 force-single-line = false
 # isort configuration (replaces standalone isort)
-known-first-party = ["meta_human_dna"]
+known-first-party = ["character_dna"]
 known-third-party = ["bpy", "bmesh", "mathutils", "riglogic"]
 lines-after-imports = 2
 lines-between-types = 1
