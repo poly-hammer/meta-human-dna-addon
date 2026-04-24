@@ -382,10 +382,12 @@ staticmethod-decorators = ["staticmethod"]
 # =============================================================================
 [tool.uv]
 override-dependencies = [
-  # bpy pins numpy<2.0 but numpy 1.x has no pre-built wheels for Python 3.13,
-  # causing source builds that hang on Windows CI. bpy 5.1 works fine with
-  # numpy 2.x at runtime (Blender 5.1 bundles it internally).
-  "numpy>=2.0; python_version >= '3.13'",
+  # Pin numpy per Python version: bpy pins numpy<2.0 but numpy 1.x has no
+  # pre-built wheels for Python 3.13, causing source builds that hang on
+  # Windows CI. bpy 5.1 works fine with numpy 2.x at runtime (Blender 5.1
+  # bundles it internally).
+  "numpy==1.26.4; python_version == '3.11'",
+  "numpy==2.3.4; python_version == '3.13'",
 ]
 
 [tool.ruff.lint.pylint]

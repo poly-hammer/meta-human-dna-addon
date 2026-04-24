@@ -120,6 +120,10 @@ try:
         sys.modules[__name__ + ".character_dna_core"] = sys.modules.pop("character_dna_core")
 
 except ModuleNotFoundError:
+    class open_mode:
+        __is_fake__ = True
+        Binary = 0
+        Text = 1
 
     class riglogic:
         __is_fake__ = True
@@ -130,7 +134,7 @@ except ModuleNotFoundError:
         FileStream = object
         BinaryStreamWriter = object
         JSONStreamWriter = object
-        OpenMode = object
+        OpenMode = open_mode
 
     class character_dna_core:
         __is_fake__ = True
