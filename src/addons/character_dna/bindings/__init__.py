@@ -120,6 +120,10 @@ try:
         sys.modules[__name__ + ".character_dna_core"] = sys.modules.pop("character_dna_core")
 
 except ModuleNotFoundError:
+    # On CI fail if the bindings are missing
+    if os.environ.get("RUNNING_CI"):
+        raise
+
     class open_mode:
         __is_fake__ = True
         Binary = 0
