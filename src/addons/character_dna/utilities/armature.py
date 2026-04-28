@@ -504,6 +504,7 @@ def get_topology_group_surface_bones(
 ) -> list[bpy.types.Bone]:
     bones = []
     from ..bindings import character_dna_core  # pyright: ignore[reportAttributeAccessIssue]
+
     vertex_indices = get_vertex_group_vertices(mesh_object, vertex_group_name)
     vertex_to_bone_name = character_dna_core.calculate_vertex_to_bone_name_mapping(dna_reader=dna_reader)
     for vertex_index in vertex_indices:
@@ -543,11 +544,13 @@ def get_mouth_bone_names(armature_object: bpy.types.Object) -> list[str]:
 
 def get_eye_bones_names(side: Literal["l", "r"]) -> list[str]:
     from ..bindings import character_dna_core  # pyright: ignore[reportAttributeAccessIssue]
+
     return character_dna_core.EYE_BALL_L_BONES if side == "l" else character_dna_core.EYE_BALL_R_BONES
 
 
 def get_ignored_bones_names(armature_object: bpy.types.Object) -> list[str]:
     from ..bindings import character_dna_core  # pyright: ignore[reportAttributeAccessIssue]
+
     mouth_bone_names = get_mouth_bone_names(armature_object)
     return mouth_bone_names + character_dna_core.EYE_BALL_L_BONES + character_dna_core.EYE_BALL_R_BONES
 
