@@ -55,4 +55,4 @@ You can make a totally custom material node tree if you want. All you need to do
 
 ![3](./images/textures/3.gif){: class="rounded-image center-image"}
 
-With this set, now [RigLogic](./terminology.md#riglogic) will update the wrinkle map masks for you as the GUI controls are evaluated.
+With this set, now [RigLogic](./terminology.md#rig-logic) will update the wrinkle map masks for you as the GUI controls are evaluated.

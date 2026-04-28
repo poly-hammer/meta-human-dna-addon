@@ -38,6 +38,20 @@ from mathutils import Euler, Vector  # noqa: E402
 from constants import REPO_ROOT  # noqa: E402
 
 
+_session_exit_code = 0
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """Capture the exit code before unconfigure."""
+    global _session_exit_code
+    _session_exit_code = exitstatus
+
+
+def pytest_unconfigure() -> None:
+    """Force exit to prevent bpy's C++ cleanup from hanging on process teardown."""
+    os._exit(_session_exit_code)
+
+
 def pytest_configure():
     """
     Installs the bindings for the addon.
