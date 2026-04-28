@@ -813,6 +813,9 @@ def flush_texture_mask_keyframes_to_action(
     if not action:
         action = bpy.data.actions.new(name=action_name or f"{node_tree.name}Action")
         node_tree.animation_data.action = action
+        if not anim_utils:
+            # blender 4.5: animation_data.action assignment does not set id_root
+            action.id_root = "NODETREE"
 
     if anim_utils:
         if len(action.slots) == 0:
@@ -878,6 +881,10 @@ def bake_face_board_to_action(
 
             if anim_utils and len(target_action.slots) == 0:
                 target_action.slots.new("OBJECT", name=armature_object.name)
+            elif not anim_utils:
+                # blender 4.5: animation_data.action assignment does not set id_root,
+                # so set it explicitly so downstream code/tests can filter by it.
+                target_action.id_root = "OBJECT"
 
             # assign the new action to the armature
             if not armature_object.animation_data:
