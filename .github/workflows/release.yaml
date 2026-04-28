@@ -22,7 +22,7 @@ on:
 jobs:
   lint:
     name: Lint & Static Analysis
-    uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-lint.yaml@dev
+    uses: poly-hammer/poly-hammer-workflows/.github/workflows/re-use-lint.yaml@main
     secrets: inherit
     with:
       python-version: "3.11"
@@ -31,69 +31,75 @@ jobs:
   test-blender-4-5-ubuntu-latest:
     needs: [lint]
     name: Blender 4.5 Tests
-    uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-tests.yaml@dev
+    uses: poly-hammer/poly-hammer-workflows/.github/workflows/re-use-blender-tests.yaml@main
     secrets: inherit
     with:
       python-version: "3.11"
       blender-version: "4.5"
       runner-os: "ubuntu-latest"
-
+      addon-id: "character_dna"
+      base: "character-dna"
 
   test-blender-4-5-windows-latest:
     needs: [lint]
     name: Blender 4.5 Tests
-    uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-tests.yaml@dev
+    uses: poly-hammer/poly-hammer-workflows/.github/workflows/re-use-blender-tests.yaml@main
     secrets: inherit
     with:
       python-version: "3.11"
       blender-version: "4.5"
       runner-os: "windows-latest"
       addon-id: "character_dna"
+      base: "character-dna"
 
   test-blender-4-5-macos-latest:
     needs: [lint]
     name: Blender 4.5 Tests
-    uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-tests.yaml@dev
+    uses: poly-hammer/poly-hammer-workflows/.github/workflows/re-use-blender-tests.yaml@main
     secrets: inherit
     with:
       python-version: "3.11"
       blender-version: "4.5"
       runner-os: "macos-latest"
       addon-id: "character_dna"
+      base: "character-dna"
 
   # Test with Blender 5.1
   test-blender-5-1-ubuntu-latest:
     needs: [test-blender-4-5-ubuntu-latest]
     name: Blender 5.1 Tests
-    uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-tests.yaml@dev
+    uses: poly-hammer/poly-hammer-workflows/.github/workflows/re-use-blender-tests.yaml@main
     secrets: inherit
     with:
       python-version: "3.13"
       blender-version: "5.1"
       runner-os: "ubuntu-latest"
       addon-id: "character_dna"
+      base: "character-dna"
 
   test-blender-5-1-windows-latest:
     needs: [test-blender-4-5-windows-latest]
     name: Blender 5.1 Tests
-    uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-tests.yaml@dev
+    uses: poly-hammer/poly-hammer-workflows/.github/workflows/re-use-blender-tests.yaml@main
     secrets: inherit
     with:
       python-version: "3.13"
       blender-version: "5.1"
       runner-os: "windows-latest"
       addon-id: "character_dna"
+      base: "character-dna"
 
   test-blender-5-1-macos-latest:
     needs: [test-blender-4-5-macos-latest]
     name: Blender 5.1 Tests
-    uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-tests.yaml@dev
+    uses: poly-hammer/poly-hammer-workflows/.github/workflows/re-use-blender-tests.yaml@main
     secrets: inherit
     with:
       python-version: "3.13"
       blender-version: "5.1"
       runner-os: "macos-latest"
       addon-id: "character_dna"
+      base: "character-dna"
 
   release:
     needs:
@@ -103,8 +109,9 @@ jobs:
         test-blender-5-1-macos-latest,
       ]
     name: Release
-    uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-release.yaml@dev
+    uses: poly-hammer/poly-hammer-workflows/.github/workflows/re-use-blender-release.yaml@main
     secrets: inherit
     with:
       python-version: "3.13"
       environment: ${{ github.event.inputs.environment || 'staging' }}
+      addon-id: "character_dna"
