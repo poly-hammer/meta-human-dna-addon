@@ -3,8 +3,8 @@ from pathlib import Path
 import bpy
 import pytest
 
-from meta_human_dna import utilities
-from meta_human_dna.ui.callbacks import get_active_rig_instance
+from character_dna import utilities
+from character_dna.ui.callbacks import get_active_rig_instance
 
 
 @pytest.mark.parametrize(
@@ -22,9 +22,9 @@ def test_convert_component_to_dna(load_mhc_conformed_topology_meshes, temp_folde
     folder.mkdir(parents=True, exist_ok=True)
 
     # set the current component type in the UI
-    bpy.context.window_manager.meta_human_dna.current_component_type = component  # type: ignore
+    bpy.context.window_manager.character_dna.current_component_type = component  # type: ignore
     # convert to DNA
-    bpy.ops.meta_human_dna.convert_selected_to_dna(  # type: ignore
+    bpy.ops.character_dna.convert_selected_to_dna(  # type: ignore
         new_instance_name=name, new_folder=str(folder)
     )  # type: ignore
 

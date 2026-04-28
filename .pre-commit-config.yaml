@@ -1,7 +1,7 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
 default_language_version:
-  python: python3.11
+  python: python3.13
 
 repos:
   # =============================================================================
@@ -11,7 +11,7 @@ repos:
     rev: v6.0.0
     hooks:
       - id: check-yaml
-        args: [--unsafe] # Allow custom tags in YAML
+        args: [ --unsafe ] # Allow custom tags in YAML
       - id: check-toml
       - id: check-json
         exclude: ^\.vscode/ # VS Code JSON files support comments (JSONC)
@@ -20,7 +20,7 @@ repos:
       - id: check-case-conflict
       - id: check-symlinks
       - id: check-added-large-files
-        args: ["--maxkb=1000"]
+        args: [ "--maxkb=15000" ]
         exclude: |
           (?x)^(
             tests/test_files/.*|
@@ -42,7 +42,7 @@ repos:
             tests/test_files/.*
           )$
       - id: mixed-line-ending
-        args: ["--fix=lf"]
+        args: [ "--fix=lf" ]
         exclude: |
           (?x)^(
             .*\.dna|
@@ -52,7 +52,7 @@ repos:
           )$
       - id: detect-private-key
       - id: no-commit-to-branch
-        args: ["--branch", "main"]
+        args: [ "--branch", "main" ]
 
   # =============================================================================
   # Python - Ruff (Linting & Formatting)
@@ -63,12 +63,12 @@ repos:
       # Linter
       - id: ruff
         name: ruff-lint
-        args: [--fix, --exit-non-zero-on-fix]
-        types_or: [python, pyi]
+        args: [ --fix, --exit-non-zero-on-fix ]
+        types_or: [ python, pyi ]
       # Formatter (replaces black)
       - id: ruff-format
         name: ruff-format
-        types_or: [python, pyi]
+        types_or: [ python, pyi ]
 
   # =============================================================================
   # Spell checking - CSpell
@@ -80,8 +80,8 @@ repos:
         name: cspell
         entry: cspell lint --no-progress --no-summary
         language: node
-        types: [text]
-        stages: [manual] # Run only in CI, not on pre-commit
+        types: [ text ]
+        stages: [ manual ] # Run only in CI, not on pre-commit
 
   # =============================================================================
   # Security checks
@@ -90,10 +90,10 @@ repos:
     rev: 1.9.2
     hooks:
       - id: bandit
-        args: ["-c", "pyproject.toml", "-ll", "-r"]
-        additional_dependencies: ["bandit[toml]"]
+        args: [ "-c", "pyproject.toml", "-ll", "-r" ]
+        additional_dependencies: [ "bandit[toml]" ]
         exclude: ^tests/
-        stages: [manual] # Run only in CI, not on pre-commit
+        stages: [ manual ] # Run only in CI, not on pre-commit
 
   # =============================================================================
   # Markdown linting
@@ -102,7 +102,7 @@ repos:
     rev: v0.47.0
     hooks:
       - id: markdownlint
-        args: ["--fix", "--disable", "MD013", "MD033", "MD041", "MD059", "--"]
+        args: [ "--fix", "--disable", "MD013", "MD033", "MD041", "MD059", "--" ]
         exclude: |
           (?x)^(
             AGENT_INSTRUCTIONS\.md|
@@ -119,8 +119,7 @@ repos:
         description: Auto-bumps patch version and ensures version sync across addon files
         entry: >
           uv run python ./scripts/pre-commit/check_addon_version.py
-          meta_human_dna
-          --watch "src/addons/meta_human_dna/**/*.py"
+          character_dna --watch "src/addons/character_dna/**/*.py"
         language: system
         pass_filenames: false
         always_run: true

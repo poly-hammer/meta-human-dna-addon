@@ -13,9 +13,9 @@ Usage:
     python check_addon_version.py <addon_name> --set-version <version> [--stage]
 
 Example:
-    python check_addon_version.py meta_human_dna --watch "src/addons/meta_human_dna/**/*.py"
-    python check_addon_version.py meta_human_dna --set-version 1.0.0
-    python check_addon_version.py meta_human_dna --set-version 1.0.0 --stage
+    python check_addon_version.py character_dna --watch "src/addons/character_dna/**/*.py"
+    python check_addon_version.py character_dna --set-version 1.0.0
+    python check_addon_version.py character_dna --set-version 1.0.0 --stage
 """
 
 from __future__ import annotations
@@ -26,7 +26,6 @@ import platform
 import re
 import subprocess
 import sys
-
 from pathlib import Path
 from typing import NamedTuple
 
@@ -214,7 +213,9 @@ def write_version_to_toml(file_path: Path, version: Version) -> None:
     file_path.write_text(new_content, encoding="utf-8", newline="\n")
 
 
-def write_version_to_uv_lock(file_path: Path, package_name: str, version: Version) -> bool:
+def write_version_to_uv_lock(
+    file_path: Path, package_name: str, version: Version
+) -> bool:
     """Write version to uv.lock for a specific package.
 
     Returns True if the file was updated, False if file doesn't exist or package not found.
@@ -270,16 +271,16 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s meta_human_dna
-  %(prog)s meta_human_dna --watch "src/addons/meta_human_dna/**/*.py"
-  %(prog)s meta_human_dna --watch "src/addons/meta_human_dna/**/*.py" --watch "src/addons/meta_human_dna/**/*.toml"
-  %(prog)s meta_human_dna --set-version 1.0.0
-  %(prog)s meta_human_dna --set-version 1.0.0 --stage
+  %(prog)s character_dna
+  %(prog)s character_dna --watch "src/addons/character_dna/**/*.py"
+  %(prog)s character_dna --watch "src/addons/character_dna/**/*.py" --watch "src/addons/character_dna/**/*.toml"
+  %(prog)s character_dna --set-version 1.0.0
+  %(prog)s character_dna --set-version 1.0.0 --stage
         """,
     )
     parser.add_argument(
         "addon_name",
-        help="Name of the addon (e.g., 'meta_human_dna')",
+        help="Name of the addon (e.g., 'character_dna')",
     )
     parser.add_argument(
         "--watch",
@@ -378,14 +379,21 @@ def main() -> int:
     pyproject_path = Path("pyproject.toml")
     uv_lock_path = Path("uv.lock")
 
-    # Core package paths (for meta_human_dna_core bindings)
+    # Core package paths (for character_dna_core bindings)
     # Use platform detection for the correct path
     os_name, arch, python_version = _get_platform_info()
-    core_base_path = addon_base_path / "bindings" / os_name / arch / python_version / "meta_human_dna_core"
+    core_base_path = (
+        addon_base_path
+        / "bindings"
+        / os_name
+        / arch
+        / python_version
+        / "character_dna_core"
+    )
     core_pyproject_path = core_base_path / "pyproject.toml"
     core_uv_lock_path = core_base_path / "uv.lock"
-    core_version_py_path = core_base_path / "src" / "meta_human_dna_core" / "version.py"
-    core_package_name = "meta-human-dna-core"
+    core_version_py_path = core_base_path / "src" / "character_dna_core" / "version.py"
+    core_package_name = "character-dna-core"
 
     # Convert addon name to package name format (underscores to hyphens)
     package_name = args.addon_name.replace("_", "-") + "-addon"
@@ -465,7 +473,9 @@ def main() -> int:
         except ValueError:
             pass  # File exists but version not found
 
-    core_uv_lock_version = read_version_from_uv_lock(core_uv_lock_path, core_package_name)
+    core_uv_lock_version = read_version_from_uv_lock(
+        core_uv_lock_path, core_package_name
+    )
     core_version_py_version = read_version_from_version_py(core_version_py_path)
 
     print("Current versions:")
@@ -485,12 +495,16 @@ def main() -> int:
     relevant_changes = has_relevant_changes(staged_files, watch_patterns, version_files)
 
     # Determine if version files are already staged
-    version_files_staged = any(str(f) in [str(p) for p in version_files] for f in staged_files)
+    version_files_staged = any(
+        str(f) in [str(p) for p in version_files] for f in staged_files
+    )
 
     if relevant_changes and not version_files_staged:
         # Auto-bump patch version
         new_version = init_version.bumped_patch()
-        print(f"\nRelevant files changed. Auto-bumping patch version: {init_version} -> {new_version}")
+        print(
+            f"\nRelevant files changed. Auto-bumping patch version: {init_version} -> {new_version}"
+        )
 
         sync_version_to_all_files(
             version=new_version,

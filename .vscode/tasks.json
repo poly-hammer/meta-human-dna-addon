@@ -31,7 +31,7 @@
         },
         {
             "label": "Pytest: With Coverage",
-            "command": "uv run pytest ${input:test-suite} ${input:test-case} --cov-config=.coveragerc --cov=src/addons/meta_human_dna --cov-report=xml:reports/coverage/results.xml --cov-report=html:reports/coverage/html",
+            "command": "uv run pytest ${input:test-suite} ${input:test-case} --cov-config=.coveragerc --cov=src/addons/character_dna --cov-report=xml:reports/coverage/results.xml --cov-report=html:reports/coverage/html",
             "type": "shell",
             "group": {
                 "kind": "build"
@@ -135,7 +135,7 @@
         },
         {
             "label": "Version: Set Addon Version",
-            "command": "uv run python scripts/pre-commit/check_addon_version.py meta_human_dna --set-version ${input:addon-version}",
+            "command": "uv run python scripts/pre-commit/check_addon_version.py character_dna --set-version ${input:addon-version}",
             "type": "shell",
             "group": {
                 "kind": "build"
@@ -160,7 +160,8 @@
             "default": "4.5",
             "options": [
                 "4.5",
-                "5.0"
+                "5.0",
+                "5.1"
             ],
             "description": "What blender version to launch"
         },

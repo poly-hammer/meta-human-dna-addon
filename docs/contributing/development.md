@@ -66,7 +66,7 @@ Use `Python Debugger: Attach` to connect to Blender after launching from build t
 
 ```python
 from poly_hammer_utils.helpers import reload_addon_source_code
-reload_addon_source_code(['meta_human_dna'])
+reload_addon_source_code(['character_dna'])
 ```
 
 ## Code Quality

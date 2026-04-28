@@ -2,8 +2,8 @@ import bpy
 
 from mathutils import Vector
 
-from meta_human_dna.constants import EXTRA_BONES
-from meta_human_dna.utilities import deselect_all, switch_to_object_mode, switch_to_pose_mode
+from character_dna.constants import EXTRA_BONES
+from character_dna.utilities import deselect_all, switch_to_object_mode, switch_to_pose_mode
 
 
 def get_bone_differences(

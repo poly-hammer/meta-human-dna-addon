@@ -33,7 +33,7 @@ def load_dna(
     for lod_name in import_lods:
         lods_to_import[f"import_{lod_name}"] = True
 
-    bpy.ops.meta_human_dna.import_dna(  # type: ignore
+    bpy.ops.character_dna.import_dna(  # type: ignore
         filepath=str(file_path),
         import_mesh=True,
         import_bones=True,
@@ -191,8 +191,8 @@ def setup_reference_blend_file(addon, temp_folder) -> Path:
 
 @pytest.fixture(scope="session")
 def head_bmesh(load_head_dna) -> bmesh.types.BMesh | None:
-    from meta_human_dna.dna_io.exporter import DNAExporter
-    from meta_human_dna.utilities import get_active_head
+    from character_dna.dna_io.exporter import DNAExporter
+    from character_dna.utilities import get_active_head
 
     head = get_active_head()
     if head and head.head_mesh_object:
@@ -202,7 +202,7 @@ def head_bmesh(load_head_dna) -> bmesh.types.BMesh | None:
 
 @pytest.fixture(scope="session")
 def head_armature(load_head_dna) -> bpy.types.Object | None:
-    from meta_human_dna.utilities import get_active_head
+    from character_dna.utilities import get_active_head
 
     head = get_active_head()
     if head and head.head_rig_object:

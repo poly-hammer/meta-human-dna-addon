@@ -9,9 +9,9 @@ import bpy
 import pytest
 
 from constants import FINGER_NAMES, TEST_FBX_POSES_FOLDER, TEST_JSON_POSES_FOLDER
-from meta_human_dna.constants import CUSTOM_BONE_SHAPE_NAME, CUSTOM_BONE_SHAPE_SCALE
-from meta_human_dna.ui.callbacks import get_active_rig_instance
-from meta_human_dna.utilities import copy_mesh, select_only
+from character_dna.constants import CUSTOM_BONE_SHAPE_NAME, CUSTOM_BONE_SHAPE_SCALE
+from character_dna.ui.callbacks import get_active_rig_instance
+from character_dna.utilities import copy_mesh, select_only
 from utilities.bones import get_bone_differences, show_differences
 
 

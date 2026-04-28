@@ -2,7 +2,7 @@ import bpy
 
 from mathutils import Euler, Vector
 
-from meta_human_dna.utilities import apply_pose
+from character_dna.utilities import apply_pose
 
 
 def apply_bone_transform(

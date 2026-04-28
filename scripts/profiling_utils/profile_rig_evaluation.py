@@ -29,7 +29,6 @@ from __future__ import annotations
 import logging
 import statistics
 import time
-
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -37,9 +36,8 @@ from typing import TYPE_CHECKING, Any
 
 import bpy
 
-
 if TYPE_CHECKING:
-    from meta_human_dna.rig_logic import RigLogicInstance as RigInstance
+    from character_dna.rig_logic import RigLogicInstance as RigInstance
 
 logger = logging.getLogger(__name__)
 
@@ -103,24 +101,44 @@ class ProfileResults:
     """Container for all profiling results."""
 
     # Head Python timing
-    head_gui_control_update: TimingResult = field(default_factory=lambda: TimingResult("head_gui_control_update"))
-    head_raw_control_update: TimingResult = field(default_factory=lambda: TimingResult("head_raw_control_update"))
-    head_bone_transforms: TimingResult = field(default_factory=lambda: TimingResult("head_bone_transforms"))
-    head_shape_keys: TimingResult = field(default_factory=lambda: TimingResult("head_shape_keys"))
-    head_texture_masks: TimingResult = field(default_factory=lambda: TimingResult("head_texture_masks"))
+    head_gui_control_update: TimingResult = field(
+        default_factory=lambda: TimingResult("head_gui_control_update")
+    )
+    head_raw_control_update: TimingResult = field(
+        default_factory=lambda: TimingResult("head_raw_control_update")
+    )
+    head_bone_transforms: TimingResult = field(
+        default_factory=lambda: TimingResult("head_bone_transforms")
+    )
+    head_shape_keys: TimingResult = field(
+        default_factory=lambda: TimingResult("head_shape_keys")
+    )
+    head_texture_masks: TimingResult = field(
+        default_factory=lambda: TimingResult("head_texture_masks")
+    )
 
     # Head C++ timing
-    head_manager_calculate: TimingResult = field(default_factory=lambda: TimingResult("head_manager_calculate"))
+    head_manager_calculate: TimingResult = field(
+        default_factory=lambda: TimingResult("head_manager_calculate")
+    )
 
     # Body Python timing
-    body_raw_control_update: TimingResult = field(default_factory=lambda: TimingResult("body_raw_control_update"))
-    body_bone_transforms: TimingResult = field(default_factory=lambda: TimingResult("body_bone_transforms"))
+    body_raw_control_update: TimingResult = field(
+        default_factory=lambda: TimingResult("body_raw_control_update")
+    )
+    body_bone_transforms: TimingResult = field(
+        default_factory=lambda: TimingResult("body_bone_transforms")
+    )
 
     # Body C++ timing
-    body_manager_calculate: TimingResult = field(default_factory=lambda: TimingResult("body_manager_calculate"))
+    body_manager_calculate: TimingResult = field(
+        default_factory=lambda: TimingResult("body_manager_calculate")
+    )
 
     # Full evaluation
-    full_evaluation: TimingResult = field(default_factory=lambda: TimingResult("full_evaluation"))
+    full_evaluation: TimingResult = field(
+        default_factory=lambda: TimingResult("full_evaluation")
+    )
 
     # C++ stats
     head_stats: RigLogicStats = field(default_factory=RigLogicStats)
@@ -134,7 +152,9 @@ class RigEvaluationProfiler:
         self.rig_instance = rig_instance
         self.results = ProfileResults()
 
-    def _time_function(self, func: Callable[..., Any], *args: Any, **kwargs: Any) -> tuple[Any, int]:
+    def _time_function(
+        self, func: Callable[..., Any], *args: Any, **kwargs: Any
+    ) -> tuple[Any, int]:
         """Time a function call and return (result, time_ns)."""
         start = time.perf_counter_ns()
         result = func(*args, **kwargs)
@@ -147,7 +167,9 @@ class RigEvaluationProfiler:
             return RigLogicStats(
                 calculation_type="",  # Not available from reader
                 floating_point_type="",  # Not available from reader
-                rbf_solver_count=dna_reader.getRBFSolverCount() if hasattr(dna_reader, "getRBFSolverCount") else 0,
+                rbf_solver_count=dna_reader.getRBFSolverCount()
+                if hasattr(dna_reader, "getRBFSolverCount")
+                else 0,
                 neural_network_count=dna_reader.getNeuralNetworkCount()
                 if hasattr(dna_reader, "getNeuralNetworkCount")
                 else 0,
@@ -158,7 +180,9 @@ class RigEvaluationProfiler:
                 animated_map_count=dna_reader.getAnimatedMapCount()
                 if hasattr(dna_reader, "getAnimatedMapCount")
                 else 0,
-                joint_count=dna_reader.getJointCount() if hasattr(dna_reader, "getJointCount") else 0,
+                joint_count=dna_reader.getJointCount()
+                if hasattr(dna_reader, "getJointCount")
+                else 0,
                 joint_delta_value_count=0,  # Not directly available
             )
         except Exception:
@@ -245,7 +269,9 @@ class RigEvaluationProfiler:
         r = self.results
 
         def row(name: str, t: TimingResult) -> None:
-            print(f"  {name:25s} | mean: {t.mean_ms:7.3f}ms | p95: {t.p95_ms:7.3f}ms | max: {t.max_ms:7.3f}ms")
+            print(
+                f"  {name:25s} | mean: {t.mean_ms:7.3f}ms | p95: {t.p95_ms:7.3f}ms | max: {t.max_ms:7.3f}ms"
+            )
 
         print("\n" + "=" * 80)
         print("RIG EVALUATION PROFILING REPORT")
@@ -326,14 +352,16 @@ class RigEvaluationProfiler:
         """
         from .exporters import export_snapshot
 
-        return export_snapshot(self.results, output_path, output_format, iterations, warmup)
+        return export_snapshot(
+            self.results, output_path, output_format, iterations, warmup
+        )
 
 
 def get_active_rig_instance() -> RigInstance | None:
     """Get the active RigInstance from the scene."""
     try:
         # Try the current property name first
-        props = bpy.context.scene.meta_human_dna  # type: ignore[attr-defined]
+        props = bpy.context.scene.character_dna  # type: ignore[attr-defined]
         if hasattr(props, "rig_instance_list"):
             instance_list = props.rig_instance_list
             active_index = props.rig_instance_list_active_index

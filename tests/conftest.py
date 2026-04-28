@@ -29,7 +29,8 @@ import shutil  # noqa: E402
 
 from pathlib import Path  # noqa: E402
 
-import bpy  # import this to ensure that mathutils is available  # noqa: E402, F401 #  pyright: ignore[reportUnusedImport]
+# import this to ensure that mathutils is available
+import bpy   # pyright: ignore
 import pytest  # noqa: E402
 
 from mathutils import Euler, Vector  # noqa: E402
@@ -42,9 +43,9 @@ def pytest_configure():
     Installs the bindings for the addon.
     """
 
-    bindings_source_folder = REPO_ROOT.parent / "meta-human-dna-bindings"
-    core_source_folder = REPO_ROOT.parent / "meta-human-dna-core"
-    bindings_destination_folder = REPO_ROOT / "src" / "addons" / "meta_human_dna" / "bindings"
+    bindings_source_folder = REPO_ROOT.parent / "character-dna-bindings"
+    core_source_folder = REPO_ROOT.parent / "character-dna-core"
+    bindings_destination_folder = REPO_ROOT / "src" / "addons" / "character_dna" / "bindings"
 
     bindings_specific_source_folder = bindings_source_folder / OS_NAME / ARCH / PYTHON_VERSION
     bindings_specific_destination_folder = bindings_destination_folder / OS_NAME / ARCH / PYTHON_VERSION
@@ -63,15 +64,14 @@ def pytest_configure():
         )
 
     # If running tests on the CI, copy core to the specific destination folder
-    core_destination_folder = bindings_specific_destination_folder / "meta_human_dna_core"
+    core_destination_folder = bindings_specific_destination_folder / "character_dna_core"
     if core_source_folder.exists() and not core_destination_folder.exists() and os.environ.get("RUNNING_CI"):
         shutil.copytree(src=core_source_folder, dst=core_destination_folder, dirs_exist_ok=True)
 
     # ensure the addon module is on the python path
     sys.path.append(str(REPO_ROOT / "src" / "addons"))
 
-
-from fixtures.addon import addon, disable_auto_save  # noqa: E402, F401
+from fixtures.addon import addon, disable_auto_save  # pyright: ignore[reportUnusedImport] # noqa: E402, F401
 from fixtures.dna_data import (  # noqa: E402, F401
     calibrated_head_dna_json_data, #  pyright: ignore[reportUnusedImport]
     exported_head_dna_json_data, #  pyright: ignore[reportUnusedImport]
@@ -94,7 +94,7 @@ from fixtures.scene import (  # noqa: E402, F401
 
 @pytest.fixture(scope="session")
 def addons() -> list:
-    return [("meta_human_dna", Path(__file__).parent.parent / "src")]
+    return [("character_dna", Path(__file__).parent.parent / "src")]
 
 
 @pytest.fixture(scope="session")
