@@ -31,9 +31,9 @@ The addon is compatible with MetaHuman `.dna` files that have been created with 
 | 4.5             | Windows  | x64          |
 | 4.5             | Linux    | x64          |
 | 4.5             | Mac OS   | arm64        |
-| 5.0             | Windows  | x64          |
-| 5.0             | Linux    | x64          |
-| 5.0             | Mac OS   | arm64        |
+| 5.1             | Windows  | x64          |
+| 5.1             | Linux    | x64          |
+| 5.1             | Mac OS   | arm64        |
 
 ## Dependencies
 
