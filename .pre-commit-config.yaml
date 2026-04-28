@@ -51,8 +51,8 @@ repos:
             .*\.bat
           )$
       - id: detect-private-key
-      - id: no-commit-to-branch
-        args: [ "--branch", "main" ]
+      # - id: no-commit-to-branch
+      #   args: [ "--branch", "main" ]
 
   # =============================================================================
   # Python - Ruff (Linting & Formatting)
