@@ -3,7 +3,6 @@ on:
   push:
     branches:
       - main
-      - dev
     paths:
       - "src/**"
       - "tests/**"
@@ -115,3 +114,4 @@ jobs:
       python-version: "3.13"
       environment: ${{ github.event.inputs.environment || 'staging' }}
       addon-id: "character_dna"
+      legacy-release: true

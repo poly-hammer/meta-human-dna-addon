@@ -3,7 +3,6 @@ on:
   pull_request:
     branches:
       - main
-      - dev
     paths:
       - "src/**"
       - "tests/**"
@@ -98,7 +97,7 @@ jobs:
   benchmark-blender-4-5:
     needs: [test-blender-5-1-ubuntu-latest, test-blender-5-1-windows-latest, test-blender-5-1-macos-latest]
     name: Blender 4.5 Benchmark
-    uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-benchmark.yaml@dev
+    uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-benchmark.yaml@main
     secrets: inherit
     with:
       python-version: "3.11"
