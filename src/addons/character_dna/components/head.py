@@ -450,7 +450,7 @@ class CharacterComponentHead(CharacterComponentBase):
                         mesh_index,
                         "Initializing basis shape...",
                         get_initialize_kwargs,
-                        lambda **kwargs: utilities.initialize_basis_shape_key(**kwargs),
+                        utilities.initialize_basis_shape_key,
                     )
                 )
 
@@ -461,7 +461,7 @@ class CharacterComponentHead(CharacterComponentBase):
                         mesh_index,
                         f"{index}/{count}" + " {name} ...",
                         get_create_kwargs,
-                        lambda **kwargs: create_shape_key(**kwargs),
+                        create_shape_key,
                     )
                 )
 
