@@ -23,7 +23,7 @@ logger = logging.getLogger(constants.ToolInfo.NAME)
 bl_info = {
     "name": "Character DNA",
     "author": "Poly Hammer",
-    "version": (0, 6, 9),
+    "version": (0, 7, 0),
     "blender": (4, 5, 0),
     "location": "File > Import > MetaHuman DNA",
     "description": (
@@ -32,7 +32,7 @@ bl_info = {
     ),
     "warning": "",
     "wiki_url": "https://docs.polyhammer.com/character-dna-addon/",
-    "category": "Rigging",
+    "category": "Poly Hammer",
 }
 
 # Callbacks that other addons can register to be notified when a rig instance is set up

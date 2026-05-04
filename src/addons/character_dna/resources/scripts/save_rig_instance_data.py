@@ -39,10 +39,9 @@ def ensure_addon_enabled(addon_name: str, scripts_folder: Path):
         sys.path.append(str(scripts_folder))
 
     # check if the addon is enabled
-    if addon_name not in bpy.context.preferences.addons.keys(): # type: ignore
+    if not addon_utils.check(addon_name)[1]:
         # otherwise, enable it
-        bpy.ops.preferences.addon_enable(module=addon_name)
-
+        addon_utils.enable(addon_name, default_set=True)
 
 def main():
     # Get arguments after '--'
@@ -71,6 +70,12 @@ def main():
 
 
         for addon_id in ADDON_IDS:
+            if addon_id in list(bpy.context.scene.keys()) and addon_id != args.addon_name:
+                raise ValueError(
+                    f"Legacy addon data detected! To fix this, please open, upgrade, and save the scene data "
+                    f"of the .blend file {args.blend_file}."
+                )
+
             scene_properties = getattr(bpy.context.scene, addon_id, None)
             if not scene_properties:
                 continue
@@ -87,12 +92,12 @@ def main():
                     'head_mesh': i.get('head_mesh').name if i.get('head_mesh') else None,
                     'head_rig': i.get('head_rig').name if i.get('head_rig') else None,
                     'head_material': i.get('head_material').name if i.get('head_material') else None,
-                    'head_dna_file_path': i.get('head_dna_file_path', ''),
+                    'head_dna_file_path': bpy.path.abspath(i.get('head_dna_file_path', '')),
                     'control_rig': i.get('control_rig').name if i.get('control_rig') else None,
                     'body_mesh': i.get('body_mesh').name if i.get('body_mesh') else None,
                     'body_rig': i.get('body_rig').name if i.get('body_rig') else None,
                     'body_material': i.get('body_material').name if i.get('body_material') else None,
-                    'body_dna_file_path': i.get('body_dna_file_path', ''),
+                    'body_dna_file_path': bpy.path.abspath(i.get('body_dna_file_path', '')),
                     'output_folder_path': i.get('output_folder_path', ''),
                 }
                 for i in rig_instance_list

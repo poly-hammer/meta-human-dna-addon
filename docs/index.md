@@ -20,13 +20,10 @@ The easiest way to get started, is to just drag and drop a `.dna` file into the 
 
 ![3](./images/quick-start/3.gif){: class="rounded-image"}
 
-If a `maps` folder exists alongside the `.dna` file, the importer will link any textures that follow the same naming conventions as the Metahuman source assets from bridge.
+If a `Maps` folder exists alongside the `.dna` file, the importer will link any textures that follow the same naming conventions as the MetaHuman source assets exported from MetaHuman Creator.
 
 !!! note
-    If you didn't already know, `.dna` files are a proprietary file format created by Epic Games. DNA is an integral part of the MetaHuman identity. DNA files encode all the details of the shape and rig for MetaHuman heads. You can obtain a `.dna` file for your Metahuman by exporting the source assets from [Bridge](https://dev.epicgames.com/documentation/en-us/metahuman/downloading-and-exporting-metahumans-to-unreal-engine-5-and-maya){: target="blank"}.
-
-!!! tip
-    If you are eager to get started, and don't want to setup Bridge. You can grab [these example](https://github.com/EpicGames/MetaHuman-DNA-Calibration/tree/main/data/dna_files){: target="blank"} `.dna` files directly from one of Epic's repos.
+    If you didn't already know, `.dna` files are a proprietary file format created by Epic Games. DNA is an integral part of the MetaHuman identity. DNA files encode all the details of the shape and rig for MetaHuman heads. You can obtain a `.dna` file for your Metahuman by doing a DCC export from [MetaHuman Creator](https://dev.epicgames.com/documentation/metahuman/metahuman-creator){: target="blank"}.
 
 ## Option 2: Convert Mesh to DNA
 

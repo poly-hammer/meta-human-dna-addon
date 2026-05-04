@@ -12,7 +12,7 @@ import uuid
 from collections.abc import Callable, Generator
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+from typing import Any, Literal
 
 import addon_utils
 
@@ -932,17 +932,48 @@ def collection_to_list(collection: bpy.types.bpy_prop_collection) -> list:
     return item_list
 
 
+def migrate_by_collection_data(context: "Context", addon_id: str) -> None:
+    for collection in bpy.context.collection.children_recursive:
+        if collection.name.endswith("_lod0"):
+            rig_instance_name = collection.name[:-5]
+            if rig_instance_name not in [
+                instance.name for instance in get_addon_scene_properties(context).rig_instance_list
+            ]:
+                instance = add_rig_instance(name=rig_instance_name)
+                instance.head_rig = bpy.data.objects.get(rig_instance_name + "_head_rig")
+                instance.body_rig = bpy.data.objects.get(rig_instance_name + "_body_rig")
+                instance.head_mesh = bpy.data.objects.get(rig_instance_name + "_head_lod0_mesh")
+                instance.body_mesh = bpy.data.objects.get(rig_instance_name + "_body_lod0_mesh")
+                instance.face_board = bpy.data.objects.get(rig_instance_name + "_face_gui")
+                instance.control_rig = bpy.data.objects.get(rig_instance_name + "_control_rig")
+                instance.head_material = bpy.data.materials.get(rig_instance_name + "_head_shader")
+                instance.body_material = bpy.data.materials.get(rig_instance_name + "_body_shader")
+
+    # Remove old addon key in scene data after migration
+    bpy.context.scene.pop(addon_id, None)
+
+
 @exclude_rig_instance_evaluation
-def migrate_legacy_data(context: "Context") -> None:  # noqa: PLR0912, PLR0915
+def migrate_legacy_data(context: "Context") -> Literal["default", "collection_data"]:  # noqa: PLR0912, PLR0915
     addon_scene_properties = None
     for addon_id in ADDON_IDS:
+        # When a addon id is found in the scene keys that does not match the current addon version and has no data,
+        # we can assume that the data can only be migrated by looking at the collection in the scene.
+        if (
+            addon_id in list(context.scene.keys())
+            and addon_id != get_addon_version()
+            and not context.scene.get(addon_id)
+        ):
+            migrate_by_collection_data(context, addon_id)
+            return "collection_data"
+
         addon_scene_properties = get_addon_scene_properties(context, id_override=addon_id)
         if addon_scene_properties:
             break
 
     if not addon_scene_properties:
         logger.error("Failed to find addon scene properties for data migration.")
-        return
+        return "default"
 
     rig_instance_names = [instance.name for instance in addon_scene_properties.rig_instance_list]
     for key in LEGACY_DATA_KEYS:
@@ -1026,6 +1057,8 @@ def migrate_legacy_data(context: "Context") -> None:  # noqa: PLR0912, PLR0915
             scene_data = getattr(context.scene, ToolInfo.NAME)
             if scene_data is not None and hasattr(scene_data, key):
                 del scene_data[key]
+
+    return "default"
 
 
 def get_addon_preferences() -> "CharacterAddonProperties | None":

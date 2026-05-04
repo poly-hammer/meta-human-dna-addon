@@ -121,6 +121,7 @@
             "description": "Documentation - technical terms and misspelling flags",
             "words": [
                 "LFS",
+                "DCC",
                 "lod",
                 "tga"
             ],

@@ -1170,9 +1170,16 @@ class MigrateLegacyData(bpy.types.Operator):
     bl_label = "Migrate Legacy Data"
 
     def execute(self, context: "Context") -> set[str]:
-        utilities.migrate_legacy_data(context)
+        migrate_type = utilities.migrate_legacy_data(context)
         ops = utilities.get_addon_ops_module()
         ops.force_evaluate()
+
+        if migrate_type == "collection_data":
+            self.report(
+                {"WARNING"},
+                "Migrated legacy data using collection data. DNA file paths were NOT recovered and you will need "
+                "to update them manually.",
+            )
         return {"FINISHED"}
 
 

@@ -86,23 +86,23 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v6
         with:
-          path: "meta-human-dna-addon"
+          path: "character-dna-addon"
           lfs: true
           submodules: true
           token: ${{ secrets.GH_PAT }}
 
-      - name: Checkout meta-human-dna-bindings Repo
+      - name: Checkout character-dna-bindings Repo
         uses: actions/checkout@v6
         with:
-          repository: "poly-hammer/meta-human-dna-bindings"
-          path: "meta-human-dna-bindings"
+          repository: "poly-hammer/character-dna-bindings"
+          path: "character-dna-bindings"
           token: ${{ secrets.GH_PAT }}
 
-      - name: Checkout meta-human-dna-core Repo
+      - name: Checkout character-dna-core Repo
         uses: actions/checkout@v6
         with:
-          repository: "poly-hammer/meta-human-dna-core"
-          path: "meta-human-dna-core"
+          repository: "poly-hammer/character-dna-core"
+          path: "character-dna-core"
           token: ${{ secrets.GH_PAT }}
 
       - name: Set up Python ${{ inputs.python-version }}
@@ -117,7 +117,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          cd meta-human-dna-addon
+          cd character-dna-addon
           uv sync
           uv pip install --upgrade bpy==${{ inputs.blender-version }}.*
 
@@ -125,7 +125,7 @@ jobs:
         id: restore-baseline
         uses: actions/cache/restore@v5
         with:
-          path: meta-human-dna-addon/reports/profiling/benchmark-baseline.json
+          path: character-dna-addon/reports/profiling/benchmark-baseline.json
           key: benchmark-baseline-blender-${{ inputs.blender-version }}-${{ inputs.runner-os }}-latest
           restore-keys: |
             benchmark-baseline-blender-${{ inputs.blender-version }}-${{ inputs.runner-os }}-
@@ -133,7 +133,7 @@ jobs:
       - name: Check Baseline Exists
         id: baseline-check
         run: |
-          if [ -f "meta-human-dna-addon/reports/profiling/benchmark-baseline.json" ]; then
+          if [ -f "character-dna-addon/reports/profiling/benchmark-baseline.json" ]; then
             echo "baseline_exists=true" >> $GITHUB_OUTPUT
             echo "✓ Baseline found for Blender ${{ inputs.blender-version }} on ${{ inputs.runner-os }}"
           else
@@ -145,7 +145,7 @@ jobs:
 
       - name: Run Benchmark
         run: |
-          cd meta-human-dna-addon
+          cd character-dna-addon
           uv run python scripts/profiling_utils/ci_benchmark.py \
             --iterations ${{ inputs.iterations }} \
             --warmup ${{ inputs.warmup }} \
@@ -157,7 +157,7 @@ jobs:
         id: compare
         if: steps.baseline-check.outputs.baseline_exists == 'true'
         run: |
-          cd meta-human-dna-addon
+          cd character-dna-addon
           echo "Comparing against baseline with ${{ inputs.threshold }}% threshold..."
 
           # Run comparison
@@ -178,7 +178,7 @@ jobs:
 
       - name: Generate Summary
         run: |
-          cd meta-human-dna-addon
+          cd character-dna-addon
           echo "## Performance Benchmark Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Blender Version:** ${{ inputs.blender-version }}" >> $GITHUB_STEP_SUMMARY
@@ -215,17 +215,17 @@ jobs:
         with:
           name: benchmark-results-blender-${{ inputs.blender-version }}-${{ inputs.runner-os }}-${{ github.sha }}
           path: |
-            meta-human-dna-addon/reports/profiling/current/current.json
-            meta-human-dna-addon/reports/profiling/current/current.csv
-            meta-human-dna-addon/reports/profiling/current/current.md
-            meta-human-dna-addon/comparison_output.txt
+            character-dna-addon/reports/profiling/current/current.json
+            character-dna-addon/reports/profiling/current/current.csv
+            character-dna-addon/reports/profiling/current/current.md
+            character-dna-addon/comparison_output.txt
           retention-days: 30
 
       - name: Save as New Baseline (if none exists)
         if: steps.baseline-check.outputs.baseline_exists == 'false' && inputs.is-push == true
         uses: actions/cache/save@v5
         with:
-          path: meta-human-dna-addon/reports/profiling/current/current.json
+          path: character-dna-addon/reports/profiling/current/current.json
           key: benchmark-baseline-blender-${{ inputs.blender-version }}-${{ inputs.runner-os }}-latest
 
       - name: Notify Baseline Created
@@ -246,7 +246,7 @@ jobs:
             const fs = require('fs');
             let comparisonOutput = '';
             try {
-              comparisonOutput = fs.readFileSync('meta-human-dna-addon/comparison_output.txt', 'utf8');
+              comparisonOutput = fs.readFileSync('character-dna-addon/comparison_output.txt', 'utf8');
             } catch (e) {
               comparisonOutput = 'Could not read comparison output.';
             }

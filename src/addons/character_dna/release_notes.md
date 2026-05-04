@@ -1,10 +1,7 @@
-## Minor Changes
-
-* Added Blender 5.1 support
-
 ## Patch Changes
 
-* Fixed rig instance duplication bug
+* Fixed Legacy data migration op
+* Added validation to the Append/Link MetaHuman op to check for legacy data
 
 > [!WARNING]
 > You must use [poly-hammer-build-tool-workflow](https://github.com/poly-hammer/poly-hammer-build-tool-workflow) `1.0.0` or higher. If you have an older version, you will need to re-copy the template repo and [follow the setup tutorial again](https://www.youtube.com/watch?v=BAyCV8GwmCM). This is essential for your compiled dependencies to work correctly.

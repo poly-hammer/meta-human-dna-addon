@@ -97,7 +97,7 @@ jobs:
   benchmark-blender-4-5:
     needs: [test-blender-5-1-ubuntu-latest, test-blender-5-1-windows-latest, test-blender-5-1-macos-latest]
     name: Blender 4.5 Benchmark
-    uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-benchmark.yaml@main
+    uses: poly-hammer/character-dna-addon/.github/workflows/re-use-benchmark.yaml@main
     secrets: inherit
     with:
       python-version: "3.11"
@@ -112,7 +112,7 @@ jobs:
   benchmark-blender-5-1:
     needs: [test-blender-5-1-ubuntu-latest, test-blender-5-1-windows-latest, test-blender-5-1-macos-latest]
     name: Blender 5.1 Benchmark
-    uses: poly-hammer/meta-human-dna-addon/.github/workflows/re-use-benchmark.yaml@main
+    uses: poly-hammer/character-dna-addon/.github/workflows/re-use-benchmark.yaml@main
     secrets: inherit
     with:
       python-version: "3.13"

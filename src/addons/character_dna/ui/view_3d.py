@@ -950,8 +950,14 @@ class CHARACTER_DNA_PT_migrate_legacy_data(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: "Context") -> bool:
+        from ..utilities import get_addon_version
+
         for addon_id in ADDON_IDS:
             if any(getattr(context.scene, addon_id, {}).get(key) for key in LEGACY_DATA_KEYS):
+                return True
+            # if the addon version key exists but doesn't match the current version, that means the data is from an
+            # older version of the addon and should be migrated
+            if addon_id in list(context.scene.keys()) and addon_id != get_addon_version():
                 return True
         return False
 
