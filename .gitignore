@@ -22,4 +22,5 @@ temp
 coverage.xml
 .coverage
 .github/instructions
+.github/skills
 AGENT_INSTRUCTIONS.md

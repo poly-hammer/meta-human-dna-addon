@@ -27,21 +27,59 @@ logger = logging.getLogger(__name__)
 # Deferred evaluation state: Handlers can run in a restricted context that blocks writes to
 # content ID classes (pose bones,shape keys, materials). We collect pending evaluations in the
 # handler and apply them via a zero-delay timer callback which runs in the main event loop with full write access.
-_pending_evaluations: list[tuple["RigInstance", "ComponentType"]] = []
+#
+# We store the rig instance *name* (its unique identifier) rather than the RigInstance
+# PropertyGroup wrapper itself. An undo can free and reallocate the rig_instance_list
+# collection items between the time the handler queues an evaluation and the time the timer
+# fires, which would leave a dangling wrapper and crash when its RNA data is accessed.
+_pending_evaluations: list[tuple[str, "ComponentType"]] = []
+
+
+def cancel_pending_evaluations() -> None:
+    """Cancel any queued deferred evaluation and unregister the timer.
+
+    Called before operations that can invalidate the queued rig instances (e.g. undo or
+    loading a new file) so the timer never dereferences freed data.
+    """
+    if bpy.app.timers.is_registered(_apply_deferred_evaluation):
+        bpy.app.timers.unregister(_apply_deferred_evaluation)
+    _pending_evaluations.clear()
 
 
 def _apply_deferred_evaluation() -> None:
     """Timer callback that applies pending rig evaluations in a writable context."""
     pending = list(_pending_evaluations)
     _pending_evaluations.clear()
-    for instance, component in pending:
-        instance.evaluate(component=component)
 
-
-def rig_instance_listener(scene: "Scene", dependency_graph: bpy.types.Depsgraph, is_frame_change: bool = False):  # noqa: PLR0912
     addon_window_manager: "CharacterWindowManagerProperties | None" = getattr(  # noqa: UP037
         bpy.context.window_manager, ToolInfo.NAME, None
     )
+    # Bail if the addon state is gone, an undo is in progress, or evaluation is disabled.
+    if not addon_window_manager or addon_window_manager.is_undoing:
+        return
+    if not addon_window_manager.evaluate_dependency_graph:
+        return
+
+    scene_properties = getattr(bpy.context.scene, ToolInfo.NAME, None)
+    if not scene_properties:
+        return
+
+    for name, component in pending:
+        # Re-resolve the instance by name; it may have been removed by an undo or edit.
+        instance = scene_properties.rig_instance_list.get(name)
+        if not instance:
+            continue
+        try:
+            instance.evaluate(component=component)
+        except ReferenceError:
+            # The underlying data was freed out from under us; skip it.
+            continue
+        except Exception as error:
+            logger.exception(f"Error evaluating rig instance '{name}': {error}")
+
+
+def rig_instance_listener(_: "Scene", dependency_graph: bpy.types.Depsgraph, is_frame_change: bool = False):  # noqa: PLR0912
+    addon_window_manager = utilities.get_addon_window_manager_properties()
     if not addon_window_manager:
         return
 
@@ -59,7 +97,7 @@ def rig_instance_listener(scene: "Scene", dependency_graph: bpy.types.Depsgraph,
         addon_window_manager.is_undoing = False
         return
 
-    scene_properties = getattr(scene, ToolInfo.NAME, None)
+    scene_properties = utilities.get_addon_scene_properties()
     if not scene_properties:
         return
 
@@ -187,9 +225,11 @@ def rig_instance_listener(scene: "Scene", dependency_graph: bpy.types.Depsgraph,
             final_instance_updates.add((instance, component))
 
     # Defer evaluation to a timer callback where Blender allows writing to ID data.
+    # Queue instances by name so an undo that reallocates the collection can't leave us
+    # holding a dangling PropertyGroup wrapper.
     _pending_evaluations.clear()
     for instance, component in final_instance_updates:
-        _pending_evaluations.append((instance, component))
+        _pending_evaluations.append((instance.name, component))
 
     if _pending_evaluations and not bpy.app.timers.is_registered(_apply_deferred_evaluation):
         bpy.app.timers.register(_apply_deferred_evaluation, first_interval=0)
@@ -201,9 +241,7 @@ def frame_change_handler(scene: "Scene", dependency_graph: bpy.types.Depsgraph):
 
 def stop_listening():
     # Cancel any pending deferred evaluation
-    if bpy.app.timers.is_registered(_apply_deferred_evaluation):
-        bpy.app.timers.unregister(_apply_deferred_evaluation)
-    _pending_evaluations.clear()
+    cancel_pending_evaluations()
 
     for handler in bpy.app.handlers.depsgraph_update_post:
         if handler.__name__ == rig_instance_listener.__name__:

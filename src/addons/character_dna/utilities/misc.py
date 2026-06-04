@@ -38,7 +38,7 @@ from ..constants import (
     TEMP_FOLDER,
     ToolInfo,
 )
-from ..rig_instance import start_listening
+from ..rig_instance import cancel_pending_evaluations, start_listening
 from ..typing import *  # noqa: F403
 from . import get_active_rig_instance
 
@@ -265,6 +265,9 @@ def setup_scene(*_: Any) -> None:
 
 
 def teardown_scene(*_: Any) -> None:
+    # Cancel any queued deferred evaluation before the scene data is torn down/reloaded.
+    cancel_pending_evaluations()
+
     scene_properties = getattr(bpy.context.scene, ToolInfo.NAME, object)
 
     for instance in getattr(scene_properties, "rig_instance_list", []):
@@ -281,6 +284,9 @@ def pre_undo(*_: Any) -> None:
     if context.area and context.area.type == "VIEW_3D" and context.region and context.region.type == "WINDOW":
         addon_window_manager_properties.evaluate_dependency_graph = False
         addon_window_manager_properties.is_undoing = True
+        # Cancel any queued deferred evaluation: undo can free/reallocate the rig instance
+        # collection, which would leave the timer dereferencing dangling data and crash.
+        cancel_pending_evaluations()
         active_object = bpy.context.active_object
         # destroy cached data related rig instances, since undo can change the data
         # in a way that makes the cached data invalid
