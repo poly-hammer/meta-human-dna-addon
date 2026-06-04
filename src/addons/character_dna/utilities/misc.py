@@ -963,13 +963,9 @@ def migrate_by_collection_data(context: "Context", addon_id: str) -> None:
 def migrate_legacy_data(context: "Context") -> Literal["default", "collection_data"]:  # noqa: PLR0912, PLR0915
     addon_scene_properties = None
     for addon_id in ADDON_IDS:
-        # When a addon id is found in the scene keys that does not match the current addon version and has no data,
-        # we can assume that the data can only be migrated by looking at the collection in the scene.
-        if (
-            addon_id in list(context.scene.keys())
-            and addon_id != get_addon_version()
-            and not context.scene.get(addon_id)
-        ):
+        # When a addon id is found in the scene keys that belongs to an older addon (i.e. not the current addon) and
+        # has no data, we can assume that the data can only be migrated by looking at the collection in the scene.
+        if addon_id != ToolInfo.NAME and addon_id in context.scene and not context.scene.get(addon_id):
             migrate_by_collection_data(context, addon_id)
             return "collection_data"
 
