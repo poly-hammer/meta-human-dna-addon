@@ -38,7 +38,7 @@ from ..constants import (
     TEMP_FOLDER,
     ToolInfo,
 )
-from ..rig_instance import start_listening
+from ..rig_instance import cancel_pending_evaluations, start_listening
 from ..typing import *  # noqa: F403
 from . import get_active_rig_instance
 
@@ -265,6 +265,9 @@ def setup_scene(*_: Any) -> None:
 
 
 def teardown_scene(*_: Any) -> None:
+    # Cancel any queued deferred evaluation before the scene data is torn down/reloaded.
+    cancel_pending_evaluations()
+
     scene_properties = getattr(bpy.context.scene, ToolInfo.NAME, object)
 
     for instance in getattr(scene_properties, "rig_instance_list", []):
@@ -281,6 +284,9 @@ def pre_undo(*_: Any) -> None:
     if context.area and context.area.type == "VIEW_3D" and context.region and context.region.type == "WINDOW":
         addon_window_manager_properties.evaluate_dependency_graph = False
         addon_window_manager_properties.is_undoing = True
+        # Cancel any queued deferred evaluation: undo can free/reallocate the rig instance
+        # collection, which would leave the timer dereferencing dangling data and crash.
+        cancel_pending_evaluations()
         active_object = bpy.context.active_object
         # destroy cached data related rig instances, since undo can change the data
         # in a way that makes the cached data invalid
@@ -957,13 +963,9 @@ def migrate_by_collection_data(context: "Context", addon_id: str) -> None:
 def migrate_legacy_data(context: "Context") -> Literal["default", "collection_data"]:  # noqa: PLR0912, PLR0915
     addon_scene_properties = None
     for addon_id in ADDON_IDS:
-        # When a addon id is found in the scene keys that does not match the current addon version and has no data,
-        # we can assume that the data can only be migrated by looking at the collection in the scene.
-        if (
-            addon_id in list(context.scene.keys())
-            and addon_id != get_addon_version()
-            and not context.scene.get(addon_id)
-        ):
+        # When a addon id is found in the scene keys that belongs to an older addon (i.e. not the current addon) and
+        # has no data, we can assume that the data can only be migrated by looking at the collection in the scene.
+        if addon_id != ToolInfo.NAME and addon_id in context.scene and not context.scene.get(addon_id):
             migrate_by_collection_data(context, addon_id)
             return "collection_data"
 
