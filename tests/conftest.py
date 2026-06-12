@@ -90,7 +90,6 @@ def pytest_configure():
     """
 
     bindings_source_folder = REPO_ROOT.parent / "character-dna-bindings"
-    core_source_folder = REPO_ROOT.parent / "character-dna-core"
     bindings_destination_folder = REPO_ROOT / "src" / "addons" / "character_dna" / "bindings"
 
     bindings_specific_source_folder = bindings_source_folder / OS_NAME / ARCH / PYTHON_VERSION
@@ -108,11 +107,6 @@ def pytest_configure():
         shutil.copytree(
             src=bindings_specific_source_folder, dst=bindings_specific_destination_folder, dirs_exist_ok=True
         )
-
-    # If running tests on the CI, copy core to the specific destination folder
-    core_destination_folder = bindings_specific_destination_folder / "character_dna_core"
-    if core_source_folder.exists() and not core_destination_folder.exists() and os.environ.get("RUNNING_CI"):
-        shutil.copytree(src=core_source_folder, dst=core_destination_folder, dirs_exist_ok=True)
 
     # ensure the addon module is on the python path
     sys.path.append(str(REPO_ROOT / "src" / "addons"))

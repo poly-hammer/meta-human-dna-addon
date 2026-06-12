@@ -213,7 +213,7 @@ class CharacterOutputProperties(bpy.types.PropertyGroup):
             "After calibrating the LOD0 mesh vertex positions, propagate the changes to every lower-LOD "
             "mesh that is not present in the scene, using UV-space matching against the new LOD0 shape"
         ),
-        default=False,
+        default=True,
     )  # pyright: ignore[reportInvalidTypeForm]
 
     head_item_list: bpy.props.CollectionProperty(type=OutputData)  # pyright: ignore[reportInvalidTypeForm]
