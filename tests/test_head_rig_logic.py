@@ -21,6 +21,9 @@ def get_all_pose_names() -> list[str]:
         for file in files:
             if file == "pose.json":
                 pose_name = str(Path(root).relative_to(POSES_FOLDER))
+                # ignore tongue poses as we modified the pose to have the jaw open
+                if "tongue" in pose_name.lower():
+                    continue
                 if ("wrinkle_maps" not in pose_name) and ("scan_reference" not in pose_name):
                     pose_names.append(str(Path(root).relative_to(POSES_FOLDER)))
     return pose_names
