@@ -50,9 +50,9 @@ class DNAExporter:
         self._include_bones = bones
         self._include_textures = textures
         self._include_vertex_colors = vertex_colors
-        self._component_type = component_type or instance.output_component
+        self._component_type = component_type or instance.output.component
 
-        self._output_folder = Path(bpy.path.abspath(instance.output_folder_path))
+        self._output_folder = Path(bpy.path.abspath(instance.output.folder_path))
 
         if self._component_type == "head":
             self.source_dna_file = Path(bpy.path.abspath(instance.head_dna_file_path))
@@ -61,7 +61,7 @@ class DNAExporter:
         else:
             raise InvalidComponentTypeError(self._component_type)
 
-        self._target_dna_file = Path(bpy.path.abspath(instance.output_folder_path)) / (
+        self._target_dna_file = Path(bpy.path.abspath(instance.output.folder_path)) / (
             file_name or f"{instance.name}.dna"
         )
 
@@ -71,7 +71,7 @@ class DNAExporter:
         else:
             self._dna_reader = reader
 
-        self._dna_writer = get_dna_writer(file_path=self._target_dna_file, file_format=self._instance.output_format)
+        self._dna_writer = get_dna_writer(file_path=self._target_dna_file, file_format=self._instance.output.format)
         # Populate the writer with the data from the reader
         self._dna_writer.setFrom(self._dna_reader, riglogic.DataLayer.All, riglogic.UnknownLayerPolicy.Preserve, None)
 
@@ -99,10 +99,10 @@ class DNAExporter:
         main_mesh_object = None
 
         if self._component_type == "head":
-            output_items = self._instance.output_head_item_list
+            output_items = self._instance.output.head_item_list
             main_mesh_object = self._instance.head_mesh
         elif self._component_type == "body":
-            output_items = self._instance.output_body_item_list
+            output_items = self._instance.output.body_item_list
             main_mesh_object = self._instance.body_mesh
 
         for output_item in output_items:
@@ -465,7 +465,7 @@ class DNAExporter:
 
     def run(self) -> tuple[bool, str, str, Callable | None]:
         self.initialize_scene_data()
-        if self._instance.output_run_validations:
+        if self._instance.output.run_validations:
             valid, title, message, fix = self.validate()
             if not valid:
                 return False, title, message, fix

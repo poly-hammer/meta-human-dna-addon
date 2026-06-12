@@ -473,7 +473,7 @@ class DNAImporter:
                 if index == 0:
                     rotation_matrix = Matrix.Rotation(math.radians(90), 4, "X").to_4x4()  # type: ignore[arg-type]
                     global_matrix = (
-                        rotation_matrix @ Matrix.Translation(location)
+                        rotation_matrix @ Matrix.Translation(location[:])
                     ) @ euler_rotation.to_matrix().to_4x4()
 
                 # Otherwise they are in parent space
@@ -482,7 +482,7 @@ class DNAImporter:
                     parent_bone_name = self._dna_reader.getJointName(parent_index)
                     parent_bone = self.rig_object.data.edit_bones[parent_bone_name]
                     # Calculate the global transformation matrix of the bone
-                    local_matrix = Matrix.Translation(location) @ euler_rotation.to_matrix().to_4x4()
+                    local_matrix = Matrix.Translation(location[:]) @ euler_rotation.to_matrix().to_4x4()
                     global_matrix = parent_bone.matrix @ local_matrix
 
                 return global_matrix
@@ -568,7 +568,7 @@ class DNAImporter:
             # The first bone is in object space
             if index == 0:
                 edit_bone.length = self._linear_modifier
-                edit_bone.matrix = Matrix.Translation(location) @ euler_rotation.to_matrix().to_4x4()
+                edit_bone.matrix = Matrix.Translation(location[:]) @ euler_rotation.to_matrix().to_4x4()
                 # The last extra bone should be the parent of first bone in the DNA file
                 edit_bone.parent = extra_edit_bone
 
@@ -580,7 +580,7 @@ class DNAImporter:
                 edit_bone.parent = parent_bone
                 edit_bone.length = self._linear_modifier
                 # Calculate the global transformation matrix of the bone
-                local_matrix = Matrix.Translation(location) @ euler_rotation.to_matrix().to_4x4()
+                local_matrix = Matrix.Translation(location[:]) @ euler_rotation.to_matrix().to_4x4()
                 global_matrix = parent_bone.matrix @ local_matrix
                 edit_bone.matrix = global_matrix
 

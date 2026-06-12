@@ -399,7 +399,7 @@ def import_face_board_action_from_fbx(  # noqa: PLR0912
 
         # TODO: Change this to actually support these?
         # skip any eye aim controls
-        if curve_name in EYE_AIM_BONES + FACE_BOARD_SWITCHES + ["CTRL_C_eye"]:
+        if curve_name in EYE_AIM_BONES + FACE_BOARD_SWITCHES:
             continue
 
         if anim_utils:

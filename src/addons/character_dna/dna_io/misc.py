@@ -7,8 +7,9 @@ from typing import Literal
 
 # third party imports
 import bpy
+import numpy as np
 
-from mathutils import Matrix, Vector
+from mathutils import Matrix
 
 # local imports
 from ..constants import SHAPE_KEY_BASIS_NAME, ComponentType
@@ -17,7 +18,6 @@ from ..utilities import (
     exclude_rig_instance_evaluation,
     get_addon_window_manager_properties,
     switch_to_object_mode,
-    update_mesh,
 )
 
 
@@ -154,53 +154,90 @@ def create_shape_key(
     window_manager_properties = get_addon_window_manager_properties()
     window_manager_properties.progress_mesh_name = mesh_object.name
     # create the new key block on the shape key
-    logger.info(f"Creating shape key {name}")
+    logger.debug(f"Creating shape key {name}")
     shape_key_name = f"{prefix}{name}"
 
     switch_to_object_mode()
 
-    # Ensure no existing shape key influence is active before we create a new one
-    if mesh_object.data.shape_keys:
-        for key_block in mesh_object.data.shape_keys.key_blocks:
-            key_block.value = 0.0
-        mesh_object.active_shape_key_index = 0
-
+    # remove any pre-existing key block with this name so re-imports overwrite cleanly
     shape_key = mesh_object.data.shape_keys.key_blocks.get(shape_key_name)  # type: ignore[attr-defined]
     if shape_key:
         shape_key.lock_shape = False
         mesh_object.shape_key_remove(shape_key)
 
     shape_key_block = mesh_object.shape_key_add(name=shape_key_name, from_mix=False)
+    # zero the influence so the imported key is stored but not applied on top of the
+    # basis (the delta geometry is written directly to the key block's data, so this
+    # only affects the value slider, not the stored shape)
+    shape_key_block.value = 0.0
 
     # Import the deltas if the shape key is not supposed to be neutral
     if not is_neutral:
-        # DNA is Y-up, Blender is Z-up, so we need to rotate the deltas
-        rotation_matrix = Matrix.Rotation(math.radians(90), 4, "X")  # type: ignore[arg-type]
-
-        delta_x_values = reader.getBlendShapeTargetDeltaXs(mesh_index, index)
-        delta_y_values = reader.getBlendShapeTargetDeltaYs(mesh_index, index)
-        delta_z_values = reader.getBlendShapeTargetDeltaZs(mesh_index, index)
-        vertex_indices = reader.getBlendShapeTargetVertexIndices(mesh_index, index)
-
-        # the new vertex layout is the original vertex layout with the deltas from the dna applied
-        for vertex_index, delta_x, delta_y, delta_z in zip(
-            vertex_indices, delta_x_values, delta_y_values, delta_z_values, strict=False
-        ):
-            try:
-                delta = Vector((delta_x, delta_y, delta_z)) * linear_modifier
-                rotated_delta = rotation_matrix @ delta
-
-                # set the positions of the shape key vertices
-                base_co = mesh_object.data.shape_keys.reference_key.data[vertex_index].co.copy()  # type: ignore[attr-defined]
-                shape_key_block.data[vertex_index].co = base_co + rotated_delta
-            except IndexError:
-                logger.warning(
-                    f'Vertex index {vertex_index} is missing for shape key "{name}". Was this deleted '
-                    f'on the base mesh "{mesh_object.name}"?'
-                )
+        apply_blend_shape_deltas(
+            mesh_object=mesh_object,
+            shape_key_block=shape_key_block,
+            reader=reader,
+            mesh_index=mesh_index,
+            index=index,
+            name=name,
+            linear_modifier=linear_modifier,
+        )
 
     shape_key_block.lock_shape = True
 
-    update_mesh(mesh_object)
-
     return shape_key_block
+
+
+def apply_blend_shape_deltas(
+    mesh_object: bpy.types.Object,
+    shape_key_block: bpy.types.ShapeKey,
+    reader: "riglogic.BinaryStreamReader",
+    mesh_index: int,
+    index: int,
+    name: str,
+    linear_modifier: float = 1.0,
+) -> None:
+    """Apply a DNA blend shape target's deltas onto ``shape_key_block`` using
+    vectorized numpy + ``foreach_get``/``foreach_set`` for speed.
+
+    Reads the basis (reference key) coordinates once, rotates the sparse deltas
+    from DNA's Y-up space into Blender's Z-up space, scatters them onto the
+    affected vertices, and writes the whole shape key in a single bulk call.
+    """
+    vertex_indices = reader.getBlendShapeTargetVertexIndices(mesh_index, index)
+    if len(vertex_indices) == 0:
+        return
+
+    reference_key = mesh_object.data.shape_keys.reference_key  # type: ignore[attr-defined]
+    vertex_count = len(reference_key.data)
+
+    # read the basis coordinates once as a flat (x, y, z) array
+    base_flat = np.empty(vertex_count * 3, dtype=np.float32)
+    reference_key.data.foreach_get("co", base_flat)
+    new_flat = base_flat.copy()
+    base = base_flat.reshape(-1, 3)
+    new = new_flat.reshape(-1, 3)
+
+    vertex_indices = np.asarray(vertex_indices, dtype=np.int64)
+    deltas = np.empty((len(vertex_indices), 3), dtype=np.float32)
+    deltas[:, 0] = reader.getBlendShapeTargetDeltaXs(mesh_index, index)
+    deltas[:, 1] = reader.getBlendShapeTargetDeltaYs(mesh_index, index)
+    deltas[:, 2] = reader.getBlendShapeTargetDeltaZs(mesh_index, index)
+
+    # DNA is Y-up, Blender is Z-up, so we need to rotate the deltas
+    rotation = np.array(Matrix.Rotation(math.radians(90), 4, "X").to_3x3(), dtype=np.float32)
+    rotated = (deltas * linear_modifier) @ rotation.T
+
+    # guard against vertex indices that no longer exist on the base mesh
+    valid = vertex_indices < vertex_count
+    if not valid.all():
+        logger.warning(
+            f'Some vertex indices are missing for shape key "{name}". '
+            f'Were they deleted on the base mesh "{mesh_object.name}"?'
+        )
+        vertex_indices = vertex_indices[valid]
+        rotated = rotated[valid]
+
+    # the new vertex layout is the original vertex layout with the deltas from the dna applied
+    new[vertex_indices] = base[vertex_indices] + rotated
+    shape_key_block.data.foreach_set("co", new_flat)

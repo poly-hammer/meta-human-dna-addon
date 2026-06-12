@@ -7,7 +7,7 @@ import bpy
 from bl_ui.generic_ui_list import draw_ui_list
 
 # local imports
-from ..constants import ADDON_IDS, LEGACY_DATA_KEYS, SHAPE_KEY_BASIS_NAME, ToolInfo
+from ..constants import ADDON_IDS, LEGACY_DATA_KEYS, PRO_EDITORS, PanelOrder, ToolInfo
 from ..typing import *  # noqa: F403
 
 
@@ -57,7 +57,7 @@ def draw_rig_instance_error(layout: bpy.types.UILayout, error: str):
         row.alert = True
         row.label(text="Dependencies are missing.", icon="ERROR")
         row = layout.row()
-        row.operator(f"{ToolInfo.NAME}.open_build_tool_documentation", icon="URL", text="Show Me How to Fix This?")
+        row.operator("wm.url_open", text="Show Me How to Fix This?", icon="URL").url = ToolInfo.HOW_TO_INSTALL
         return
 
     row = layout.row()
@@ -75,51 +75,15 @@ class RigInstanceDependentPanel(bpy.types.Panel):
         return bool(not error)
 
 
-class ArmatureDependentPanel(bpy.types.Panel):
-    @classmethod
-    def poll(cls, context: "Context") -> bool:
-        error = valid_rig_instance_exists(context, ignore_face_board=True)
-        if error:
-            return False
-
-        instance = get_active_rig_instance()
-        if not instance:
-            return False
-
-        addon_window_manager_properties = getattr(context.window_manager, ToolInfo.NAME)
-        current_component = addon_window_manager_properties.current_component_type
-        return bool(
-            (current_component == "head" and instance.head_rig) or (current_component == "body" and instance.body_rig)
-        )
-
-
-class MeshDependentPanel(bpy.types.Panel):
-    @classmethod
-    def poll(cls, context: "Context") -> bool:
-        error = valid_rig_instance_exists(context, ignore_face_board=True)
-        if error:
-            return False
-
-        instance = get_active_rig_instance()
-        if not instance:
-            return False
-
-        addon_window_manager_properties = getattr(context.window_manager, ToolInfo.NAME)
-        current_component = addon_window_manager_properties.current_component_type
-        return bool(
-            (current_component == "head" and instance.head_mesh) or (current_component == "body" and instance.body_mesh)
-        )
-
-
 class CHARACTER_DNA_UL_output_items(bpy.types.UIList):
     def draw_item(
         self,
         context: "Context",
         layout: bpy.types.UILayout,
-        data: "RigInstance",
+        data: "CharacterOutputProperties",
         item: "OutputData",
         icon: int | None,
-        active_data: "RigInstance",
+        active_data: "CharacterOutputProperties",
         active_prop_name: str,
     ):
         layout.separator(factor=0.1)
@@ -183,86 +147,34 @@ class CHARACTER_DNA_UL_rig_instances(bpy.types.UIList):
         col.prop(item, "evaluate_rbfs", text="", icon="DRIVER_ROTATIONAL_DIFFERENCE", emboss=False)
 
 
-class CHARACTER_DNA_UL_shape_keys(bpy.types.UIList):
-    filter_by_name: bpy.props.StringProperty(
-        default="", name="Filter by Name", description="Filter shape keys by name", options={"TEXTEDIT_UPDATE"}
-    )  # pyright: ignore[reportInvalidTypeForm]
+class CHARACTER_DNA_PT_face_pose_tags(bpy.types.Panel):
+    bl_label = "Tags"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "HEADER"
+    bl_options = {"INSTANCED"}
 
-    show_zero_values: bpy.props.BoolProperty(
-        default=False,
-        name="Show Zeros",
-        description="Hide shape keys with a value of 0.0",
-    )  # pyright: ignore[reportInvalidTypeForm]
+    def draw(self, context: "Context"):
+        if not self.layout:
+            return
 
-    order_by_value: bpy.props.BoolProperty(
-        default=True,
-        name="Order by Value",
-        description="Order shape keys by value in descending order",
-    )  # pyright: ignore[reportInvalidTypeForm]
+        from ..ui.callbacks import get_face_pose_tag_property_map
 
-    def draw_item(
-        self,
-        context: "Context",
-        layout: bpy.types.UILayout,
-        data: "RigInstance",
-        item: "ShapeKeyData",
-        icon: int | None,
-        active_data: "RigInstance",
-        active_prop_name: str,
-    ):
+        scene_properties = getattr(context.scene, ToolInfo.NAME)
+        face_board = scene_properties.face_board
+
+        layout = self.layout
         row = layout.row(align=True)
-        label = item.name.split("__", 1)[-1]
-        row.label(text=label, icon="SHAPEKEY_DATA")
-        sub = row.row(align=True)
-        sub.alignment = "RIGHT"
-        sub.prop(item, "value", text="", emboss=False)
-        sub.operator(
-            f"{ToolInfo.NAME}.sculpt_this_shape_key", text="", icon="SCULPTMODE_HLT"
-        ).shape_key_name = item.name
-        sub.operator(f"{ToolInfo.NAME}.edit_this_shape_key", text="", icon="EDITMODE_HLT").shape_key_name = item.name
-        sub.operator(f"{ToolInfo.NAME}.reimport_this_shape_key", text="", icon="IMPORT").shape_key_name = item.name
+        row.label(text="Match")
+        row.prop(face_board, "tag_match_mode", expand=True)
 
-    def draw_filter(self, context: "Context", layout: bpy.types.UILayout):
-        """UI code for the filtering/sorting/search area."""
-        row = layout.row(align=True)
-        row.prop(self, "filter_by_name", text="")
-        row.separator()
-        row.separator()
-        row.separator()
-        row.separator()
-        row.prop(self, "show_zero_values", text="", icon="HIDE_OFF" if self.show_zero_values else "HIDE_ON")
-        row.prop(self, "order_by_value", text="", icon="LINENUMBERS_ON")
+        tag_property_map = get_face_pose_tag_property_map()
+        if not tag_property_map:
+            layout.label(text="No tags found", icon="INFO")
+            return
 
-    def filter_items(self, context: "Context", data: "RigInstance", prop_name: str) -> tuple[list[int], list[int]]:
-        items = getattr(data, prop_name)
-        filtered = [self.bitflag_filter_item] * len(items)
-        ordered: list[int] = []
-        _sort = []
-        mesh_name_prefix = data.active_shape_key_mesh_name.replace(f"{data.name}_", "")
-
-        # hide items that don't belong to the active mesh filter
-        for index, item in enumerate(items):
-            if not item.name.startswith(mesh_name_prefix):
-                filtered[index] &= ~self.bitflag_filter_item
-
-        # hide items that have a zero value
-        if not self.show_zero_values:
-            for index, item in enumerate(items):
-                if round(item.value, 3) == 0.0:
-                    filtered[index] &= ~self.bitflag_filter_item
-
-        # sort items by descending shape key value
-        if self.order_by_value:
-            _sort = [(i, it.value) for i, it in enumerate(items)]
-            bpy.types.UI_UL_list.sort_items_helper(_sort, lambda e: e[1], reverse=True)
-
-        # filter items by name if a name is provided
-        if self.filter_by_name:
-            for index, item in enumerate(items):
-                if self.filter_by_name.lower() not in item.name.lower():
-                    filtered[index] &= ~self.bitflag_filter_item
-
-        return filtered, ordered
+        column = layout.column(align=True)
+        for property_name in tag_property_map:
+            column.prop(face_board, property_name)
 
 
 class CHARACTER_DNA_PT_face_board(RigInstanceDependentPanel):
@@ -271,183 +183,53 @@ class CHARACTER_DNA_PT_face_board(RigInstanceDependentPanel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_options = {"DEFAULT_CLOSED"}
+    bl_order = PanelOrder.FACE_BOARD.value
 
     def draw(self, context: "Context"):
         if not self.layout:
             return
+
+        instance = get_active_rig_instance()
+        if instance and instance.is_pro and instance.raw_control_editor.is_editing:
+            self.layout.enabled = False
 
         error = valid_rig_instance_exists(context)
         if not error:
-            window_manager_properties = getattr(context.window_manager, ToolInfo.NAME)
-            row = self.layout.row()
-            row.label(text="Poses:")
-            row = self.layout.row()
-            row.template_icon_view(window_manager_properties, "face_pose_previews", show_labels=True, scale_popup=5.0)
-            row = self.layout.row()
-            row.prop(window_manager_properties, "face_pose_previews", text="")
-            row = self.layout.row()
-            row.label(text="Animation:")
-            split = self.layout.split(factor=0.5)
-            split.scale_y = 1.5
-            split.operator(f"{ToolInfo.NAME}.import_face_board_animation", icon="IMPORT", text="Import")
-            split.operator(f"{ToolInfo.NAME}.bake_face_board_animation", icon="ACTION", text="Bake")
+            scene_properties = getattr(context.scene, ToolInfo.NAME)
+            face_board = scene_properties.face_board
+
+            row = self.layout.row(align=True)
+            row.prop(face_board, "category", text="")
+            row.popover(panel="CHARACTER_DNA_PT_face_pose_tags", text="", icon="FILTER")
+
+            self.layout.label(text="Poses:")
+            self.layout.template_icon_view(face_board, "face_pose_previews", show_labels=True, scale_popup=5.0)
+            row = self.layout.row(align=True)
+            row.prop(face_board, "face_pose_previews", text="")
+            row.operator(f"{ToolInfo.NAME}.face_board_search_pose", text="", icon="VIEWZOOM")
         else:
             draw_rig_instance_error(self.layout, error)
 
 
-class CHARACTER_DNA_PT_utilities(bpy.types.Panel):
-    bl_label = "Utilities"
-    bl_category = "Character DNA"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_options = {"DEFAULT_CLOSED"}
-
-    def draw(self, context: "Context"):
-        if not self.layout:
-            return
-
-        row = self.layout.row()
-        row.label(text="Current Component:")
-        row = self.layout.row()
-        row.scale_y = 1.25
-        row.prop(getattr(context.window_manager, ToolInfo.NAME), "current_component_type", text="")
-
-
-class CHARACTER_DNA_PT_mesh_utilities_sub_panel(MeshDependentPanel):
-    bl_parent_id = "CHARACTER_DNA_PT_utilities"
-    bl_label = "Mesh"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_category = "Character DNA"
-    bl_options = {"DEFAULT_CLOSED"}
-
-    def draw(self, context: "Context"):
-        properties = getattr(context.scene, ToolInfo.NAME)
-        error = valid_rig_instance_exists(context, ignore_face_board=True)
-        if not self.layout:
-            return
-
-        if not error:
-            active_index = properties.rig_instance_list_active_index
-            instance = properties.rig_instance_list[active_index]
-            window_manager_properties = getattr(context.window_manager, ToolInfo.NAME)
-            current_component_type = window_manager_properties.current_component_type
-
-            # whether to enable the topology vertex group dropdowns
-            enabled = bool(
-                (current_component_type == "head" and instance.head_mesh)
-                or (current_component_type == "body" and instance.body_mesh)
-            )
-
-            box = self.layout.box()
-            row = box.row()
-            row.label(text="Topology Vertex Groups:")
-            row = box.row()
-            grid = row.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=True, align=True)
-            col = grid.column()
-            col.enabled = enabled
-            col.label(text="Selection Mode:")
-            row = col.row()
-            row.prop(instance, "mesh_topology_selection_mode", text="")
-
-            col = grid.column()
-            col.enabled = enabled
-            col.label(text="Set Selection:")
-            row = col.row()
-            if current_component_type == "head":
-                row.prop(instance, "head_mesh_topology_groups", text="")
-            elif current_component_type == "body":
-                row.prop(instance, "body_mesh_topology_groups", text="")
-                row = box.row()
-                row.prop(instance, "body_show_only_high_level_topology_groups", text="Filter High Level Groups")
-
-            row = box.row()
-            row.label(text="Shrink Wrap Target:")
-            row = box.row()
-            if current_component_type == "head":
-                row.prop(instance, "head_shrink_wrap_target", text="")
-            elif current_component_type == "body":
-                row.prop(instance, "body_shrink_wrap_target", text="")
-            row = box.row()
-            row.enabled = bool(instance.head_shrink_wrap_target)
-            row.operator(f"{ToolInfo.NAME}.shrink_wrap_vertex_group")
-        else:
-            draw_rig_instance_error(self.layout, error)
-
-
-class CHARACTER_DNA_PT_armature_utilities_sub_panel(ArmatureDependentPanel):
-    bl_parent_id = "CHARACTER_DNA_PT_utilities"
-    bl_label = "Armature"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_category = "Character DNA"
-    bl_options = {"DEFAULT_CLOSED"}
-
-    def draw(self, context: "Context"):
-        properties = getattr(context.scene, ToolInfo.NAME)
-        error = valid_rig_instance_exists(context, ignore_face_board=True)
-
-        if not self.layout:
-            return
-
-        if not error:
-            active_index = properties.rig_instance_list_active_index
-            instance = properties.rig_instance_list[active_index]
-            addon_window_manager_properties = getattr(context.window_manager, ToolInfo.NAME)
-            current_component_type = addon_window_manager_properties.current_component_type
-            box = self.layout.box()
-            row = box.row()
-            row.label(text="Bone Selection Groups:")
-            row = box.row()
-            row.prop(instance, "list_surface_bone_groups")
-            row = box.row()
-            grid = row.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=True, align=True)
-            col = grid.column()
-            col.enabled = bool(instance.head_mesh)
-            col.label(text="Selection Mode:")
-            row = col.row()
-            row.prop(instance, "rig_bone_group_selection_mode", text="")
-
-            col = grid.column()
-            col.enabled = bool(instance.head_mesh)
-            col.label(text="Set Selection:")
-            row = col.row()
-            if current_component_type == "head":
-                row.prop(instance, "head_rig_bone_groups", text="")
-            elif current_component_type == "body":
-                row.prop(instance, "body_rig_bone_groups", text="")
-            row = self.layout.row()
-            # row.label(text='Push Bones:')  # noqa: ERA001
-            # row = self.layout.row() # noqa: ERA001
-            # row.prop(properties, 'push_along_normal_distance', text='Normal Distance') # noqa: ERA001
-            # split = row.split(factor=0.5, align=True) # noqa: ERA001
-            # split.operator(f'{ToolInfo.NAME}.push_bones_backward_along_normals', text='', icon='REMOVE')  # noqa: E501, ERA001
-            # split.operator(f'{ToolInfo.NAME}.push_bones_forward_along_normals', text='', icon='ADD') # noqa: ERA001
-            row = self.layout.row()
-            row.label(text="Head to Body Constraint:")
-            row = self.layout.row()
-            row.prop(instance, "head_to_body_constraint_influence", text="")
-            row = self.layout.row()
-            row.label(text="Transform and Apply Selected Bones:")
-            row = self.layout.row()
-            row.operator(f"{ToolInfo.NAME}.mirror_selected_bones", text="Mirror Selected Bones")
-            row = self.layout.row()
-            # split = row.split(factor=0.5) # noqa: ERA001
-            # split.scale_y = 1.5 # noqa: ERA001
-            # split.operator(f'{ToolInfo.NAME}.auto_fit_selected_bones', text='Auto Fit') # noqa: ERA001
-            # split.operator(f'{ToolInfo.NAME}.revert_bone_transforms_to_dna', text='Revert') # noqa: ERA001
-            row.operator(f"{ToolInfo.NAME}.revert_bone_transforms_to_dna", text="Revert")
-        else:
-            draw_rig_instance_error(self.layout, error)
-
-
-class CHARACTER_DNA_PT_animation_utilities_sub_panel(ArmatureDependentPanel):
-    bl_parent_id = "CHARACTER_DNA_PT_utilities"
+class CHARACTER_DNA_PT_animation_panel(bpy.types.Panel):
     bl_label = "Animation"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Character DNA"
     bl_options = {"DEFAULT_CLOSED"}
+    bl_order = PanelOrder.ANIMATION.value
+
+    @classmethod
+    def poll(cls, context: "Context") -> bool:
+        error = valid_rig_instance_exists(context, ignore_face_board=True)
+        if error:
+            return False
+
+        instance = get_active_rig_instance()
+        if not instance:
+            return False
+
+        return bool(instance.face_board or instance.body_rig)
 
     def draw(self, context: "Context"):
         error = valid_rig_instance_exists(context, ignore_face_board=True)
@@ -456,57 +238,29 @@ class CHARACTER_DNA_PT_animation_utilities_sub_panel(ArmatureDependentPanel):
             return
 
         if not error:
-            addon_window_manager_properties = getattr(context.window_manager, ToolInfo.NAME)
-            current_component_type = addon_window_manager_properties.current_component_type
-            row = self.layout.row()
+            box = self.layout.box()
+            box.label(text="Face Board:")
+            split = box.split(factor=0.5)
+            split.scale_y = 1.5
+            split.operator(f"{ToolInfo.NAME}.import_face_board_animation", icon="IMPORT", text="Import")
+            split.operator(f"{ToolInfo.NAME}.bake_face_board_animation", icon="ACTION", text="Bake")
+
+            box = self.layout.box()
+            box.label(text="Body Animation:")
+            component_type = "body"
+            row = box.row()
             row.scale_y = 1.5
             split = row.split(factor=0.5)
             split.operator(
                 f"{ToolInfo.NAME}.import_component_animation",
                 icon="IMPORT",
-                text=f"Import on {current_component_type.capitalize()}",
-            ).component_type = current_component_type
+                text="Import",
+            ).component_type = component_type
             split.operator(
                 f"{ToolInfo.NAME}.bake_component_animation",
                 icon="ACTION",
-                text=f"Bake on {current_component_type.capitalize()}",
-            ).component_type = current_component_type
-
-
-class CHARACTER_DNA_PT_materials_utilities_sub_panel(RigInstanceDependentPanel):
-    bl_parent_id = "CHARACTER_DNA_PT_utilities"
-    bl_label = "Material"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_category = "Character DNA"
-    bl_options = {"DEFAULT_CLOSED"}
-
-    def draw(self, context: "Context"):
-        if not self.layout:
-            return
-
-        error = valid_rig_instance_exists(context)
-        if not error:
-            row = self.layout.row()
-            row.operator(f"{ToolInfo.NAME}.generate_material", icon="MATERIAL")
-        else:
-            draw_rig_instance_error(self.layout, error)
-
-
-class CHARACTER_DNA_PT_utilities_sub_panel(bpy.types.Panel):
-    bl_parent_id = "CHARACTER_DNA_PT_utilities"
-    bl_label = "(Not Shown)"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_category = "Character DNA"
-    bl_options = {"HIDE_HEADER"}
-
-    def draw(self, context: "Context"):
-        if not self.layout:
-            return
-        row = self.layout.row()
-        row.scale_y = 1.5
-        row.operator(f"{ToolInfo.NAME}.convert_selected_to_dna", icon="RNA")
+                text="Bake",
+            ).component_type = component_type
 
 
 class CHARACTER_DNA_PT_view_options(RigInstanceDependentPanel):
@@ -515,6 +269,7 @@ class CHARACTER_DNA_PT_view_options(RigInstanceDependentPanel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_options = {"DEFAULT_CLOSED"}
+    bl_order = PanelOrder.VIEW_OPTIONS.value
 
     def draw(self, context: "Context"):
         if not self.layout:
@@ -586,13 +341,13 @@ class CHARACTER_DNA_PT_rig_instance(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_options = {"DEFAULT_CLOSED"}
+    bl_order = PanelOrder.RIG_INSTANCES.value
 
     def draw(self, context: "Context"):
         if not self.layout:
             return
 
         properties = getattr(context.scene, ToolInfo.NAME)
-        row = self.layout.row()
         row = self.layout.row()
         col = draw_ui_list(
             row,
@@ -765,82 +520,6 @@ class CHARACTER_DNA_PT_rig_instance_footer_sub_panel(RigInstanceDependentPanel):
         row.operator(f"{ToolInfo.NAME}.force_evaluate", icon="FILE_REFRESH")
 
 
-class CHARACTER_DNA_PT_shape_keys(RigInstanceDependentPanel):
-    bl_label = "Shape Keys"
-    bl_category = "Character DNA"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_options = {"DEFAULT_CLOSED"}
-
-    def draw(self, context: "Context"):
-        if not self.layout:
-            return
-
-        instance = None
-        properties = getattr(context.scene, ToolInfo.NAME)
-        addon_window_manager_properties = getattr(context.window_manager, ToolInfo.NAME)
-        active_index = properties.rig_instance_list_active_index
-        if len(properties.rig_instance_list) > 0:
-            instance = properties.rig_instance_list[active_index]
-            if not instance.shape_key_list and instance.head_mesh and addon_window_manager_properties.progress == 1:
-                row = self.layout.row()
-                row.label(text=f"No shape keys on {instance.name}", icon="ERROR")
-                row = self.layout.row()
-                row.prop(instance, "generate_neutral_shapes")
-                row = self.layout.row()
-                row.operator(f"{ToolInfo.NAME}.import_shape_keys", icon="IMPORT")
-                return
-
-        if addon_window_manager_properties.progress < 1:
-            row = self.layout.row()
-            row.label(text=f'Importing onto "{addon_window_manager_properties.progress_mesh_name}"...', icon="SORTTIME")
-            row = self.layout.row()
-            row.progress(
-                factor=addon_window_manager_properties.progress,
-                type="BAR",
-                text=addon_window_manager_properties.progress_description,
-            )
-            row.scale_x = 2
-            return
-
-        error = valid_rig_instance_exists(context)
-        if not error:
-            row = self.layout.row()
-            if instance:
-                row.label(text="Filter by Mesh")
-                split = self.layout.split(factor=0.97)
-                split.prop(instance, "active_shape_key_mesh_name", text="")
-                row = self.layout.row()
-            active_index = properties.rig_instance_list_active_index
-            draw_ui_list(
-                row,
-                context,  # type: ignore[arg-type]
-                class_name="CHARACTER_DNA_UL_shape_keys",
-                list_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].shape_key_list",
-                active_index_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].shape_key_list_active_index",
-                unique_id="active_shape_key_list_id",
-                insertion_operators=False,
-                move_operators=False,  # type: ignore[arg-type]
-            )
-            split = self.layout.split(factor=0.75, align=True)
-            split.label(text="Basis Shape Key:")
-            split.operator(
-                f"{ToolInfo.NAME}.sculpt_this_shape_key", text="", icon="SCULPTMODE_HLT", emboss=True
-            ).shape_key_name = SHAPE_KEY_BASIS_NAME
-            split.operator(
-                f"{ToolInfo.NAME}.edit_this_shape_key", text="", icon="EDITMODE_HLT", emboss=True
-            ).shape_key_name = SHAPE_KEY_BASIS_NAME
-
-            row = self.layout.row()
-            row.prop(instance, "solo_shape_key", text="Solo selected shape key")
-            row = self.layout.row()
-            row.prop(instance, "generate_neutral_shapes")
-            row = self.layout.row()
-            row.operator(f"{ToolInfo.NAME}.import_shape_keys", icon="IMPORT", text="Reimport All Shape Keys")
-        else:
-            draw_rig_instance_error(self.layout, error)
-
-
 class CHARACTER_DNA_PT_output_panel(RigInstanceDependentPanel):
     """
     This class defines the user interface for the panel in the tab in the 3d view
@@ -850,6 +529,7 @@ class CHARACTER_DNA_PT_output_panel(RigInstanceDependentPanel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Character DNA"
+    bl_order = PanelOrder.OUTPUT.value
 
     def draw(self, context: "Context"):
         if not self.layout:
@@ -864,31 +544,31 @@ class CHARACTER_DNA_PT_output_panel(RigInstanceDependentPanel):
             col = grid.column()
             col.label(text="Component:")
             row = col.row()
-            row.prop(instance, "output_component", text="")
+            row.prop(instance.output, "component", text="")
             col = grid.column()
             col.label(text="Method:")
             row = col.row()
-            row.prop(instance, "output_method", text="")
+            row.prop(instance.output, "method", text="")
 
             row = self.layout.row()
-            if instance.output_component == "head":
+            if instance.output.component == "head":
                 draw_ui_list(
                     row,
                     context,  # type: ignore[arg-type]
                     class_name="CHARACTER_DNA_UL_output_items",
-                    list_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].output_head_item_list",
-                    active_index_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].output_head_item_active_index",
+                    list_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].output.head_item_list",
+                    active_index_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].output.head_item_active_index",
                     unique_id="output_head_item_list_id",
                     move_operators=False,  # type: ignore[arg-type]
                     insertion_operators=False,
                 )
-            elif instance.output_component == "body":
+            elif instance.output.component == "body":
                 draw_ui_list(
                     row,
                     context,  # type: ignore[arg-type]
                     class_name="CHARACTER_DNA_UL_output_items",
-                    list_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].output_body_item_list",
-                    active_index_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].output_body_item_active_index",
+                    list_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].output.body_item_list",
+                    active_index_path=f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].output.body_item_active_index",
                     unique_id="output_body_item_list_id",
                     move_operators=False,  # type: ignore[arg-type]
                     insertion_operators=False,
@@ -896,10 +576,10 @@ class CHARACTER_DNA_PT_output_panel(RigInstanceDependentPanel):
             row = self.layout.row()
             row.label(text="Output Folder:")
             row = self.layout.row()
-            if not instance.output_folder_path:
+            if not instance.output.folder_path:
                 row.alert = True
-            row.prop(instance, "output_folder_path", text="", icon="RNA")
-            if not instance.output_folder_path:
+            row.prop(instance.output, "folder_path", text="", icon="RNA")
+            if not instance.output.folder_path:
                 row = self.layout.row()
                 row.alert = True
                 row.label(text="Must set an output folder.", icon="ERROR")
@@ -927,14 +607,16 @@ class CHARACTER_DNA_PT_output_buttons_sub_panel(bpy.types.Panel):
             row = self.layout.row()
             active_index = properties.rig_instance_list_active_index
             instance = properties.rig_instance_list[active_index]
-            row.prop(instance, "output_run_validations")
+            row.prop(instance.output, "run_validations")
+            if instance.is_pro:
+                row.prop(instance.output, "auto_update_lods")
             row = self.layout.row()
 
-            if instance.output_method == "calibrate":
-                row.prop(instance, "output_align_head_and_body")
+            if instance.output.method == "calibrate":
+                row.prop(instance.output, "align_head_and_body")
                 row = self.layout.row()
 
-            if not instance.output_folder_path:
+            if not instance.output.folder_path:
                 row.enabled = False
             row.scale_y = 2.0
             row.operator(f"{ToolInfo.NAME}.export_selected_component", icon="EXPORT", text="Only Component")
@@ -947,6 +629,7 @@ class CHARACTER_DNA_PT_migrate_legacy_data(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_options = {"HEADER_LAYOUT_EXPAND"}
+    bl_order = PanelOrder.MIGRATE_LEGACY_DATA.value
 
     @classmethod
     def poll(cls, context: "Context") -> bool:
@@ -971,3 +654,48 @@ class CHARACTER_DNA_PT_migrate_legacy_data(bpy.types.Panel):
         row = self.layout.row()
         row.scale_y = 1.5
         row.operator(f"{ToolInfo.NAME}.migrate_legacy_data", icon="FILE_NEW", text="Migrate Now")
+
+
+class CHARACTER_DNA_PT_pro_upsell(bpy.types.Panel):
+    """Advertise the Pro editor tools.
+
+    Always registered, but only shown when the Pro editor UI is *not* visible:
+    either this is the free edition (no ``editors`` submodule) or a Pro user has
+    toggled ``show_pro_features`` off to preview the free edition's UI.
+    """
+
+    bl_label = "Upgrade to Pro"
+    bl_category = "Character DNA"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_options = {"DEFAULT_CLOSED"}
+    bl_order = PanelOrder.PRO_UPSELL.value
+
+    @classmethod
+    def poll(cls, _: "Context") -> bool:
+        from ..utilities import pro_features_visible
+
+        return not pro_features_visible()
+
+    def draw_header(self, _: "Context"):
+        self.layout.label(text="", icon="FUND")
+
+    def draw(self, context: "Context"):
+        if not self.layout:
+            return
+
+        box = self.layout.box()
+        col = box.column(align=True)
+        col.label(text="Please consider supporting this project", icon="INFO")
+        col.label(text="by upgrading to Character DNA Pro to unlock")
+        col.label(text="all features and help fund future development.")
+        row = self.layout.row()
+        row.label(text="Character DNA Pro unlocks:")
+
+        row = self.layout.row()
+        box = row.box()
+        for editor_name, icon in PRO_EDITORS:
+            box.label(text=editor_name, icon=icon)  # pyright: ignore[reportArgumentType]
+
+        row = self.layout.row()
+        row.operator("wm.url_open", text="Upgrade to Pro", icon="URL").url = ToolInfo.GET_PRO

@@ -5,11 +5,9 @@ import logging
 import bpy
 
 # local imports
-from .constants import DEFAULT_BACKUPS_FOLDER, NUMBER_OF_HEAD_LODS, ToolInfo
+from .constants import NUMBER_OF_HEAD_LODS, ToolInfo
 from .rig_instance import (
-    OutputData,
     RigInstance,
-    ShapeKeyData,
 )
 from .typing import *  # noqa: F403
 from .ui import callbacks
@@ -63,6 +61,170 @@ class ExtraDnaFolder(bpy.types.PropertyGroup):
     )  # pyright: ignore[reportInvalidTypeForm]
 
 
+class CharacterFaceBoardProperties(bpy.types.PropertyGroup):
+    """
+    Defines the per-scene state for the Face Board pose panel, including the
+    selected pose preview and the category filter. One boolean tag filter property
+    per unique pose tag is injected dynamically at registration time (see
+    :func:`register`).
+    """
+
+    face_pose_previews: bpy.props.EnumProperty(
+        name="Face Poses",
+        items=callbacks.get_face_pose_previews_items,  # type: ignore[arg-type]
+        update=callbacks.update_face_pose,  # type: ignore[arg-type]
+    )  # pyright: ignore[reportInvalidTypeForm]
+    category: bpy.props.EnumProperty(
+        name="Category",
+        description="Limit the displayed poses to the selected category",
+        items=[
+            ("ALL", "All", "Show poses from all categories"),
+            ("visemes", "Visemes", "Show mouth shapes used for speech"),
+            ("emotions", "Emotions", "Show emotional expression poses"),
+            ("wrinkle_maps", "Wrinkle Maps", "Show wrinkle map poses"),
+            ("scan_reference", "Scan Reference", "Show scan reference poses"),
+        ],
+        default="ALL",
+        update=callbacks.update_face_pose_filter,  # type: ignore[arg-type]
+    )  # pyright: ignore[reportInvalidTypeForm]
+    tag_match_mode: bpy.props.EnumProperty(
+        name="Tag Match",
+        description="How to combine the selected tag filters",
+        items=[
+            ("ALL", "All", "Only show poses that have all of the selected tags (intersection)"),
+            ("ANY", "Any", "Show poses that have any of the selected tags (union)"),
+        ],
+        default="ANY",
+        update=callbacks.update_face_pose_filter,  # type: ignore[arg-type]
+    )  # pyright: ignore[reportInvalidTypeForm]
+
+
+class OutputData(bpy.types.PropertyGroup):
+    include: bpy.props.BoolProperty(default=True, description="Whether to include this data in the output")  # pyright: ignore[reportInvalidTypeForm]
+    name: bpy.props.StringProperty(default="", description="The name of the shape key")  # pyright: ignore[reportInvalidTypeForm]
+    scene_object: bpy.props.PointerProperty(
+        type=bpy.types.Object,
+        description=(
+            "A object that is associated with the dna data. This automatically "
+            "gets set based on what is linked in the Rig Instance data"
+        ),
+    )  # pyright: ignore[reportInvalidTypeForm]
+    image_object: bpy.props.PointerProperty(
+        type=bpy.types.Image,
+        description=(
+            "A object that is associated with the dna data. This automatically "
+            "gets set based on what is linked in the Rig Instance data"
+        ),
+    )  # pyright: ignore[reportInvalidTypeForm]
+    relative_file_path: bpy.props.StringProperty(
+        default="", description="The relative file path from the output folder"
+    )  # pyright: ignore[reportInvalidTypeForm]
+    editable_name: bpy.props.BoolProperty(default=True, description="Whether to include this data in the output")  # pyright: ignore[reportInvalidTypeForm]
+
+
+class CharacterOutputProperties(bpy.types.PropertyGroup):
+    """
+    Defines the per-rig-instance state for the Output panel, including the export
+    method/component/format, output folder, and the collections of head and body
+    output items. This is assigned onto :class:`RigInstance` as the ``output``
+    pointer property at registration time (see :func:`register`).
+    """
+
+    run_validations: bpy.props.BoolProperty(
+        name="Validate", description="Whether to run validations before exporting", default=True
+    )  # pyright: ignore[reportInvalidTypeForm]
+    folder_path: bpy.props.StringProperty(
+        name="Output Folder",
+        description="The root folder where the output files will be saved",
+        subtype="DIR_PATH",
+        options={"PATH_SUPPORTS_BLEND_RELATIVE"},
+    )  # pyright: ignore[reportInvalidTypeForm]
+    method: bpy.props.EnumProperty(
+        name="DNA Output Method",
+        description="The output method to use when creating the dna file",
+        default="calibrate",
+        items=[
+            (
+                "calibrate",
+                "Calibrate",
+                (
+                    "Uses the original dna file and calibrates the included bones and mesh changes into a new dna"
+                    " file. Use this method if your vert indices and bone names are the same as the original DNA."
+                    " This is the recommended method"
+                ),
+                "NONE",
+                0,
+            ),
+            (
+                "overwrite",
+                "Overwrite",
+                (
+                    "(Experimental, and not fully functional yet) Uses the original dna file and overwrites the"
+                    " dna data based on the current mesh and armature data in the scene. Use this method if your "
+                    "vert indices and bone names are different from the original DNA. Only use this method when "
+                    "calibration method is not possible"
+                ),
+                "ERROR",
+                1,
+            ),
+        ],
+    )  # pyright: ignore[reportInvalidTypeForm]
+    component: bpy.props.EnumProperty(
+        name="DNA Output Component",
+        description="Which component to output use when creating the dna file",
+        default="head",
+        items=[("head", "Head", "The head component of the DNA"), ("body", "Body", "The body component of the DNA")],
+        update=callbacks.update_output_component,  # type: ignore[call-arg]
+    )  # pyright: ignore[reportInvalidTypeForm]
+    format: bpy.props.EnumProperty(
+        name="File Format",
+        description="The file format to use when output the dna file. Either binary or json",
+        default="binary",
+        items=[
+            (
+                "json",
+                "JSON",
+                (
+                    "Writes the dna file in a human readable json format. Use this method if you want to manually "
+                    "edit the dna file"
+                ),
+            ),
+            (
+                "binary",
+                "Binary",
+                (
+                    "Writes the dna file in a binary format. Use this method if you want to use the dna file with the"
+                    " rig logic system"
+                ),
+            ),
+        ],
+    )  # pyright: ignore[reportInvalidTypeForm]
+    align_head_and_body: bpy.props.BoolProperty(
+        name="Align Head and Body",
+        description=(
+            "Whether to align the overlapping head and body bones, as well as, aligning the vertices "
+            "in the edge loop around the neck during the calibration process"
+        ),
+        default=True,
+    )  # pyright: ignore[reportInvalidTypeForm]
+    auto_update_lods: bpy.props.BoolProperty(
+        name="Auto Update LODs",
+        description=(
+            "After calibrating the LOD0 mesh vertex positions, propagate the changes to every lower-LOD "
+            "mesh that is not present in the scene, using UV-space matching against the new LOD0 shape"
+        ),
+        default=False,
+    )  # pyright: ignore[reportInvalidTypeForm]
+
+    head_item_list: bpy.props.CollectionProperty(type=OutputData)  # pyright: ignore[reportInvalidTypeForm]
+    head_item_active_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
+    body_item_list: bpy.props.CollectionProperty(type=OutputData)  # pyright: ignore[reportInvalidTypeForm]
+    body_item_active_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
+    calibrate_bones: bpy.props.BoolProperty(default=True)  # pyright: ignore[reportInvalidTypeForm]
+    calibrate_meshes: bpy.props.BoolProperty(default=True)  # pyright: ignore[reportInvalidTypeForm]
+    calibrate_shape_keys: bpy.props.BoolProperty(default=True)  # pyright: ignore[reportInvalidTypeForm]
+
+
 class CharacterAddonProperties:
     """
     This class holds the properties for the addon.
@@ -74,78 +236,16 @@ class CharacterAddonProperties:
         description="This will send anonymous usage data to Poly Hammer to help improve the addon and help catch bugs",
     )  # pyright: ignore[reportInvalidTypeForm]
 
-    # ------- RBF Editor Properties -------
-
-    rbf_editor_show_viewport_overlay: bpy.props.BoolProperty(
-        name="Show RBF Editor Viewport Overlay",
-        default=True,
-        description="Display an overlay in the 3D viewport when the RBF Editor is in edit mode",
-    )  # pyright: ignore[reportInvalidTypeForm]
-
-    rbf_editor_solver_mirror_regex_pattern: bpy.props.StringProperty(
-        name="Solver Mirror Regex Pattern",
-        default=r"(?P<prefix>.+)?(?P<side>_[lr]_)(?P<suffix>.+)?",
-        description=(
-            "Regex pattern to identify the side of a solver name. Must contain a 'side' named group that "
-            "captures '_l_' or '_r_'. The matched side will be swapped to its opposite when mirroring."
-        ),
-    )  # pyright: ignore[reportInvalidTypeForm]
-
-    rbf_editor_pose_mirror_regex_pattern: bpy.props.StringProperty(
-        name="Pose Mirror Regex Pattern",
-        default=r"(?P<prefix>.+)?(?P<side>_[lr]_)(?P<suffix>.+)?",
-        description=(
-            "Regex pattern to identify the side of a pose name. Must contain a 'side' named group that "
-            "captures '_l_' or '_r_'. The matched side will be swapped to its opposite when mirroring."
-        ),
-    )  # pyright: ignore[reportInvalidTypeForm]
-
-    rbf_editor_bone_mirror_regex_pattern: bpy.props.StringProperty(
-        name="Bone Mirror Regex Pattern",
-        default=r"(?P<prefix>.+)?(?P<side>_[lr])",
-        description=(
-            "Regex pattern to identify the side of a bone name. Must contain a 'side' named group that "
-            "captures '_l' or '_r'. The matched side will be swapped to its opposite when mirroring."
-        ),
-    )  # pyright: ignore[reportInvalidTypeForm]
-
-    # ------- Backup Manager Properties -------
-
-    dna_backups_enable: bpy.props.BoolProperty(
-        name="Enable Auto DNA Backups",
-        default=True,
-        description=(
-            "Automatically backup DNA files when saving the blend file, or committing edit mode changes "
-            "from the RBF Editor or Facial Editor"
-        ),
-    )  # pyright: ignore[reportInvalidTypeForm]
-
-    dna_backups_folder_path: bpy.props.StringProperty(
-        default=str(DEFAULT_BACKUPS_FOLDER),
-        description=(
-            "The folder location of the DNA backup files. Modify this if you want to store backups in a custom "
-            "location. Note: You can use the relative path syntax, which creates a folder relative to the DNA files "
-            "being backed up. For example, setting this to '//backups' will create a 'backups' folder next to the DNA "
-            "files"
-        ),
-        subtype="DIR_PATH",
-        options={"PATH_SUPPORTS_BLEND_RELATIVE"},
-    )  # pyright: ignore[reportInvalidTypeForm]
-
-    dna_backups_max: bpy.props.IntProperty(
-        name="Maximum Backups",
-        default=5,
-        min=1,
-        max=50,
-        description=(
-            "Maximum number of automatic DNA backups to keep. Older backups will be automatically deleted "
-            "(Manually created backups are not automatically deleted)"
-        ),
-    )  # pyright: ignore[reportInvalidTypeForm]
-
     next_metrics_consent_timestamp: bpy.props.FloatProperty(default=0.0)  # pyright: ignore[reportInvalidTypeForm]
     extra_dna_folder_list: bpy.props.CollectionProperty(type=ExtraDnaFolder)  # pyright: ignore[reportInvalidTypeForm]
     extra_dna_folder_list_active_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
+    show_pro_features: bpy.props.BoolProperty(
+        name="Show Pro Features",
+        default=True,
+        description=(
+            "Show the Pro editor tools and panels. Disable this to preview what the free edition's UI looks like"
+        ),
+    )  # pyright: ignore[reportInvalidTypeForm]
 
 
 class CharacterImportProperties(get_dna_import_property_group_base_class()):
@@ -212,9 +312,11 @@ class CharacterWindowManagerProperties(bpy.types.PropertyGroup, CharacterImportP
     Defines a property group that stores constants in the window manager context.
     """
 
-    assets = {}
     errors = {}
     dna_info = {"_previous_file_path": None, "_dna_reader": None}
+
+    # Global, per-session cache shared across the whole addon.
+    data = {}
 
     error_message: bpy.props.StringProperty(default="")  # pyright: ignore[reportInvalidTypeForm]
     progress: bpy.props.FloatProperty(default=1.0)  # pyright: ignore[reportInvalidTypeForm]
@@ -223,44 +325,6 @@ class CharacterWindowManagerProperties(bpy.types.PropertyGroup, CharacterImportP
     evaluate_dependency_graph: bpy.props.BoolProperty(default=True)  # pyright: ignore[reportInvalidTypeForm]
     is_undoing: bpy.props.BoolProperty(default=False)  # pyright: ignore[reportInvalidTypeForm]
     is_rendering: bpy.props.BoolProperty(default=False)  # pyright: ignore[reportInvalidTypeForm]
-
-    face_pose_previews: bpy.props.EnumProperty(
-        name="Face Poses",
-        items=callbacks.get_face_pose_previews_items,  # type: ignore[arg-type]
-        update=callbacks.update_face_pose,  # type: ignore[arg-type]
-    )
-    current_component_type: bpy.props.EnumProperty(
-        name="Component Type",
-        default="head",
-        items=[
-            ("head", "Head", "Set the head as the current component for utility operations"),
-            ("body", "Body", "Set the body as the current component for utility operations"),
-        ],
-        description=(
-            "Choose what component to use when performing utility operations. This will determine "
-            "what data is shown in the selection dropdowns as well"
-        ),
-    )  # pyright: ignore[reportInvalidTypeForm]
-    base_dna: bpy.props.EnumProperty(
-        name="Base DNA",
-        items=callbacks.get_base_dna_folder,  # type: ignore[arg-type]
-        description="Choose the base DNA folder that will be used when converting the selected.",
-        options={"ANIMATABLE"},
-    )  # pyright: ignore[reportInvalidTypeForm]
-    new_folder: bpy.props.StringProperty(
-        name="Output Folder", default="", subtype="DIR_PATH", options={"PATH_SUPPORTS_BLEND_RELATIVE"}
-    )  # pyright: ignore[reportInvalidTypeForm]
-    maps_folder: bpy.props.StringProperty(
-        default="",
-        name="Maps Folder",
-        description=(
-            "Optionally, this can be set to a folder location for the face wrinkle maps. "
-            "Textures following the same naming convention as the metahuman source files will be found "
-            "and set on the materials automatically."
-        ),
-        subtype="DIR_PATH",
-        options={"PATH_SUPPORTS_BLEND_RELATIVE"},
-    )  # pyright: ignore[reportInvalidTypeForm]
 
 
 class CharacterSceneProperties(bpy.types.PropertyGroup):
@@ -292,6 +356,8 @@ class CharacterSceneProperties(bpy.types.PropertyGroup):
     rig_instance_list_active_index: bpy.props.IntProperty(
         update=callbacks.update_head_output_items  # type: ignore[arg-type]
     )  # pyright: ignore[reportInvalidTypeForm]
+    # --------------------- face board properties ------------------
+    face_board: bpy.props.PointerProperty(type=CharacterFaceBoardProperties)  # pyright: ignore[reportInvalidTypeForm]
 
 
 def register():
@@ -300,48 +366,43 @@ def register():
     """
     # register the list data classes first, since the scene property groups depends on them
     bpy.utils.register_class(OutputData)
-    bpy.utils.register_class(ShapeKeyData)
 
     # Note: All editors that add properties to RigInstance must be imported and
     # registered and dynamically assigned to the RigInstance before it is registered.
+    # When the optional Pro editors submodule is absent, this is a no-op.
+    from .utilities import get_editors
 
-    # ----------------- Backup Manager Properties -----------------
-    from .editors.backup_manager import properties as backup_manager_properties
+    editors = get_editors()
+    if editors is not None:
+        editors.register_property_groups()
 
-    bpy.utils.register_class(backup_manager_properties.DnaBackupEntry)
-    RigInstance.__annotations__["dna_backup_list"] = bpy.props.CollectionProperty(
-        type=backup_manager_properties.DnaBackupEntry
-    )
-    RigInstance.__annotations__["dna_backup_list_active_index"] = bpy.props.IntProperty()
-
-    # ----------------- RBF Editor Properties -----------------
-    from .editors.rbf_editor import properties as rbf_editor_properties
-
-    rbf_editor_properties.register()
-    bpy.utils.register_class(rbf_editor_properties.RBFDrivenBoneSelectionItem)
-    bpy.utils.register_class(rbf_editor_properties.RBFDriverData)
-    bpy.utils.register_class(rbf_editor_properties.RBFDrivenData)
-    bpy.utils.register_class(rbf_editor_properties.RBFPoseData)
-    bpy.utils.register_class(rbf_editor_properties.RBFSolverData)
-    RigInstance.__annotations__["rbf_solver_list"] = bpy.props.CollectionProperty(
-        type=rbf_editor_properties.RBFSolverData
-    )
-    RigInstance.__annotations__["rbf_solver_list_active_index"] = bpy.props.IntProperty()
-
-    # Add the bone selection collection for the AddRBFPose operator to window manager properties
-    CharacterWindowManagerProperties.__annotations__["add_pose_driven_bones"] = bpy.props.CollectionProperty(
-        type=rbf_editor_properties.RBFDrivenBoneSelectionItem
-    )
-    CharacterWindowManagerProperties.__annotations__["add_pose_driven_bones_active_index"] = bpy.props.IntProperty(
-        name="Active Driven Bone Index",
-        default=0,
-    )
+    # ----------------- Output Properties -----------------
+    # Register the output property group and assign it onto the RigInstance before
+    # it is registered, mirroring the editor property-group pattern above.
+    bpy.utils.register_class(CharacterOutputProperties)
+    RigInstance.__annotations__["output"] = bpy.props.PointerProperty(type=CharacterOutputProperties)
 
     # Now register RigLogicInstance
     bpy.utils.register_class(RigInstance)
     bpy.utils.register_class(BlendFileCharacterCollection)
 
+    # add the pose previews collection. This must exist before the dynamic tag
+    # properties are built, since collecting the tags reads the pose metadata cache.
+    face_pose_previews_collection = bpy.utils.previews.new()
+    face_pose_previews_collection.face_pose_previews_root_folder = ""  # type: ignore[attr-defined]
+    face_pose_previews_collection.face_pose_previews = ()  # type: ignore[attr-defined]
+    face_pose_previews_collection.face_pose_previews_cache_key = None  # type: ignore[attr-defined]
+    face_pose_previews_collection.face_pose_metadata = []  # type: ignore[attr-defined]
+    face_pose_preview_collections["face_poses"] = face_pose_previews_collection
+
     try:
+        # Dynamically build one boolean property per unique face pose tag and inject
+        # them into the face board property group before it is registered. This uses
+        # the same dynamic-class technique as the LOD import options above.
+        for property_name, property_definition in callbacks.build_face_pose_tag_properties().items():
+            CharacterFaceBoardProperties.__annotations__[property_name] = property_definition
+
+        bpy.utils.register_class(CharacterFaceBoardProperties)
         bpy.utils.register_class(CharacterSceneProperties)
         setattr(bpy.types.Scene, ToolInfo.NAME, bpy.props.PointerProperty(type=CharacterSceneProperties))  # type: ignore[attr-defined]
     except ValueError as error:
@@ -354,12 +415,6 @@ def register():
         )  # type: ignore[attr-defined]
     except ValueError as error:
         logger.debug(error)
-
-    # add the pose previews collection
-    face_pose_previews_collection = bpy.utils.previews.new()
-    face_pose_previews_collection.face_pose_previews_root_folder = ""  # type: ignore[attr-defined]
-    face_pose_previews_collection.face_pose_previews = ()  # type: ignore[attr-defined]
-    face_pose_preview_collections["face_poses"] = face_pose_previews_collection
 
 
 def unregister():
@@ -381,38 +436,30 @@ def unregister():
     if scene_property_class:
         bpy.utils.unregister_class(scene_property_class)
 
+    face_board_property_class = bpy.types.PropertyGroup.bl_rna_get_subclass_py(CharacterFaceBoardProperties.__name__)
+    if face_board_property_class:
+        bpy.utils.unregister_class(face_board_property_class)
+
+    # Remove the dynamically injected tag properties so re-registration starts clean.
+    for property_name in callbacks.get_face_pose_tag_property_map():
+        CharacterFaceBoardProperties.__annotations__.pop(property_name, None)
+
+    # Remove the dynamically injected output pointer so re-registration starts clean.
+    RigInstance.__annotations__.pop("output", None)
+
     # unregister the list data classes
     bpy.utils.unregister_class(RigInstance)
 
     try:
-        # ----------------- RBF Editor Properties -----------------
-        if "rbf_solver_list" in RigInstance.__annotations__:
-            del RigInstance.__annotations__["rbf_solver_list"]
-        if "rbf_solver_list_active_index" in RigInstance.__annotations__:
-            del RigInstance.__annotations__["rbf_solver_list_active_index"]
-        if "add_pose_driven_bones" in CharacterWindowManagerProperties.__annotations__:
-            del CharacterWindowManagerProperties.__annotations__["add_pose_driven_bones"]
-        if "add_pose_driven_bones_active_index" in CharacterWindowManagerProperties.__annotations__:
-            del CharacterWindowManagerProperties.__annotations__["add_pose_driven_bones_active_index"]
-        from .editors.rbf_editor import properties as rbf_editor_properties
+        # ----------------- Editor Properties -----------------
+        # Unregister the optional Pro editor property groups (no-op when absent).
+        from .utilities import get_editors
 
-        bpy.utils.unregister_class(rbf_editor_properties.RBFSolverData)
-        bpy.utils.unregister_class(rbf_editor_properties.RBFPoseData)
-        bpy.utils.unregister_class(rbf_editor_properties.RBFDrivenData)
-        bpy.utils.unregister_class(rbf_editor_properties.RBFDriverData)
-        bpy.utils.unregister_class(rbf_editor_properties.RBFDrivenBoneSelectionItem)
-        rbf_editor_properties.unregister()
+        editors = get_editors()
+        if editors is not None:
+            editors.unregister_property_groups()
 
-        # ----------------- Backup Manager Properties -----------------
-        if "dna_backup_list" in RigInstance.__annotations__:
-            del RigInstance.__annotations__["dna_backup_list"]
-        if "dna_backup_list_active_index" in RigInstance.__annotations__:
-            del RigInstance.__annotations__["dna_backup_list_active_index"]
-        from .editors.backup_manager import properties as backup_properties
-
-        bpy.utils.unregister_class(backup_properties.DnaBackupEntry)
-
-        bpy.utils.unregister_class(ShapeKeyData)
+        bpy.utils.unregister_class(CharacterOutputProperties)
         bpy.utils.unregister_class(OutputData)
         bpy.utils.unregister_class(BlendFileCharacterCollection)
 

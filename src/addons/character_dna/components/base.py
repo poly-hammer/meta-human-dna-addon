@@ -13,8 +13,6 @@ from typing import Any
 # third party imports
 import bpy
 
-from mathutils import Matrix
-
 # local imports
 from .. import utilities
 from ..constants import (
@@ -59,6 +57,7 @@ class CharacterComponentBase(metaclass=ABCMeta):
         dna_file_path: Path | None = None,
         dna_import_properties: "CharacterImportProperties | None" = None,
         component_type: ComponentType = "head",
+        focus_on_import: bool = True,
     ):
         # make sure dna file path is a Path object
         dna_file_path = Path(bpy.path.abspath(str(dna_file_path))) if dna_file_path else None
@@ -70,6 +69,7 @@ class CharacterComponentBase(metaclass=ABCMeta):
         self._linear_modifier = None
         self._angle_modifier = None
         self._component_type = component_type
+        self._focus_on_import = focus_on_import
 
         # determine the asset root folder based on the dna file path
         self.asset_root_folder = None
@@ -82,7 +82,7 @@ class CharacterComponentBase(metaclass=ABCMeta):
                 self.asset_root_folder = Path(bpy.path.abspath(str(rig_instance.body_dna_file_path))).parent
 
         self.rig_instance: "RigInstance" = rig_instance  # type: ignore[assignment]  # noqa: UP037
-        self.addon_properties: "CharacterAddonProperties" = utilities.get_addon_preferences()  # pyright: ignore[reportAttributeAccessIssue]  # noqa: UP037
+        self.addon_properties: "CharacterAddonPreferences" = utilities.get_addon_preferences()  # pyright: ignore[reportAttributeAccessIssue]  # noqa: UP037
         self.window_manager_properties: CharacterWindowManagerProperties = (
             utilities.get_addon_window_manager_properties()
         )
@@ -116,16 +116,17 @@ class CharacterComponentBase(metaclass=ABCMeta):
         elif self.dna_import_properties and self.dna_import_properties.alternate_maps_folder:
             self.maps_folder = Path(self.dna_import_properties.alternate_maps_folder)
 
-        file_format = "binary" if (dna_file_path or self.dna_file_path).suffix.lower() == ".dna" else "json"
-        self.dna_reader = get_dna_reader(file_path=dna_file_path or self.dna_file_path, file_format=file_format)
-        self.dna_importer = DNAImporter(
-            instance=self.rig_instance,
-            import_properties=self.dna_import_properties,
-            linear_modifier=self.linear_modifier,
-            reader=self.dna_reader,
-            component_type=self.component_type,
-            dna_file_path=dna_file_path,
-        )
+        file_path = dna_file_path or self.dna_file_path
+        if file_path.is_file() and file_path.exists():
+            self.dna_reader = get_dna_reader(file_path=dna_file_path or self.dna_file_path, file_format="binary")
+            self.dna_importer = DNAImporter(
+                instance=self.rig_instance,
+                import_properties=self.dna_import_properties,
+                linear_modifier=self.linear_modifier,
+                reader=self.dna_reader,
+                component_type=self.component_type,
+                dna_file_path=dna_file_path,
+            )
 
     @property
     def component_type(self) -> ComponentType:
@@ -375,18 +376,6 @@ class CharacterComponentBase(metaclass=ABCMeta):
             if body_topology_image:
                 bpy.data.images.remove(body_topology_image)
 
-    def _mirror_bone_to(self, from_bone: bpy.types.PoseBone, to_bone_name: str) -> bpy.types.PoseBone | None:
-        if self.head_rig_object and self.head_rig_object.pose:
-            to_bone = self.head_rig_object.pose.bones.get(to_bone_name)
-            location = from_bone.matrix.to_translation()
-            location.x *= -1
-            if to_bone:
-                to_bone.matrix = Matrix.Translation(location)
-                return to_bone
-
-        logger.error(f"Could not find bone {to_bone_name}")
-        return None
-
     def _delete_rig_instance(self):
         if (
             not self.rig_instance.head_mesh
@@ -545,54 +534,6 @@ class CharacterComponentBase(metaclass=ABCMeta):
 
         return True, "Validation successful!"
 
-    def mirror_selected_bones(self) -> tuple[bool, str]:
-        if self.head_rig_object:
-            ignored_bone_names = utilities.get_ignored_bones_names(self.head_rig_object)
-            selected_pose_bones = [
-                pose_bone for pose_bone in bpy.context.selected_pose_bones if pose_bone.name not in ignored_bone_names
-            ]
-
-            # Validate that the selected bones are all on the same side
-            left_side_count = 0
-            right_side_count = 0
-            for pose_bone in selected_pose_bones:
-                if pose_bone.name.endswith("_l") or pose_bone.name.startswith("FACIAL_L"):
-                    left_side_count += 1
-                elif pose_bone.name.endswith("_r") or pose_bone.name.startswith("FACIAL_R"):
-                    right_side_count += 1
-
-            if left_side_count and right_side_count:
-                return False, (
-                    "Selected bones must all be on the same side! Your selection "
-                    f"has {left_side_count} on the left and {right_side_count} on the right."
-                )
-
-            # Now mirror the bones
-            for pose_bone in selected_pose_bones:
-                mirrored_bone = None
-                if pose_bone.name.endswith("_l"):
-                    parts = pose_bone.name.rsplit("_l", 1)
-                    bone_name = "_r".join(parts)
-                    mirrored_bone = self._mirror_bone_to(from_bone=pose_bone, to_bone_name=bone_name)
-                elif pose_bone.name.startswith("FACIAL_L"):
-                    bone_name = pose_bone.name.replace("FACIAL_L", "FACIAL_R", 1)
-                    mirrored_bone = self._mirror_bone_to(from_bone=pose_bone, to_bone_name=bone_name)
-                elif pose_bone.name.endswith("_r"):
-                    parts = pose_bone.name.rsplit("_r", 1)
-                    bone_name = "_l".join(parts)
-                    mirrored_bone = self._mirror_bone_to(from_bone=pose_bone, to_bone_name=bone_name)
-                elif pose_bone.name.startswith("FACIAL_R"):
-                    bone_name = pose_bone.name.replace("FACIAL_R", "FACIAL_L", 1)
-                    mirrored_bone = self._mirror_bone_to(from_bone=pose_bone, to_bone_name=bone_name)
-
-                if mirrored_bone:
-                    mirrored_bone.bone.select = True
-
-            # apply the pose changes
-            utilities.apply_pose(self.head_rig_object, selected=True)
-
-        return True, "Bones mirrored successfully!"
-
     @preserve_context
     def pre_convert_mesh_cleanup(self, mesh_object: bpy.types.Object) -> bpy.types.Object | None:
         if not mesh_object.data or not isinstance(mesh_object.data, bpy.types.Mesh):
@@ -611,7 +552,7 @@ class CharacterComponentBase(metaclass=ABCMeta):
             utilities.switch_to_edit_mode(mesh_object)
             bpy.ops.mesh.select_all(action="SELECT")
             bpy.ops.mesh.separate(type="MATERIAL")
-            for separated_mesh in bpy.context.selectable_objects:
+            for separated_mesh in bpy.context.selectable_objects or []:
                 if head_material_name in [i.name for i in separated_mesh.data.materials]:  # type: ignore[attr-defined]
                     new_mesh_object = separated_mesh
                     new_mesh_object.name = mesh_object_name
@@ -626,7 +567,7 @@ class CharacterComponentBase(metaclass=ABCMeta):
         """
         Writes the export manifest to a JSON file like MetaHuman Creator does for a DCC export.
         """
-        file_path = Path(bpy.path.abspath(str(self.rig_instance.output_folder_path))) / "ExportManifest.json"
+        file_path = Path(bpy.path.abspath(str(self.rig_instance.output.folder_path))) / "ExportManifest.json"
         with file_path.open("w") as file:
             json.dump(
                 {
@@ -653,40 +594,8 @@ class CharacterComponentBase(metaclass=ABCMeta):
             if constraint:
                 constraint.influence = influence
 
-    @preserve_context
-    def snap_head_bones_to_body_bones(self):
-        if not self.rig_instance.head_rig or not self.rig_instance.body_rig:
-            return
-
-        self.rig_instance.head_rig.hide_set(False)
-        self.rig_instance.body_rig.hide_set(False)
-        # Switch to edit mode to access edit bones data
-        utilities.switch_to_bone_edit_mode(self.rig_instance.head_rig, self.rig_instance.body_rig)
-
-        # snap the head rig to the body rig in rest pose
-        for head_edit_bone in self.rig_instance.head_rig.data.edit_bones:
-            # get the corresponding body edit bone
-            body_edit_bone = self.rig_instance.body_rig.data.edit_bones.get(head_edit_bone.name)
-            if body_edit_bone:
-                # Get world space matrices
-                body_world_matrix = self.rig_instance.body_rig.matrix_world
-                head_world_matrix = self.rig_instance.head_rig.matrix_world
-
-                # Convert body bone positions to world space
-                body_head_world = body_world_matrix @ body_edit_bone.head
-                body_tail_world = body_world_matrix @ body_edit_bone.tail
-
-                # Convert world positions to head rig local space
-                head_edit_bone.head = head_world_matrix.inverted() @ body_head_world
-                head_edit_bone.tail = head_world_matrix.inverted() @ body_tail_world
-                head_edit_bone.roll = body_edit_bone.roll
-
     @abstractmethod
     def ingest(self, align: bool = True, constrain: bool = True) -> tuple[bool, str]:
-        pass
-
-    @abstractmethod
-    def export(self):
         pass
 
     @abstractmethod
@@ -694,23 +603,11 @@ class CharacterComponentBase(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def create_topology_vertex_groups(self):
+    def set_pose(self):
         pass
 
     @abstractmethod
-    def select_vertex_group(self):
-        pass
-
-    @abstractmethod
-    def select_bone_group(self):
-        pass
-
-    @abstractmethod
-    def shrink_wrap_vertex_group(self):
-        pass
-
-    @abstractmethod
-    def revert_bone_transforms_to_dna(self):
+    def reset_poses(self):
         pass
 
     @abstractmethod

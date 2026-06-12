@@ -1,7 +1,9 @@
 # standard library imports
+import json
 import logging
 import math
 import os
+import re
 
 from collections.abc import Iterable
 from pathlib import Path
@@ -15,8 +17,6 @@ from mathutils import Color, Euler, Matrix, Vector
 
 # local imports
 from ..constants import (
-    BASE_DNA_FOLDER,
-    BODY_HIGH_LEVEL_TOPOLOGY_GROUPS,
     BODY_MAPS,
     HEAD_MAPS,
     HEAD_TO_BODY_LOD_MAPPING,
@@ -28,6 +28,15 @@ from ..typing import *  # noqa: F403
 
 
 logger = logging.getLogger(__name__)
+
+# Module-level reference to the dynamic face pose search enum items. Blender requires
+# a persistent python reference to dynamic enum items to avoid a GC crash.
+_face_pose_search_items: list[tuple[str, str, str, int, int]] = []
+
+# Maps a generated boolean property name (e.g. "tag_speech") to its original tag
+# name (e.g. "speech"). Populated when the dynamic tag properties are built at
+# addon registration time.
+_face_pose_tag_property_map: dict[str, str] = {}
 
 
 def get_active_head() -> "CharacterComponentHead | None":
@@ -103,7 +112,9 @@ def get_active_material_preview(self: "RigInstance") -> int:
     return self.get("active_material_preview", 0)
 
 
-def get_face_pose_previews_items(self: "RigInstance", context: "Context") -> Iterable[tuple[str, str, str, int, int]]:  # noqa: ARG001
+def get_face_pose_previews_items(
+    self: "CharacterFaceBoardProperties", context: "Context"
+) -> Iterable[tuple[str, str, str, int, int]]:
     from ..properties import face_pose_preview_collections
 
     enum_items = []
@@ -111,145 +122,244 @@ def get_face_pose_previews_items(self: "RigInstance", context: "Context") -> Ite
     if context is None:
         return enum_items
 
-    directory = POSES_FOLDER / "face"
-
     # Get the preview collection.
     preview_collection = face_pose_preview_collections["face_poses"]
 
-    # If the enum items have already been cached, return them so we don't have to regenerate them.
-    if preview_collection.values():
+    metadata = ensure_face_pose_metadata()
+
+    # Build a cache key from the current filters so we only rebuild the filtered
+    # enum when the filters actually change.
+    enabled_tags = tuple(sorted(get_enabled_face_pose_tags(self)))
+    cache_key = (self.category, enabled_tags, self.tag_match_mode)
+    if getattr(preview_collection, "face_pose_previews_cache_key", None) == cache_key:
         return preview_collection.face_pose_previews
 
-    if directory.exists():
-        image_paths = []
+    enum_items.extend(
+        (entry["id"], entry["name"], entry["description"], entry["icon_id"], entry["value"])
+        for entry in _filter_face_pose_metadata(metadata, self.category, enabled_tags, self.tag_match_mode)
+    )
 
-        for folder_path, _, file_names in os.walk(directory):
-            for file_name in file_names:
-                if file_name == "thumbnail-preview.png":
-                    thumbnail_file_path = Path(folder_path, file_name)
-                    pose_file_path = Path(folder_path, "pose.json")
-                    if pose_file_path.exists() and thumbnail_file_path.exists():
-                        image_paths.append(Path(folder_path, file_name))
-
-        for i, file_path in enumerate(image_paths):
-            name = file_path.parent.name
-            # generates a thumbnail preview for a file.
-            icon = preview_collection.get(name)
-            if not icon:
-                thumb = preview_collection.load(name, str(file_path), "IMAGE")
-            else:
-                thumb = preview_collection[name]
-            enum_items.append((str(file_path), name, "", thumb.icon_id, i))
-
-    # cache the enum item values for later retrieval
+    # Cache the enum item values and the key for later retrieval. We must keep a
+    # reference to the returned tuples alive to avoid a Blender enum GC crash.
     preview_collection.face_pose_previews = enum_items
+    preview_collection.face_pose_previews_cache_key = cache_key
     return preview_collection.face_pose_previews
 
 
-def get_head_mesh_topology_groups(self: "RigInstance", context: "Context") -> list[tuple[str, str, str]]:  # noqa: ARG001
-    enum_items: list[tuple[str, str, str]] = []
-    instance = get_active_rig_instance()
-    if instance and instance.head_mesh:
-        enum_items.extend(
-            (
-                group.name,
-                " ".join([i.capitalize() for i in group.name.replace("TOPO_GROUP_", "").split("_")]),
-                f"Select vertices assigned to {group.name} on the active head mesh",
+def ensure_face_pose_metadata(force: bool = False) -> list[dict]:
+    """
+    Builds (and caches) the face pose metadata by walking the poses folder once,
+    reading each ``pose.json`` for its description and tags, and loading a preview
+    icon for each pose. Returns a list of dicts with keys: ``id`` (thumbnail path),
+    ``name``, ``category``, ``description``, ``tags``, ``icon_id``.
+    """
+    from ..properties import face_pose_preview_collections
+
+    preview_collection = face_pose_preview_collections["face_poses"]
+
+    cached = getattr(preview_collection, "face_pose_metadata", None)
+    if cached and not force:
+        return cached
+
+    directory = POSES_FOLDER / "face"
+    metadata: list[dict] = []
+
+    if directory.exists():
+        for folder_path, _, file_names in os.walk(directory):
+            if "thumbnail-preview.png" not in file_names or "pose.json" not in file_names:
+                continue
+
+            pose_folder = Path(folder_path)
+            thumbnail_file_path = pose_folder / "thumbnail-preview.png"
+            pose_file_path = pose_folder / "pose.json"
+
+            description = ""
+            tags: list[str] = []
+            try:
+                with pose_file_path.open() as file:
+                    data = json.load(file)
+                description = data.get("description", "") or ""
+                tags = [str(tag) for tag in data.get("tags", []) or []]
+            except (OSError, ValueError) as error:
+                logger.debug(f"Failed to read pose metadata from {pose_file_path}: {error}")
+
+            try:
+                category = pose_folder.relative_to(directory).parts[0]
+            except (ValueError, IndexError):
+                category = ""
+
+            pose_id = str(thumbnail_file_path)
+            icon = preview_collection.get(pose_id)
+            thumb = icon or preview_collection.load(pose_id, pose_id, "IMAGE")
+
+            metadata.append(
+                {
+                    "id": pose_id,
+                    "name": pose_folder.name.replace("_", " "),
+                    "category": category,
+                    "description": description,
+                    "tags": tags,
+                    "icon_id": thumb.icon_id,
+                }
             )
-            for group in instance.head_mesh.vertex_groups
-            if group.name.startswith("TOPO_GROUP_")
+
+    metadata.sort(key=lambda entry: (entry["category"], entry["name"]))
+    # Assign a stable integer enum value to each pose based on its position in the
+    # fully sorted list. The dynamic ``face_pose_previews`` enum must keep a
+    # consistent integer per item regardless of the active category/tag filters;
+    # using the filtered loop index instead causes Blender to emit
+    # "current value 'N' matches no enum" warnings when the filtered list shrinks.
+    for value, entry in enumerate(metadata):
+        entry["value"] = value
+    preview_collection.face_pose_metadata = metadata
+    return metadata
+
+
+def _filter_face_pose_metadata(
+    metadata: list[dict], category: str, enabled_tags: tuple[str, ...], match_mode: str = "ANY"
+) -> list[dict]:
+    """
+    Filters the pose metadata by category and enabled tags. When ``match_mode`` is
+    ``"ALL"`` a pose must contain every enabled tag (intersection); when ``"ANY"`` a
+    pose only needs at least one of the enabled tags (union).
+    """
+    enabled_tag_set = set(enabled_tags)
+    results = []
+    for entry in metadata:
+        if category != "ALL" and entry["category"] != category:
+            continue
+        if enabled_tag_set:
+            pose_tags = set(entry["tags"])
+            if match_mode == "ALL":
+                if not enabled_tag_set.issubset(pose_tags):
+                    continue
+            elif not enabled_tag_set.intersection(pose_tags):
+                continue
+        results.append(entry)
+    return results
+
+
+def get_all_face_pose_tags() -> list[str]:
+    """Returns a sorted list of every unique tag across all face poses."""
+    tags: set[str] = set()
+    for entry in ensure_face_pose_metadata():
+        tags.update(entry["tags"])
+    return sorted(tags)
+
+
+def _tag_to_property_name(tag: str) -> str:
+    """Converts a tag string into a valid Blender boolean property identifier."""
+    sanitized = re.sub(r"\W+", "_", tag.strip().lower()).strip("_")
+    return f"tag_{sanitized or 'unnamed'}"
+
+
+def build_face_pose_tag_properties() -> dict:
+    """
+    Collects every unique face pose tag and builds one ``BoolProperty`` per tag.
+    Returns a mapping of generated property name to property definition, suitable
+    for injecting into a ``PropertyGroup``'s ``__annotations__`` before it is
+    registered. This mirrors the dynamic-class technique used for the LOD import
+    options. The reverse property-name to tag-name mapping is cached on the module
+    so the tag filter can be resolved later.
+    """
+    global _face_pose_tag_property_map
+
+    _face_pose_tag_property_map = {}
+    properties: dict = {}
+
+    for tag_name in get_all_face_pose_tags():
+        property_name = _tag_to_property_name(tag_name)
+        # Disambiguate any property name collisions from similar tag names.
+        unique_name = property_name
+        suffix = 1
+        while unique_name in _face_pose_tag_property_map:
+            suffix += 1
+            unique_name = f"{property_name}_{suffix}"
+
+        _face_pose_tag_property_map[unique_name] = tag_name
+        properties[unique_name] = bpy.props.BoolProperty(
+            name=tag_name,
+            description=f"Only show poses tagged with '{tag_name}'",
+            default=False,
+            update=update_face_pose_filter,  # pyright: ignore[reportArgumentType]
         )
 
-    # Sort the enum items alphabetically by their first index (the group name)
-    enum_items.sort(key=lambda x: x[0])
-    return enum_items
+    return properties
 
 
-def get_body_mesh_topology_groups(self: "RigInstance", _: "Context") -> list[tuple[str, str, str]]:
-    enum_items = []
-    instance = get_active_rig_instance()
-    if instance and instance.body_mesh:
-        for group in instance.body_mesh.vertex_groups:
-            if group.name.startswith("TOPO_GROUP_"):
-                enum_item = (
-                    group.name,
-                    " ".join([i.capitalize() for i in group.name.replace("TOPO_GROUP_", "").split("_")]),
-                    f"Select vertices assigned to {group.name} on the active body mesh",
-                )
-                if self.body_show_only_high_level_topology_groups:
-                    if any(group.name.endswith(high_level) for high_level in BODY_HIGH_LEVEL_TOPOLOGY_GROUPS):
-                        enum_items.append(enum_item)
-                elif not any(group.name.endswith(high_level) for high_level in BODY_HIGH_LEVEL_TOPOLOGY_GROUPS):
-                    enum_items.append(enum_item)
-
-    # Sort the enum items alphabetically by their first index (the group name)
-    enum_items.sort(key=lambda x: x[0])
-    return enum_items
+def get_face_pose_tag_property_map() -> dict[str, str]:
+    """Returns the generated property-name to tag-name mapping for the tag filters."""
+    return _face_pose_tag_property_map
 
 
-def get_head_rig_bone_groups(self: "RigInstance", context: "Context") -> list[tuple[str, str, str]]:
-    from ..bindings import character_dna_core  # pyright: ignore[reportAttributeAccessIssue]
+def get_enabled_face_pose_tags(face_board: "CharacterFaceBoardProperties") -> set[str]:
+    """Returns the set of tags whose dynamic boolean filter is currently enabled."""
+    return {
+        tag_name
+        for property_name, tag_name in _face_pose_tag_property_map.items()
+        if getattr(face_board, property_name, False)
+    }
 
-    enum_items = [
-        (
-            group_name,
-            " ".join([i.capitalize() for i in group_name.split("_")]),
-            f"Select bones in the group {group_name} on the head rig",
+
+def get_face_pose_search_items(
+    self: "bpy.types.Operator",  # noqa: ARG001
+    context: "Context",
+) -> list[tuple[str, str, str, int, int]]:
+    """
+    Items callback for the face board search popup operator. Returns the same
+    category/tag filtered pose set shown in the panel so the user can type to
+    quickly jump to a pose by name. The list is cached on the module to keep a
+    reference alive and avoid a Blender enum GC crash.
+    """
+    global _face_pose_search_items
+
+    _face_pose_search_items = []
+    if context is None or context.scene is None:
+        return _face_pose_search_items
+
+    scene_properties = getattr(context.scene, ToolInfo.NAME, None)
+    if scene_properties is None:
+        return _face_pose_search_items
+
+    face_board = scene_properties.face_board
+    metadata = ensure_face_pose_metadata()
+    enabled_tags = tuple(sorted(get_enabled_face_pose_tags(face_board)))
+
+    _face_pose_search_items = [
+        (entry["id"], entry["name"], entry["description"], entry["icon_id"], index)
+        for index, entry in enumerate(
+            _filter_face_pose_metadata(metadata, face_board.category, enabled_tags, face_board.tag_match_mode)
         )
-        for group_name in character_dna_core.HEAD_BONE_SELECTION_GROUPS
     ]
-    instance = get_active_rig_instance()
-    if instance and instance.head_mesh and instance.list_surface_bone_groups:
-        enum_items.extend(
-            (item[0], f"(Surface) {item[1]}", item[2]) for item in get_head_mesh_topology_groups(self, context)
-        )
-    return enum_items
+    return _face_pose_search_items
 
 
-def get_body_rig_bone_groups(self: "RigInstance", context: "Context") -> list[tuple[str, str, str]]:  # noqa: ARG001
-    from ..bindings import character_dna_core  # pyright: ignore[reportAttributeAccessIssue]
+def update_face_pose_filter(self: "CharacterFaceBoardProperties", context: "Context"):  # noqa: ARG001
+    """
+    Invalidates the cached filtered enum and, if the currently selected pose is no
+    longer part of the filtered set, auto-selects the first remaining pose.
+    """
+    from ..properties import face_pose_preview_collections
 
-    enum_items = [
-        (
-            group_name,
-            " ".join([i.capitalize() for i in group_name.split("_")]),
-            f"Select bones in the group {group_name} on the body rig",
-        )
-        for group_name in character_dna_core.BODY_BONE_SELECTION_GROUPS
-    ]
+    preview_collection = face_pose_preview_collections["face_poses"]
+    # Invalidate the cache so the items callback rebuilds the filtered list.
+    preview_collection.face_pose_previews_cache_key = None
 
-    # TODO: Maybe add surface bone groups here as well
-    return enum_items
+    metadata = ensure_face_pose_metadata()
+    enabled_tags = tuple(sorted(get_enabled_face_pose_tags(self)))
+    filtered = _filter_face_pose_metadata(metadata, self.category, enabled_tags, self.tag_match_mode)
+    filtered_ids = [entry["id"] for entry in filtered]
+    if not filtered_ids:
+        return
 
+    try:
+        current = self.face_pose_previews
+    except (TypeError, ValueError):
+        current = None
 
-def get_base_dna_folder(self: "CharacterWindowManagerProperties", context: "Context") -> list[tuple[str, str, str]]:  # noqa: ARG001
-    from ..utilities import get_addon_preferences
-
-    # get all the dna files in the addon's dna folder
-    enum_items = [
-        (
-            str(folder.absolute()),
-            " ".join([i.capitalize() for i in folder.stem.split("_")]),
-            f"Use the {folder.name} folder and its base DNA component files to convert the selected mesh",
-        )
-        for folder in BASE_DNA_FOLDER.iterdir()
-        if not folder.is_file() and any(f.suffix == ".dna" for f in folder.iterdir())
-    ]
-
-    # get all the dna files in the extra dna folders
-    addon_preferences = get_addon_preferences()
-    extra_dna_folder_list = addon_preferences.extra_dna_folder_list if addon_preferences else []
-    enum_items.extend(
-        (
-            str(file.absolute()),
-            " ".join([i.capitalize() for i in file.stem.split("_")]),
-            f"Use the {file.name} file as the base DNA to convert the selected mesh",
-        )
-        for item in extra_dna_folder_list
-        for file in Path(item.folder_path).iterdir()
-        if file.is_file() and file.suffix == ".dna"
-    )
-    return enum_items
+    if current not in filtered_ids:
+        # Assigning triggers update_face_pose, which applies the pose.
+        self.face_pose_previews = filtered_ids[0]
 
 
 def get_active_lod(self: "RigInstance") -> int:
@@ -278,57 +388,6 @@ def get_show_body_bones(self: "RigInstance") -> bool:
     if self.body_rig:
         return not self.body_rig.hide_get()
     return False
-
-
-def get_shape_key_value(self: "RigInstance") -> float:
-    instance = get_active_rig_instance()
-    if instance:
-        channel_index = instance.head_channel_name_to_index_lookup.get(self.name)
-        if not channel_index:
-            return 0.0
-
-        for shape_key_block in instance.head_shape_key_blocks.get(channel_index, []):
-            try:
-                if shape_key_block.name == self.name:
-                    return shape_key_block.value
-            except UnicodeDecodeError:
-                # This happens when the block is already removed from memory
-                pass
-    return 0.0
-
-
-def get_active_shape_key_mesh_names(self: "RigInstance", context: "Context") -> list[tuple[str, str, str, str, int]]:  # noqa: ARG001
-    items = []
-    if self.head_mesh_index_lookup:
-        enum_index = 0
-        for mesh_object in self.head_mesh_index_lookup.values():
-            if (
-                mesh_object.type == "MESH"
-                and isinstance(mesh_object.data, bpy.types.Mesh)
-                and mesh_object.data.shape_keys
-                and len(mesh_object.data.shape_keys.key_blocks) > 0
-            ):
-                items.append(
-                    (
-                        mesh_object.name,
-                        mesh_object.name.replace(f"{self.name}_", ""),
-                        f'Only display the shape key values for "{mesh_object.name}"',
-                        "NONE",
-                        enum_index,
-                    )
-                )
-                enum_index += 1
-    elif self.head_mesh:
-        items.append(
-            (
-                self.head_mesh.name,
-                self.head_mesh.name.replace(f"{self.name}_", ""),
-                f'Only display the shape key values for "{self.head_mesh.name}"',
-                "NONE",
-                0,
-            )
-        )
-    return items
 
 
 def set_highlight_matching_active_bone(self: "CharacterSceneProperties", value: bool):
@@ -546,61 +605,48 @@ def poll_body_mesh(self: "RigInstance", scene_object: bpy.types.Object) -> bool:
     return scene_object.type == "MESH" and scene_object.name in bpy.data.objects
 
 
-def poll_shrink_wrap_target(self: "RigInstance", scene_object: bpy.types.Object) -> bool:
-    return (
-        scene_object.type == "MESH"
-        and bpy.context.scene is not None
-        and scene_object in bpy.context.scene.objects.values()
-        and scene_object not in [self.head_mesh, self.body_mesh]
-    )
-
-
 def update_evaluate_rbfs_value(self: "RigInstance", context: "Context"):
     # Avoid circular import
-    from ..editors.rbf_editor.core import update_evaluate_rbfs_value as _update_evaluate_rbfs_value
+    try:
+        from ..editors.rbf_editor.core import update_evaluate_rbfs_value as _update
 
-    _update_evaluate_rbfs_value(self, context)
-
-
-def update_head_topology_selection(self: "RigInstance", context: "Context"):  # noqa: ARG001
-    head = get_active_head()
-    if head:
-        head.select_vertex_group()
-
-
-def update_body_topology_selection(self: "RigInstance", context: "Context"):  # noqa: ARG001
-    body = get_active_body()
-    if body:
-        body.select_vertex_group()
-
-
-def update_head_rig_bone_group_selection(self: "RigInstance", context: "Context"):  # noqa: ARG001
-    head = get_active_head()
-    if head:
-        head.select_bone_group()
-
-
-def update_body_rig_bone_group_selection(self: "RigInstance", context: "Context"):  # noqa: ARG001
-    body = get_active_body()
-    if body:
-        body.select_bone_group()
+        _update(self, context)
+    except ImportError:
+        logger.debug("Core module missing. This function will not work.")
 
 
 def update_face_pose(self: "RigInstance", context: "Context"):  # noqa: ARG001
-    from ..utilities import get_addon_scene_properties, get_head
+    from ..utilities import (
+        get_addon_scene_properties,
+        get_addon_window_manager_properties,
+        get_body,
+        get_head,
+        switch_to_pose_mode,
+    )
 
     active_instance = get_active_rig_instance()
     if not active_instance:
         return
 
     addon_scene_properties = get_addon_scene_properties()
+    addon_window_manager_properties = get_addon_window_manager_properties()
+    addon_window_manager_properties.evaluate_dependency_graph = False
 
     # update all instances with the same face board
     for instance in addon_scene_properties.rig_instance_list:
         if instance.face_board == active_instance.face_board:
+            body = get_body(instance.name)
+            if body:
+                body.set_pose()
             head = get_head(instance.name)
             if head:
-                head.set_face_pose()
+                head.set_pose()
+
+    if not active_instance.face_board.hide_get():
+        switch_to_pose_mode(active_instance.face_board)
+
+    addon_window_manager_properties.evaluate_dependency_graph = True
+    active_instance.evaluate()
 
 
 def update_head_to_body_constraint_influence(self: "RigInstance", context: "Context"):  # noqa: ARG001
@@ -694,11 +740,11 @@ def update_body_output_items(self: "RigInstance", context: "Context"):  # noqa: 
         if instance and instance.body_mesh and instance.body_rig:
             # update the output items for the scene objects
             for scene_object in [*get_body_mesh_output_items(instance), instance.body_rig]:
-                for i in instance.output_body_item_list:
+                for i in instance.output.body_item_list:
                     if not i.image_object and i.scene_object == scene_object:
                         break
                 else:
-                    new_item = instance.output_body_item_list.add()
+                    new_item = instance.output.body_item_list.add()
                     new_item.scene_object = scene_object
                     if scene_object == instance.body_mesh:
                         new_item.name = "body_lod0_mesh"
@@ -712,20 +758,20 @@ def update_body_output_items(self: "RigInstance", context: "Context"):  # noqa: 
 
             # update the output items for the image textures
             for image_object, file_name in get_body_image_output_items(instance):
-                for i in instance.output_body_item_list:
+                for i in instance.output.body_item_list:
                     if not i.scene_object and i.image_object == image_object:
                         break
                 else:
-                    new_item = instance.output_body_item_list.add()
+                    new_item = instance.output.body_item_list.add()
                     new_item.image_object = image_object
                     new_item.name = file_name
                     new_item.editable_name = False
 
             # remove any output items that do not have a scene object or image object
-            for item in instance.output_body_item_list:
+            for item in instance.output.body_item_list:
                 if not item.scene_object and not item.image_object:
-                    index = instance.output_body_item_list.find(item.name)
-                    instance.output_body_item_list.remove(index)
+                    index = instance.output.body_item_list.find(item.name)
+                    instance.output.body_item_list.remove(index)
 
 
 def update_head_output_items(self: "RigInstance | None", context: "Context"):  # noqa: ARG001, PLR0912
@@ -740,11 +786,11 @@ def update_head_output_items(self: "RigInstance | None", context: "Context"):  #
         if instance and instance.head_mesh and instance.head_rig:
             # update the output items for the scene objects
             for scene_object in [*get_head_mesh_output_items(instance), instance.head_rig]:
-                for i in instance.output_head_item_list:
+                for i in instance.output.head_item_list:
                     if not i.image_object and i.scene_object == scene_object:
                         break
                 else:
-                    new_item = instance.output_head_item_list.add()
+                    new_item = instance.output.head_item_list.add()
                     new_item.scene_object = scene_object
                     if scene_object == instance.head_mesh:
                         new_item.name = "head_lod0_mesh"
@@ -758,20 +804,20 @@ def update_head_output_items(self: "RigInstance | None", context: "Context"):  #
 
             # update the output items for the image textures
             for image_object, file_name in get_head_image_output_items(instance):
-                for i in instance.output_head_item_list:
+                for i in instance.output.head_item_list:
                     if not i.scene_object and i.image_object == image_object:
                         break
                 else:
-                    new_item = instance.output_head_item_list.add()
+                    new_item = instance.output.head_item_list.add()
                     new_item.image_object = image_object
                     new_item.name = file_name
                     new_item.editable_name = False
 
             # remove any output items that do not have a scene object or image object
-            for item in instance.output_head_item_list:
+            for item in instance.output.head_item_list:
                 if not item.scene_object and not item.image_object:
-                    index = instance.output_head_item_list.find(item.name)
-                    instance.output_head_item_list.remove(index)
+                    index = instance.output.head_item_list.find(item.name)
+                    instance.output.head_item_list.remove(index)
 
 
 def update_output_component(self: "RigInstance", context: "Context"):

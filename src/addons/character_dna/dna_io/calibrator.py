@@ -27,66 +27,6 @@ logger = logging.getLogger(__name__)
 
 
 class DNACalibrator(DNAExporter, DNAImporter):
-    def _get_body_bone_lookups(self) -> tuple[dict, dict, dict, dict]:
-        dna_body_bone_translation_lookup = {}
-        dna_body_bone_rotation_lookup = {}
-        body_bone_translation_lookup = {}
-        body_bone_rotation_lookup = {}
-
-        # Ensure the body DNA reader is initialized
-        if not self._instance.body_dna_reader:
-            self._instance.initialize()
-
-        # If this is the head, and the align head and body option is on, then we want to use the
-        # exact same transforms for the body and head bones so that they match perfectly. So we need to
-        # create a body bone lookup so these can be used as the source of truth.
-        if (
-            self._component_type == "head"
-            and self._instance.output_method == "calibrate"
-            and self._instance.output_align_head_and_body
-            and self._instance.body_dna_reader
-            and self._instance.body_rig
-        ):
-            # Extract the body bone transforms from the dna file
-            body_dna_x_translations = self._instance.body_dna_reader.getNeutralJointTranslationXs()
-            body_dna_y_translations = self._instance.body_dna_reader.getNeutralJointTranslationYs()
-            body_dna_z_translations = self._instance.body_dna_reader.getNeutralJointTranslationZs()
-            body_dna_x_rotations = self._instance.body_dna_reader.getNeutralJointRotationXs()
-            body_dna_y_rotations = self._instance.body_dna_reader.getNeutralJointRotationYs()
-            body_dna_z_rotations = self._instance.body_dna_reader.getNeutralJointRotationZs()
-            dna_body_bone_translation_lookup = {
-                self._instance.body_dna_reader.getJointName(index): Vector(
-                    (body_dna_x_translations[index], body_dna_y_translations[index], body_dna_z_translations[index])
-                )
-                for index in range(self._instance.body_dna_reader.getJointCount())
-            }
-            dna_body_bone_rotation_lookup = {
-                self._instance.body_dna_reader.getJointName(index): Vector(
-                    (body_dna_x_rotations[index], body_dna_y_rotations[index], body_dna_z_rotations[index])
-                )
-                for index in range(self._instance.body_dna_reader.getJointCount())
-            }
-
-            # Extract the body bone transforms from the scene
-            indices, bone_names, _, _, translations, rotations = self.get_bone_transforms(
-                self._instance.body_rig, extra_bones=[]
-            )
-
-            body_bone_translation_lookup = {
-                bone_name: Vector(translations[index]) for index, bone_name in zip(indices, bone_names, strict=False)
-            }
-
-            body_bone_rotation_lookup = {
-                bone_name: Vector(rotations[index]) for index, bone_name in zip(indices, bone_names, strict=False)
-            }
-
-        return (
-            dna_body_bone_translation_lookup,
-            dna_body_bone_rotation_lookup,
-            body_bone_translation_lookup,
-            body_bone_rotation_lookup,
-        )
-
     def _get_body_mesh_lookup(
         self, lod_index: int, mesh_name: str, head_to_body_edge_loop_mapping: dict[str, dict[int, int]]
     ) -> dict[int, Vector]:
@@ -101,8 +41,8 @@ class DNACalibrator(DNAExporter, DNAImporter):
         body_mesh_lod = bpy.data.objects.get(body_mesh_name)
         if (
             self._component_type == "head"
-            and self._instance.output_method == "calibrate"
-            and self._instance.output_align_head_and_body
+            and self._instance.output.method == "calibrate"
+            and self._instance.output.align_head_and_body
             and body_mesh_lod
         ):
             bmesh_object = self.get_bmesh(body_mesh_lod)
@@ -130,6 +70,13 @@ class DNACalibrator(DNAExporter, DNAImporter):
             self._dna_reader.getMeshName(index): index for index in range(self._dna_reader.getMeshCount())
         }
         head_to_body_edge_loop_mapping = utilities.get_head_to_body_edge_loop_mapping()
+
+        # Collected for optional LOD0 -> lower-LOD propagation: the new LOD0 mesh
+        # positions keyed by DNA mesh index, and the set of lower-LOD DNA mesh
+        # indices that were calibrated directly from in-scene geometry (so the
+        # propagation never overwrites a mesh the artist actually provided).
+        lod0_mesh_writes: dict[int, list[list[float]]] = {}
+        scene_calibrated_lower_lod_indices: set[int] = set()
 
         for lod_index, mesh_objects in self._export_lods.items():
             logger.info(f"Calibrating LOD {lod_index} vertex positions...")
@@ -176,10 +123,41 @@ class DNACalibrator(DNAExporter, DNAImporter):
                         y_values[vertex_index] = vertex_position.y
                         z_values[vertex_index] = vertex_position.z
 
-                self._dna_writer.setVertexPositions(
-                    meshIndex=mesh_index,
-                    positions=[[x, y, z] for x, y, z in zip(x_values, y_values, z_values, strict=False)],
-                )
+                positions = [[x, y, z] for x, y, z in zip(x_values, y_values, z_values, strict=False)]
+                self._dna_writer.setVertexPositions(meshIndex=mesh_index, positions=positions)
+
+                if lod_index == 0:
+                    lod0_mesh_writes[mesh_index] = positions
+                else:
+                    scene_calibrated_lower_lod_indices.add(mesh_index)
+
+        self._propagate_lods_from_lod0(lod0_mesh_writes, scene_calibrated_lower_lod_indices)
+
+    def _propagate_lods_from_lod0(
+        self, lod0_mesh_writes: dict[int, list[list[float]]], skip_mesh_indices: set[int]
+    ) -> None:
+        """When ``output.auto_update_lods`` is enabled (Pro only), propagate the
+        just-calibrated LOD0 mesh shapes to every lower-LOD mesh that was not
+        calibrated from in-scene geometry, using the shared UV-space solver.
+
+        This is a no-op in the free edition (the shared ``editors`` submodule
+        that owns the solver is absent) or when there are no LOD0 writes."""
+        if not lod0_mesh_writes or not self._instance.output.auto_update_lods:
+            return
+        if not self._instance.is_pro:
+            return
+        try:
+            from ..editors.shared.lod_propagation import propagate_lod0_to_lower_lods
+        except ImportError:
+            logger.error("LOD propagation is unavailable in this build; skipping auto LOD update.")
+            return
+
+        propagate_lod0_to_lower_lods(
+            self._dna_reader,
+            self._dna_writer,
+            lod0_mesh_writes,
+            skip_mesh_indices=skip_mesh_indices,
+        )
 
     def calibrate_shape_keys(self):
         if self._component_type != "head":
@@ -341,16 +319,19 @@ class DNACalibrator(DNAExporter, DNAImporter):
         dna_y_rotations = self._dna_reader.getNeutralJointRotationYs()
         dna_z_rotations = self._dna_reader.getNeutralJointRotationZs()
 
-        # If this is the head, and the align head and body option is on, then we want to use the
-        # exact same transforms for the body and head bones that match.
-        (dna_body_translation_lookup, dna_body_rotation_lookup, body_translation_lookup, body_rotation_lookup) = (
-            self._get_body_bone_lookups()
-        )
-
         self._bone_index_lookup = {
             self._dna_reader.getJointName(index): index for index in range(self._dna_reader.getJointCount())
         }
 
+        # Read the rig's own (already head-to-body reconciled) bone transforms in
+        # this component's export space: joint 0 in world, every other joint
+        # local to its Blender parent. The head and body skeletons do NOT share a
+        # hierarchy (e.g. the head root ``spine_04`` is exported in world space
+        # but is a mid-chain, parent-local joint in the body), so the overlapping
+        # bones must be aligned in WORLD space on the rig itself (done by the
+        # converter's head-to-body reconcile / by the source DNA on an assembled
+        # character) -- never by swapping the body's parent-local values into the
+        # head DNA, which corrupts the head root and shifts the whole skeleton.
         _, bone_names, _, _, translations, rotations = self.get_bone_transforms(
             self._rig_object, extra_bones=self._extra_bones
         )
@@ -358,22 +339,17 @@ class DNACalibrator(DNAExporter, DNAImporter):
             if bone_name in ignored_bone_names:
                 continue
 
-            # First check for the matching body bone, and use that instead if it exists
-            _bone_translation = body_translation_lookup.get(bone_name, Vector(bone_translation))
-            _bone_rotation = body_rotation_lookup.get(bone_name, Vector(bone_rotation))
+            _bone_translation = Vector(bone_translation)
+            _bone_rotation = Vector(bone_rotation)
 
             dna_bone_index = self._bone_index_lookup.get(bone_name)
             if dna_bone_index is not None:
-                # first check for the matching body bone, and use that instead if it exists
-                dna_bone_translation = dna_body_translation_lookup.get(
-                    bone_name,
-                    Vector(
-                        (
-                            dna_x_translations[dna_bone_index],
-                            dna_y_translations[dna_bone_index],
-                            dna_z_translations[dna_bone_index],
-                        )
-                    ),
+                dna_bone_translation = Vector(
+                    (
+                        dna_x_translations[dna_bone_index],
+                        dna_y_translations[dna_bone_index],
+                        dna_z_translations[dna_bone_index],
+                    )
                 )
                 translation_delta = _bone_translation - dna_bone_translation
 
@@ -383,16 +359,12 @@ class DNACalibrator(DNAExporter, DNAImporter):
                     dna_y_translations[dna_bone_index] = _bone_translation[1]
                     dna_z_translations[dna_bone_index] = _bone_translation[2]
 
-                # Get the DNA bone rotation from the body rotation lookup, and use that if it exists
-                dna_bone_rotation = dna_body_rotation_lookup.get(
-                    bone_name,
-                    Vector(
-                        (
-                            dna_x_rotations[dna_bone_index],
-                            dna_y_rotations[dna_bone_index],
-                            dna_z_rotations[dna_bone_index],
-                        )
-                    ),
+                dna_bone_rotation = Vector(
+                    (
+                        dna_x_rotations[dna_bone_index],
+                        dna_y_rotations[dna_bone_index],
+                        dna_z_rotations[dna_bone_index],
+                    )
                 )
                 rotation_delta = _bone_rotation - dna_bone_rotation
 
@@ -416,7 +388,7 @@ class DNACalibrator(DNAExporter, DNAImporter):
 
     def run(self) -> tuple[bool, str, str, Callable | None]:
         self.initialize_scene_data()
-        if self._instance.output_run_validations:
+        if self._instance.output.run_validations:
             valid, title, message, fix = self.validate()
             if not valid:
                 return False, title, message, fix

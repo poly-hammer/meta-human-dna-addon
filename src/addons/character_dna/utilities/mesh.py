@@ -4,8 +4,6 @@ import logging
 import math
 import re
 
-from pathlib import Path
-
 # third party imports
 import bmesh
 import bpy
@@ -146,59 +144,6 @@ def zero_x_on_middle_vertices(mesh_object: bpy.types.Object, threshold: float = 
     bmesh_data.to_mesh(mesh_data)
     # free the bmesh data
     bmesh_data.free()
-
-
-def set_vertex_selection(mesh_object: bpy.types.Object, vertex_indexes: list[int], add: bool = False):
-    if not isinstance(mesh_object.data, bpy.types.Mesh):
-        return
-
-    switch_to_edit_mode(mesh_object)
-    # get the mesh data
-    mesh_data = mesh_object.data
-    # get the bmesh data
-    bmesh_data = bmesh.from_edit_mesh(mesh_data)
-
-    for vert in bmesh_data.verts:
-        if vert.index in vertex_indexes:
-            vert.select_set(True)
-        elif not add:
-            vert.select_set(False)
-
-    bmesh_data.select_mode |= {"VERT"}
-    bmesh_data.select_flush_mode()
-
-    bmesh.update_edit_mesh(mesh_data)
-
-
-def select_vertex_group(mesh_object: bpy.types.Object, vertex_group_name: str, add: bool = False):
-    if not isinstance(mesh_object.data, bpy.types.Mesh):
-        return
-    vertex_group = mesh_object.vertex_groups.get(vertex_group_name)
-    if not vertex_group:
-        return
-
-    switch_to_edit_mode(mesh_object)
-    # get the mesh data
-    mesh_data = mesh_object.data
-    # get the bmesh data
-    bmesh_data = bmesh.from_edit_mesh(mesh_data)
-
-    bmesh_data.verts.layers.deform.verify()
-    deform = bmesh_data.verts.layers.deform.active
-
-    for vert in bmesh_data.verts:
-        for group_index, weight in vert[deform].items():
-            if group_index == vertex_group.index and weight > 0.0:
-                vert.select_set(True)
-                break
-        else:
-            if not add:
-                vert.select_set(False)
-
-    bmesh_data.select_mode |= {"VERT"}
-    bmesh_data.select_flush_mode()
-
-    bmesh.update_edit_mesh(mesh_data)
 
 
 def get_shape_key_delta_vertices(
@@ -476,19 +421,6 @@ def split_mesh_along_uv_islands(bmesh_object: bmesh.types.BMesh) -> dict[int, in
                     split_to_original_vert_lookup[vert.index] = _vert.index
 
     return split_to_original_vert_lookup
-
-
-def save_topology_vertex_groups(mesh_object: bpy.types.Object, file_path: Path):
-    vertex_groups = {}
-    for vertex_group in mesh_object.vertex_groups:
-        if vertex_group.name.startswith("TOPO_GROUP_"):
-            vertex_groups[vertex_group.name] = [
-                vertex.index
-                for vertex in mesh_object.data.vertices  # type: ignore[attr-defined]
-                if vertex_group.index in [group.group for group in vertex.groups]
-            ]
-
-    file_path.write_text(json.dumps(vertex_groups), encoding="utf-8")
 
 
 def save_head_to_body_edge_loop():

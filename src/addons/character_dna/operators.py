@@ -1,10 +1,7 @@
 # standard library imports
-import contextlib
 import logging
-import math
 import queue
 import shutil
-import webbrowser
 
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -12,21 +9,17 @@ from pathlib import Path
 # third party imports
 import bpy
 
-from mathutils import Matrix, Vector
-
 # local imports
 from . import constants, utilities
 from .components import CharacterComponentBody, CharacterComponentHead, get_meta_human_component
 from .constants import (
-    DEFAULT_UV_TOLERANCE,
     FACE_BOARD_NAME,
     HEAD_TEXTURE_LOGIC_NODE_LABEL,
     HEAD_TEXTURE_LOGIC_NODE_NAME,
     NUMBER_OF_HEAD_LODS,
-    SHAPE_KEY_BASIS_NAME,
     ToolInfo,
 )
-from .dna_io import DNACalibrator, DNAExporter, get_dna_reader
+from .dna_io import DNACalibrator, DNAExporter
 from .properties import BlendFileCharacterCollection, CharacterImportProperties
 from .typing import *  # noqa: F403
 from .ui import callbacks, importer
@@ -52,6 +45,11 @@ class GenericProgressQueueOperator(bpy.types.Operator):
     _timer: bpy.types.Timer | None = None
     _commands_queue = queue.Queue()
     _commands_queue_size = 0
+    # Number of queued commands to process per timer tick. Processing in batches
+    # dramatically reduces the per-tick timer cadence and full-UI redraw overhead
+    # when importing hundreds of shape keys, while still keeping the UI responsive
+    # and the progress bar updating smoothly.
+    _batch_size = 25
 
     def modal(self, context: "Context", event: bpy.types.Event) -> set[str]:
         addon_window_manager_properties = utilities.get_addon_window_manager_properties(context)
@@ -60,22 +58,32 @@ class GenericProgressQueueOperator(bpy.types.Operator):
             return self.finish(context)
 
         if event.type == "TIMER" and context.screen:
-            [a.tag_redraw() for a in context.screen.areas]
             if self._commands_queue.empty():
                 return self.finish(context)
 
-            index, mesh_index, description, kwargs_callback, callback = self._commands_queue.get()
-            new_size = self._commands_queue.qsize()
+            # Process a batch of commands per tick instead of one, so the timer
+            # cadence and redraw cost don't dominate the total import time.
+            description = ""
+            for _ in range(self._batch_size):
+                if self._commands_queue.empty():
+                    break
+                index, mesh_index, description, kwargs_callback, callback = self._commands_queue.get()
+                # calculate the kwargs
+                kwargs = kwargs_callback(index, mesh_index)
+                # inject the kwargs into the description
+                description = description.format(**kwargs)
+                callback(**kwargs)
 
-            # calculate the kwargs
-            kwargs = kwargs_callback(index, mesh_index)
-            # inject the kwargs into the description
-            description = description.format(**kwargs)
+            remaining = self._commands_queue.qsize()
             addon_window_manager_properties.progress = (
-                self._commands_queue_size - new_size
+                self._commands_queue_size - remaining
             ) / self._commands_queue_size
             addon_window_manager_properties.progress_description = description
-            callback(**kwargs)
+
+            # redraw once per batch so the progress bar updates without paying the
+            # full-redraw cost for every individual command
+            for area in context.screen.areas:
+                area.tag_redraw()
 
         return {"PASS_THROUGH"}
 
@@ -239,7 +247,7 @@ class AppendOrLinkCharacter(bpy.types.Operator, importer.LinkAppendCharacterImpo
             instance.body_rig = bpy.data.objects.get(data[collection_name]["body_rig"] or "")
             instance.body_material = bpy.data.materials.get(data[collection_name]["body_material"] or "")
             instance.body_dna_file_path = data[collection_name]["body_dna_file_path"]
-            instance.output_folder_path = data[collection_name]["output_folder_path"]
+            instance.output.folder_path = data[collection_name]["output_folder_path"]
 
             # duplicate the face board if there is one already in the scene
             if any(i.face_board for i in addon_scene_properties.rig_instance_list):
@@ -681,19 +689,16 @@ class BakeComponentAnimation(BakeAnimationBase):
             row.prop(self, "other_bones")
 
     @classmethod
-    def poll(cls, context: "Context") -> bool:
+    def poll(cls, _: "Context") -> bool:
         instance = callbacks.get_active_rig_instance()
-        addon_window_manager_properties = utilities.get_addon_window_manager_properties(context)
 
         if not instance:
             return False
-
-        if addon_window_manager_properties.current_component_type == "body":
-            if not instance.body_rig:
-                return False
-            if not instance.body_rig.animation_data:
-                return False
-            return instance.body_rig.animation_data.action
+        if not instance.body_rig:
+            return False
+        if not instance.body_rig.animation_data:
+            return False
+        return instance.body_rig.animation_data.action
 
         return False
 
@@ -791,301 +796,6 @@ class DNA_FH_import_dna(bpy.types.FileHandler):
         )
 
 
-class ConvertSelectedToDna(bpy.types.Operator, CharacterImportProperties):
-    """Converts the selected mesh object to a valid mesh that matches the provided base DNA file"""
-
-    bl_idname = f"{ToolInfo.NAME}.convert_selected_to_dna"
-    bl_label = "Convert Selected to DNA"
-
-    new_name: bpy.props.StringProperty(
-        name="Name", default="", get=callbacks.get_copied_rig_instance_name, set=callbacks.set_copied_rig_instance_name
-    )  # pyright: ignore[reportInvalidTypeForm]
-    constrain_head_to_body: bpy.props.BoolProperty(
-        name="Constrain Head to Body",
-        default=True,
-        description=(
-            "If enabled, the head will be constrained to the body (if available) during the conversion process."
-        ),
-    )  # pyright: ignore[reportInvalidTypeForm]
-    validate_uvs: bpy.props.BoolProperty(
-        name="Validate UVs",
-        default=True,
-        description=(
-            "Validates the selected mesh's UVs before trying to perform the conversion. "
-            "This helps prevent issues with the conversion process, but can be disabled if "
-            "you are sure the mesh is valid and want to skip this step."
-        ),
-    )  # pyright: ignore[reportInvalidTypeForm]
-    uv_tolerance: bpy.props.FloatProperty(
-        name="UV Tolerance",
-        default=DEFAULT_UV_TOLERANCE,
-        description=(
-            "The tolerance distance used when considering if 2 UV points are in the "
-            "same position. This is used when validating if the selected mesh has the "
-            "same UV layout as the template DNA mesh."
-        ),
-        precision=5,
-    )  # pyright: ignore[reportInvalidTypeForm]
-    run_calibration: bpy.props.BoolProperty(
-        name="Run Calibration",
-        default=True,
-        description=(
-            "Runs the calibration process after converting the selected mesh. This export the DNA to "
-            "disk and re-loads it into the rig instance."
-        ),
-    )  # pyright: ignore[reportInvalidTypeForm]
-
-    # this can be used when invoking the operator programmatically to set the rig instance name
-    new_instance_name: bpy.props.StringProperty(default="")  # pyright: ignore[reportInvalidTypeForm]
-    new_folder: bpy.props.StringProperty(
-        name="Output Folder", default="", subtype="DIR_PATH", options={"PATH_SUPPORTS_BLEND_RELATIVE"}
-    )  # pyright: ignore[reportInvalidTypeForm]
-    maps_folder: bpy.props.StringProperty(
-        default="",
-        name="Maps Folder",
-        description=(
-            "Optionally, this can be set to a folder location for the face wrinkle maps. Textures "
-            "following the same naming convention as the metahuman source files will be found and set "
-            "on the materials automatically."
-        ),
-        subtype="DIR_PATH",
-        options={"PATH_SUPPORTS_BLEND_RELATIVE"},
-    )  # pyright: ignore[reportInvalidTypeForm]
-
-    def execute(self, context: "Context") -> set[str]:  # noqa: PLR0911, PLR0912, PLR0915
-        window_manager_properties = utilities.get_addon_window_manager_properties(context)
-
-        # If values passed to the operator, we update them.
-        # This allows clean programmatic access to the operator properties.
-        if self.new_folder:
-            window_manager_properties.new_folder = self.new_folder
-        if self.maps_folder:
-            window_manager_properties.maps_folder = self.maps_folder
-
-        selected_object = context.active_object
-        new_folder = Path(bpy.path.abspath(window_manager_properties.new_folder))
-        new_name = self.new_name or self.new_instance_name
-        if not selected_object or selected_object.type != "MESH":
-            self.report({"ERROR"}, "You must select a mesh to convert.")
-            return {"CANCELLED"}
-        if not new_name:
-            self.report({"ERROR"}, "You must set a new name.")
-            return {"CANCELLED"}
-        if not window_manager_properties.new_folder:
-            self.report({"ERROR"}, "You must set an output folder.")
-            return {"CANCELLED"}
-        if not new_folder.exists():
-            self.report({"ERROR"}, f"Folder not found: {new_folder}")
-            return {"CANCELLED"}
-        if round(context.scene.unit_settings.scale_length, 2) != 1.0:
-            self.report({"ERROR"}, "The scene unit scale must be set to 1.0")
-            return {"CANCELLED"}
-
-        kwargs = {
-            "import_face_board": True,
-            "import_materials": True,
-            "import_vertex_groups": True,
-            "import_bones": True,
-            "import_mesh": True,
-            "import_normals": False,
-            "import_shape_keys": False,
-            "alternate_maps_folder": window_manager_properties.maps_folder,
-        }
-
-        for lod_index in range(NUMBER_OF_HEAD_LODS):
-            kwargs[f"import_lod{lod_index}"] = lod_index == 0
-
-        # set the properties
-        for key, value in kwargs.items():
-            setattr(self.properties, key, value)
-
-        # we don't want to evaluate the dependency graph while importing the DNA
-        window_manager_properties.evaluate_dependency_graph = False
-        component = None
-
-        base_dna_file = (
-            Path(window_manager_properties.base_dna) / f"{window_manager_properties.current_component_type}.dna"
-        )
-        if not base_dna_file.exists():
-            self.report({"ERROR"}, f"Base DNA file not found: {base_dna_file}")
-            return {"CANCELLED"}
-
-        if window_manager_properties.current_component_type == "head":
-            component = CharacterComponentHead(
-                name=new_name,
-                dna_file_path=base_dna_file,
-                component_type="head",
-                dna_import_properties=self.properties,  # type: ignore[arg-type]
-            )
-        elif window_manager_properties.current_component_type == "body":
-            component = CharacterComponentBody(
-                name=new_name,
-                dna_file_path=base_dna_file,
-                component_type="body",
-                dna_import_properties=self.properties,  # type: ignore[arg-type]
-            )
-
-        if not component:
-            self.report({"ERROR"}, f"Failed to convert component {window_manager_properties.current_component_type}.")
-            return {"CANCELLED"}
-
-        # try to separate the selected object by its unreal material first if it has one
-        selected_object = component.pre_convert_mesh_cleanup(mesh_object=selected_object)
-        if not selected_object:
-            window_manager_properties.evaluate_dependency_graph = True
-            self.report({"ERROR"}, "The selected object failed to be separated by its material.")
-            return {"CANCELLED"}
-
-        # check if the selected object has the same UVs as the base DNA
-        if self.validate_uvs:
-            success, message = component.validate_conversion(mesh_object=selected_object, tolerance=self.uv_tolerance)
-            if not success:
-                component.delete()
-                window_manager_properties.evaluate_dependency_graph = True
-                self.report({"ERROR"}, message)
-                return {"CANCELLED"}
-
-        component.ingest(align=False, constrain=False)
-
-        if window_manager_properties.current_component_type == "head":
-            callbacks.update_head_output_items(None, bpy.context)  # type: ignore[arg-type]
-        elif window_manager_properties.current_component_type == "body":
-            callbacks.update_body_output_items(None, bpy.context)  # type: ignore[arg-type]
-
-        component.convert(mesh_object=selected_object, constrain=self.constrain_head_to_body)
-        # TODO: Might need to refactor usages of preserve_context decorator. This re-enables the dependency
-        # graph evaluation, which we don't want until the end of this operator. So we disable it again here.
-        window_manager_properties.evaluate_dependency_graph = False
-        selected_object.hide_set(True)
-        # populate the output items based on what was imported
-        logger.info(f'Finished converting "{window_manager_properties.base_dna}"')
-
-        # set the output folder path
-        component.rig_instance.output_folder_path = window_manager_properties.new_folder
-
-        if self.run_calibration:
-            # now we can export the new DNA file
-            calibrator = DNACalibrator(
-                instance=component.rig_instance,
-                linear_modifier=component.linear_modifier,
-                component_type=window_manager_properties.current_component_type,
-                file_name=f"{window_manager_properties.current_component_type}.dna",
-            )
-            calibrator.run()
-
-            new_dna_file_path = str(new_folder / f"{window_manager_properties.current_component_type}.dna")
-            # make the path relative to the blend file if it is saved
-            if bpy.data.filepath:
-                with contextlib.suppress(ValueError):
-                    new_dna_file_path = bpy.path.relpath(new_dna_file_path, start=str(Path(bpy.data.filepath).parent))
-
-            # now we can set the new DNA file path on the component
-            if window_manager_properties.current_component_type == "head":
-                component.rig_instance.head_dna_file_path = new_dna_file_path
-            elif window_manager_properties.current_component_type == "body":
-                component.rig_instance.body_dna_file_path = new_dna_file_path
-
-        # now hide the component rig and switch it back to object mode and change the
-        # active object to the face board
-        utilities.switch_to_object_mode()
-
-        if window_manager_properties.current_component_type == "head" and component.head_rig_object:
-            if bpy.context.view_layer:
-                bpy.context.view_layer.objects.active = component.face_board_object
-            if component.face_board_object:
-                utilities.switch_to_pose_mode(component.face_board_object)
-            component.head_rig_object.hide_set(True)
-        elif window_manager_properties.current_component_type == "body" and component.body_rig_object:
-            if bpy.context.view_layer:
-                bpy.context.view_layer.objects.active = component.body_mesh_object
-            component.body_rig_object.hide_set(True)
-
-        # now we can evaluate the dependency graph again
-        window_manager_properties.evaluate_dependency_graph = True
-        ops = utilities.get_addon_ops_module()
-        ops.force_evaluate()
-
-        # Ask the user for consent to collect metrics
-        ops.metrics_collection_consent("INVOKE_DEFAULT")
-
-        return {"FINISHED"}
-
-    def invoke(self, context: "Context", event: bpy.types.Event) -> set[str]:
-        return context.window_manager.invoke_props_dialog(self, width=450)  # type: ignore[return-value]
-
-    @classmethod
-    def poll(cls, context: "Context") -> bool:
-        if not utilities.dependencies_are_valid():
-            return False
-
-        selected_object = context.active_object
-        properties = utilities.get_addon_scene_properties(context)
-        if selected_object and selected_object.type == "MESH" and selected_object.select_get():
-            for instance in properties.rig_instance_list:
-                for item in instance.output_head_item_list:
-                    if item.scene_object == selected_object:
-                        return False
-                for item in instance.output_body_item_list:
-                    if item.scene_object == selected_object:
-                        return False
-            return True
-        return False
-
-    def _get_path_error(self, folder_path: str) -> str:
-        if not folder_path:
-            return ""
-
-        if not Path(folder_path).exists():
-            return "Folder does not exist"
-        if not Path(folder_path).is_dir():
-            return "Path is not a folder"
-        return ""
-
-    def draw(self, context: "Context"):
-        if not self.layout:
-            return
-        window_manager_properties = utilities.get_addon_window_manager_properties(context)
-
-        row = self.layout.row()
-
-        column = row.column()
-        row_inner = column.row()
-        row_inner.label(text="Component Type:")
-        row_inner = column.row()
-        row_inner.prop(window_manager_properties, "current_component_type", text="")
-        column = row.column()
-        row_inner = column.row()
-        row_inner.label(text="Base DNA:")
-        row_inner = column.row()
-        row_inner.prop(window_manager_properties, "base_dna", text="")
-
-        row = self.layout.row()
-        row.prop(self, "new_name")
-        row = self.layout.row()
-        row.prop(window_manager_properties, "new_folder")
-        row = self.layout.row()
-        path_error = self._get_path_error(window_manager_properties.maps_folder)
-        if path_error:
-            row.alert = True
-        row.prop(window_manager_properties, "maps_folder")
-
-        if path_error:
-            row = self.layout.row()
-            row.alert = True
-            row.label(text=path_error, icon="ERROR")
-
-        row = self.layout.row()
-        column = row.column()
-        column.prop(self, "validate_uvs")
-        column = row.column()
-        column.enabled = self.validate_uvs
-        column.prop(self, "uv_tolerance")
-        row = self.layout.row()
-        row.prop(self, "constrain_head_to_body")
-        row = self.layout.row()
-        row.prop(self, "run_calibration")
-
-
 class GenerateMaterial(bpy.types.Operator):
     """Generates a material for the head mesh object that you can then customize"""
 
@@ -1107,21 +817,6 @@ class GenerateMaterial(bpy.types.Operator):
             and instance.head_material is None
             and bpy.context.mode == "OBJECT"
         )
-
-
-class ImportShapeKeys(GenericProgressQueueOperator):
-    """Imports the shape keys from the DNA file and their deltas"""
-
-    bl_idname = f"{ToolInfo.NAME}.import_shape_keys"
-    bl_label = "Import Shape Keys"
-
-    def validate(self, context: "Context") -> bool:
-        return True
-
-    def set_commands_queue(self, context: "Context", component: CharacterComponentHead, commands_queue: queue.Queue):
-        component.import_shape_keys(commands_queue)
-        ops = utilities.get_addon_ops_module()
-        ops.force_evaluate()
 
 
 class ForceEvaluate(bpy.types.Operator):
@@ -1183,28 +878,6 @@ class MigrateLegacyData(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class OpenBuildToolDocumentation(bpy.types.Operator):
-    """Opens the Build Tool documentation in the default web browser"""
-
-    bl_idname = f"{ToolInfo.NAME}.open_build_tool_documentation"
-    bl_label = "Open Build Tool Documentation"
-
-    def execute(self, context: "Context") -> set[str]:
-        webbrowser.open(ToolInfo.BUILD_TOOL_DOCUMENTATION)
-        return {"FINISHED"}
-
-
-class OpenMetricsCollectionAgreement(bpy.types.Operator):
-    """Opens the metrics collection agreement in the default web browser"""
-
-    bl_idname = f"{ToolInfo.NAME}.open_metrics_collection_agreement"
-    bl_label = "Open Metrics Collection Agreement"
-
-    def execute(self, context: "Context") -> set[str]:
-        webbrowser.open(ToolInfo.METRICS_COLLECTION_AGREEMENT)
-        return {"FINISHED"}
-
-
 class SendToMetaHumanCreator(bpy.types.Operator):
     """Exports the DNA head and body components, as well as, textures in a format supported by MetaHuman Creator."""
 
@@ -1235,7 +908,7 @@ class SendToMetaHumanCreator(bpy.types.Operator):
                     )
                     return {"CANCELLED"}
 
-            if not bpy.path.abspath(instance.output_folder_path) and not bpy.data.filepath:
+            if not bpy.path.abspath(instance.output.folder_path) and not bpy.data.filepath:
                 self.report({"ERROR"}, "File must be saved to use a relative path")
                 return {"CANCELLED"}
 
@@ -1251,14 +924,14 @@ class SendToMetaHumanCreator(bpy.types.Operator):
             last_component = None
             for component in [head, body]:
                 dna_io_instance: DNAExporter = None  # type: ignore[assignment]
-                if instance.output_method == "calibrate":
+                if instance.output.method == "calibrate":
                     dna_io_instance = DNACalibrator(
                         instance=instance,
                         linear_modifier=component.linear_modifier,
                         file_name=f"{component.component_type}.dna",
                         component_type=component.component_type,
                     )
-                elif instance.output_method == "overwrite":
+                elif instance.output.method == "overwrite":
                     dna_io_instance = DNAExporter(
                         instance=instance,
                         linear_modifier=component.linear_modifier,
@@ -1306,18 +979,18 @@ class ExportSelectedComponent(bpy.types.Operator):
 
         current_context = utilities.get_current_context()
         component = None
-        if instance.output_component == "head":
+        if instance.output.component == "head":
             component = utilities.get_active_head()
-        elif instance.output_component == "body":
+        elif instance.output.component == "body":
             component = utilities.get_active_body()
 
         if component:
-            if not bpy.path.abspath(instance.output_folder_path) and not bpy.data.filepath:
+            if not bpy.path.abspath(instance.output.folder_path) and not bpy.data.filepath:
                 self.report({"ERROR"}, "File must be saved to use a relative path")
                 return {"CANCELLED"}
 
             dna_io_instance: DNAExporter = None  # type: ignore[assignment]
-            if instance.output_method == "calibrate":
+            if instance.output.method == "calibrate":
                 dna_io_instance = DNACalibrator(
                     instance=instance,
                     linear_modifier=component.linear_modifier,
@@ -1325,7 +998,7 @@ class ExportSelectedComponent(bpy.types.Operator):
                     component_type=component.component_type,
                     textures=False,
                 )
-            elif instance.output_method == "overwrite":
+            elif instance.output.method == "overwrite":
                 dna_io_instance = DNAExporter(
                     instance=instance,
                     linear_modifier=component.linear_modifier,
@@ -1348,190 +1021,6 @@ class ExportSelectedComponent(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class MirrorSelectedBones(bpy.types.Operator):
-    """Mirrors the selected bone positions to the other side of the head mesh"""
-
-    bl_idname = f"{ToolInfo.NAME}.mirror_selected_bones"
-    bl_label = "Mirror Selected Bones"
-
-    def execute(self, context: "Context") -> set[str]:
-        head = utilities.get_active_head()
-        if head:
-            success, message = head.mirror_selected_bones()
-            if not success:
-                self.report({"ERROR"}, message)
-                return {"CANCELLED"}
-        return {"FINISHED"}
-
-    @classmethod
-    def poll(cls, context: "Context") -> bool:
-        poll_head = callbacks.poll_head_rig_bone_selection(cls, context)  # type: ignore[arg-type]
-        # poll_body = callbacks.poll_body_rig_bone_selection(cls, context) # type: ignore[arg-type]  # noqa: ERA001
-        return poll_head  # or poll_body
-
-
-class ShrinkWrapVertexGroup(bpy.types.Operator):
-    """Shrink wraps the active vertex group on the head mesh using the shrink wrap modifier"""
-
-    bl_idname = f"{ToolInfo.NAME}.shrink_wrap_vertex_group"
-    bl_label = "Shrink Wrap Active Group"
-
-    def execute(self, context: "Context") -> set[str]:
-        addon_window_manager_properties = utilities.get_addon_window_manager_properties(context)
-        current_component_type = addon_window_manager_properties.current_component_type
-        head = utilities.get_active_head()
-        body = utilities.get_active_body()
-        if head and current_component_type == "head":
-            head.shrink_wrap_vertex_group()
-        elif body and current_component_type == "body":
-            body.shrink_wrap_vertex_group()
-        return {"FINISHED"}
-
-
-class AutoFitSelectedBones(bpy.types.Operator):
-    """Auto-fits the selected bones to the head mesh"""
-
-    bl_idname = f"{ToolInfo.NAME}.auto_fit_selected_bones"
-    bl_label = "Auto Fit Selected Bones"
-
-    def execute(self, context: "Context") -> set[str]:
-        head = utilities.get_active_head()
-        if head and head.head_mesh_object and head.head_rig_object:
-            if bpy.context.mode != "POSE":
-                self.report({"ERROR"}, "You must be in pose mode")
-                return {"CANCELLED"}
-
-            if not bpy.context.selected_pose_bones:
-                self.report({"ERROR"}, "You must at least have one pose bone selected")
-                return {"CANCELLED"}
-
-            for pose_bone in bpy.context.selected_pose_bones:
-                if pose_bone.id_data != head.head_rig_object and pose_bone.id_data:
-                    self.report(
-                        {"ERROR"},
-                        (
-                            f'The selected bone "{pose_bone.id_data.name}:{pose_bone.name}" is not associated '
-                            'with the rig instance "{head.rig_instance.name}"'
-                        ),
-                    )
-                    return {"CANCELLED"}
-
-            utilities.auto_fit_bones(
-                mesh_object=head.head_mesh_object,
-                armature_object=head.head_rig_object,
-                dna_reader=head.dna_reader,
-                only_selected=True,
-            )
-
-        return {"FINISHED"}
-
-    @classmethod
-    def poll(cls, context: "Context") -> bool:
-        return callbacks.poll_head_rig_bone_selection(cls, context)  # type: ignore[arg-type]
-
-
-class RevertBoneTransformsToDna(bpy.types.Operator):
-    """Revert the selected bone's transforms to their values in the DNA file"""
-
-    bl_idname = f"{ToolInfo.NAME}.revert_bone_transforms_to_dna"
-    bl_label = "Revert Bone Transforms to DNA"
-
-    def execute(self, context: "Context") -> set[str]:
-        head = utilities.get_active_head()
-        if head:
-            if bpy.context.mode != "POSE":
-                self.report({"ERROR"}, "Must be in pose mode")
-                return {"CANCELLED"}
-
-            if not head.rig_instance.head_rig:
-                self.report({"ERROR"}, f'"{head.rig_instance.name}" does not have a head rig assigned')
-                return {"CANCELLED"}
-
-            head.revert_bone_transforms_to_dna()
-        return {"FINISHED"}
-
-    @classmethod
-    def poll(cls, context: "Context") -> bool:
-        return callbacks.poll_head_rig_bone_selection(cls, context)  # type: ignore[arg-type]
-
-
-class ShapeKeyOperatorBase(bpy.types.Operator):
-    shape_key_name: bpy.props.StringProperty(name="Shape Key Name")  # pyright: ignore[reportInvalidTypeForm]
-
-    def get_select_shape_key(self, instance: "RigInstance") -> tuple[int | None, bpy.types.ShapeKey | None, int | None]:
-        # find the related mesh objects for the head rig
-        channel_index = instance.head_channel_name_to_index_lookup[self.shape_key_name]
-        for shape_key_block in instance.head_shape_key_blocks.get(channel_index, []):
-            if not shape_key_block.id_data:
-                continue
-            for index, key_block in enumerate(shape_key_block.id_data.key_blocks):  # type: ignore[attr-defined]
-                if key_block.name == self.shape_key_name:
-                    # set this as the active shape key so we can edit it
-                    return index, key_block, channel_index
-        return None, None, None
-
-    def lock_all_other_shape_keys(self, mesh_object: bpy.types.Object, key_block: bpy.types.ShapeKey):
-        mesh_object.hide_set(False)
-        if bpy.context.view_layer:
-            bpy.context.view_layer.objects.active = mesh_object
-
-        # make sure the armature modifier is visible on mesh in edit mode
-        for modifier in mesh_object.modifiers:
-            if modifier.type == "ARMATURE":
-                modifier.show_in_editmode = True
-                modifier.show_on_cage = True
-
-        if mesh_object.data and mesh_object.type == "MESH":
-            shape_keys = mesh_object.data.shape_keys  # pyright: ignore[reportAttributeAccessIssue]
-            if not shape_keys:
-                return
-
-            # lock all shape keys except the one we are editing
-            for _key_block in shape_keys.key_blocks:
-                _key_block.lock_shape = _key_block.name != self.shape_key_name
-
-            # Unlock and set the active shape key block to the one we are editing
-            key_block.lock_shape = False
-            mesh_object.active_shape_key_index = shape_keys.key_blocks.find(self.shape_key_name)
-            mesh_object.use_shape_key_edit_mode = True
-
-    def validate(self, context: "Context", instance: "RigInstance") -> bool | tuple:
-        mesh_object = bpy.data.objects.get(instance.active_shape_key_mesh_name)
-        if not mesh_object:
-            self.report({"ERROR"}, "The mesh object associated with the active shape key is not found")
-            return False
-
-        if self.shape_key_name == SHAPE_KEY_BASIS_NAME and mesh_object.data and mesh_object.type == "MESH":
-            shape_keys = mesh_object.data.shape_keys  # pyright: ignore[reportAttributeAccessIssue]
-            if not shape_keys:
-                self.report({"ERROR"}, "The mesh object does not have shape keys")
-                return False
-
-            key_block = shape_keys.key_blocks.get(SHAPE_KEY_BASIS_NAME)
-            return None, key_block, None, mesh_object
-
-        if not instance.head_channel_name_to_index_lookup:
-            instance.initialize()
-            if not instance.head_channel_name_to_index_lookup:
-                self.report({"ERROR"}, "The shape key blocks are not initialized")
-                return False
-
-        shape_key_index, key_block, channel_index = self.get_select_shape_key(instance)
-        if shape_key_index is not None:
-            mesh_object.active_shape_key_index = shape_key_index
-        else:
-            self.report({"ERROR"}, f'The shape key "{self.shape_key_name}" is not found')
-            return False
-
-        # Set the active shape key in the shape key list to the one we are editing
-        for i, _shape_key in enumerate(instance.shape_key_list):
-            if _shape_key.name == self.shape_key_name:
-                instance.shape_key_list_active_index = i
-                break
-
-        return shape_key_index, key_block, channel_index, mesh_object
-
-
 class ReportError(bpy.types.Operator):
     bl_idname = f"{ToolInfo.NAME}.report_error"
     bl_label = "Error"
@@ -1543,7 +1032,7 @@ class ReportError(bpy.types.Operator):
         return {"CANCELLED"}
 
 
-class ReportErrorWithFix(ShapeKeyOperatorBase):
+class ReportErrorWithFix(bpy.types.Operator):
     """Reports and error message to the user with a optional fix"""
 
     bl_idname = f"{ToolInfo.NAME}.report_error_with_fix"
@@ -1641,134 +1130,7 @@ class MetricsCollectionConsent(bpy.types.Operator):
         row.label(text="No personal data is collected.")
         row = self.layout.row()
         row.label(text="Will you allow us to collect bug reports?")
-        row.operator(f"{ToolInfo.NAME}.open_metrics_collection_agreement", text="", icon="URL")
-
-
-class SculptThisShapeKey(ShapeKeyOperatorBase):
-    """Sculpt this shape key"""
-
-    bl_idname = f"{ToolInfo.NAME}.sculpt_this_shape_key"
-    bl_label = "Edit this Shape Key"
-
-    def execute(self, context: "Context") -> set[str]:
-        instance = callbacks.get_active_rig_instance()
-        if instance and instance.head_rig:
-            result = self.validate(context, instance)
-            if not result:
-                return {"CANCELLED"}
-
-            _, key_block, _, mesh_object = result  # type: ignore[return-value]
-
-            # solo the shape key before sculpting if the solo option is enabled
-            if instance.solo_shape_key:
-                instance.solo_head_shape_key_value(shape_key=key_block)
-
-            self.lock_all_other_shape_keys(mesh_object, key_block)
-            utilities.switch_to_sculpt_mode(mesh_object)
-            mesh_object.show_only_shape_key = False
-
-        return {"FINISHED"}
-
-
-class EditThisShapeKey(ShapeKeyOperatorBase):
-    """Edit this shape key"""
-
-    bl_idname = f"{ToolInfo.NAME}.edit_this_shape_key"
-    bl_label = "Edit this Shape Key"
-
-    def execute(self, context: "Context") -> set[str]:
-        instance = callbacks.get_active_rig_instance()
-        if instance and instance.head_rig:
-            result = self.validate(context, instance)
-            if not result:
-                return {"CANCELLED"}
-
-            _, key_block, _, mesh_object = result  # type: ignore[return-value]
-
-            # solo the shape key before editing if the solo option is enabled
-            if instance.solo_shape_key:
-                instance.solo_head_shape_key_value(shape_key=key_block)
-
-            self.lock_all_other_shape_keys(mesh_object, key_block)
-            utilities.switch_to_edit_mode(mesh_object)
-            mesh_object.show_only_shape_key = False
-
-        return {"FINISHED"}
-
-
-class ReImportThisShapeKey(ShapeKeyOperatorBase):
-    """Re-Import this shape key from the DNA file"""
-
-    bl_idname = f"{ToolInfo.NAME}.reimport_this_shape_key"
-    bl_label = "Re-Import this Shape Key"
-
-    shape_key_name: bpy.props.StringProperty(name="Shape Key Name")  # pyright: ignore[reportInvalidTypeForm]
-
-    def execute(self, context: "Context") -> set[str]:
-        head = utilities.get_active_head()
-        if head and head.rig_instance:
-            instance = head.rig_instance
-            result = self.validate(context, instance)  # type: ignore[arg-type]
-            if not result:
-                return {"CANCELLED"}
-
-            _, shape_key_block, _, mesh_object = result  # type: ignore[return-value]
-            mesh_index = {v.name: k for k, v in instance.head_mesh_index_lookup.items()}.get(mesh_object.name)
-            if mesh_index is None:
-                self.report({"ERROR"}, f'The mesh index for "{mesh_object.name}" is not found')
-                return {"CANCELLED"}
-
-            current_context = utilities.get_current_context()
-            utilities.switch_to_object_mode()
-            short_name = self.shape_key_name.split("__", 1)[-1]
-
-            if not instance.generate_neutral_shapes:
-                reader = get_dna_reader(file_path=instance.head_dna_file_path)
-
-                # determine the shape key index in the DNA file
-                shape_key_index = None
-                for index in range(reader.getBlendShapeTargetCount(mesh_index)):
-                    channel_index = reader.getBlendShapeChannelIndex(mesh_index, index)
-                    channel_name = reader.getBlendShapeChannelName(channel_index)
-                    if channel_name == short_name:
-                        shape_key_index = index
-                        break
-
-                if shape_key_index is None:
-                    self.report({"ERROR"}, f'The shape key "{short_name}" is not found in the DNA file')
-                    return {"CANCELLED"}
-
-                # DNA is Y-up, Blender is Z-up, so we need to rotate the deltas
-                rotation_matrix = Matrix.Rotation(math.radians(90), 4, "X")  # type: ignore[arg-type]
-
-                delta_x_values = reader.getBlendShapeTargetDeltaXs(mesh_index, shape_key_index)
-                delta_y_values = reader.getBlendShapeTargetDeltaYs(mesh_index, shape_key_index)
-                delta_z_values = reader.getBlendShapeTargetDeltaZs(mesh_index, shape_key_index)
-                vertex_indices = reader.getBlendShapeTargetVertexIndices(mesh_index, shape_key_index)
-
-                # the new vertex layout is the original vertex layout with the deltas from the dna applied
-                for vertex_index, delta_x, delta_y, delta_z in zip(
-                    vertex_indices, delta_x_values, delta_y_values, delta_z_values, strict=False
-                ):
-                    try:
-                        delta = Vector((delta_x, delta_y, delta_z)) * head.linear_modifier
-                        rotated_delta = rotation_matrix @ delta
-
-                        # set the positions of the shape key vertices
-                        shape_key_block.data[vertex_index].co = (
-                            mesh_object.data.vertices[vertex_index].co.copy() + rotated_delta
-                        )
-                    except IndexError:
-                        logger.warning(
-                            f'Vertex index {vertex_index} is missing for shape key "{short_name}". '
-                            f'Was this deleted on the base mesh "{mesh_object.name}"?'
-                        )
-            else:
-                # reset the shape key to the basis shape key
-                shape_key_block.data.foreach_set("co", [v.co for v in mesh_object.data.vertices])
-
-            utilities.set_context(current_context)
-        return {"FINISHED"}
+        row.operator("wm.url_open", text="", icon="URL").url = ToolInfo.METRICS_COLLECTION_AGREEMENT
 
 
 class DuplicateRigInstance(bpy.types.Operator):
@@ -1880,7 +1242,7 @@ class DuplicateRigInstance(bpy.types.Operator):
                     new_mesh_object.parent = new_rig_object
 
                     # now we need to duplicate the output items
-                    for item in getattr(instance, f"output_{component_type}_item_list"):
+                    for item in getattr(instance.output, f"{component_type}_item_list"):
                         if item.scene_object and item.scene_object.type == "MESH":
                             if item.scene_object == mesh_object:
                                 continue
@@ -1991,7 +1353,7 @@ class DuplicateRigInstance(bpy.types.Operator):
                     setattr(new_instance, f"{component_type}_mesh", new_mesh_object)
                     setattr(new_instance, f"{component_type}_rig", new_rig_object)
                     setattr(new_instance, f"{component_type}_material", new_mesh_material)
-                    new_instance.output_folder_path = self.new_folder
+                    new_instance.output.folder_path = self.new_folder
 
                     # set the new instance as the active one
                     addon_scene_properties.rig_instance_list_active_index = (
@@ -2105,6 +1467,45 @@ class AddRigLogicTextureNode(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class CHARACTER_DNA_OT_extract_metahuman_for_maya_dependencies(bpy.types.Operator):
+    """Extract the `nls` Python package and `jm_model` ML model out of the
+    user-configured `MetaHumanForMaya.zip` into the addon's temp folder.
+
+    The Raw Control Editor's Match Bones to Mesh operator loads both of
+    these at runtime; without them the matcher cannot run."""
+
+    bl_idname = f"{ToolInfo.NAME}.extract_metahuman_for_maya_dependencies"
+    bl_label = "Extract Dependencies"
+    bl_description = (
+        "Unpack the `nls` Python package and ML model from the configured "
+        "`MetaHumanForMaya.zip` into the addon's temp folder"
+    )
+    bl_options = {"REGISTER", "INTERNAL"}
+
+    def execute(self, context: "Context") -> set[str]:
+        from .editors.raw_control_editor import dependency_extraction
+
+        addon_preferences = utilities.get_addon_preferences()
+        if not addon_preferences:
+            self.report({"ERROR"}, "Addon preferences are not available.")
+            return {"CANCELLED"}
+        raw_zip_path = addon_preferences.raw_control_editor.metahuman_for_maya_zip_path
+        if not raw_zip_path:
+            self.report({"ERROR"}, "Set `MetaHuman for Maya Zip Path` in addon preferences first.")
+            return {"CANCELLED"}
+        zip_path = Path(bpy.path.abspath(raw_zip_path))
+        try:
+            result = dependency_extraction.extract_dependencies(zip_path)
+        except dependency_extraction.DependencyExtractionError as exc:
+            self.report({"ERROR"}, str(exc))
+            return {"CANCELLED"}
+        self.report(
+            {"INFO"},
+            f"Extracted MetaHuman for Maya dependencies: nls={result.nls_dir}, model={result.model_path}",
+        )
+        return {"FINISHED"}
+
+
 class UILIST_ADDON_PREFERENCES_OT_extra_dna_entry_remove(GenericUIListOperator, bpy.types.Operator):
     """Remove the selected entry from the list"""
 
@@ -2142,6 +1543,30 @@ class UILIST_ADDON_PREFERENCES_OT_extra_dna_entry_add(GenericUIListOperator, bpy
         return {"FINISHED"}
 
 
+class FaceBoardSearchPose(bpy.types.Operator):
+    """Search face poses by name and set the current pose"""
+
+    bl_idname = f"{ToolInfo.NAME}.face_board_search_pose"
+    bl_label = "Search Poses"
+    bl_property = "pose_enum"
+    bl_options = {"INTERNAL"}
+
+    pose_enum: bpy.props.EnumProperty(
+        name="Pose",
+        description="The face pose to set",
+        items=callbacks.get_face_pose_search_items,  # type: ignore[arg-type]
+    )  # pyright: ignore[reportInvalidTypeForm]
+
+    def execute(self, context: "Context") -> set[str]:
+        addon_scene_properties = utilities.get_addon_scene_properties(context)
+        addon_scene_properties.face_board.face_pose_previews = self.pose_enum
+        return {"FINISHED"}
+
+    def invoke(self, context: "Context", event: "bpy.types.Event") -> set[str]:
+        context.window_manager.invoke_search_popup(self)
+        return {"FINISHED"}
+
+
 class UILIST_RIG_INSTANCE_OT_entry_remove(GenericUIListOperator, bpy.types.Operator):
     """Remove the selected entry from the list"""
 
@@ -2161,7 +1586,7 @@ class UILIST_RIG_INSTANCE_OT_entry_remove(GenericUIListOperator, bpy.types.Opera
         if self.delete_associated_data:
             instance = addon_scene_properties.rig_instance_list[self.active_index]
             for component_type in ["body", "head"]:
-                for item in getattr(instance, f"output_{component_type}_item_list"):
+                for item in getattr(instance.output, f"{component_type}_item_list"):
                     if item.scene_object:
                         bpy.data.objects.remove(item.scene_object, do_unlink=True)
                     if item.image_object:

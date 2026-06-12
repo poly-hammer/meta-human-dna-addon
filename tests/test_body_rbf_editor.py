@@ -133,15 +133,15 @@ def test_body_pose_update(
     for driven_name, expected_location in zip(changed_driven_bone_names, changed_driven_bone_locations, strict=False):
         pose_bone = instance.body_rig.pose.bones[driven_name]
 
-        assert pose_bone.location.x == pytest.approx(
-            expected_location.x, abs=TOLERANCE
-        ), f"Driven bone {driven_name} X location {pose_bone.location.x} not {expected_location.x} as expected"
-        assert pose_bone.location.y == pytest.approx(
-            expected_location.y, abs=TOLERANCE
-        ), f"Driven bone {driven_name} Y location {pose_bone.location.y} not {expected_location.y} as expected"
-        assert pose_bone.location.z == pytest.approx(
-            expected_location.z, abs=TOLERANCE
-        ), f"Driven bone {driven_name} Z location {pose_bone.location.z} not {expected_location.z} as expected"
+        assert pose_bone.location.x == pytest.approx(expected_location.x, abs=TOLERANCE), (
+            f"Driven bone {driven_name} X location {pose_bone.location.x} not {expected_location.x} as expected"
+        )
+        assert pose_bone.location.y == pytest.approx(expected_location.y, abs=TOLERANCE), (
+            f"Driven bone {driven_name} Y location {pose_bone.location.y} not {expected_location.y} as expected"
+        )
+        assert pose_bone.location.z == pytest.approx(expected_location.z, abs=TOLERANCE), (
+            f"Driven bone {driven_name} Z location {pose_bone.location.z} not {expected_location.z} as expected"
+        )
 
 
 @pytest.mark.parametrize(
@@ -189,7 +189,7 @@ def test_body_pose_duplicate(
     # duplicate the pose to create a new one to edit
     bpy.ops.character_dna.duplicate_rbf_pose(solver_index=solver_index, pose_index=from_pose_index)
 
-    solver = instance.rbf_solver_list[solver_index]
+    solver = instance.rbf_editor.rbf_solver_list[solver_index]
     new_pose_index = len(solver.poses) - 1
     new_pose = solver.poses[new_pose_index]
 
@@ -209,18 +209,18 @@ def test_body_pose_duplicate(
                 # update the location
                 pose_bone.location = change_location
                 # update the driven bone transform in the pose
-                bpy.ops.character_dna.apply_rbf_pose_edits() # type: ignore
+                bpy.ops.character_dna.apply_rbf_pose_edits()  # type: ignore
 
     # commit these changes to the dna
-    bpy.ops.character_dna.commit_rbf_solver_changes() # type: ignore
+    bpy.ops.character_dna.commit_rbf_solver_changes()  # type: ignore
 
     # check that all expected driven bones are present in the duplicated pose
     new_pose, _, _ = set_body_pose(solver_name=solver_name, pose_name=pose_name)
     for driven in new_pose.driven:  # type: ignore
         driven_name = str(driven.name)
-        assert (
-            driven_name in driven_bone_names
-        ), f'Driven bone "{driven_name}" not in expected driven bone names after duplication'
+        assert driven_name in driven_bone_names, (
+            f'Driven bone "{driven_name}" not in expected driven bone names after duplication'
+        )
 
     # reset the pose to the default position
     reset_pose(instance.body_rig)
@@ -235,12 +235,12 @@ def test_body_pose_duplicate(
     for driven_name, expected_location in zip(changed_driven_bone_names, changed_driven_bone_locations, strict=False):
         pose_bone = instance.body_rig.pose.bones[driven_name]
 
-        assert pose_bone.location.x == pytest.approx(
-            expected_location.x, abs=TOLERANCE
-        ), f"Driven bone {driven_name} X location {pose_bone.location.x} not {expected_location.x} as expected"
-        assert pose_bone.location.y == pytest.approx(
-            expected_location.y, abs=TOLERANCE
-        ), f"Driven bone {driven_name} Y location {pose_bone.location.y} not {expected_location.y} as expected"
-        assert pose_bone.location.z == pytest.approx(
-            expected_location.z, abs=TOLERANCE
-        ), f"Driven bone {driven_name} Z location {pose_bone.location.z} not {expected_location.z} as expected"
+        assert pose_bone.location.x == pytest.approx(expected_location.x, abs=TOLERANCE), (
+            f"Driven bone {driven_name} X location {pose_bone.location.x} not {expected_location.x} as expected"
+        )
+        assert pose_bone.location.y == pytest.approx(expected_location.y, abs=TOLERANCE), (
+            f"Driven bone {driven_name} Y location {pose_bone.location.y} not {expected_location.y} as expected"
+        )
+        assert pose_bone.location.z == pytest.approx(expected_location.z, abs=TOLERANCE), (
+            f"Driven bone {driven_name} Z location {pose_bone.location.z} not {expected_location.z} as expected"
+        )

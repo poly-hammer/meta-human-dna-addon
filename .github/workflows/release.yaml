@@ -114,4 +114,4 @@ jobs:
       python-version: "3.13"
       environment: ${{ github.event.inputs.environment || 'staging' }}
       addon-id: "character_dna"
-      legacy-release: true
+      legacy-release: ${{ (github.event.inputs.environment || 'staging') == 'production' }}

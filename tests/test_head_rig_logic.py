@@ -10,11 +10,8 @@ import pytest
 
 from mathutils import Vector
 
-from constants import TEST_FBX_POSES_FOLDER, TEST_JSON_POSES_FOLDER
 from character_dna.constants import CUSTOM_BONE_SHAPE_NAME, CUSTOM_BONE_SHAPE_SCALE, POSES_FOLDER
-from character_dna.ui.callbacks import (
-    get_active_rig_instance,
-)
+from constants import TEST_FBX_POSES_FOLDER, TEST_JSON_POSES_FOLDER
 from utilities.bones import get_bone_differences, show_differences
 
 
@@ -24,7 +21,7 @@ def get_all_pose_names() -> list[str]:
         for file in files:
             if file == "pose.json":
                 pose_name = str(Path(root).relative_to(POSES_FOLDER))
-                if "wrinkle_maps" not in pose_name:
+                if ("wrinkle_maps" not in pose_name) and ("scan_reference" not in pose_name):
                     pose_names.append(str(Path(root).relative_to(POSES_FOLDER)))
     return pose_names
 
@@ -72,6 +69,17 @@ def import_fbx_pose(file_path: Path) -> bpy.types.Object:
     return armature_object  # type: ignore
 
 
+def set_face_pose(pose_name: str):
+    """Reset the face board filters and set the current face pose."""
+    from character_dna.ui.callbacks import get_face_pose_tag_property_map
+
+    face_board = bpy.context.scene.character_dna.face_board  # type: ignore
+    face_board.category = "ALL"
+    for property_name in get_face_pose_tag_property_map():
+        setattr(face_board, property_name, False)
+    face_board.face_pose_previews = str(POSES_FOLDER / pose_name / "thumbnail-preview.png")
+
+
 @pytest.mark.parametrize(
     ("pose_name", "source_rig_name"),
     [
@@ -101,9 +109,7 @@ def test_head_pose(
             armature_object = bpy.data.objects[f"{fbx_file_path.stem}_head_rig"]
 
         # set the current pose
-        bpy.context.window_manager.character_dna.face_pose_previews = str(
-            POSES_FOLDER / pose_name / "thumbnail-preview.png"
-        )  # type: ignore
+        set_face_pose(pose_name)
 
         # check that the poses match
         differences, target_locations = get_bone_differences(
@@ -124,9 +130,7 @@ def test_head_pose(
         with json_pose_file_path.open() as file:
             target_locations = json.load(file)
         # set the current pose
-        bpy.context.window_manager.character_dna.face_pose_previews = str(
-            POSES_FOLDER / pose_name / "thumbnail-preview.png"
-        )  # type: ignore
+        set_face_pose(pose_name)
 
         # check that the poses match
         differences, target_locations = get_bone_differences(
@@ -139,18 +143,4 @@ def test_head_pose(
     assert not differences, (
         f'In the pose "{pose_name}" the following bone location differences '
         f"exceeds the tolerance {tolerance}:\n{pformat(differences)}"
-    )
-
-
-@pytest.mark.parametrize(
-    ("enum_index", "active_face_material_name"), [(0, "combined"), (1, "masks"), (2, "normals"), (3, "topology")]
-)
-def test_active_face_material(load_head_dna, enum_index, active_face_material_name):
-    pytest.skip("TODO: Fix this")
-    bpy.context.scene.character_dna.active_face_material = active_face_material_name  # type: ignore
-    instance = get_active_rig_instance()
-    assert instance, "No active rig logic found"
-
-    assert instance.active_face_material == enum_index, (
-        f'The active face material should be "{enum_index}" ' f'but is "{instance.active_face_material}"'
     )
