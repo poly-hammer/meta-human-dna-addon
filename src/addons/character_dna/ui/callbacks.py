@@ -29,6 +29,11 @@ from ..typing import *  # noqa: F403
 
 logger = logging.getLogger(__name__)
 
+# Sentinel enum identifier used for the face pose preview when no pose matches the
+# active category/tag filters. Keeping a single inert item avoids the empty-enum
+# crash and the "current value matches no enum" warnings Blender emits otherwise.
+NO_FACE_POSE = "NONE"
+
 # Module-level reference to the dynamic face pose search enum items. Blender requires
 # a persistent python reference to dynamic enum items to avoid a GC crash.
 _face_pose_search_items: list[tuple[str, str, str, int, int]] = []
@@ -139,6 +144,11 @@ def get_face_pose_previews_items(
         for entry in _filter_face_pose_metadata(metadata, self.category, enabled_tags, self.tag_match_mode)
     )
 
+    # Guard against the empty-enum problem: when no pose matches the active filters,
+    # fall back to a single inert sentinel so Blender always has a valid item.
+    if not enum_items:
+        enum_items.append((NO_FACE_POSE, "No Poses", "No poses match the current filters", 0, 0))
+
     # Cache the enum item values and the key for later retrieval. We must keep a
     # reference to the returned tuples alive to avoid a Blender enum GC crash.
     preview_collection.face_pose_previews = enum_items
@@ -239,12 +249,20 @@ def _filter_face_pose_metadata(
     return results
 
 
-def get_all_face_pose_tags() -> list[str]:
-    """Returns a sorted list of every unique tag across all face poses."""
+def get_tags_for_category(category: str) -> list[str]:
+    """Returns the sorted unique tags present on poses within ``category``. When
+    ``category`` is ``"ALL"`` every tag across all face poses is returned."""
     tags: set[str] = set()
     for entry in ensure_face_pose_metadata():
+        if category != "ALL" and entry["category"] != category:
+            continue
         tags.update(entry["tags"])
     return sorted(tags)
+
+
+def get_all_face_pose_tags() -> list[str]:
+    """Returns a sorted list of every unique tag across all face poses."""
+    return get_tags_for_category("ALL")
 
 
 def _tag_to_property_name(tag: str) -> str:
@@ -360,6 +378,65 @@ def update_face_pose_filter(self: "CharacterFaceBoardProperties", context: "Cont
     if current not in filtered_ids:
         # Assigning triggers update_face_pose, which applies the pose.
         self.face_pose_previews = filtered_ids[0]
+
+
+def update_face_pose_category(self: "CharacterFaceBoardProperties", context: "Context"):
+    """Category change handler. Disables any enabled tag filters that do not belong
+    to the newly selected category so out-of-category tags can never filter the pose
+    list down to nothing, then refreshes the filtered pose enum and selection."""
+    allowed_tags = set(get_tags_for_category(self.category))
+    for property_name, tag_name in _face_pose_tag_property_map.items():
+        if tag_name not in allowed_tags and getattr(self, property_name, False):
+            setattr(self, property_name, False)
+    update_face_pose_filter(self, context)
+
+
+def _get_face_board_switch(bone_name: str) -> bool:
+    """Reads a face board switch bone's on/off state from the active rig instance.
+    Switch bones encode their boolean state in ``location.y`` (1.0 on, 0.0 off)."""
+    instance = get_active_rig_instance()
+    if instance and instance.face_board:
+        pose_bone = instance.face_board.pose.bones.get(bone_name)
+        if pose_bone:
+            return pose_bone.location.y >= 0.99
+    return False
+
+
+def _set_face_board_switch(bone_name: str, value: bool):
+    """Sets a face board switch bone on/off and re-evaluates the active rig instance
+    so the dependent constraints and rig logic update to match."""
+    instance = get_active_rig_instance()
+    if not instance or not instance.face_board:
+        return
+    pose_bone = instance.face_board.pose.bones.get(bone_name)
+    if not pose_bone:
+        return
+    pose_bone.location.y = 1.0 if value else 0.0
+    instance.evaluate()
+
+
+def get_use_eye_aim(self: "CharacterFaceBoardProperties") -> bool:  # noqa: ARG001
+    return _get_face_board_switch("CTRL_lookAtSwitch")
+
+
+def set_use_eye_aim(self: "CharacterFaceBoardProperties", value: bool):  # noqa: ARG001
+    _set_face_board_switch("CTRL_lookAtSwitch", value)
+
+
+def get_eyes_follow_head(self: "CharacterFaceBoardProperties") -> bool:  # noqa: ARG001
+    return _get_face_board_switch("CTRL_eyesAimFollowHead")
+
+
+def set_eyes_follow_head(self: "CharacterFaceBoardProperties", value: bool):  # noqa: ARG001
+    _set_face_board_switch("CTRL_eyesAimFollowHead", value)
+
+
+def get_face_board_follow_head(self: "CharacterFaceBoardProperties") -> bool:  # noqa: ARG001
+    return _get_face_board_switch("CTRL_faceGUIfollowHead")
+
+
+def set_face_board_follow_head(self: "CharacterFaceBoardProperties", value: bool):  # noqa: ARG001
+    _set_face_board_switch("CTRL_faceGUIfollowHead", value)
 
 
 def get_active_lod(self: "RigInstance") -> int:
@@ -616,6 +693,10 @@ def update_evaluate_rbfs_value(self: "RigInstance", context: "Context"):
 
 
 def update_face_pose(self: "RigInstance", context: "Context"):  # noqa: ARG001
+    # The sentinel item shown when no pose matches the active filters is inert.
+    if getattr(self, "face_pose_previews", "") == NO_FACE_POSE:
+        return
+
     from ..utilities import (
         get_addon_scene_properties,
         get_addon_window_manager_properties,

@@ -157,7 +157,7 @@ class CHARACTER_DNA_PT_face_pose_tags(bpy.types.Panel):
         if not self.layout:
             return
 
-        from ..ui.callbacks import get_face_pose_tag_property_map
+        from ..ui.callbacks import get_face_pose_tag_property_map, get_tags_for_category
 
         scene_properties = getattr(context.scene, ToolInfo.NAME)
         face_board = scene_properties.face_board
@@ -168,12 +168,18 @@ class CHARACTER_DNA_PT_face_pose_tags(bpy.types.Panel):
         row.prop(face_board, "tag_match_mode", expand=True)
 
         tag_property_map = get_face_pose_tag_property_map()
-        if not tag_property_map:
+        # Only show tags that belong to the actively selected category so out-of-category
+        # tags can't be toggled (which would filter the pose list to nothing).
+        allowed_tags = set(get_tags_for_category(face_board.category))
+        visible_properties = [
+            property_name for property_name, tag_name in tag_property_map.items() if tag_name in allowed_tags
+        ]
+        if not visible_properties:
             layout.label(text="No tags found", icon="INFO")
             return
 
         column = layout.column(align=True)
-        for property_name in tag_property_map:
+        for property_name in visible_properties:
             column.prop(face_board, property_name)
 
 
@@ -207,6 +213,15 @@ class CHARACTER_DNA_PT_face_board(RigInstanceDependentPanel):
             row = self.layout.row(align=True)
             row.prop(face_board, "face_pose_previews", text="")
             row.operator(f"{ToolInfo.NAME}.face_board_search_pose", text="", icon="VIEWZOOM")
+
+            column = self.layout.column(align=True)
+            column.prop(face_board, "use_eye_aim")
+            column.prop(face_board, "eyes_follow_head")
+            column.prop(face_board, "face_board_follow_head")
+
+            row = self.layout.row()
+            row.scale_y = 1.5
+            row.operator(f"{ToolInfo.NAME}.map_raw_to_gui_controls", icon="UV_SYNC_SELECT")
         else:
             draw_rig_instance_error(self.layout, error)
 

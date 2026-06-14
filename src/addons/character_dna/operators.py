@@ -847,6 +847,44 @@ class ForceEvaluate(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class MapRawToGuiControls(bpy.types.Operator):
+    """Backward-solve the face board from the head rig's raw controls. Maps the
+    current raw control values to GUI controls via rig logic and applies the result
+    to the face board control bone positions. Useful for debugging"""
+
+    bl_idname = f"{ToolInfo.NAME}.map_raw_to_gui_controls"
+    bl_label = "Map Raw to GUI Controls"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context: "Context") -> set[str]:
+        instance = callbacks.get_active_rig_instance()
+        if not instance:
+            return {"CANCELLED"}
+
+        if not instance.head_initialized:
+            instance.head_initialize()
+
+        if not instance.head_instance or not instance.head_manager:
+            return {"CANCELLED"}
+
+        # map the current raw controls back to the GUI controls
+        instance.head_manager.mapRawToGUIControls(instance.head_instance)
+
+        # apply the solved GUI control values to the face board bones without
+        # triggering a dependency graph re-evaluation mid-write
+        window_manager_properties = utilities.get_addon_window_manager_properties(context)
+        window_manager_properties.evaluate_dependency_graph = False
+        instance.apply_gui_controls_to_face_board()
+        window_manager_properties.evaluate_dependency_graph = True
+
+        if instance.face_board and not instance.face_board.hide_get():
+            utilities.switch_to_pose_mode(instance.face_board)
+
+        # re-evaluate so the head mesh matches the newly posed face board
+        instance.evaluate()
+        return {"FINISHED"}
+
+
 class TestSentry(bpy.types.Operator):
     """Test the Sentry error reporting system"""
 

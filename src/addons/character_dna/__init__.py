@@ -49,6 +49,7 @@ classes = [
     operators.MigrateLegacyData,
     operators.MetricsCollectionConsent,
     operators.ForceEvaluate,
+    operators.MapRawToGuiControls,
     operators.SendToMetaHumanCreator,
     operators.ExportSelectedComponent,
     operators.GenerateMaterial,

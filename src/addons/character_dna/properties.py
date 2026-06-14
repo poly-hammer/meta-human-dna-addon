@@ -85,7 +85,25 @@ class CharacterFaceBoardProperties(bpy.types.PropertyGroup):
             ("scan_reference", "Scan Reference", "Show scan reference poses"),
         ],
         default="ALL",
-        update=callbacks.update_face_pose_filter,  # type: ignore[arg-type]
+        update=callbacks.update_face_pose_category,  # type: ignore[arg-type]
+    )  # pyright: ignore[reportInvalidTypeForm]
+    use_eye_aim: bpy.props.BoolProperty(
+        name="Use Eye Aim",
+        description="Drive the eyes with the look-at aim target instead of the GUI eye controls",
+        get=callbacks.get_use_eye_aim,
+        set=callbacks.set_use_eye_aim,
+    )  # pyright: ignore[reportInvalidTypeForm]
+    eyes_follow_head: bpy.props.BoolProperty(
+        name="Eyes Follow Head",
+        description="Make the eye aim target follow the head as it moves",
+        get=callbacks.get_eyes_follow_head,
+        set=callbacks.set_eyes_follow_head,
+    )  # pyright: ignore[reportInvalidTypeForm]
+    face_board_follow_head: bpy.props.BoolProperty(
+        name="Face Board Follow Head",
+        description="Make the face board GUI controls follow the head as it moves",
+        get=callbacks.get_face_board_follow_head,
+        set=callbacks.set_face_board_follow_head,
     )  # pyright: ignore[reportInvalidTypeForm]
     tag_match_mode: bpy.props.EnumProperty(
         name="Tag Match",

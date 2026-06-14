@@ -1309,6 +1309,18 @@ class RigInstance(bpy.types.PropertyGroup):
         # calculate the controls
         self.head_manager.calculate(self.head_instance)
 
+    def apply_gui_controls_to_face_board(self):
+        if not self.face_board or not self.head_dna_reader or not self.head_instance:
+            return
+
+        for index in range(self.head_dna_reader.getGUIControlCount()):
+            full_name = self.head_dna_reader.getGUIControlName(index)
+            control_name, axis = full_name.split(".")
+            axis = axis.rsplit("t", -1)[-1].lower()
+            pose_bone = self.face_board.pose.bones.get(control_name)
+            if pose_bone:
+                setattr(pose_bone.location, axis, self.head_instance.getGUIControl(index))
+
     def solo_head_shape_key_value(self, shape_key: bpy.types.ShapeKey):
         # skip if the head mesh is not set
         if not self.head_mesh or not self.head_dna_reader:
