@@ -609,7 +609,7 @@ class CHARACTER_DNA_PT_output_buttons_sub_panel(bpy.types.Panel):
             instance = properties.rig_instance_list[active_index]
             row.prop(instance.output, "run_validations")
             if instance.is_pro:
-                row.prop(instance.output, "auto_update_lods")
+                row.prop(instance.output, "auto_update_lods", text="Update LODs")
             row = self.layout.row()
 
             if instance.output.method == "calibrate":

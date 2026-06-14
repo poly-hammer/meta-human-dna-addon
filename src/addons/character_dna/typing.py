@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from .editors.converter.properties import ConverterExtraMeshItem, ConverterProperties  # noqa: TC004
     from .editors.raw_control_editor.nls_worker import WorkerPython, WorkerPythonError  # noqa: TC004
     from .editors.raw_control_editor.properties import (  # noqa: TC004
+        PsdCorrectiveListItem,
         RawControlEditorPreferences,
         RawControlEditorProperties,
         RawControlListItem,
@@ -176,6 +177,7 @@ if TYPE_CHECKING:
         "DuplicateRigInstance",
         "OutputData",
         "Preferences",
+        "PsdCorrectiveListItem",
         "RBFDrivenBoneSelectionItem",
         "RBFDrivenData",
         "RBFDriverData",
