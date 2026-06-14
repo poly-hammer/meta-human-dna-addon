@@ -49,6 +49,10 @@ if TYPE_CHECKING:
         ExtraDnaFolder,
         OutputData,  # noqa: TC004
     )
+    from .rig_definition import (
+        RigDefinition,  # noqa: TC004
+        RigJointGroup,  # noqa: TC004
+    )
     from .rig_instance import RigInstance as _RigInstanceBase
 
     ComponentType = Literal["head", "body", "all"]
@@ -188,7 +192,9 @@ if TYPE_CHECKING:
         "RawControlEditorPreferences",
         "RawControlEditorProperties",
         "RawControlListItem",
+        "RigDefinition",
         "RigInstance",
+        "RigJointGroup",
         "Scene",
         "ShapeKeyData",
         "ShapeKeyEditorProperties",

@@ -284,6 +284,22 @@ class CharacterImportProperties(get_dna_import_property_group_base_class()):
         name="Vertex Groups",
         description="Whether to import the vertex groups that skin the bones to the head mesh",
     )  # pyright: ignore[reportInvalidTypeForm]
+    import_bone_collections: bpy.props.BoolProperty(
+        default=True,
+        name="Bone Collections",
+        description=(
+            "Whether to author a bone collection for each rig-definition joint group and color "
+            "each bone with its rig-definition color"
+        ),
+    )  # pyright: ignore[reportInvalidTypeForm]
+    import_region_vertex_groups: bpy.props.BoolProperty(
+        default=False,
+        name="Region Vertex Groups",
+        description=(
+            "Whether to author a REGION_ prefixed vertex group for each rig-definition mesh region "
+            "on the LOD0 head meshes"
+        ),
+    )  # pyright: ignore[reportInvalidTypeForm]
     import_vertex_colors: bpy.props.BoolProperty(
         default=True,
         name="Vertex Colors",

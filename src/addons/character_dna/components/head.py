@@ -15,6 +15,7 @@ from .. import utilities
 from ..constants import (
     EXCLUDED_FACE_BOARD_CONTROLS,
     FACE_BOARD_SWITCHES,
+    REGION_VERTEX_GROUP_PREFIX,
 )
 from ..utilities import exclude_rig_instance_evaluation
 from .base import CharacterComponentBase
@@ -85,6 +86,10 @@ class CharacterComponentHead(CharacterComponentBase):
         self.rig_instance.head_rig = self.head_rig_object
         self.rig_instance.face_board = face_board_object
 
+        # author rig-definition metadata: joint-group bone collections (with
+        # per-bone colors) and region vertex groups on the head meshes
+        self._build_rig_definition_metadata()
+
         if self.head_rig_object and self.head_mesh_object and self.head_rig_object.pose:
             if self.body_rig_object and self.body_rig_object.pose:
                 # Add the additional driver bones from the head to the body rig,
@@ -154,6 +159,74 @@ class CharacterComponentHead(CharacterComponentBase):
                 )
 
         return valid, message
+
+    def _build_rig_definition_metadata(self):
+        """Author the joint-group bone collections and region vertex groups.
+
+        Both passes are gated on their import toggles and degrade gracefully
+        when the rig definition is unavailable.
+        """
+        if self.dna_import_properties.import_bone_collections:
+            self._build_joint_group_collections()
+        if self.dna_import_properties.import_region_vertex_groups:
+            self._build_region_vertex_groups()
+
+    def _build_region_vertex_groups(self):
+        """Partition the LOD0 head mesh vertices into ``REGION_*`` vertex groups.
+
+        The DNA does not store per-vertex region membership, so each vertex is
+        assigned to the rig-definition region whose joints carry the largest
+        summed skin weight on that vertex (a dominant-weight partition). Regions
+        and their joints are read from the rig definition; this is skipped when
+        the rig definition is unavailable.
+        """
+        rig_definition = self._get_rig_definition()
+        if not rig_definition or not getattr(rig_definition, "regions", ()):
+            return
+
+        # map each joint name to the regions it belongs to
+        regions_by_joint: dict[str, list[str]] = {}
+        for region in rig_definition.regions:
+            for joint_name in region.joints:
+                regions_by_joint.setdefault(joint_name, []).append(region.name)
+        if not regions_by_joint:
+            return
+
+        reader = self.dna_reader
+        joint_name_cache: dict[int, str] = {}
+
+        for mesh_index in reader.getMeshIndicesForLOD(0):
+            mesh_name = reader.getMeshName(mesh_index)
+            mesh_object = bpy.data.objects.get(f"{self.name}_{mesh_name}")
+            if not mesh_object or not isinstance(mesh_object.data, bpy.types.Mesh):
+                continue
+
+            vertex_groups: dict[str, bpy.types.VertexGroup] = {}
+            for vertex in mesh_object.data.vertices:
+                joint_indices = reader.getSkinWeightsJointIndices(mesh_index, vertex.index)
+                weights = reader.getSkinWeightsValues(mesh_index, vertex.index)
+
+                region_weights: dict[str, float] = {}
+                for joint_index, weight in zip(joint_indices, weights, strict=False):
+                    joint_name = joint_name_cache.get(joint_index)
+                    if joint_name is None:
+                        joint_name = reader.getJointName(joint_index)
+                        joint_name_cache[joint_index] = joint_name
+                    for region_name in regions_by_joint.get(joint_name, ()):
+                        region_weights[region_name] = region_weights.get(region_name, 0.0) + float(weight)
+
+                if not region_weights:
+                    continue
+
+                dominant_region = max(region_weights, key=region_weights.__getitem__)
+                vertex_group_name = f"{REGION_VERTEX_GROUP_PREFIX}{dominant_region}"
+                vertex_group = vertex_groups.get(vertex_group_name)
+                if not vertex_group:
+                    vertex_group = mesh_object.vertex_groups.get(vertex_group_name)
+                    if not vertex_group:
+                        vertex_group = mesh_object.vertex_groups.new(name=vertex_group_name)
+                    vertex_groups[vertex_group_name] = vertex_group
+                vertex_group.add(index=[vertex.index], weight=1.0, type="REPLACE")
 
     def frame_rig_to_target(self, mesh_object: bpy.types.Object) -> Vector:
         """Translate the head rig so it is centered on ``mesh_object`` and reset

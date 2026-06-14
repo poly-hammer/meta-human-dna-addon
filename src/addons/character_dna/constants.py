@@ -289,6 +289,10 @@ class BodyBoneCollection:
     SWINGS = "Swings"
 
 
+# Prefix used for the vertex groups that store the rig-definition mesh regions.
+REGION_VERTEX_GROUP_PREFIX = "REGION_"
+
+
 ADDON_IDS = ["meta_human_dna", "meta_human_dna_pro", "character_dna", "character_dna_pro"]
 LEGACY_DATA_KEYS = ["rig_logic_instance_list"]
 

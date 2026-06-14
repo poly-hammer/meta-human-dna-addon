@@ -288,3 +288,12 @@ class RigDefinition:
     @cached_property
     def joint_groups(self) -> tuple[RigJointGroup, ...]:
         return tuple(RigJointGroup.from_dict(item) for item in self._data.get("joint_groups", []))
+
+    @cached_property
+    def color_by_joint_name(self) -> dict[str, tuple[float, ...]]:
+        """Map of joint name to its authoring color, for joints that carry one.
+
+        Colors live only in the rig definition (the DNA does not store them),
+        so this is the authoritative source for per-bone coloring on import.
+        """
+        return {joint.name: joint.color for joint in self.joints if joint.color is not None}

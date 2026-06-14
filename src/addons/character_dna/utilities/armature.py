@@ -132,6 +132,61 @@ def assign_body_bone_collections(
                     pose_bone.color.palette = theme  # type: ignore[value-assign]
 
 
+def set_pose_bone_custom_color(pose_bone: bpy.types.PoseBone, color: tuple[float, ...]):
+    """Apply an explicit RGB color to a single pose bone via its custom palette.
+
+    Blender bone collections cannot carry a color, so per-joint rig-definition
+    colors are applied directly to each bone. The ``select`` and ``active``
+    states are derived as progressively lighter tints of ``color``.
+    """
+    if not pose_bone.color or len(color) < 3:
+        return
+
+    normal = (float(color[0]), float(color[1]), float(color[2]))
+    select = tuple(channel + (1.0 - channel) * 0.4 for channel in normal)
+    active = tuple(channel + (1.0 - channel) * 0.7 for channel in normal)
+
+    pose_bone.color.palette = "CUSTOM"  # type: ignore[assignment]
+    pose_bone.color.custom.normal = normal  # type: ignore[assignment]
+    pose_bone.color.custom.select = select  # type: ignore[assignment]
+    pose_bone.color.custom.active = active  # type: ignore[assignment]
+
+
+def assign_joint_group_bone_collections(
+    rig_object: bpy.types.Object,
+    joint_groups: "tuple[RigJointGroup, ...]",
+    color_by_joint_name: "dict[str, tuple[float, ...]] | None" = None,
+):
+    """Create a bone collection per rig-definition joint group and color bones.
+
+    Each joint group becomes a bone collection named after the group, with its
+    member bones assigned (bones may belong to several groups). When
+    ``color_by_joint_name`` is provided, every matching bone is tinted with its
+    rig-definition color. Bones and colors absent from the rig are skipped.
+    """
+    if (not rig_object.data or not rig_object.pose) or not isinstance(rig_object.data, bpy.types.Armature):
+        return
+
+    for joint_group in joint_groups:
+        if not joint_group.joints:
+            continue
+
+        collection = rig_object.data.collections.get(joint_group.name)
+        if not collection:
+            collection = rig_object.data.collections.new(name=joint_group.name)
+
+        for bone_name in joint_group.joints:
+            pose_bone = rig_object.pose.bones.get(bone_name)
+            if pose_bone:
+                collection.assign(pose_bone)
+
+    if color_by_joint_name:
+        for bone_name, color in color_by_joint_name.items():
+            pose_bone = rig_object.pose.bones.get(bone_name)
+            if pose_bone:
+                set_pose_bone_custom_color(pose_bone, color)
+
+
 def get_meshes_using_armature(armature_object: bpy.types.Object) -> list[bpy.types.Object]:
     # find the related mesh objects for the head rig
     mesh_objects = []

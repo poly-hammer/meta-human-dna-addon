@@ -224,6 +224,42 @@ class CharacterComponentBase(metaclass=ABCMeta):
     def _get_lods_settings(self) -> list[tuple[int, bool]]:
         return [(i, getattr(self.dna_import_properties, f"import_lod{i}")) for i in range(NUMBER_OF_HEAD_LODS)]
 
+    def _get_rig_definition(self) -> "RigDefinition | None":
+        """Return the rig definition for this component, or ``None`` if missing.
+
+        The colors, joint-group names and region memberships used on import live
+        only in the rig definition, so callers degrade gracefully (log + skip)
+        when it cannot be loaded.
+        """
+        from ..rig_definition import get_rig_definition
+
+        try:
+            return get_rig_definition(self.component_type)
+        except (FileNotFoundError, ValueError, KeyError) as error:
+            logger.warning(f"No rig definition available for '{self.component_type}': {error}")
+            return None
+
+    def _build_joint_group_collections(self):
+        """Author one bone collection per rig-definition joint group and color bones.
+
+        Joint-group names and per-joint colors are derived from the rig
+        definition (the DNA stores neither), so this is skipped when the rig
+        definition is unavailable.
+        """
+        rig_object = self.head_rig_object if self.component_type == "head" else self.body_rig_object
+        if not rig_object:
+            return
+
+        rig_definition = self._get_rig_definition()
+        if not rig_definition or not rig_definition.joint_groups:
+            return
+
+        utilities.assign_joint_group_bone_collections(
+            rig_object=rig_object,
+            joint_groups=rig_definition.joint_groups,
+            color_by_joint_name=rig_definition.color_by_joint_name,
+        )
+
     def _organize_viewport(self):
         if self.head_rig_object:
             for mesh_object in self.head_rig_object.children:

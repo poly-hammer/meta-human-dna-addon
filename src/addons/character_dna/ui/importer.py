@@ -38,11 +38,14 @@ class CHARACTER_DNA_FILE_DATA_PT_panel(bpy.types.Panel):
         # row.prop(operator, "import_normals")  # noqa: ERA001
         row = layout.row()
         row.prop(operator, "import_bones")
-        # row = layout.row()  # noqa: ERA001
-        # TODO: See if we what to import shape keys during initial import
-        # row.prop(operator, "import_shape_keys")  # noqa: ERA001
         row = layout.row()
         row.prop(operator, "import_vertex_groups")
+        # TODO: Maybe support importing regions as vertex groups on the head
+        # if stem != "body":
+        #     row = layout.row() # noqa: ERA001
+        #     row.prop(operator, "import_region_vertex_groups") # noqa: ERA001
+        row = layout.row()
+        row.prop(operator, "import_bone_collections")
         if stem != "body":
             row = layout.row()
             row.prop(operator, "import_vertex_colors")
