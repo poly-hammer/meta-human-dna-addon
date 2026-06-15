@@ -243,6 +243,76 @@ class CharacterOutputProperties(bpy.types.PropertyGroup):
     calibrate_shape_keys: bpy.props.BoolProperty(default=True)  # pyright: ignore[reportInvalidTypeForm]
 
 
+class CharacterViewOptionsProperties(bpy.types.PropertyGroup):
+    """
+    Defines the per-rig-instance state for the View Options panel, including the
+    active LOD, material color preview, and the visibility toggles for the face
+    board, control rig, head/body bones, and deformer soloing. This is assigned
+    onto :class:`RigInstance` as the ``view_options`` pointer property at
+    registration time (see :func:`register`).
+    """
+
+    active_lod: bpy.props.EnumProperty(
+        name="Active LOD",
+        items=callbacks.get_head_mesh_lod_items,  # type: ignore[call-arg]
+        description="Choose what Level of Detail should be displayed from the face",
+        options={"ANIMATABLE"},
+        set=callbacks.set_active_lod,
+        get=callbacks.get_active_lod,
+    )  # pyright: ignore[reportInvalidTypeForm]
+    active_material_preview: bpy.props.EnumProperty(
+        name="Material Color",
+        items=[
+            ("combined", "Combined", "Displays all combined textures maps"),
+            ("masks", "Masks", "Displays only the color of the mask texture maps"),
+            ("normals", "Normals", "Displays only the color of the normal texture maps"),
+            ("topology", "Topology", "Displays only the mesh topology colors"),
+        ],
+        description="Choose what color should be shown by the material",
+        default="combined",
+        set=callbacks.set_active_material_preview,
+        get=callbacks.get_active_material_preview,
+    )  # pyright: ignore[reportInvalidTypeForm]
+    show_face_board: bpy.props.BoolProperty(
+        name="Show Face Board",
+        default=False,
+        description="Whether to show or hide the face board that belongs to this rig instance in the 3D view",
+        set=callbacks.set_show_face_board,
+        get=callbacks.get_show_face_board,
+    )  # pyright: ignore[reportInvalidTypeForm]
+    show_control_rig: bpy.props.BoolProperty(
+        name="Show Control Rig",
+        default=False,
+        description="Whether to show or hide the control rig that belongs to this rig instance in the 3D view",
+        set=callbacks.set_show_control_rig,
+        get=callbacks.get_show_control_rig,
+    )  # pyright: ignore[reportInvalidTypeForm]
+    show_head_bones: bpy.props.BoolProperty(
+        name="Show Head Bones",
+        default=False,
+        description="Whether to show or hide the head bones that belong to this rig instance in the 3D view",
+        set=callbacks.set_show_head_bones,
+        get=callbacks.get_show_head_bones,
+    )  # pyright: ignore[reportInvalidTypeForm]
+    show_body_bones: bpy.props.BoolProperty(
+        name="Show Body Bones",
+        default=False,
+        description="Whether to show or hide the body bones that belong to this MetaHuman instance in the 3D view",
+        set=callbacks.set_show_body_bones,
+        get=callbacks.get_show_body_bones,
+    )  # pyright: ignore[reportInvalidTypeForm]
+    solo_deformers: bpy.props.BoolProperty(
+        name="Solo Deformers",
+        default=False,
+        description=(
+            "Show only the deforming bones by soloing the Deformers bone collection, "
+            "hiding the non-skinned leaf joints (such as the volumetric face helpers)"
+        ),
+        set=callbacks.set_solo_deformers,
+        get=callbacks.get_solo_deformers,
+    )  # pyright: ignore[reportInvalidTypeForm]
+
+
 class CharacterAddonProperties:
     """
     This class holds the properties for the addon.
@@ -416,6 +486,12 @@ def register():
     bpy.utils.register_class(CharacterOutputProperties)
     RigInstance.__annotations__["output"] = bpy.props.PointerProperty(type=CharacterOutputProperties)
 
+    # ----------------- View Options Properties -----------------
+    # Register the view options property group and assign it onto the RigInstance
+    # before it is registered, mirroring the output property-group pattern above.
+    bpy.utils.register_class(CharacterViewOptionsProperties)
+    RigInstance.__annotations__["view_options"] = bpy.props.PointerProperty(type=CharacterViewOptionsProperties)
+
     # Now register RigLogicInstance
     bpy.utils.register_class(RigInstance)
     bpy.utils.register_class(BlendFileCharacterCollection)
@@ -481,6 +557,9 @@ def unregister():
     # Remove the dynamically injected output pointer so re-registration starts clean.
     RigInstance.__annotations__.pop("output", None)
 
+    # Remove the dynamically injected view options pointer so re-registration starts clean.
+    RigInstance.__annotations__.pop("view_options", None)
+
     # unregister the list data classes
     bpy.utils.unregister_class(RigInstance)
 
@@ -494,6 +573,7 @@ def unregister():
             editors.unregister_property_groups()
 
         bpy.utils.unregister_class(CharacterOutputProperties)
+        bpy.utils.unregister_class(CharacterViewOptionsProperties)
         bpy.utils.unregister_class(OutputData)
         bpy.utils.unregister_class(BlendFileCharacterCollection)
 

@@ -114,7 +114,7 @@ def get_body_texture_logic_node(material: bpy.types.Material) -> bpy.types.Shade
     return None
 
 
-def get_active_material_preview(self: "RigInstance") -> int:
+def get_active_material_preview(self: "CharacterViewOptionsProperties") -> int:
     return self.get("active_material_preview", 0)
 
 
@@ -440,31 +440,53 @@ def set_face_board_follow_head(self: "CharacterFaceBoardProperties", value: bool
     _set_face_board_switch("CTRL_faceGUIfollowHead", value)
 
 
-def get_active_lod(self: "RigInstance") -> int:
+def _get_view_options_owner(self: "CharacterViewOptionsProperties") -> "RigInstance | None":
+    """Resolve the ``RigInstance`` that owns this ``view_options`` property group.
+
+    The view-options get/set callbacks need the owning rig instance to read its
+    linked objects (face board, rigs, materials) and its name. We resolve it from
+    the RNA data path so the correct instance is targeted even when it is not the
+    active one, falling back to the active rig instance if the path can't be resolved.
+    """
+    try:
+        owner_path = self.path_from_id().rsplit(".view_options", 1)[0]
+        owner = self.id_data.path_resolve(owner_path)
+    except (ValueError, AttributeError):
+        owner = None
+    if owner is None:
+        return get_active_rig_instance()
+    return owner  # pyright: ignore[reportReturnType]
+
+
+def get_active_lod(self: "CharacterViewOptionsProperties") -> int:
     return self.get("active_lod", 0)
 
 
-def get_show_head_bones(self: "RigInstance") -> bool:
-    if self.head_rig:
-        return not self.head_rig.hide_get()
+def get_show_head_bones(self: "CharacterViewOptionsProperties") -> bool:
+    instance = _get_view_options_owner(self)
+    if instance and instance.head_rig:
+        return not instance.head_rig.hide_get()
     return False
 
 
-def get_show_face_board(self: "RigInstance") -> bool:
-    if self.face_board:
-        return not self.face_board.hide_get()
+def get_show_face_board(self: "CharacterViewOptionsProperties") -> bool:
+    instance = _get_view_options_owner(self)
+    if instance and instance.face_board:
+        return not instance.face_board.hide_get()
     return False
 
 
-def get_show_control_rig(self: "RigInstance") -> bool:
-    if self.control_rig:
-        return not self.control_rig.hide_get()
+def get_show_control_rig(self: "CharacterViewOptionsProperties") -> bool:
+    instance = _get_view_options_owner(self)
+    if instance and instance.control_rig:
+        return not instance.control_rig.hide_get()
     return False
 
 
-def get_show_body_bones(self: "RigInstance") -> bool:
-    if self.body_rig:
-        return not self.body_rig.hide_get()
+def get_show_body_bones(self: "CharacterViewOptionsProperties") -> bool:
+    instance = _get_view_options_owner(self)
+    if instance and instance.body_rig:
+        return not instance.body_rig.hide_get()
     return False
 
 
@@ -522,19 +544,23 @@ def set_bake_end_frame(self: "BakeAnimationBase", value: int):
     self["bake_end_frame"] = value
 
 
-def set_active_lod(self: "RigInstance", value: int):
+def set_active_lod(self: "CharacterViewOptionsProperties", value: int):
     self["active_lod"] = value
     if not bpy.context.scene:
         return
 
+    instance = _get_view_options_owner(self)
+    if not instance:
+        return
+
     for scene_object in bpy.context.scene.objects:
-        if scene_object.name.startswith(self.name) and scene_object.type == "MESH":
+        if scene_object.name.startswith(instance.name) and scene_object.type == "MESH":
             ignored_names = [
-                f"{self.name}_eyeshell_lod{value}_mesh",
-                f"{self.name}_eyeEdge_lod{value}_mesh",
-                f"{self.name}_cartilage_lod{value}_mesh",
-                f"{self.name}_saliva_lod{value}_mesh",
-                f"{self.name}_body_lod{value}_mesh",
+                f"{instance.name}_eyeshell_lod{value}_mesh",
+                f"{instance.name}_eyeEdge_lod{value}_mesh",
+                f"{instance.name}_cartilage_lod{value}_mesh",
+                f"{instance.name}_saliva_lod{value}_mesh",
+                f"{instance.name}_body_lod{value}_mesh",
             ]
             scene_object.hide_set(True)
             if scene_object.name.endswith(f"_lod{value}_mesh") and scene_object.name not in ignored_names:
@@ -542,33 +568,40 @@ def set_active_lod(self: "RigInstance", value: int):
 
     # un-hide the body lod. There are 2 head lods per body lod
     body_lod_index = HEAD_TO_BODY_LOD_MAPPING.get(value)
-    body_lod_object = bpy.data.objects.get(f"{self.name}_body_lod{body_lod_index}_mesh")
+    body_lod_object = bpy.data.objects.get(f"{instance.name}_body_lod{body_lod_index}_mesh")
     if body_lod_object:
         body_lod_object.hide_set(False)
 
 
-def set_show_head_bones(self: "RigInstance", value: bool):
-    if self.head_rig:
-        self.head_rig.hide_set(not value)
+def set_show_head_bones(self: "CharacterViewOptionsProperties", value: bool):
+    instance = _get_view_options_owner(self)
+    if instance and instance.head_rig:
+        instance.head_rig.hide_set(not value)
 
 
-def set_show_face_board(self: "RigInstance", value: bool):
-    if self.face_board:
-        self.face_board.hide_set(not value)
+def set_show_face_board(self: "CharacterViewOptionsProperties", value: bool):
+    instance = _get_view_options_owner(self)
+    if instance and instance.face_board:
+        instance.face_board.hide_set(not value)
 
 
-def set_show_control_rig(self: "RigInstance", value: bool):
-    if self.control_rig:
-        self.control_rig.hide_set(not value)
+def set_show_control_rig(self: "CharacterViewOptionsProperties", value: bool):
+    instance = _get_view_options_owner(self)
+    if instance and instance.control_rig:
+        instance.control_rig.hide_set(not value)
 
 
-def set_show_body_bones(self: "RigInstance", value: bool):
-    if self.body_rig:
-        self.body_rig.hide_set(not value)
+def set_show_body_bones(self: "CharacterViewOptionsProperties", value: bool):
+    instance = _get_view_options_owner(self)
+    if instance and instance.body_rig:
+        instance.body_rig.hide_set(not value)
 
 
-def get_solo_deformers(self: "RigInstance") -> bool:
-    for rig_object in (self.head_rig, self.body_rig):
+def get_solo_deformers(self: "CharacterViewOptionsProperties") -> bool:
+    instance = _get_view_options_owner(self)
+    if not instance:
+        return False
+    for rig_object in (instance.head_rig, instance.body_rig):
         if rig_object and isinstance(rig_object.data, bpy.types.Armature):
             collection = rig_object.data.collections.get(DEFORMER_BONE_COLLECTION)
             if collection:
@@ -576,8 +609,11 @@ def get_solo_deformers(self: "RigInstance") -> bool:
     return False
 
 
-def set_solo_deformers(self: "RigInstance", value: bool):
-    for rig_object in (self.head_rig, self.body_rig):
+def set_solo_deformers(self: "CharacterViewOptionsProperties", value: bool):
+    instance = _get_view_options_owner(self)
+    if not instance:
+        return
+    for rig_object in (instance.head_rig, instance.body_rig):
         if rig_object and isinstance(rig_object.data, bpy.types.Armature):
             collection = rig_object.data.collections.get(DEFORMER_BONE_COLLECTION)
             if collection:
@@ -600,12 +636,16 @@ def get_copied_rig_instance_name(self: "DuplicateRigInstance") -> str:
     return value
 
 
-def set_active_material_preview(self: "RigInstance", value: int):
+def set_active_material_preview(self: "CharacterViewOptionsProperties", value: int):
     self["active_material_preview"] = value
     input_name = "Factor"
 
-    head_node_group = get_head_texture_logic_node(self.head_material)
-    body_node_group = get_body_texture_logic_node(self.body_material)
+    instance = _get_view_options_owner(self)
+    if not instance:
+        return
+
+    head_node_group = get_head_texture_logic_node(instance.head_material)
+    body_node_group = get_body_texture_logic_node(instance.body_material)
 
     for node_group in [head_node_group, body_node_group]:
         if not node_group or not node_group.node_tree:
@@ -924,7 +964,7 @@ def update_output_component(self: "RigInstance", context: "Context"):
     update_body_output_items(self, context)
 
 
-def get_head_mesh_lod_items(self: "RigInstance", context: "Context") -> list[tuple[str, str, str]]:  # noqa: ARG001
+def get_head_mesh_lod_items(self: "CharacterViewOptionsProperties", context: "Context") -> list[tuple[str, str, str]]:  # noqa: ARG001
     items = []
 
     try:

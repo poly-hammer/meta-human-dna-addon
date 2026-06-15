@@ -426,67 +426,6 @@ class RigInstance(bpy.types.PropertyGroup):
         update=callbacks.update_body_output_items,  # type: ignore[call-arg]
     )  # pyright: ignore[reportInvalidTypeForm]
 
-    # ----- View Options Properties -----
-    active_lod: bpy.props.EnumProperty(
-        name="Active LOD",
-        items=callbacks.get_head_mesh_lod_items,  # type: ignore[call-arg]
-        description="Choose what Level of Detail should be displayed from the face",
-        options={"ANIMATABLE"},
-        set=callbacks.set_active_lod,
-        get=callbacks.get_active_lod,
-    )  # pyright: ignore[reportInvalidTypeForm]
-    active_material_preview: bpy.props.EnumProperty(
-        name="Material Color",
-        items=[
-            ("combined", "Combined", "Displays all combined textures maps"),
-            ("masks", "Masks", "Displays only the color of the mask texture maps"),
-            ("normals", "Normals", "Displays only the color of the normal texture maps"),
-            ("topology", "Topology", "Displays only the mesh topology colors"),
-        ],
-        description="Choose what color should be shown by the material",
-        default="combined",
-        set=callbacks.set_active_material_preview,
-        get=callbacks.get_active_material_preview,
-    )  # pyright: ignore[reportInvalidTypeForm]
-    show_face_board: bpy.props.BoolProperty(
-        name="Show Face Board",
-        default=False,
-        description="Whether to show or hide the face board that belongs to this rig instance in the 3D view",
-        set=callbacks.set_show_face_board,
-        get=callbacks.get_show_face_board,
-    )  # pyright: ignore[reportInvalidTypeForm]
-    show_control_rig: bpy.props.BoolProperty(
-        name="Show Control Rig",
-        default=False,
-        description="Whether to show or hide the control rig that belongs to this rig instance in the 3D view",
-        set=callbacks.set_show_control_rig,
-        get=callbacks.get_show_control_rig,
-    )  # pyright: ignore[reportInvalidTypeForm]
-    show_head_bones: bpy.props.BoolProperty(
-        name="Show Head Bones",
-        default=False,
-        description="Whether to show or hide the head bones that belong to this rig instance in the 3D view",
-        set=callbacks.set_show_head_bones,
-        get=callbacks.get_show_head_bones,
-    )  # pyright: ignore[reportInvalidTypeForm]
-    show_body_bones: bpy.props.BoolProperty(
-        name="Show Body Bones",
-        default=False,
-        description="Whether to show or hide the body bones that belong to this MetaHuman instance in the 3D view",
-        set=callbacks.set_show_body_bones,
-        get=callbacks.get_show_body_bones,
-    )  # pyright: ignore[reportInvalidTypeForm]
-    solo_deformers: bpy.props.BoolProperty(
-        name="Solo Deformers",
-        default=False,
-        description=(
-            "Show only the deforming bones by soloing the Deformers bone collection, "
-            "hiding the non-skinned leaf joints (such as the volumetric face helpers)"
-        ),
-        set=callbacks.set_solo_deformers,
-        get=callbacks.get_solo_deformers,
-    )  # pyright: ignore[reportInvalidTypeForm]
-
     # ----- Internal Properties -----
     head_to_body_constraint_influence: bpy.props.FloatProperty(
         name="Constrain Head to Body",
@@ -1309,7 +1248,7 @@ class RigInstance(bpy.types.PropertyGroup):
             self.data[self.cache_key("head", "logged_missing_gui_controls")] = True
 
         # set the active LOD level for the head instance to optimize performance
-        self.head_instance.setLOD(level=int(self.active_lod[-1]))
+        self.head_instance.setLOD(level=int(self.view_options.active_lod[-1]))  # pyright: ignore[reportAttributeAccessIssue]
         # map the GUI changes to the raw controls
         self.head_manager.mapGUIToRawControls(self.head_instance)
 
@@ -1557,7 +1496,7 @@ class RigInstance(bpy.types.PropertyGroup):
                 else:
                     self.body_instance.setRawControl(index, 0.0)
 
-            self.body_instance.setLOD(level=int(self.active_lod[-1]))
+            self.body_instance.setLOD(level=int(self.view_options.active_lod[-1]))  # pyright: ignore[reportAttributeAccessIssue]
             self.body_manager.calculate(self.body_instance)
         else:
             self.update_body_raw_control_values()
@@ -1585,11 +1524,11 @@ class RigInstance(bpy.types.PropertyGroup):
                     else:
                         self.head_instance.setRawControl(index, 0.0)
 
-            self.head_instance.setLOD(level=int(self.active_lod[-1]))
+            self.head_instance.setLOD(level=int(self.view_options.active_lod[-1]))  # pyright: ignore[reportAttributeAccessIssue]
             self.head_manager.calculate(self.head_instance)
         else:
             self.update_head_raw_control_values()
-            self.head_instance.setLOD(level=int(self.active_lod[-1]))
+            self.head_instance.setLOD(level=int(self.view_options.active_lod[-1]))  # pyright: ignore[reportAttributeAccessIssue]
             self.head_manager.calculate(self.head_instance)
 
         self.update_head_bone_transforms()
@@ -1649,7 +1588,7 @@ class RigInstance(bpy.types.PropertyGroup):
             self.data[self.cache_key("body", "logged_missing_raw_controls")] = True
 
         # set the active LOD level for the body instance to optimize performance
-        self.body_instance.setLOD(level=int(self.active_lod[-1]))
+        self.body_instance.setLOD(level=int(self.view_options.active_lod[-1]))  # pyright: ignore[reportAttributeAccessIssue]
 
         # calculate the changes
         self.body_manager.calculate(self.body_instance)

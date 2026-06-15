@@ -45,6 +45,7 @@ if TYPE_CHECKING:
         CharacterImportProperties,  # noqa: TC004
         CharacterOutputProperties,  # noqa: TC004
         CharacterSceneProperties,  # noqa: TC004
+        CharacterViewOptionsProperties,  # noqa: TC004
         CharacterWindowManagerProperties as _CharacterWindowManagerProperties,
         ExtraDnaFolder,
         OutputData,  # noqa: TC004
@@ -90,6 +91,7 @@ if TYPE_CHECKING:
         raw_control_editor: RawControlEditorProperties
         shape_key_editor: ShapeKeyEditorProperties
         output: CharacterOutputProperties
+        view_options: CharacterViewOptionsProperties
 
     # =========================================================================
     # Extended CharacterWindowManagerProperties with dynamically assigned editor properties
@@ -171,6 +173,7 @@ if TYPE_CHECKING:
         "CharacterImportProperties",
         "CharacterOutputProperties",
         "CharacterSceneProperties",
+        "CharacterViewOptionsProperties",
         "CharacterWindowManagerProperties",
         "ClassVar",
         "ComponentType",

@@ -1406,8 +1406,8 @@ class DuplicateRigInstance(bpy.types.Operator):
                     # now set the values on the instance
                     new_instance.name = self.new_name
                     setattr(new_instance, f"{component_type}_dna_file_path", str(new_dna_file_path))
-                    new_instance.active_lod = instance.active_lod
-                    new_instance.active_material_preview = instance.active_material_preview
+                    new_instance.view_options.active_lod = instance.view_options.active_lod
+                    new_instance.view_options.active_material_preview = instance.view_options.active_material_preview
                     new_instance.face_board = instance.face_board
                     setattr(new_instance, f"{component_type}_mesh", new_mesh_object)
                     setattr(new_instance, f"{component_type}_rig", new_rig_object)

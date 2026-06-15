@@ -300,54 +300,54 @@ class CHARACTER_DNA_PT_view_options(RigInstanceDependentPanel):
             col.enabled = bool(instance.head_material)
             col.label(text="Head Material Color:")
             row = col.row()
-            row.prop(instance, "active_material_preview", text="")
+            row.prop(instance.view_options, "active_material_preview", text="")
             row = col.row()
             row.label(text="Bone Visibility:")
             row = col.row()
             row.enabled = bool(instance.head_rig)
             row.prop(
-                instance,
+                instance.view_options,
                 "show_head_bones",
                 text="Head Bones",
-                icon="HIDE_OFF" if instance.show_head_bones else "HIDE_ON",
+                icon="HIDE_OFF" if instance.view_options.show_head_bones else "HIDE_ON",
             )
             row = col.row()
             row.enabled = bool(instance.body_rig)
             row.prop(
-                instance,
+                instance.view_options,
                 "show_body_bones",
                 text="Body Bones",
-                icon="HIDE_OFF" if instance.show_body_bones else "HIDE_ON",
+                icon="HIDE_OFF" if instance.view_options.show_body_bones else "HIDE_ON",
             )
             col = grid.column()
             col.enabled = bool(instance.head_mesh)
             col.label(text="Active LOD:")
             row = col.row()
-            row.prop(instance, "active_lod", text="")
+            row.prop(instance.view_options, "active_lod", text="")
             row = col.row()
             row.label(text="Control Visibility:")
             row = col.row()
             row.enabled = bool(instance.face_board)
             row.prop(
-                instance,
+                instance.view_options,
                 "show_face_board",
                 text="Face Board",
-                icon="HIDE_OFF" if instance.show_face_board else "HIDE_ON",
+                icon="HIDE_OFF" if instance.view_options.show_face_board else "HIDE_ON",
             )
             row = col.row()
             row.enabled = bool(instance.control_rig)
             row.prop(
-                instance,
+                instance.view_options,
                 "show_control_rig",
                 text="Control Rig",
-                icon="HIDE_OFF" if instance.show_control_rig else "HIDE_ON",
+                icon="HIDE_OFF" if instance.view_options.show_control_rig else "HIDE_ON",
             )
 
             row = self.layout.row()
             row.prop(properties, "highlight_matching_active_bone", text="Show Matching Bone")
             sub_row = row.row()
             sub_row.enabled = bool(instance.head_rig or instance.body_rig)
-            sub_row.prop(instance, "solo_deformers", text="Solo Deformers")
+            sub_row.prop(instance.view_options, "solo_deformers", text="Solo Deformers")
         else:
             draw_rig_instance_error(self.layout, error)
 
