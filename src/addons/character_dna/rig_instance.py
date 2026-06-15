@@ -476,6 +476,16 @@ class RigInstance(bpy.types.PropertyGroup):
         set=callbacks.set_show_body_bones,
         get=callbacks.get_show_body_bones,
     )  # pyright: ignore[reportInvalidTypeForm]
+    solo_deformers: bpy.props.BoolProperty(
+        name="Solo Deformers",
+        default=False,
+        description=(
+            "Show only the deforming bones by soloing the Deformers bone collection, "
+            "hiding the non-skinned leaf joints (such as the volumetric face helpers)"
+        ),
+        set=callbacks.set_solo_deformers,
+        get=callbacks.get_solo_deformers,
+    )  # pyright: ignore[reportInvalidTypeForm]
 
     # ----- Internal Properties -----
     head_to_body_constraint_influence: bpy.props.FloatProperty(

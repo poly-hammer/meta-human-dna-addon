@@ -250,6 +250,13 @@ class CharacterComponentBase(metaclass=ABCMeta):
         if not rig_object:
             return
 
+        # The Deformers collection depends only on skin weights and the bone
+        # hierarchy, so it is authored even when no rig definition is available.
+        utilities.assign_deformer_bone_collection(
+            rig_object=rig_object,
+            skinned_joint_names=self._get_skinned_joint_names(),
+        )
+
         rig_definition = self._get_rig_definition()
         if not rig_definition or not rig_definition.joint_groups:
             return
@@ -259,6 +266,22 @@ class CharacterComponentBase(metaclass=ABCMeta):
             joint_groups=rig_definition.joint_groups,
             color_by_joint_name=rig_definition.color_by_joint_name,
         )
+
+    def _get_skinned_joint_names(self) -> set[str]:
+        """Return the names of every joint that carries at least one skin-weight
+        influence across all of the DNA's meshes."""
+        reader = self.dna_reader
+        joint_name_cache: dict[int, str] = {}
+        skinned_joint_names: set[str] = set()
+        for mesh_index in range(reader.getMeshCount()):
+            for vertex_index in range(reader.getSkinWeightsCount(mesh_index)):
+                for joint_index in reader.getSkinWeightsJointIndices(mesh_index, vertex_index):
+                    joint_name = joint_name_cache.get(joint_index)
+                    if joint_name is None:
+                        joint_name = reader.getJointName(joint_index)
+                        joint_name_cache[joint_index] = joint_name
+                    skinned_joint_names.add(joint_name)
+        return skinned_joint_names
 
     def _organize_viewport(self):
         if self.head_rig_object:

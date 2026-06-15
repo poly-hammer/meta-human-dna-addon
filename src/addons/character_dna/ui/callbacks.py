@@ -18,6 +18,7 @@ from mathutils import Color, Euler, Matrix, Vector
 # local imports
 from ..constants import (
     BODY_MAPS,
+    DEFORMER_BONE_COLLECTION,
     HEAD_MAPS,
     HEAD_TO_BODY_LOD_MAPPING,
     NUMBER_OF_HEAD_LODS,
@@ -564,6 +565,23 @@ def set_show_control_rig(self: "RigInstance", value: bool):
 def set_show_body_bones(self: "RigInstance", value: bool):
     if self.body_rig:
         self.body_rig.hide_set(not value)
+
+
+def get_solo_deformers(self: "RigInstance") -> bool:
+    for rig_object in (self.head_rig, self.body_rig):
+        if rig_object and isinstance(rig_object.data, bpy.types.Armature):
+            collection = rig_object.data.collections.get(DEFORMER_BONE_COLLECTION)
+            if collection:
+                return bool(collection.is_solo)
+    return False
+
+
+def set_solo_deformers(self: "RigInstance", value: bool):
+    for rig_object in (self.head_rig, self.body_rig):
+        if rig_object and isinstance(rig_object.data, bpy.types.Armature):
+            collection = rig_object.data.collections.get(DEFORMER_BONE_COLLECTION)
+            if collection:
+                collection.is_solo = value
 
 
 def set_copied_rig_instance_name(self: "DuplicateRigInstance", value: str):

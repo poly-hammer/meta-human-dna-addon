@@ -39,6 +39,7 @@ class DNAExporter:
         file_name: str | None = None,
         component_type: ComponentType | None = None,
         reader: "riglogic.BinaryStreamReader | None" = None,
+        progress_callback: "Callable[[str, float | None], None] | None" = None,
     ):
         self._instance = instance
         self._linear_modifier = linear_modifier
@@ -50,6 +51,7 @@ class DNAExporter:
         self._include_bones = bones
         self._include_textures = textures
         self._include_vertex_colors = vertex_colors
+        self._progress_callback = progress_callback
         self._component_type = component_type or instance.output.component
 
         self._output_folder = Path(bpy.path.abspath(instance.output.folder_path))
@@ -92,6 +94,20 @@ class DNAExporter:
         self._images = []
         self._bone_index_lookup = {}
         self._vertex_color_data = []
+
+    def _report(self, message: str, fraction: float | None = None) -> None:
+        """Forward a status update to the optional progress callback.
+
+        ``fraction`` is a ``0.0..1.0`` position within the export/calibration
+        phase (or ``None`` for a message-only update). Failures in the callback
+        (e.g. a UI that has gone away) are swallowed so they can never break the
+        DNA write."""
+        if self._progress_callback is None:
+            return
+        try:
+            self._progress_callback(message, fraction)
+        except Exception:
+            logger.exception("Progress callback failed; continuing export.")
 
     def initialize_scene_data(self):
         mesh_objects = []

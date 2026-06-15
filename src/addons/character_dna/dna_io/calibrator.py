@@ -164,6 +164,7 @@ class DNACalibrator(DNAExporter, DNAImporter):
             self._dna_writer,
             lod0_mesh_writes,
             skip_mesh_indices=skip_mesh_indices,
+            progress_callback=self._report,
         )
 
     def calibrate_shape_keys(self):
@@ -408,10 +409,13 @@ class DNACalibrator(DNAExporter, DNAImporter):
         if self._include_meshes:
             self.calibrate_vertex_positions()
         if self._include_shape_keys:
+            self._report("Calibrating shape keys...")
             self.calibrate_shape_keys()
         if self._include_vertex_groups:
+            self._report("Calibrating skin weights...")
             self.calibrate_vertex_groups()
         if self._include_bones:
+            self._report("Calibrating bones...")
             self.calibrate_bone_transforms()
 
         logger.info(f'Saving DNA to: "{self._target_dna_file}"...')

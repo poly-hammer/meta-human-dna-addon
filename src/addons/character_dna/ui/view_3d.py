@@ -319,7 +319,6 @@ class CHARACTER_DNA_PT_view_options(RigInstanceDependentPanel):
                 text="Body Bones",
                 icon="HIDE_OFF" if instance.show_body_bones else "HIDE_ON",
             )
-
             col = grid.column()
             col.enabled = bool(instance.head_mesh)
             col.label(text="Active LOD:")
@@ -345,7 +344,10 @@ class CHARACTER_DNA_PT_view_options(RigInstanceDependentPanel):
             )
 
             row = self.layout.row()
-            row.prop(properties, "highlight_matching_active_bone")
+            row.prop(properties, "highlight_matching_active_bone", text="Highlight Matching Bone")
+            sub_row = row.row()
+            sub_row.enabled = bool(instance.head_rig or instance.body_rig)
+            sub_row.prop(instance, "solo_deformers", text="Solo Deformers")
         else:
             draw_rig_instance_error(self.layout, error)
 

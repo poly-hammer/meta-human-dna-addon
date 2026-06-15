@@ -12,6 +12,7 @@ from mathutils import Euler, Matrix, Quaternion, Vector
 from ..constants import (
     CUSTOM_BONE_SHAPE_NAME,
     CUSTOM_BONE_SHAPE_SCALE,
+    DEFORMER_BONE_COLLECTION,
     BodyBoneCollection,
 )
 from ..typing import *  # noqa: F403
@@ -185,6 +186,36 @@ def assign_joint_group_bone_collections(
             pose_bone = rig_object.pose.bones.get(bone_name)
             if pose_bone:
                 set_pose_bone_custom_color(pose_bone, color)
+
+
+def assign_deformer_bone_collection(
+    rig_object: bpy.types.Object,
+    skinned_joint_names: "set[str]",
+):
+    """Author the ``Deformers`` bone collection: every bone except the
+    non-skinned leaf bones.
+
+    MetaHuman head rigs contain many volumetric helper joints that drive no
+    mesh vertices. The ones that are also leaves (no children) only add visual
+    clutter, so the ``Deformers`` collection is the inverse of that set -- it
+    holds every bone that either deforms the mesh (carries skin weights) or has
+    children. ``skinned_joint_names`` is the set of joint names with at least
+    one skin-weight influence. Skipped when the rig has no armature data.
+    """
+    if (not rig_object.data or not rig_object.pose) or not isinstance(rig_object.data, bpy.types.Armature):
+        return
+
+    collection = rig_object.data.collections.get(DEFORMER_BONE_COLLECTION)
+    if not collection:
+        collection = rig_object.data.collections.new(name=DEFORMER_BONE_COLLECTION)
+
+    for bone in rig_object.data.bones:
+        is_non_skinned_leaf = not bone.children and bone.name not in skinned_joint_names
+        if is_non_skinned_leaf:
+            continue
+        pose_bone = rig_object.pose.bones.get(bone.name)
+        if pose_bone:
+            collection.assign(pose_bone)
 
 
 def get_meshes_using_armature(armature_object: bpy.types.Object) -> list[bpy.types.Object]:

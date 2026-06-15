@@ -289,6 +289,12 @@ class BodyBoneCollection:
     SWINGS = "Swings"
 
 
+# Bone collection that holds every deforming bone (the inverse of the
+# non-skinned leaf bones), so the volumetric face joints can be
+# soloed out of the way.
+DEFORMER_BONE_COLLECTION = "Deformers"
+
+
 # Prefix used for the vertex groups that store the rig-definition mesh regions.
 REGION_VERTEX_GROUP_PREFIX = "REGION_"
 
