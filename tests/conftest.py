@@ -30,7 +30,7 @@ import shutil  # noqa: E402
 from pathlib import Path  # noqa: E402
 
 # import this to ensure that mathutils is available
-import bpy   # pyright: ignore
+import bpy  # pyright: ignore
 import pytest  # noqa: E402
 
 from mathutils import Euler, Vector  # noqa: E402
@@ -111,24 +111,26 @@ def pytest_configure():
     # ensure the addon module is on the python path
     sys.path.append(str(REPO_ROOT / "src" / "addons"))
 
+
 from fixtures.addon import addon, disable_auto_save  # pyright: ignore[reportUnusedImport] # noqa: E402, F401
 from fixtures.dna_data import (  # noqa: E402, F401
-    calibrated_head_dna_json_data, #  pyright: ignore[reportUnusedImport]
-    exported_head_dna_json_data, #  pyright: ignore[reportUnusedImport]
-    original_head_dna_json_data, #  pyright: ignore[reportUnusedImport]
+    calibrated_head_and_body_dna_json_data,  #  pyright: ignore[reportUnusedImport]
+    calibrated_head_dna_json_data,  #  pyright: ignore[reportUnusedImport]
+    exported_head_dna_json_data,  #  pyright: ignore[reportUnusedImport]
+    original_head_dna_json_data,  #  pyright: ignore[reportUnusedImport]
 )
 from fixtures.scene import (  # noqa: E402, F401
-    head_armature, #  pyright: ignore[reportUnusedImport]
-    head_bmesh, #  pyright: ignore[reportUnusedImport]
-    load_body_dna, #  pyright: ignore[reportUnusedImport]
-    load_body_dna_for_pose_editing, #  pyright: ignore[reportUnusedImport]
+    head_armature,  #  pyright: ignore[reportUnusedImport]
+    head_bmesh,  #  pyright: ignore[reportUnusedImport]
+    load_body_dna,  #  pyright: ignore[reportUnusedImport]
+    load_body_dna_for_pose_editing,  #  pyright: ignore[reportUnusedImport]
     load_body_dna_for_pose_roundtrip,  #  pyright: ignore[reportUnusedImport]
-    load_dna_for_rig_instance_ops, #  pyright: ignore[reportUnusedImport]
-    load_full_dna_for_animation, #  pyright: ignore[reportUnusedImport]
-    load_head_dna, #  pyright: ignore[reportUnusedImport]
-    load_mhc_conformed_topology_meshes, #  pyright: ignore[reportUnusedImport]
-    modify_head_scene, #  pyright: ignore[reportUnusedImport]
-    setup_reference_blend_file, #  pyright: ignore[reportUnusedImport]
+    load_dna_for_rig_instance_ops,  #  pyright: ignore[reportUnusedImport]
+    load_full_dna_for_animation,  #  pyright: ignore[reportUnusedImport]
+    load_head_dna,  #  pyright: ignore[reportUnusedImport]
+    load_mhc_conformed_topology_meshes,  #  pyright: ignore[reportUnusedImport]
+    modify_head_scene,  #  pyright: ignore[reportUnusedImport]
+    setup_reference_blend_file,  #  pyright: ignore[reportUnusedImport]
 )
 
 
@@ -208,7 +210,7 @@ def changed_head_lower_lod_vertices() -> list[dict]:
     # genuine reshape rather than a UV-seam outlier).
     return [
         {"mesh_name": "head_lod1_mesh", "vertex_index": 5428, "new_dna": Vector((-1.853883, 157.567673, 4.342460))},
-        {"mesh_name": "head_lod2_mesh", "vertex_index": 277, "new_dna": Vector((-2.185251, 155.254501, 10.328613))},
+        {"mesh_name": "head_lod2_mesh", "vertex_index": 277, "new_dna": Vector((-2.114160, 155.254501, 10.113000))},
         {"mesh_name": "head_lod3_mesh", "vertex_index": 113, "new_dna": Vector((-12.515163, 144.529144, -3.673704))},
         {"mesh_name": "head_lod4_mesh", "vertex_index": 419, "new_dna": Vector((-0.035253, 171.710617, 6.063716))},
         {"mesh_name": "head_lod5_mesh", "vertex_index": 557, "new_dna": Vector((5.704913, 156.775757, -0.068503))},

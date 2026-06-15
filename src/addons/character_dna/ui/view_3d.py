@@ -344,7 +344,7 @@ class CHARACTER_DNA_PT_view_options(RigInstanceDependentPanel):
             )
 
             row = self.layout.row()
-            row.prop(properties, "highlight_matching_active_bone", text="Highlight Matching Bone")
+            row.prop(properties, "highlight_matching_active_bone", text="Show Matching Bone")
             sub_row = row.row()
             sub_row.enabled = bool(instance.head_rig or instance.body_rig)
             sub_row.prop(instance, "solo_deformers", text="Solo Deformers")

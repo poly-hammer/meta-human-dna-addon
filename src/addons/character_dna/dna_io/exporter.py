@@ -40,6 +40,8 @@ class DNAExporter:
         component_type: ComponentType | None = None,
         reader: "riglogic.BinaryStreamReader | None" = None,
         progress_callback: "Callable[[str, float | None], None] | None" = None,
+        seam_follower: ComponentType | None = "head",
+        seam_reference_dna_path: "str | Path | None" = None,
     ):
         self._instance = instance
         self._linear_modifier = linear_modifier
@@ -52,6 +54,15 @@ class DNAExporter:
         self._include_textures = textures
         self._include_vertex_colors = vertex_colors
         self._progress_callback = progress_callback
+        # Seam alignment between the head and body neck edge loop. ``seam_follower``
+        # names which component is snapped onto the other ("head" -> head conforms
+        # to the body, the default Output-panel behavior; "body" -> body conforms
+        # to the head, used by the converter once the head DNA is already written).
+        # ``None`` disables seam alignment entirely. ``seam_reference_dna_path`` is
+        # the on-disk DNA to read the reference component's seam from when the
+        # cached reader would be stale (the converter's just-written head.dna).
+        self._seam_follower = seam_follower
+        self._seam_reference_dna_path = Path(seam_reference_dna_path) if seam_reference_dna_path is not None else None
         self._component_type = component_type or instance.output.component
 
         self._output_folder = Path(bpy.path.abspath(instance.output.folder_path))

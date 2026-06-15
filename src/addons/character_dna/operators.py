@@ -960,7 +960,17 @@ class SendToMetaHumanCreator(bpy.types.Operator):
                 return {"CANCELLED"}
 
             last_component = None
-            for component in [head, body]:
+            # Export the body first so the head can conform its neck edge loop onto
+            # the freshly-written body DNA. Auto LOD propagation regenerates each
+            # component's lower-LOD meshes independently, so the head must snap to the
+            # body that is actually written (not the imported template) for the neck
+            # seam to line up across every LOD in the exported files.
+            output_folder = Path(bpy.path.abspath(instance.output.folder_path))
+            for component in [body, head]:
+                seam_reference_dna_path = None
+                if component.component_type == "head":
+                    seam_reference_dna_path = str(output_folder / "body.dna")
+
                 dna_io_instance: DNAExporter = None  # type: ignore[assignment]
                 if instance.output.method == "calibrate":
                     dna_io_instance = DNACalibrator(
@@ -968,6 +978,7 @@ class SendToMetaHumanCreator(bpy.types.Operator):
                         linear_modifier=component.linear_modifier,
                         file_name=f"{component.component_type}.dna",
                         component_type=component.component_type,
+                        seam_reference_dna_path=seam_reference_dna_path,
                     )
                 elif instance.output.method == "overwrite":
                     dna_io_instance = DNAExporter(
@@ -1029,12 +1040,22 @@ class ExportSelectedComponent(bpy.types.Operator):
 
             dna_io_instance: DNAExporter = None  # type: ignore[assignment]
             if instance.output.method == "calibrate":
+                # When re-exporting only the head, conform its neck seam onto a body
+                # DNA already present in the output folder (so it matches the body the
+                # user previously exported); otherwise fall back to the imported body.
+                seam_reference_dna_path = None
+                if component.component_type == "head":
+                    body_dna_path = Path(bpy.path.abspath(instance.output.folder_path)) / "body.dna"
+                    if body_dna_path.exists():
+                        seam_reference_dna_path = str(body_dna_path)
+
                 dna_io_instance = DNACalibrator(
                     instance=instance,
                     linear_modifier=component.linear_modifier,
                     file_name=f"{component.component_type}.dna",
                     component_type=component.component_type,
                     textures=False,
+                    seam_reference_dna_path=seam_reference_dna_path,
                 )
             elif instance.output.method == "overwrite":
                 dna_io_instance = DNAExporter(
