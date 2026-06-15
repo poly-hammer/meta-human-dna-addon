@@ -27,6 +27,13 @@ logger = logging.getLogger(__name__)
 
 
 class DNACalibrator(DNAExporter, DNAImporter):
+    @property
+    def _auto_lod_enabled(self) -> bool:
+        """Whether auto LOD calibration (LOD0 -> lower-LOD propagation) is active.
+
+        This is only available in the Pro edition and when the output option is enabled."""
+        return bool(self._instance.output.auto_update_lods) and self._instance.is_pro
+
     def _get_body_mesh_lookup(
         self, lod_index: int, mesh_name: str, head_to_body_edge_loop_mapping: dict[str, dict[int, int]]
     ) -> dict[int, Vector]:
@@ -266,9 +273,14 @@ class DNACalibrator(DNAExporter, DNAImporter):
                 real_mesh_name = f"{self._prefix}_{mesh_name}"
                 mesh_object = bpy.data.objects.get(real_mesh_name)
                 if not mesh_object:
-                    logger.warning(
-                        f"Mesh object '{real_mesh_name}' not found for vertex group calibration. Skipping..."
-                    )
+                    # Lower-LOD meshes are expected to be absent from the scene when auto LOD
+                    # calibration is enabled (they get propagated from LOD0), so only warn for
+                    # LOD0 meshes or when auto LOD calibration is off.
+                    message = f"Mesh object '{real_mesh_name}' not found for vertex group calibration. Skipping..."
+                    if lod_index == 0 or not self._auto_lod_enabled:
+                        logger.warning(message)
+                    else:
+                        logger.debug(message)
                     continue
                 if not mesh_object.data or not isinstance(mesh_object.data, bpy.types.Mesh):
                     logger.warning(

@@ -195,6 +195,29 @@ def changed_head_vertex_location() -> tuple[Vector, Vector, Vector]:
 
 
 @pytest.fixture(scope="session")
+def changed_head_lower_lod_vertices() -> list[dict]:
+    # Expected lower-LOD head vertex positions after `auto_update_lods` propagates
+    # the calibrated LOD0 shape down through the UV-barycentric solver. Lower-LOD
+    # meshes are not in the scene, so the whole mesh is resampled and no longer
+    # matches the original DNA; we spot-check one representative vertex per LOD.
+    #
+    # `vertex_index` is the DNA position index; `new_dna` is the expected position
+    # in DNA space (Y-up, centimeters). Captured from the verified calibration
+    # pipeline via scratches/lod-calibration/capture_head_lod_samples.py (each is
+    # the most-displaced vertex whose neighbour-residual ratio stays <= 3, i.e. a
+    # genuine reshape rather than a UV-seam outlier).
+    return [
+        {"mesh_name": "head_lod1_mesh", "vertex_index": 5428, "new_dna": Vector((-1.853883, 157.567673, 4.342460))},
+        {"mesh_name": "head_lod2_mesh", "vertex_index": 277, "new_dna": Vector((-2.185251, 155.254501, 10.328613))},
+        {"mesh_name": "head_lod3_mesh", "vertex_index": 113, "new_dna": Vector((-12.515163, 144.529144, -3.673704))},
+        {"mesh_name": "head_lod4_mesh", "vertex_index": 419, "new_dna": Vector((-0.035253, 171.710617, 6.063716))},
+        {"mesh_name": "head_lod5_mesh", "vertex_index": 557, "new_dna": Vector((5.704913, 156.775757, -0.068503))},
+        {"mesh_name": "head_lod6_mesh", "vertex_index": 264, "new_dna": Vector((9.747909, 145.155396, -4.185964))},
+        {"mesh_name": "head_lod7_mesh", "vertex_index": 88, "new_dna": Vector((5.533078, 146.514130, -5.096119))},
+    ]
+
+
+@pytest.fixture(scope="session")
 def changed_head_vertex_group_name() -> str:
     return "FACIAL_L_12IPV_NeckB7"
 

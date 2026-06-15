@@ -64,6 +64,7 @@ def test_mesh_geometry(
     changed_head_mesh_name: int,
     changed_head_vertex_index: int,
     changed_head_vertex_location: tuple[Vector, Vector, Vector],
+    changed_head_lower_lod_vertices: list[dict],
 ):
     assert_mesh_geometry(
         expected_data=original_head_dna_json_data,
@@ -74,6 +75,7 @@ def test_mesh_geometry(
         changed_mesh_name=changed_head_mesh_name,
         changed_vertex_index=changed_head_vertex_index,
         changed_vertex_location=changed_head_vertex_location,
+        lower_lod_vertices=changed_head_lower_lod_vertices,
         tolerance=TOLERANCE[attribute],
         assert_mesh_indices=True,
         output_method="calibrate",
