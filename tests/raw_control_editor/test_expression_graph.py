@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from character_dna.editors.raw_control_editor.expression_graph import (
+from character_dna.editors.shared.expression_graph import (
     base_ancestors,
     collect_upstream,
     derive_layers,

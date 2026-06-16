@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from character_dna.editors.raw_control_editor.dependency_chain import (
+from character_dna.editors.shared.dependency_chain import (
     activation_raw_indices,
     build_psd_corrective_rows,
     clear_graph_cache,

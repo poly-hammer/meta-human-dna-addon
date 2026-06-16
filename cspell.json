@@ -77,6 +77,8 @@
                 "idx",
                 "fmax",
                 "fmin",
+                "xfer",
+                "linearization",
                 "tri_",
                 "lodprop_tgt",
                 "lodprop_src",

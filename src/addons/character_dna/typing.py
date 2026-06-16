@@ -36,6 +36,8 @@ if TYPE_CHECKING:
     )
     from .editors.shape_key_editor.properties import (  # noqa: TC004
         ShapeKeyData,
+        ShapeKeyDependencyItem,
+        ShapeKeyEditorPreferences,
         ShapeKeyEditorProperties,
     )
     from .operators import BakeAnimationBase, DuplicateRigInstance  # noqa: TC004
@@ -113,6 +115,7 @@ if TYPE_CHECKING:
         metrics_collection: bool
         rbf_editor: RBFEditorPreferences
         raw_control_editor: RawControlEditorPreferences
+        shape_key_editor: ShapeKeyEditorPreferences
         backup_manager: BackupManagerPreferences
         next_metrics_consent_timestamp: float
         extra_dna_folder_list: ExtraDnaFolders
@@ -200,6 +203,8 @@ if TYPE_CHECKING:
         "RigJointGroup",
         "Scene",
         "ShapeKeyData",
+        "ShapeKeyDependencyItem",
+        "ShapeKeyEditorPreferences",
         "ShapeKeyEditorProperties",
         "TargetMeshItem",
         "WindowManager",

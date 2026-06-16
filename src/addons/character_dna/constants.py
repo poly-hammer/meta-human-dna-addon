@@ -56,6 +56,11 @@ LOD_REGEX = r"(?i)(_LOD\d).*"
 
 TOPO_GROUP_PREFIX = "TOPO_GROUP_"
 
+# Prefix of every MetaHuman face expression raw control in the DNA
+# (e.g. ``CTRL_expressions.jawOpen``). Lives at the top level so both the
+# Raw Control Editor and the shared dependency-chain resolver can use it.
+RAW_CONTROL_PREFIX = "CTRL_expressions."
+
 # this is the difference in scale between unreal and blender
 SCALE_FACTOR = 100.0
 SHAPE_KEY_NAME_MAX_LENGTH = 63
