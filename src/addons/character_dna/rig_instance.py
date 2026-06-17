@@ -699,15 +699,16 @@ class RigInstance(bpy.types.PropertyGroup):
         if not self.head_dna_reader:
             return {}
 
-        shape_key_editor: ShapeKeyEditorProperties | None = getattr(self, "shape_key_editor", None)
-        if not shape_key_editor:
-            return {}
-
         shape_key_blocks = self.data.get(self.cache_key("head", "shape_key_blocks"))
         if shape_key_blocks is None:
-            shape_key_editor.shape_key_list.clear()
             mesh_index = 0  # this is the head lod 0 mesh index
             shape_key_blocks = {}
+            # Ordered, namespaced block names backing the UI shape key list. Kept as plain
+            # strings (undo-safe) and written to the scene-side `shape_key_list` collection
+            # separately by `sync_shape_key_list`. This getter only writes to `self.data`
+            # (never ID data), so it is safe to call from a property getter / UI draw -- e.g.
+            # when undo clears the volatile block cache via `destroy_references`.
+            shape_key_block_names: list[str] = []
 
             # Note: That lod 0 is the only lod that has shape keys
             failed_to_cache_count = 0
@@ -724,9 +725,8 @@ class RigInstance(bpy.types.PropertyGroup):
                     shape_key_block_name = f"{dna_mesh_name}__{name}"
                     shape_key_block = self.get_shape_key_block(mesh_index=mesh_index, name=shape_key_block_name)
                     if shape_key_block:
-                        # store the shape key block names in the shape key list as well
-                        shape_key_item = shape_key_editor.shape_key_list.add()
-                        shape_key_item.name = shape_key_block_name
+                        # remember the block name for the UI list (built in a write-safe context)
+                        shape_key_block_names.append(shape_key_block_name)
 
                         # store the shape key block in a list on the dictionary
                         key_block_list = shape_key_blocks.get(channel_index, [])
@@ -743,9 +743,31 @@ class RigInstance(bpy.types.PropertyGroup):
                     "keys to cache them."
                 )
 
+            self.data[self.cache_key("head", "shape_key_block_names")] = shape_key_block_names
             self.data[self.cache_key("head", "shape_key_blocks")] = shape_key_blocks
 
         return self.data[self.cache_key("head", "shape_key_blocks")]
+
+    def sync_shape_key_list(self) -> None:
+        """Rebuild the UI shape-key list -- a ``CollectionProperty`` on the scene-stored
+        ``ShapeKeyEditorProperties`` -- from the cached block names.
+
+        This writes ID data, so it must only be called from a write-safe context such as
+        ``head_initialize`` or an operator, never from a property getter or UI draw. The
+        list is undo-tracked by Blender, so it does not need rebuilding on undo; only the
+        volatile ``shape_key_blocks`` wrapper cache does (see ``destroy_references``)."""
+        shape_key_editor: ShapeKeyEditorProperties | None = getattr(self, "shape_key_editor", None)
+        if not shape_key_editor:
+            return
+
+        # Ensure the block cache (and its ordered names) exist before mirroring them.
+        self.head_shape_key_blocks  # noqa: B018
+        shape_key_block_names = self.data.get(self.cache_key("head", "shape_key_block_names"), [])
+
+        shape_key_editor.shape_key_list.clear()
+        for shape_key_block_name in shape_key_block_names:
+            shape_key_item = shape_key_editor.shape_key_list.add()
+            shape_key_item.name = shape_key_block_name
 
     @property
     def head_rest_pose(self) -> dict[str, tuple[Vector, Euler, Vector, Matrix]]:
@@ -939,6 +961,8 @@ class RigInstance(bpy.types.PropertyGroup):
         self.head_channel_name_to_index_lookup  # noqa: B018
         self.head_channel_index_to_mesh_index_lookup  # noqa: B018
         self.head_shape_key_blocks  # noqa: B018
+        # Mirror the cached blocks into the scene-side UI list now (write-safe context).
+        self.sync_shape_key_list()
         self.head_driven_bone_names  # noqa: B018
         self.head_driver_bone_names  # noqa: B018
         self.head_rest_pose  # noqa: B018
@@ -1022,6 +1046,24 @@ class RigInstance(bpy.types.PropertyGroup):
             if key.startswith(f"{self.name}_body_"):
                 del self.data[key]
         self.data[self.cache_key("body", "initialized")] = False
+
+    def destroy_references(self):
+        # The `data` cache dict survives an undo/redo, but the live `bpy` RNA wrappers it
+        # holds do not: undo can free and reallocate the underlying objects, leaving these
+        # entries pointing at removed StructRNA. Any later access then raises
+        # `ReferenceError: StructRNA of type Object has been removed`. Drop only the
+        # wrapper-holding caches so they lazily rebuild from fresh wrappers on next access.
+        # The RigLogic C++ instances and the plain value-copy caches (rest pose, bone-name
+        # lists, channel lookups) are undo-safe, so the component stays initialized.
+        reference_descriptors = (
+            ("head", "mesh_index_lookup"),
+            ("head", "shape_key"),
+            ("head", "shape_key_blocks"),
+            ("head", "rig_evaluated"),
+            ("body", "rig_evaluated"),
+        )
+        for component, descriptor in reference_descriptors:
+            self.data.pop(self.cache_key(component, descriptor), None)
 
     def destroy(self):
         self.destroy_head()

@@ -317,6 +317,10 @@ def pre_undo(*_: Any) -> None:
     addon_window_manager_properties = get_addon_window_manager_properties(context)
     addon_scene_properties = get_addon_scene_properties(context)
 
+    # Always invalidate the caches that hold live `bpy` RNA wrappers
+    for instance in addon_scene_properties.rig_instance_list:
+        instance.destroy_references()
+
     # Only run the pre-undo logic if the current context is a 3D view area
     if context.area and context.area.type == "VIEW_3D" and context.region and context.region.type == "WINDOW":
         addon_window_manager_properties.evaluate_dependency_graph = False
@@ -328,9 +332,15 @@ def pre_undo(*_: Any) -> None:
         # destroy cached data related rig instances, since undo can change the data
         # in a way that makes the cached data invalid
         for instance in addon_scene_properties.rig_instance_list:
-            if active_object in [instance.head_mesh, instance.head_rig, instance.face_board]:
+            if (
+                active_object in [instance.head_mesh, instance.head_rig, instance.face_board]
+                and instance.auto_evaluate_head
+            ):
                 instance.destroy_head()
-            if active_object in [instance.body_mesh, instance.body_rig, instance.control_rig]:
+            if (
+                active_object in [instance.body_mesh, instance.body_rig, instance.control_rig]
+                and instance.auto_evaluate_body
+            ):
                 instance.destroy_body()
 
 
