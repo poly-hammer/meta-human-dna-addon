@@ -14,10 +14,10 @@ from mathutils import Matrix, Vector
 
 # local imports
 from .. import utilities
-from ..bindings import riglogic  # pyright: ignore[reportAttributeAccessIssue]
+from ..bindings import dna  # pyright: ignore[reportAttributeAccessIssue]
 from ..constants import EXTRA_BONES, SCALE_FACTOR, TOPO_GROUP_PREFIX, ComponentType
 from ..exceptions import InvalidComponentTypeError
-from ..typing import *  # noqa: F403
+from ..typing import *  # noqa: F403  # noqa: F403
 from ..utilities import preserve_context
 from .misc import get_dna_reader, get_dna_writer
 
@@ -38,7 +38,7 @@ class DNAExporter:
         vertex_groups: bool = True,
         file_name: str | None = None,
         component_type: ComponentType | None = None,
-        reader: "riglogic.BinaryStreamReader | None" = None,
+        reader: "BinaryStreamReader | None" = None,
         progress_callback: "Callable[[str, float | None], None] | None" = None,
         seam_follower: ComponentType | None = "head",
         seam_reference_dna_path: "str | Path | None" = None,
@@ -86,7 +86,7 @@ class DNAExporter:
 
         self._dna_writer = get_dna_writer(file_path=self._target_dna_file, file_format=self._instance.output.format)
         # Populate the writer with the data from the reader
-        self._dna_writer.setFrom(self._dna_reader, riglogic.DataLayer.All, riglogic.UnknownLayerPolicy.Preserve, None)
+        self._dna_writer.setFrom(self._dna_reader, dna.DataLayer_All, dna.UnknownLayerPolicy_Preserve, None)
 
         # The head and body mesh are always the first mesh in the DNA file
         if self._component_type == "head":
@@ -587,8 +587,8 @@ class DNAExporter:
                 bmesh_object.free()
 
         self._dna_writer.write()
-        if not riglogic.Status.isOk():
-            status = riglogic.Status.get()
+        if not dna.Status.isOk():
+            status = dna.Status.get()
             raise RuntimeError(f"Error saving DNA: {status.message}")
         logger.info(f'DNA exported successfully to: "{self._target_dna_file}"')
 

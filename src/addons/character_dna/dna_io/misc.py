@@ -42,34 +42,34 @@ def get_dna_reader(
     file_path: Path,
     file_format: FileFormat = "binary",
     data_layer: DataLayer = "All",
-    memory_resource: "riglogic.MemoryResource| None" = None,
-) -> "riglogic.BinaryStreamReader":
-    from ..bindings import riglogic  # type: ignore[reportAttributeAccessIssue]
+    memory_resource: "dna.MemoryResource | None" = None,
+) -> "dna.BinaryStreamReader":
+    from ..bindings import dna  # type: ignore[reportAttributeAccessIssue]
 
     file_path = Path(file_path)
     if not file_path.exists():
         raise FileNotFoundError(f"File '{file_path}' does not exist.")
 
-    mode = riglogic.OpenMode.Binary
+    mode = dna.OpenMode_Binary
     # if file_format.lower() == 'json':
-    #     mode = riglogic.OpenMode.Text  # noqa: ERA001
+    #     mode = dna.OpenMode_Text  # noqa: ERA001
 
-    stream = riglogic.FileStream.create(
-        path=str(file_path), accessMode=riglogic.AccessMode.Read, openMode=mode, memRes=memory_resource
+    stream = dna.FileStream.create(
+        path=str(file_path), accessMode=dna.AccessMode_Read, openMode=mode, memRes=memory_resource
     )
     if file_format.lower() == "json":
-        reader = riglogic.JSONStreamReader.create(
+        reader = dna.JSONStreamReader.create(
             stream,
-            getattr(riglogic.DataLayer, data_layer),
-            riglogic.UnknownLayerPolicy.Preserve,
+            getattr(dna, f"DataLayer_{data_layer}"),
+            dna.UnknownLayerPolicy_Preserve,
             0,  # Provide appropriate int value
             None,  # Assuming MemoryResource is None
         )
     elif file_format.lower() == "binary":
-        reader = riglogic.BinaryStreamReader.create(
+        reader = dna.BinaryStreamReader.create(
             stream,
-            getattr(riglogic.DataLayer, data_layer),
-            riglogic.UnknownLayerPolicy.Preserve,
+            getattr(dna, f"DataLayer_{data_layer}"),
+            dna.UnknownLayerPolicy_Preserve,
             0,  # Provide appropriate int value
             None,  # Assuming MemoryResource is None
         )
@@ -82,31 +82,31 @@ def get_dna_reader(
         logger.debug(f"Error reading DNA file '{file_path}': {error}")
         return None
 
-    if not riglogic.Status.isOk():
-        status = riglogic.Status.get()
+    if not dna.Status.isOk():
+        status = dna.Status.get()
         raise RuntimeError(f'Error loading DNA: {status.message} from "{file_path}"')
     return reader
 
 
-def get_dna_writer(file_path: Path, file_format: FileFormat = "binary") -> "riglogic.BinaryStreamWriter":
-    from ..bindings import riglogic  # type: ignore[reportAttributeAccessIssue]
+def get_dna_writer(file_path: Path, file_format: FileFormat = "binary") -> "dna.BinaryStreamWriter":
+    from ..bindings import dna  # type: ignore[reportAttributeAccessIssue]
 
     file_path = Path(file_path)
     file_path.parent.mkdir(parents=True, exist_ok=True)
 
-    mode = riglogic.OpenMode.Binary
+    mode = dna.OpenMode_Binary
     # if file_format.lower() == 'json':
-    #     mode = riglogic.OpenMode.Text  # noqa: ERA001
+    #     mode = dna.OpenMode_Text  # noqa: ERA001
 
-    stream = riglogic.FileStream.create(
+    stream = dna.FileStream.create(
         path=str(file_path),
-        accessMode=riglogic.AccessMode.Write,
+        accessMode=dna.AccessMode_Write,
         openMode=mode,
     )
     if file_format.lower() == "json":
-        writer = riglogic.JSONStreamWriter.create(stream)
+        writer = dna.JSONStreamWriter.create(stream)
     elif file_format.lower() == "binary":
-        writer = riglogic.BinaryStreamWriter.create(stream)
+        writer = dna.BinaryStreamWriter.create(stream)
     else:
         raise ValueError(f"Invalid file format '{file_format}'. Must be 'binary' or 'json'.")
 
@@ -134,7 +134,7 @@ def create_shape_key(
     index: int,
     mesh_index: int,
     mesh_object: bpy.types.Object,
-    reader: "riglogic.BinaryStreamReader",
+    reader: "dna.BinaryStreamReader",
     name: str,
     prefix: str = "",
     is_neutral: bool = False,
@@ -191,7 +191,7 @@ def create_shape_key(
 def apply_blend_shape_deltas(
     mesh_object: bpy.types.Object,
     shape_key_block: bpy.types.ShapeKey,
-    reader: "riglogic.BinaryStreamReader",
+    reader: "dna.BinaryStreamReader",
     mesh_index: int,
     index: int,
     name: str,

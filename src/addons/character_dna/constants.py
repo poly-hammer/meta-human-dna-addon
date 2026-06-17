@@ -114,7 +114,7 @@ def get_user_data_folder() -> Path:
     where Blender cannot resolve an extension path.
     """
     try:
-        return Path(bpy.utils.extension_path_user(__package__, create=True))
+        return Path(bpy.utils.extension_path_user(__package__, create=True))  # pyright: ignore[reportArgumentType]
     except (ValueError, AttributeError):
         TEMP_FOLDER.mkdir(parents=True, exist_ok=True)
         return TEMP_FOLDER
@@ -127,7 +127,6 @@ BLENDS_FOLDER = RESOURCES_FOLDER / "blends"
 SCRIPTS_FOLDER = RESOURCES_FOLDER / "scripts"
 IMAGES_FOLDER = RESOURCES_FOLDER / "images"
 MAPPINGS_FOLDER = RESOURCES_FOLDER / "mappings"
-BASE_DNA_FOLDER = RESOURCES_FOLDER / "dna"
 UI_FOLDER = RESOURCES_FOLDER / "ui"
 RIG_DEFINITIONS_FOLDER = RESOURCES_FOLDER / "rig_definitions"
 

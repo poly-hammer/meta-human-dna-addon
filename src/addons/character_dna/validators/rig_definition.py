@@ -3,14 +3,11 @@ import logging
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 # local imports
 from ..rig_definition import RigDefinition, get_rig_definition
-
-
-if TYPE_CHECKING:
-    from ..bindings import riglogic  # type: ignore[reportMissingImports]
+from ..typing import *  # noqa: F403
 
 
 logger = logging.getLogger(__name__)
@@ -82,7 +79,7 @@ class RigDefinitionValidator:
     validation stays cheap enough to call fast.
     """
 
-    def __init__(self, rig_definition: RigDefinition, dna_reader: "riglogic.BinaryStreamReader") -> None:
+    def __init__(self, rig_definition: RigDefinition, dna_reader: "dna.BinaryStreamReader") -> None:
         self._rig_definition = rig_definition
         self._dna_reader = dna_reader
 
@@ -177,7 +174,7 @@ class RigDefinitionValidator:
 
 
 def validate_dna_compatibility(
-    dna_reader: "riglogic.BinaryStreamReader",
+    dna_reader: "dna.BinaryStreamReader",
     db_name: str | None = None,
     component: str = DEFAULT_COMPONENT,
 ) -> ValidationReport:

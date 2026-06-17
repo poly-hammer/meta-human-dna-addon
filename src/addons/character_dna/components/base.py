@@ -134,7 +134,9 @@ class CharacterComponentBase(metaclass=ABCMeta):
 
     @property
     def linear_modifier(self) -> float:
-        unit = self.dna_reader.getTranslationUnit()
+        from ..bindings import enums  # type: ignore[reportAttributeAccessIssue]
+
+        unit = enums.TranslationUnit(self.dna_reader.getTranslationUnit())
         # is centimeter
         if unit.name.lower() == "cm":
             return 1 / SCALE_FACTOR
@@ -145,7 +147,9 @@ class CharacterComponentBase(metaclass=ABCMeta):
 
     @property
     def angle_modifier(self) -> float:
-        unit = self.dna_reader.getRotationUnit()
+        from ..bindings import enums  # type: ignore[reportAttributeAccessIssue]
+
+        unit = enums.RotationUnit(self.dna_reader.getRotationUnit())
         # is degree
         if unit.name.lower() == "degrees":
             return 180 / math.pi

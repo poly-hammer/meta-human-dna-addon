@@ -2,11 +2,12 @@ import re
 
 from typing import Literal
 
+import math
 import pytest
 
 from mathutils import Euler, Vector
 
-from constants import DNA_BEHAVIOR_VERSION, DNA_DEFINITION_VERSION, DNA_GEOMETRY_VERSION
+from constants import DNA_BEHAVIOR_VERSION, DNA_DEFINITION_VERSION, DNA_GEOMETRY_VERSION, ROTATION_ANGLE_TOLERANCE
 
 
 def assert_bone_definitions(
@@ -62,6 +63,39 @@ def assert_bone_definitions(
         assert current_value != pytest.approx(
             expected_value, abs=tolerance
         ), f"{axis_name} bone {bone_name} {attribute} should not match, since it was moved in blender."
+    elif attribute == "neutralJointRotations" and bone_name != changed_bone_name:
+        # Compare the joint's full orientation as an angular difference rather than per-axis euler
+        # components. Near gimbal lock individual axes can differ noticeably while the actual
+        # orientation is effectively identical, so a rotation is valid when the angle between the
+        # expected and exported orientations is within ROTATION_ANGLE_TOLERANCE degrees.
+        expected_rotations = expected_data[DNA_DEFINITION_VERSION][attribute]
+        current_rotations = current_data[DNA_DEFINITION_VERSION][attribute]
+        expected_euler = Euler(
+            (
+                math.radians(expected_rotations["xs"][expected_bone_index]),
+                math.radians(expected_rotations["ys"][expected_bone_index]),
+                math.radians(expected_rotations["zs"][expected_bone_index]),
+            ),
+            "XYZ",
+        )
+        current_euler = Euler(
+            (
+                math.radians(current_rotations["xs"][current_bone_index]),
+                math.radians(current_rotations["ys"][current_bone_index]),
+                math.radians(current_rotations["zs"][current_bone_index]),
+            ),
+            "XYZ",
+        )
+        angle_difference = math.degrees(
+            expected_euler.to_quaternion().rotation_difference(current_euler.to_quaternion()).angle
+        )
+        # fold to the shortest angular distance (the quaternion angle can wrap up to 360 degrees)
+        angle_difference = min(angle_difference, 360.0 - angle_difference)
+        assert angle_difference <= ROTATION_ANGLE_TOLERANCE, (
+            f"{axis_name} bone {attribute} mismatch. {bone_name} should have {axis_name} {attribute} "
+            f"{expected_value} but has {current_value} (orientation differs by {angle_difference:.4f} degrees, "
+            f"tolerance {ROTATION_ANGLE_TOLERANCE} degrees)."
+        )
     else:
         assert (
             current_value == pytest.approx(expected_value, abs=tolerance)

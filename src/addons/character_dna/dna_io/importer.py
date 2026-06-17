@@ -13,7 +13,7 @@ from mathutils import Euler, Matrix, Vector
 
 # local imports
 from .. import utilities
-from ..bindings import riglogic
+from ..bindings import enums  # type: ignore[reportAttributeAccessIssue]
 from ..constants import (
     CUSTOM_BONE_SHAPE_SCALE,
     EXTRA_BONES,
@@ -40,7 +40,7 @@ class DNAImporter:
         linear_modifier: float,
         component_type: ComponentType = "head",
         create_extra_bones: bool = True,
-        reader: "riglogic.BinaryStreamReader | None" = None,
+        reader: "dna.BinaryStreamReader | None" = None,
         dna_file_path: Path | None = None,
     ):
         self.rig_object = None
@@ -602,7 +602,7 @@ class DNAImporter:
             input_indices = self._dna_reader.getSwingInputControlIndices(swing_index)
             output_indices = self._dna_reader.getSwingOutputJointIndices(swing_index)
             weights = self._dna_reader.getSwingBlendWeights(swing_index)
-            axis = self._dna_reader.getSwingSetupTwistAxis(swing_index)
+            axis = enums.TwistAxis(self._dna_reader.getSwingSetupTwistAxis(swing_index))
 
             # there should always be 4 input controls for a bone's quaternion rotation
             if len(input_indices) != 4:
@@ -626,7 +626,7 @@ class DNAImporter:
             input_indices = self._dna_reader.getTwistInputControlIndices(twist_index)
             output_indices = self._dna_reader.getTwistOutputJointIndices(twist_index)
             weights = self._dna_reader.getTwistBlendWeights(twist_index)
-            axis = self._dna_reader.getTwistSetupTwistAxis(twist_index)
+            axis = enums.TwistAxis(self._dna_reader.getTwistSetupTwistAxis(twist_index))
 
             # there should always be 4 input controls for a bone's quaternion rotation
             if len(input_indices) != 4:

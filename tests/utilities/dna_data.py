@@ -2,17 +2,17 @@ import json
 
 from pathlib import Path
 
-from character_dna.bindings import riglogic
+from character_dna.bindings import dna
 from character_dna.dna_io import get_dna_reader, get_dna_writer
 
 
 def get_dna_json_data(dna_file_path: Path, json_file_path: Path, data_layer: str = "All") -> dict:
     reader = get_dna_reader(dna_file_path, file_format="binary", data_layer=data_layer)
     writer = get_dna_writer(json_file_path, file_format="json")
-    writer.setFrom(reader, getattr(riglogic.DataLayer, data_layer), riglogic.UnknownLayerPolicy.Preserve, None)
+    writer.setFrom(reader, getattr(dna, f"DataLayer_{data_layer}"), dna.UnknownLayerPolicy_Preserve, None)
     writer.write()
-    if not riglogic.Status.isOk():
-        status = riglogic.Status.get()
+    if not dna.Status.isOk():
+        status = dna.Status.get()
         raise RuntimeError(f"Error saving DNA: {status.message}")
 
     with json_file_path.open() as file:

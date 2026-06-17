@@ -11,7 +11,7 @@ from mathutils import Matrix, Vector
 
 # local imports
 from .. import utilities
-from ..bindings import riglogic  # pyright: ignore[reportAttributeAccessIssue]
+from ..bindings import dna  # pyright: ignore[reportAttributeAccessIssue]
 from ..constants import (
     BONE_DELTA_THRESHOLD,
     HEAD_TO_BODY_LOD_MAPPING,
@@ -19,6 +19,7 @@ from ..constants import (
     SHAPE_KEY_DELTA_THRESHOLD,
     SHAPE_KEY_NAME_MAX_LENGTH,
 )
+from ..typing import *  # noqa: F403  # noqa: F403
 from .exporter import DNAExporter
 from .importer import DNAImporter
 from .misc import get_dna_reader
@@ -182,7 +183,7 @@ class DNACalibrator(DNAExporter, DNAImporter):
         candidates = sorted(head for head, body in HEAD_TO_BODY_LOD_MAPPING.items() if body == body_lod_index)
         return candidates[0] if candidates else None
 
-    def _seam_reference_reader(self) -> "riglogic.BinaryStreamReader | None":
+    def _seam_reference_reader(self) -> "BinaryStreamReader | None":
         """The reader for the seam reference component (the one the follower snaps
         onto).
 
@@ -205,7 +206,7 @@ class DNACalibrator(DNAExporter, DNAImporter):
         return None
 
     @staticmethod
-    def _read_mesh_positions(reader: "riglogic.BinaryStreamReader", mesh_name: str) -> list[Vector] | None:
+    def _read_mesh_positions(reader: "BinaryStreamReader", mesh_name: str) -> list[Vector] | None:
         """Read a reference mesh's vertex positions (DNA space, cm Y-up) by name,
         returning ``None`` when the mesh is absent from the reader."""
         for mesh_index in range(reader.getMeshCount()):
@@ -576,8 +577,8 @@ class DNACalibrator(DNAExporter, DNAImporter):
         logger.info(f'Saving DNA to: "{self._target_dna_file}"...')
         self._dna_writer.write()
 
-        if not riglogic.Status.isOk():
-            status = riglogic.Status.get()
+        if not dna.Status.isOk():
+            status = dna.Status.get()
             raise RuntimeError(f"Error saving DNA: {status.message}")
         logger.info(f'DNA calibrated successfully to: "{self._target_dna_file}"')
 

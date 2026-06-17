@@ -8,8 +8,9 @@ if TYPE_CHECKING:
 
     from bpy.types import bpy_prop_collection, bpy_struct
 
-    from .bindings import riglogic  # pyright: ignore[reportAttributeAccessIssue] # noqa: TC004
-    from .components.body import CharacterComponentBody  # noqa: TC004
+    from .bindings.windows.x64.py313 import dna, riglogic  # pyright: ignore[reportAttributeAccessIssue] # noqa: TC004
+    from .bindings.windows.x64.py313.dna import BinaryStreamReader, BinaryStreamWriter  # noqa: TC004
+    from .components.body import CharacterComponentBase, CharacterComponentBody  # noqa: TC004
     from .components.head import CharacterComponentHead  # noqa: TC004
     from .editors.backup_manager.properties import (  # noqa: TC004
         BackupManagerPreferences,
@@ -169,7 +170,11 @@ if TYPE_CHECKING:
 
     __all__ = [
         "BakeAnimationBase",
+        "BakeAnimationBase",
+        "BinaryStreamReader",
+        "BinaryStreamWriter",
         "CharacterAddonPreferences",
+        "CharacterComponentBase",
         "CharacterComponentBody",
         "CharacterComponentHead",
         "CharacterFaceBoardProperties",
@@ -210,5 +215,6 @@ if TYPE_CHECKING:
         "WindowManager",
         "WorkerPython",
         "WorkerPythonError",
+        "dna",
         "riglogic",
     ]

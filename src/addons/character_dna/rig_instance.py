@@ -672,27 +672,27 @@ class RigInstance(bpy.types.PropertyGroup):
 
     @property
     def head_manager(self) -> "riglogic.RigLogic":
-        return self.data.get(self.cache_key("head", "manager"))
+        return self.data.get(self.cache_key("head", "manager"))  # pyright: ignore[reportReturnType]
 
     @property
     def head_instance(self) -> "riglogic.RigInstance":
-        return self.data.get(self.cache_key("head", "instance"))
+        return self.data.get(self.cache_key("head", "instance"))  # pyright: ignore[reportReturnType]
 
     @property
-    def head_dna_reader(self) -> "riglogic.BinaryStreamReader":
-        return self.data.get(self.cache_key("head", "dna_reader"))
+    def head_dna_reader(self) -> "dna.BinaryStreamReader":
+        return self.data.get(self.cache_key("head", "dna_reader"))  # pyright: ignore[reportReturnType]
 
     @property
     def body_manager(self) -> "riglogic.RigLogic":
-        return self.data.get(self.cache_key("body", "manager"))
+        return self.data.get(self.cache_key("body", "manager"))  # pyright: ignore[reportReturnType]
 
     @property
     def body_instance(self) -> "riglogic.RigInstance":
-        return self.data.get(self.cache_key("body", "instance"))
+        return self.data.get(self.cache_key("body", "instance"))  # pyright: ignore[reportReturnType]
 
     @property
-    def body_dna_reader(self) -> "riglogic.BinaryStreamReader":
-        return self.data.get(self.cache_key("body", "dna_reader"))
+    def body_dna_reader(self) -> "dna.BinaryStreamReader":
+        return self.data.get(self.cache_key("body", "dna_reader"))  # pyright: ignore[reportReturnType]
 
     @property
     def head_shape_key_blocks(self) -> dict[int, list[bpy.types.ShapeKey]]:
@@ -945,7 +945,7 @@ class RigInstance(bpy.types.PropertyGroup):
 
         # set the rig logic manager and instance
         self.data[self.cache_key("head", "manager")] = riglogic.RigLogic.create(
-            reader=self.head_dna_reader, config=riglogic.Configuration(), memRes=None
+            self.head_dna_reader, riglogic.Configuration(), None
         )
         self.data[self.cache_key("head", "instance")] = riglogic.RigInstance.create(
             rigLogic=self.head_manager, memRes=None
@@ -991,23 +991,18 @@ class RigInstance(bpy.types.PropertyGroup):
                     pose_bone.rotation_mode = "XYZ"
 
         # set the rig logic manager and instance
-        self.data[self.cache_key("body", "manager")] = riglogic.RigLogic.create(
-            reader=self.body_dna_reader,
-            config=riglogic.Configuration(
-                calculationType=riglogic.CalculationType.AnyVector,
-                loadJoints=True,
-                loadBlendShapes=True,
-                loadAnimatedMaps=True,
-                loadMachineLearnedBehavior=True,
-                loadRBFBehavior=True,
-                loadTwistSwingBehavior=True,
-                translationType=riglogic.TranslationType.Vector,
-                rotationType=riglogic.RotationType.Quaternions,
-                rotationOrder=riglogic.RotationOrder.ZYX,
-                scaleType=riglogic.ScaleType.Vector,
-            ),
-            memRes=None,
-        )
+        body_config = riglogic.Configuration()
+        body_config.calculationType = riglogic.CalculationType_AnyVector
+        body_config.loadJoints = True
+        body_config.loadBlendShapes = True
+        body_config.loadAnimatedMaps = True
+        body_config.loadMachineLearnedBehavior = True
+        body_config.loadRBFBehavior = True
+        body_config.loadTwistSwingBehavior = True
+        body_config.translationType = riglogic.TranslationType_Vector
+        body_config.rotationType = riglogic.RotationType_Quaternions
+        body_config.scaleType = riglogic.ScaleType_Vector
+        self.data[self.cache_key("body", "manager")] = riglogic.RigLogic.create(self.body_dna_reader, body_config, None)
         self.data[self.cache_key("body", "instance")] = riglogic.RigInstance.create(
             rigLogic=self.body_manager, memRes=None
         )
@@ -1447,7 +1442,7 @@ class RigInstance(bpy.types.PropertyGroup):
 
         bone_transforms: list[tuple[str, Vector, Euler, Vector]] = []
 
-        raw_joint_output = self.head_instance.getRawJointOutputs()
+        raw_joint_output = self.head_instance.getJointOutputs()
         # update joint transforms
         for index in range(self.head_dna_reader.getJointCount()):
             # get the bone
@@ -1652,7 +1647,7 @@ class RigInstance(bpy.types.PropertyGroup):
         bone_transforms: list[tuple[str, Vector, Euler, Vector]] = []
 
         # get the delta values
-        D = self.body_instance.getRawJointOutputs()
+        D = self.body_instance.getJointOutputs()
 
         # update joint transforms
         for joint_index in range(self.body_dna_reader.getJointCount()):

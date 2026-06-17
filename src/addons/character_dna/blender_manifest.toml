@@ -11,7 +11,7 @@ schema_version = "1.0.0"
 id = "character_dna"
 name = "Character DNA"
 tagline = "Customize MetaHuman DNA files with RigLogic evaluation support"
-version = "0.7.52"
+version = "0.7.54"
 type = "add-on"
 
 # =============================================================================
@@ -31,8 +31,16 @@ blender_version_max = "5.2.0"
 # =============================================================================
 # License Information
 # =============================================================================
-license = ["GPL-3.0 license"]
-copyright = ["2026 Poly Hammer"]
+# The add-on's own code is licensed under GPL-3.0. It also bundles and
+# redistributes the OpenRigLogic DNA/RigLogic Python bindings and the Sentry SDK,
+# both under the MIT License (see THIRD-PARTY-LICENSES.txt and
+# bindings/LICENSE-OpenRigLogic.txt).
+license = ["GPL-3.0 license", "MIT license"]
+copyright = [
+    "2026 Poly Hammer",
+    "2026 Epic Games, Inc. (OpenRigLogic DNA and RigLogic libraries, MIT License)",
+    "2018 Functional Software, Inc. dba Sentry (sentry-sdk, MIT License)",
+]
 
 # =============================================================================
 # Extension Description

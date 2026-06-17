@@ -55,3 +55,20 @@ You will now get an email notification every time there is a new version of the 
 
 * Demo asset in GIFs from [3D Scan Store](https://www.3dscanstore.com/).
 * Facial ROMS in GIFs provided by [Bryan Steagall](https://www.linkedin.com/in/bryan-steagall-kks).
+
+## License
+
+The Character DNA add-on is licensed under the [GNU General Public License v3.0](LICENSE.md).
+
+## Third-Party Software & Trademarks
+
+This add-on bundles and redistributes the following third-party components.
+
+* **OpenRigLogic** (DNA and RigLogic libraries) — © Epic Games, Inc., licensed under the [MIT License](https://github.com/EpicGames/OpenRigLogic/blob/main/LICENSE).
+* **Sentry SDK for Python** — © Functional Software, Inc. dba Sentry, licensed under the MIT License.
+
+Epic Games, Unreal Engine, Fab, MetaHuman, RigLogic, and OpenRigLogic and associated design logos
+are trademarks or registered trademarks of Epic Games, Inc. All other trademarks are the property of
+their respective owners. This add-on is not affiliated with, endorsed by, or sponsored by Epic Games,
+Inc. References to MetaHuman, RigLogic, and OpenRigLogic are made under nominative use solely to
+describe compatibility and the origin of the bundled libraries.
