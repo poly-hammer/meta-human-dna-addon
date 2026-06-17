@@ -1,11 +1,16 @@
-"""Tests for the deterministic dependency-chain resolver (rig-definition name graph).
+"""Tests for the dependency_chain module after the pure-DNA refactor.
 
-The pure graph algorithm is validated against ``full.json`` in
-``test_expression_graph.py``. These tests cover the resolver that maps that
-algorithm onto the live DNA via node names -- ``CTRL_expressions.*`` for raw
-controls and ``*_tgt`` targets for PSD combination correctives -- using only the
-rig definition (``expressions`` + ``psd_definitions`` + ``psd_nets``), never name
-parsing.
+Two clearly separated responsibilities:
+
+* :func:`build_psd_corrective_rows` -- reads the rig definition to enumerate the
+  named PSD combination correctives surfaced for the editor's read-only "key
+  poses" list. This is the ONLY rig-definition dependency that remains, and no
+  operator logic relies on it.
+* :func:`resolve_raw_control_activation_indices` -- the pure-DNA solve that every
+  preview / commit / match-bones path actually uses: given a raw control, return
+  the raw controls to drive to 1.0 (itself plus any prerequisite base controls),
+  recovered straight from the DNA behavior with NO rig definition and NO name
+  parsing.
 """
 
 from __future__ import annotations
@@ -15,13 +20,9 @@ from dataclasses import dataclass, field
 import pytest
 
 from character_dna.editors.shared.dependency_chain import (
-    activation_raw_indices,
     build_psd_corrective_rows,
     clear_graph_cache,
-    has_dependencies,
-    raw_control_node_name,
-    resolve_activation_chain,
-    resolve_dependency_chain,
+    resolve_raw_control_activation_indices,
 )
 
 
@@ -30,17 +31,20 @@ _PREFIX = "CTRL_expressions."
 
 @pytest.fixture(autouse=True)
 def _isolate_graph_cache():
-    """The resolver caches one graph per ``db_name``; clear it around every test
-    so fixtures with reused names never see a stale graph."""
+    """``build_psd_corrective_rows`` caches one catalog per ``db_name``; clear it
+    around every test so fixtures with reused names never see a stale catalog."""
     clear_graph_cache()
     yield
     clear_graph_cache()
 
 
-# ---------------------------------------------------------------------------
-# Fakes mirroring the minimal riglogic reader + rig-definition surface.
-# ---------------------------------------------------------------------------
-class _FakeReader:
+# ===========================================================================
+# PSD corrective listing (rig definition) -- the editor's "key poses" list.
+# ===========================================================================
+class _NameReader:
+    """Minimal reader exposing only the raw-control name table (all that
+    ``build_psd_corrective_rows`` needs to resolve base-control indices)."""
+
     def __init__(self, raw_control_names: list[str]) -> None:
         self._names = raw_control_names
 
@@ -99,29 +103,20 @@ def _ctrl(short: str) -> str:
     return _PREFIX + short
 
 
-def _shorts(chain) -> list[str]:
-    return [step.short_name for step in chain]
-
-
 def _blend(name: str, ctrl: str | None = None) -> _Expr:
     """A base raw-control / corrective expression that drives blend shapes."""
     return _Expr(name, ctrl, [_Deformer("JointsAndBlendShapes")])
 
 
 def _joints(name: str, ctrl: str | None = None) -> _Expr:
-    """A combination-only raw-control expression that drives joints only (no
-    blend shapes) -- the signature of a control that requires a prerequisite."""
+    """A combination-only raw-control expression that drives joints only."""
     return _Expr(name, ctrl, [_Deformer("JointsOnly")])
 
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-def _additive_rig() -> tuple[_FakeReader, _FakeRigDefinition]:
-    """The canonical combination-only layer ``jawOpenExtreme -> jawOpen``: the
-    dependent control drives joints only (no blend shapes) and shares a psd_net
-    with its blend-driving base."""
-    reader = _FakeReader(_names("jawOpen", "jawOpenExtreme", "browDownL"))
+def _additive_rig() -> tuple[_NameReader, _FakeRigDefinition]:
+    """``jawOpenExtreme`` owns a dedicated 1:1 corrective (psd_def named after the
+    control) -- it must be excluded from the computed corrective listing."""
+    reader = _NameReader(_names("jawOpen", "jawOpenExtreme", "browDownL"))
     rig = _FakeRigDefinition(
         db_name="additive",
         expressions=[
@@ -143,10 +138,9 @@ def _additive_rig() -> tuple[_FakeReader, _FakeRigDefinition]:
     return reader, rig
 
 
-def _combo_rig() -> tuple[_FakeReader, _FakeRigDefinition]:
-    """A single combination corrective ``Mstretch_Jopen_tgt`` driven by three
-    base raw controls (jawOpen + the two mouthStretch sides)."""
-    reader = _FakeReader(_names("jawOpen", "mouthStretchL", "mouthStretchR"))
+def _combo_rig() -> tuple[_NameReader, _FakeRigDefinition]:
+    """A single combination corrective driven by three base raw controls."""
+    reader = _NameReader(_names("jawOpen", "mouthStretchL", "mouthStretchR"))
     rig = _FakeRigDefinition(
         db_name="combo",
         expressions=[
@@ -169,11 +163,10 @@ def _combo_rig() -> tuple[_FakeReader, _FakeRigDefinition]:
     return reader, rig
 
 
-def _layered_rig() -> tuple[_FakeReader, _FakeRigDefinition]:
-    """Two stacked correctives where ``Mstretch_Jopen_tgt`` (layer 2) covers
-    ``Mstretch_tgt`` (layer 1) -- exercising the subset-covering reconstruction
-    of an intermediate corrective parent plus a leftover raw control."""
-    reader = _FakeReader(_names("jawOpen", "mouthStretchL", "mouthStretchR"))
+def _layered_rig() -> tuple[_NameReader, _FakeRigDefinition]:
+    """Two stacked correctives at layers 1 and 2 -- exercises the (layer, name)
+    sort of the corrective listing."""
+    reader = _NameReader(_names("jawOpen", "mouthStretchL", "mouthStretchR"))
     rig = _FakeRigDefinition(
         db_name="layered",
         expressions=[
@@ -199,10 +192,10 @@ def _layered_rig() -> tuple[_FakeReader, _FakeRigDefinition]:
     return reader, rig
 
 
-def _icon_rig() -> tuple[_FakeReader, _FakeRigDefinition]:
+def _icon_rig() -> tuple[_NameReader, _FakeRigDefinition]:
     """Two sibling correctives over the same base controls: one drives a blend
     shape, the other is joints-only -- to assert ``deforms_blends``."""
-    reader = _FakeReader(_names("a", "b"))
+    reader = _NameReader(_names("a", "b"))
     rig = _FakeRigDefinition(
         db_name="icon",
         expressions=[
@@ -223,123 +216,6 @@ def _icon_rig() -> tuple[_FakeReader, _FakeRigDefinition]:
     return reader, rig
 
 
-# ---------------------------------------------------------------------------
-# Combination-only raw controls (JointsOnly + universal co-occurrence, no name parsing)
-# ---------------------------------------------------------------------------
-def test_additive_layer_resolves_via_psd_definition() -> None:
-    reader, rig = _additive_rig()
-    chain = resolve_dependency_chain(reader, _ctrl("jawOpenExtreme"), rig)
-    assert _shorts(chain) == ["jawOpen"]
-    assert chain[0].is_raw is True
-    assert chain[0].raw_index == 0
-    assert chain[0].layer == 0
-    assert chain[0].activation == 1.0
-
-
-def test_additive_layer_name_alone_is_not_enough() -> None:
-    """Without the rig definition the name ``jawOpenExtreme`` must NOT resolve to
-    a parent -- proving we never rely on the suffix heuristic."""
-    reader, _ = _additive_rig()
-    assert resolve_dependency_chain(reader, _ctrl("jawOpenExtreme"), None) == []
-    assert has_dependencies(reader, _ctrl("jawOpenExtreme"), None) is False
-
-
-def test_base_control_has_no_parents() -> None:
-    reader, rig = _additive_rig()
-    assert resolve_dependency_chain(reader, _ctrl("jawOpen"), rig) == []
-    assert has_dependencies(reader, _ctrl("jawOpen"), rig) is False
-    assert has_dependencies(reader, _ctrl("jawOpenExtreme"), rig) is True
-
-
-def test_unrelated_extreme_named_control_has_no_parent() -> None:
-    """A control whose name merely ends in 'Extreme' but has no psd_definition
-    edge resolves to no parents (the old heuristic would have invented one)."""
-    reader = _FakeReader(_names("somethingExtreme"))
-    rig = _FakeRigDefinition(db_name="empty", expressions=[], psd_definitions=[], psd_nets=[])
-    assert resolve_dependency_chain(reader, _ctrl("somethingExtreme"), rig) == []
-
-
-# ---------------------------------------------------------------------------
-# PSD combination correctives (rig-definition psd_definitions + psd_nets)
-# ---------------------------------------------------------------------------
-def test_combination_corrective_resolves_to_raw_controls() -> None:
-    reader, rig = _combo_rig()
-    chain = resolve_dependency_chain(reader, "Mstretch_Jopen_tgt", rig)
-    assert {step.short_name for step in chain} == {"jawOpen", "mouthStretchL", "mouthStretchR"}
-    assert all(step.is_raw for step in chain)
-    assert sorted(step.raw_index for step in chain) == [0, 1, 2]
-
-
-def test_layered_corrective_parents_via_subset_covering() -> None:
-    reader, rig = _layered_rig()
-    chain = resolve_dependency_chain(reader, "Mstretch_Jopen_tgt", rig)
-    # Full upstream: the three base raw controls plus the intermediate
-    # corrective Mstretch_tgt (its parents being the two mouthStretch sides).
-    assert {step.short_name for step in chain} == {
-        "jawOpen",
-        "mouthStretchL",
-        "mouthStretchR",
-        "Mstretch_tgt",
-    }
-    corrective = next(step for step in chain if step.short_name == "Mstretch_tgt")
-    assert corrective.is_raw is False
-    assert corrective.layer == 1
-    # Root-first ordering: every layer-0 raw control precedes the layer-1 node.
-    corrective_position = _shorts(chain).index("Mstretch_tgt")
-    assert all(step.layer == 0 for step in chain[:corrective_position])
-
-
-def test_resolve_without_rig_definition_is_safe() -> None:
-    reader, _ = _combo_rig()
-    assert resolve_dependency_chain(reader, "Mstretch_Jopen_tgt", None) == []
-    assert has_dependencies(reader, "Mstretch_Jopen_tgt", None) is False
-
-
-# ---------------------------------------------------------------------------
-# Activation chain (parents + leaf) and raw-index extraction
-# ---------------------------------------------------------------------------
-def test_activation_chain_appends_additive_leaf() -> None:
-    reader, rig = _additive_rig()
-    chain = resolve_activation_chain(reader, _ctrl("jawOpenExtreme"), rig)
-    assert _shorts(chain) == ["jawOpen", "jawOpenExtreme"]
-    assert chain[-1].is_leaf is True
-    assert chain[-1].layer == 1
-    assert all(step.activation == 1.0 for step in chain)
-    # Both the parent and the dependent layer are raw controls to drive to 1.0.
-    assert activation_raw_indices(chain) == [0, 1]
-
-
-def test_activation_chain_appends_corrective_leaf() -> None:
-    reader, rig = _combo_rig()
-    chain = resolve_activation_chain(reader, "Mstretch_Jopen_tgt", rig)
-    leaf = chain[-1]
-    assert leaf.is_leaf is True
-    assert leaf.short_name == "Mstretch_Jopen_tgt"
-    assert leaf.is_raw is False
-    assert leaf.raw_index == -1
-    # Only the base raw controls get driven; the computed corrective leaf does not.
-    assert sorted(activation_raw_indices(chain)) == [0, 1, 2]
-
-
-def test_activation_chain_without_rig_returns_leaf_only() -> None:
-    reader, _ = _additive_rig()
-    chain = resolve_activation_chain(reader, _ctrl("jawOpenExtreme"), None)
-    assert len(chain) == 1
-    assert chain[0].is_leaf is True
-    assert chain[0].short_name == "jawOpenExtreme"
-
-
-# ---------------------------------------------------------------------------
-# raw_control_node_name
-# ---------------------------------------------------------------------------
-def test_raw_control_node_name_round_trips() -> None:
-    reader, _ = _additive_rig()
-    assert raw_control_node_name(reader, 1) == _ctrl("jawOpenExtreme")
-
-
-# ---------------------------------------------------------------------------
-# PSD corrective listing (names are the symmetric `_tgt` targets)
-# ---------------------------------------------------------------------------
 def test_build_psd_corrective_rows_names_by_target() -> None:
     reader, rig = _combo_rig()
     rows = build_psd_corrective_rows(reader, rig)
@@ -380,68 +256,116 @@ def test_deforms_blends_distinguishes_blend_and_joint_correctives() -> None:
     assert rows["bone_tgt"].deforms_blends is False
 
 
-# ---------------------------------------------------------------------------
-# Combination-only edge cases
-# ---------------------------------------------------------------------------
-def test_combination_only_with_no_psd_net_edits_solo() -> None:
-    """A joints-only control (e.g. a teeth control) that participates in no psd
-    combination has no prerequisite -- it edits solo."""
-    reader = _FakeReader(_names("teethUpU", "jawOpen"))
-    rig = _FakeRigDefinition(
-        db_name="solo",
-        expressions=[_joints("teeth_upU", _ctrl("teethUpU")), _blend("jaw_open", _ctrl("jawOpen"))],
-        psd_definitions=[],
-        psd_nets=[],
+# ===========================================================================
+# Pure-DNA raw-control activation solve (no rig definition).
+# ===========================================================================
+class _BehaviorReader:
+    """Minimal stand-in for the riglogic behavior reader surface used by
+    ``resolve_raw_control_activation_indices``.
+
+    ``bsc_input_indices`` lists the control index driving each blend-shape
+    channel; any raw-control index that appears there is a *base* control. The
+    PSD matrix is the paired ``psd_rows`` (PSD control index) / ``psd_columns``
+    (raw-control index) arrays."""
+
+    def __init__(
+        self,
+        *,
+        raw_control_names: list[str],
+        bsc_input_indices: list[int],
+        psd_rows: list[int],
+        psd_columns: list[int],
+    ) -> None:
+        self._raw = raw_control_names
+        self._bsc_in = bsc_input_indices
+        self._psd_rows = psd_rows
+        self._psd_cols = psd_columns
+
+    def getRawControlCount(self) -> int:
+        return len(self._raw)
+
+    def getRawControlName(self, index: int) -> str:
+        return self._raw[index]
+
+    def getBlendShapeChannelInputIndices(self) -> list[int]:
+        return self._bsc_in
+
+    def getPSDRowIndices(self) -> list[int]:
+        return self._psd_rows
+
+    def getPSDColumnIndices(self) -> list[int]:
+        return self._psd_cols
+
+
+def _behavior_reader() -> _BehaviorReader:
+    """A 6-raw-control rig exercising every branch of the resolver.
+
+      raw 0 = jawOpen                (base; drives blends)
+      raw 1 = jawOpenExtreme         (additive; joints only)
+      raw 2 = browDown               (base)
+      raw 3 = mouthStretchL          (base)
+      raw 4 = mouthStretchLipsCloseL (additive)
+      raw 5 = teethUp                (joints only; in no PSD -> solo)
+
+    PSD controls (index >= rawControlCount = 6):
+      psd 6 = {jawOpen, jawOpenExtreme}
+      psd 7 = {jawOpen, mouthStretchL, jawOpenExtreme}   (jawOpen co-occurs in
+              every PSD containing jawOpenExtreme; mouthStretchL does not)
+      psd 8 = {mouthStretchL, mouthStretchLipsCloseL}
+    """
+    return _BehaviorReader(
+        raw_control_names=_names(
+            "jawOpen", "jawOpenExtreme", "browDown", "mouthStretchL", "mouthStretchLipsCloseL", "teethUp"
+        ),
+        bsc_input_indices=[0, 2, 3],  # base controls drive blend shapes
+        psd_rows=[6, 6, 7, 7, 7, 8, 8],
+        psd_columns=[0, 1, 0, 3, 1, 3, 4],
     )
-    assert resolve_dependency_chain(reader, _ctrl("teethUpU"), rig) == []
-    assert has_dependencies(reader, _ctrl("teethUpU"), rig) is False
 
 
-def test_prerequisite_must_be_a_blend_driving_base() -> None:
-    """Two joints-only controls sharing a psd_net: neither is a valid prerequisite
-    for the other, because a prerequisite must itself be an independent base that
-    drives blend shapes."""
-    reader = _FakeReader(_names("aJoints", "bJoints"))
-    rig = _FakeRigDefinition(
-        db_name="joints_pair",
-        expressions=[_joints("a_joints", _ctrl("aJoints")), _joints("b_joints", _ctrl("bJoints"))],
-        psd_definitions=[],
-        psd_nets=[_PsdNet("ab_cor", "ab", [_PsdInput("a_joints"), _PsdInput("b_joints")])],
-    )
-    assert resolve_dependency_chain(reader, _ctrl("aJoints"), rig) == []
-    assert resolve_dependency_chain(reader, _ctrl("bJoints"), rig) == []
+@pytest.mark.parametrize("base_index", [0, 2, 3])
+def test_base_control_activates_solo(base_index: int) -> None:
+    """A control that directly drives a blend shape is authored on its own."""
+    reader = _behavior_reader()
+    assert resolve_raw_control_activation_indices(reader, base_index) == [base_index]
 
 
-def test_only_universal_co_occurrence_is_a_prerequisite() -> None:
-    """jawOpenExtreme appears in two combos: [jawOpen, jawOpenExtreme] and
-    [jawOpen, mouthStretchL, jawOpenExtreme]. Only jawOpen is present in BOTH, so
-    it is the sole prerequisite (mouthStretchL is not)."""
-    reader = _FakeReader(_names("jawOpen", "mouthStretchL", "jawOpenExtreme"))
-    rig = _FakeRigDefinition(
-        db_name="universal",
-        expressions=[
-            _blend("jaw_open", _ctrl("jawOpen")),
-            _blend("mouth_stretch_L", _ctrl("mouthStretchL")),
-            _joints("jaw_openExtreme", _ctrl("jawOpenExtreme")),
-        ],
-        psd_definitions=[],
-        psd_nets=[
-            _PsdNet("a", "a", [_PsdInput("jaw_open"), _PsdInput("jaw_openExtreme")]),
-            _PsdNet("b", "b", [_PsdInput("jaw_open"), _PsdInput("mouth_stretch_L"), _PsdInput("jaw_openExtreme")]),
-        ],
-    )
-    assert _shorts(resolve_dependency_chain(reader, _ctrl("jawOpenExtreme"), rig)) == ["jawOpen"]
+def test_additive_control_adds_universal_base() -> None:
+    """jawOpenExtreme (raw 1) co-occurs with jawOpen (raw 0) in BOTH PSDs that
+    contain it, but with mouthStretchL (raw 3) in only one -- so jawOpen is the
+    sole prerequisite."""
+    reader = _behavior_reader()
+    assert resolve_raw_control_activation_indices(reader, 1) == [0, 1]
+
+
+def test_second_additive_control_adds_its_own_base() -> None:
+    reader = _behavior_reader()
+    # mouthStretchLipsCloseL (raw 4) -> mouthStretchL (raw 3).
+    assert resolve_raw_control_activation_indices(reader, 4) == [3, 4]
+
+
+def test_joints_only_control_without_psd_is_solo() -> None:
+    reader = _behavior_reader()
+    # teethUp (raw 5) participates in no PSD -> nothing to co-activate but itself.
+    assert resolve_raw_control_activation_indices(reader, 5) == [5]
+
+
+def test_out_of_range_index_is_empty() -> None:
+    reader = _behavior_reader()
+    assert resolve_raw_control_activation_indices(reader, 99) == []
+    assert resolve_raw_control_activation_indices(reader, -1) == []
+
+
+def test_none_reader_is_empty() -> None:
+    assert resolve_raw_control_activation_indices(None, 0) == []
 
 
 # ---------------------------------------------------------------------------
-# Real MH.6 rig definition -- the canonical raw-control -> raw-control
-# dependencies, verified against the gzip by
-# scratches/raw-control-editor/multi-expression-support/probe_all_raw_deps.py.
+# Real-rig pin -- the shipped Ada head DNA.
 # ---------------------------------------------------------------------------
-
-# (combination-only control, sorted prerequisite controls). These are the COMPLETE
-# set of raw-control -> raw-control dependencies in MH.6: a control that drives
-# joints only (no blend shapes) and universally co-occurs with a blend-driving base.
+# (combination-only control, sorted prerequisite controls). The COMPLETE set of
+# raw-control -> raw-control dependencies in MH.6: a control that drives joints
+# only and universally co-occurs with a blend-driving base in the DNA PSD matrix.
 _REAL_RAW_DEPENDENCIES = [
     ("eyeLidPressL", ["eyeBlinkL"]),
     ("eyeLidPressR", ["eyeBlinkR"]),
@@ -452,67 +376,62 @@ _REAL_RAW_DEPENDENCIES = [
     ("noseWrinkleUpperR", ["noseWrinkleR"]),
 ]
 
-# Independent BASE controls (drive blend shapes) -- must have NO dependency.
+# Independent BASE controls (drive blend shapes) -- must resolve solo.
 _REAL_BASE_CONTROLS = [
     "jawOpen",
     "eyeBlinkL",
     "eyeBlinkR",
     "mouthStretchL",
     "noseWrinkleL",
-    "eyeSquintInnerR",
-    "eyeCheekRaiseR",
     "mouthCornerPullL",
     "browDownL",
 ]
 
-# Joints-only controls that are independent (no universal base co-occurrence).
-_REAL_SOLO_CONTROLS = ["teethUpU", "teethBackD", "eyelashesDownINL", "mouthLipsTogetherUL"]
-
 
 @pytest.fixture(scope="module")
-def real_rig():
-    from character_dna.rig_definition.head import HeadRigDefinition
+def real_reader():
+    from character_dna.dna_io import get_dna_reader
+    from constants import HEAD_DNA_FILE
 
-    return HeadRigDefinition.load()
+    return get_dna_reader(file_path=HEAD_DNA_FILE, file_format="binary", data_layer="All")
 
 
-def _real_reader(rig) -> _FakeReader:
-    """A reader exposing every CTRL_expressions.* control on the real rig."""
-    return _FakeReader(sorted({e.control for e in rig.expressions if e.control}))
+def _raw_index(reader, short_name: str) -> int:
+    target = _PREFIX + short_name
+    for i in range(int(reader.getRawControlCount())):
+        if str(reader.getRawControlName(i)) == target:
+            return i
+    raise AssertionError(f"raw control {target!r} not found in DNA")
 
 
 @pytest.mark.parametrize(("control", "expected_parents"), _REAL_RAW_DEPENDENCIES)
-def test_real_combination_only_dependencies(real_rig, control, expected_parents) -> None:
-    reader = _real_reader(real_rig)
-    chain = resolve_dependency_chain(reader, _ctrl(control), real_rig)
-    assert _shorts(chain) == expected_parents
-    # The activation chain drives every prerequisite AND the control itself to 1.0.
-    activation = resolve_activation_chain(reader, _ctrl(control), real_rig)
-    driven = sorted(step.short_name for step in activation if step.is_raw and step.raw_index >= 0)
-    assert driven == sorted([*expected_parents, control])
+def test_real_combination_only_dependencies(real_reader, control, expected_parents) -> None:
+    index = _raw_index(real_reader, control)
+    resolved = resolve_raw_control_activation_indices(real_reader, index)
+    expected = sorted(_raw_index(real_reader, short) for short in [*expected_parents, control])
+    assert resolved == expected, (
+        f"{control!r} -> {[str(real_reader.getRawControlName(i)) for i in resolved]}"
+    )
 
 
 @pytest.mark.parametrize("control", _REAL_BASE_CONTROLS)
-def test_real_base_controls_have_no_dependency(real_rig, control) -> None:
-    reader = _real_reader(real_rig)
-    assert resolve_dependency_chain(reader, _ctrl(control), real_rig) == []
-    assert has_dependencies(reader, _ctrl(control), real_rig) is False
+def test_real_base_controls_resolve_solo(real_reader, control) -> None:
+    index = _raw_index(real_reader, control)
+    assert resolve_raw_control_activation_indices(real_reader, index) == [index]
 
 
-@pytest.mark.parametrize("control", _REAL_SOLO_CONTROLS)
-def test_real_solo_joints_controls_have_no_dependency(real_rig, control) -> None:
-    reader = _real_reader(real_rig)
-    assert resolve_dependency_chain(reader, _ctrl(control), real_rig) == []
-
-
-def test_real_dependency_set_is_exactly_the_seven(real_rig) -> None:
+def test_real_dependency_set_is_exactly_the_seven(real_reader) -> None:
     """Guard against over-triggering: scanning EVERY raw control on the real MH.6
     rig yields exactly the seven verified dependencies -- no more, no less."""
-    reader = _real_reader(real_rig)
     found: dict[str, list[str]] = {}
-    for index in range(reader.getRawControlCount()):
-        name = reader.getRawControlName(index)
-        chain = resolve_dependency_chain(reader, name, real_rig)
-        if chain:
-            found[name.replace(_PREFIX, "")] = sorted(step.short_name for step in chain)
+    for index in range(int(real_reader.getRawControlCount())):
+        name = str(real_reader.getRawControlName(index))
+        if not name.startswith(_PREFIX):
+            continue
+        indices = resolve_raw_control_activation_indices(real_reader, index)
+        parents = [j for j in indices if j != index]
+        if parents:
+            found[name.replace(_PREFIX, "")] = sorted(
+                str(real_reader.getRawControlName(j)).replace(_PREFIX, "") for j in parents
+            )
     assert found == {control: sorted(parents) for control, parents in _REAL_RAW_DEPENDENCIES}

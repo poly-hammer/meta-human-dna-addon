@@ -218,12 +218,162 @@ class CHARACTER_DNA_PT_face_board(RigInstanceDependentPanel):
             column.prop(face_board, "use_eye_aim")
             column.prop(face_board, "eyes_follow_head")
             column.prop(face_board, "face_board_follow_head")
-
-            row = self.layout.row()
-            row.scale_y = 1.5
-            row.operator(f"{ToolInfo.NAME}.map_raw_to_gui_controls", icon="UV_SYNC_SELECT")
         else:
             draw_rig_instance_error(self.layout, error)
+
+
+class CHARACTER_DNA_PT_psd_correctives(bpy.types.Panel):
+    """Pro-only, read-only list of the head DNA's PSD combination correctives,
+    shown as a Face Board subpanel.
+
+    A PSD corrective (e.g. ``Mstretch_Jopen_tgt``) is computed by RigLogic from
+    several co-activated raw controls, so it is never edited directly: selecting
+    one previews its pose (co-activating its base controls). Filter by name +
+    authored layer (1-6) in the list's own filter area.
+
+    The class lives in core ``view_3d.py`` (so it is always registered), but it
+    only depends on Pro-only data/helpers. ``poll`` short-circuits on
+    ``instance.is_pro`` before touching the Pro ``raw_control_editor`` property,
+    and ``draw`` imports the Pro ``Editor`` helper lazily, so the free edition
+    never hits a missing attribute or import."""
+
+    bl_label = "PSD Corrective Targets"
+    bl_idname = "CHARACTER_DNA_PT_psd_correctives"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "Character DNA"
+    bl_parent_id = "CHARACTER_DNA_PT_face_board"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    @classmethod
+    def poll(cls, _: "Context") -> bool:
+        instance = get_active_rig_instance()
+        if instance is None or not instance.is_pro:
+            return False
+        editor = instance.raw_control_editor
+        # Hidden during a Raw Control Editor edit session (the artist is sculpting
+        # target meshes then) and when the rig has no correctives.
+        return not editor.is_editing and len(editor.psd_correctives) > 0
+
+    def draw(self, context: "Context") -> None:
+        from ..editors.shared.editor import Editor
+
+        layout = self.layout
+        if layout is None:
+            return
+        # Gray out while a different editor holds the single edit session.
+        Editor.lock_other_editor_panel(layout, "raw_control_editor")
+        properties = getattr(context.scene, ToolInfo.NAME)
+        active_index = properties.rig_instance_list_active_index
+
+        list_root = f"scene.{ToolInfo.NAME}.rig_instance_list[{active_index}].raw_control_editor"
+        draw_ui_list(
+            layout.row(),
+            context,  # type: ignore[arg-type]
+            class_name="CHARACTER_DNA_UL_psd_correctives",
+            list_path=f"{list_root}.psd_correctives",
+            active_index_path=f"{list_root}.psd_correctives_active_index",
+            unique_id="psd_correctives_list_id",
+            insertion_operators=False,
+            move_operators=False,  # type: ignore[arg-type]
+        )
+
+
+class CHARACTER_DNA_UL_psd_correctives(bpy.types.UIList):
+    """Read-only list of PSD combination correctives. Filter by name and the
+    authored PSD layer (1-6, multi-select tabs)."""
+
+    filter_by_name: bpy.props.StringProperty(
+        default="",
+        name="Filter by Name",
+        description="Filter PSD correctives by name",
+        options={"TEXTEDIT_UPDATE"},
+    )  # pyright: ignore[reportInvalidTypeForm]
+
+    layer_filter: bpy.props.EnumProperty(
+        name="PSD Layers",
+        description="Show only correctives whose authored layer is enabled",
+        items=[(str(n), str(n), f"Layer {n}") for n in range(1, 7)],
+        options={"ENUM_FLAG"},
+        default={str(n) for n in range(1, 7)},
+    )  # pyright: ignore[reportInvalidTypeForm]
+
+    def draw_item(
+        self,
+        context: "Context",
+        layout: bpy.types.UILayout,
+        data: "RawControlEditorProperties",
+        item: "PsdCorrectiveListItem",
+        icon: int,
+        active_data: "RawControlEditorProperties",
+        active_propname: str,
+        index: int,
+    ) -> None:
+        row = layout.row(align=True)
+        layer = int(item.layer or 0)
+        row.label(text=f"L{layer}   {item.name}")
+
+    def draw_filter(self, context: "Context", layout: bpy.types.UILayout) -> None:
+        layout.row(align=True).prop(self, "filter_by_name", text="")
+        layer_row = layout.row(align=True)
+        layer_row.label(text="Layers:")
+        layer_row.prop(self, "layer_filter", expand=True)
+
+    def filter_items(
+        self,
+        context: "Context",
+        data: "RawControlEditorProperties",
+        prop_name: str,
+    ) -> tuple[list[int], list[int]]:
+        items = getattr(data, prop_name)
+        filtered = [self.bitflag_filter_item] * len(items)
+        ordered: list[int] = []
+
+        enabled_layers = {str(token) for token in (self.layer_filter or set())}
+        needle = self.filter_by_name.lower()
+        for index, item in enumerate(items):
+            hidden_by_layer = str(int(item.layer or 0)) not in enabled_layers
+            hidden_by_name = bool(needle) and needle not in item.name.lower()
+            if hidden_by_layer or hidden_by_name:
+                filtered[index] &= ~self.bitflag_filter_item
+
+        return filtered, ordered
+
+
+class CHARACTER_DNA_PT_face_board_footer(bpy.types.Panel):
+    """Footer subpanel pinned to the bottom of the Face Board panel, holding the
+    Map Raw to GUI Controls action button.
+
+    It is registered after ``CHARACTER_DNA_PT_psd_correctives`` so the PSD
+    Corrective Targets subpanel always sits above this button. ``HIDE_HEADER``
+    keeps the button drawn inline (no collapsible header)."""
+
+    bl_label = "(Not Shown)"
+    bl_idname = "CHARACTER_DNA_PT_face_board_footer"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "Character DNA"
+    bl_parent_id = "CHARACTER_DNA_PT_face_board"
+    bl_options = {"HIDE_HEADER"}
+
+    def draw(self, context: "Context") -> None:
+        layout = self.layout
+        if layout is None:
+            return
+        # Only show the action once a valid rig instance exists (matches the
+        # parent panel, which otherwise draws an error message).
+        if valid_rig_instance_exists(context):
+            return
+
+        # Greyed out while the Raw Control Editor holds an edit session, exactly
+        # as the button behaved when it lived inside the parent panel's draw.
+        instance = get_active_rig_instance()
+        if instance and instance.is_pro and instance.raw_control_editor.is_editing:
+            layout.enabled = False
+
+        row = layout.row()
+        row.scale_y = 1.5
+        row.operator(f"{ToolInfo.NAME}.map_raw_to_gui_controls", icon="UV_SYNC_SELECT")
 
 
 class CHARACTER_DNA_PT_animation_panel(bpy.types.Panel):
@@ -295,52 +445,60 @@ class CHARACTER_DNA_PT_view_options(RigInstanceDependentPanel):
         if not error:
             active_index = properties.rig_instance_list_active_index
             instance = properties.rig_instance_list[active_index]
+            # Resolve the linked objects once. The visibility property getters each do a
+            # relatively expensive RNA path round-trip, so we read the icon state directly
+            # from the objects here instead of re-invoking the getters in the icon ternary.
+            view_options = instance.view_options
+            head_rig = instance.head_rig
+            body_rig = instance.body_rig
+            face_board = instance.face_board
+            control_rig = instance.control_rig
             grid = self.layout.grid_flow(row_major=True, columns=2, even_columns=True, even_rows=True, align=True)
             col = grid.column()
             col.enabled = bool(instance.head_material)
             col.label(text="Head Material Color:")
             row = col.row()
-            row.prop(instance.view_options, "active_material_preview", text="")
+            row.prop(view_options, "active_material_preview", text="")
             row = col.row()
             row.label(text="Bone Visibility:")
             row = col.row()
-            row.enabled = bool(instance.head_rig)
+            row.enabled = bool(head_rig)
             row.prop(
-                instance.view_options,
+                view_options,
                 "show_head_bones",
                 text="Head Bones",
-                icon="HIDE_OFF" if instance.view_options.show_head_bones else "HIDE_ON",
+                icon="HIDE_OFF" if head_rig and not head_rig.hide_get() else "HIDE_ON",
             )
             row = col.row()
-            row.enabled = bool(instance.body_rig)
+            row.enabled = bool(body_rig)
             row.prop(
-                instance.view_options,
+                view_options,
                 "show_body_bones",
                 text="Body Bones",
-                icon="HIDE_OFF" if instance.view_options.show_body_bones else "HIDE_ON",
+                icon="HIDE_OFF" if body_rig and not body_rig.hide_get() else "HIDE_ON",
             )
             col = grid.column()
             col.enabled = bool(instance.head_mesh)
             col.label(text="Active LOD:")
             row = col.row()
-            row.prop(instance.view_options, "active_lod", text="")
+            row.prop(view_options, "active_lod", text="")
             row = col.row()
             row.label(text="Control Visibility:")
             row = col.row()
-            row.enabled = bool(instance.face_board)
+            row.enabled = bool(face_board)
             row.prop(
-                instance.view_options,
+                view_options,
                 "show_face_board",
                 text="Face Board",
-                icon="HIDE_OFF" if instance.view_options.show_face_board else "HIDE_ON",
+                icon="HIDE_OFF" if face_board and not face_board.hide_get() else "HIDE_ON",
             )
             row = col.row()
-            row.enabled = bool(instance.control_rig)
+            row.enabled = bool(control_rig)
             row.prop(
-                instance.view_options,
+                view_options,
                 "show_control_rig",
                 text="Control Rig",
-                icon="HIDE_OFF" if instance.view_options.show_control_rig else "HIDE_ON",
+                icon="HIDE_OFF" if control_rig and not control_rig.hide_get() else "HIDE_ON",
             )
 
             row = self.layout.row()

@@ -214,7 +214,10 @@ def ensure_face_pose_metadata(force: bool = False) -> list[dict]:
                 }
             )
 
-    metadata.sort(key=lambda entry: (entry["category"], entry["name"]))
+    # Sort alphabetically (grouped by category), but always pin the "Neutral"
+    # pose to the very top so it is the first option whenever it survives the
+    # active category/tag filters.
+    metadata.sort(key=lambda entry: (entry["name"].strip().casefold() != "neutral", entry["category"], entry["name"]))
     # Assign a stable integer enum value to each pose based on its position in the
     # fully sorted list. The dynamic ``face_pose_previews`` enum must keep a
     # consistent integer per item regardless of the active category/tag filters;
@@ -743,14 +746,14 @@ def poll_body_mesh(self: "RigInstance", scene_object: bpy.types.Object) -> bool:
 def update_evaluate_rbfs_value(self: "RigInstance", context: "Context"):
     # Avoid circular import
     try:
-        from ..editors.rbf_editor.core import update_evaluate_rbfs_value as _update
+        from ..editors.rbf_editor.utilities import update_evaluate_rbfs_value as _update
 
         _update(self, context)
     except ImportError:
         logger.debug("Core module missing. This function will not work.")
 
 
-def update_face_pose(self: "RigInstance", context: "Context"):  # noqa: ARG001
+def update_face_pose(self: "RigInstance", context: "Context"):
     # The sentinel item shown when no pose matches the active filters is inert.
     if getattr(self, "face_pose_previews", "") == NO_FACE_POSE:
         return
@@ -762,6 +765,8 @@ def update_face_pose(self: "RigInstance", context: "Context"):  # noqa: ARG001
         get_head,
         switch_to_pose_mode,
     )
+
+    selected_armature_objects = {obj for obj in context.selected_objects or [] if obj.type == "ARMATURE"}
 
     active_instance = get_active_rig_instance()
     if not active_instance:
@@ -782,7 +787,9 @@ def update_face_pose(self: "RigInstance", context: "Context"):  # noqa: ARG001
                 head.set_pose()
 
     if not active_instance.face_board.hide_get():
-        switch_to_pose_mode(active_instance.face_board)
+        selected_armature_objects.add(active_instance.face_board)
+
+    switch_to_pose_mode(*selected_armature_objects)
 
     addon_window_manager_properties.evaluate_dependency_graph = True
     active_instance.evaluate()
@@ -964,24 +971,38 @@ def update_output_component(self: "RigInstance", context: "Context"):
     update_body_output_items(self, context)
 
 
+# Cache of LOD enum items keyed by rig-instance name. The value is the tuple of
+# currently-available LOD indices (the cache key) paired with the built item list.
+# Returning the same list object across redraws keeps Python references alive (a
+# requirement for callback-based EnumProperty items) and avoids re-allocating the
+# item strings on every N-panel redraw, which is what made the View Options panel lag.
+_LOD_ITEMS_DEFAULT: list[tuple[str, str, str]] = [("lod0", "LOD 0", "Displays only LOD 0")]
+_lod_items_cache: dict[str, tuple[tuple[int, ...], list[tuple[str, str, str]]]] = {}
+
+
 def get_head_mesh_lod_items(self: "CharacterViewOptionsProperties", context: "Context") -> list[tuple[str, str, str]]:  # noqa: ARG001
-    items = []
-
     try:
-        # get the lods for the active face
         instance = get_active_rig_instance()
-        if instance:
-            for i in range(NUMBER_OF_HEAD_LODS):
-                head_mesh = bpy.data.objects.get(f"{instance.name}_head_lod{i}_mesh")
-                if head_mesh:
-                    items.append((f"lod{i}", f"LOD {i}", f"Displays only LOD {i}"))
     except AttributeError:
-        pass
+        instance = None
 
-    # if no lods are found, add a default item
-    if not items:
-        items = [("lod0", "LOD 0", "Displays only LOD 0")]
+    if not instance:
+        return _LOD_ITEMS_DEFAULT
 
+    name = instance.name
+    available = tuple(i for i in range(NUMBER_OF_HEAD_LODS) if bpy.data.objects.get(f"{name}_head_lod{i}_mesh"))
+
+    cached = _lod_items_cache.get(name)
+    if cached is not None and cached[0] == available:
+        # Nothing changed since the last redraw, return the same list object.
+        return cached[1]
+
+    if available:
+        items = [(f"lod{i}", f"LOD {i}", f"Displays only LOD {i}") for i in available]
+    else:
+        items = _LOD_ITEMS_DEFAULT
+
+    _lod_items_cache[name] = (available, items)
     return items
 
 
