@@ -13,7 +13,7 @@ import bpy
 import gpu
 
 from gpu_extras.presets import draw_circle_2d
-from mathutils import Color, Euler, Matrix, Vector
+from mathutils import Euler, Matrix, Vector
 
 # local imports
 from ..constants import (
@@ -516,7 +516,7 @@ def set_highlight_matching_active_bone(self: "CharacterSceneProperties", value: 
                                 world_location = (
                                     instance.head_rig.matrix_world @ source_pose_bone.matrix.to_translation()
                                 )
-                                draw_sphere(position=Vector(world_location), color=Color((1, 0, 1, 1)), radius=0.001)
+                                draw_sphere(position=Vector(world_location), color=(1.0, 0.0, 1.0, 1.0), radius=0.001)
                         if (
                             instance
                             and instance.body_rig
@@ -527,7 +527,7 @@ def set_highlight_matching_active_bone(self: "CharacterSceneProperties", value: 
                                 world_location = (
                                     instance.body_rig.matrix_world @ source_pose_bone.matrix.to_translation()
                                 )
-                                draw_sphere(position=Vector(world_location), color=Color((1, 0, 1, 1)), radius=0.001)
+                                draw_sphere(position=Vector(world_location), color=(1.0, 0.0, 1.0, 1.0), radius=0.001)
 
         gpu_draw_handler = bpy.types.SpaceView3D.draw_handler_add(draw, (), "WINDOW", "POST_VIEW")
         self.context["gpu_draw_highlight_matching_active_bone_handler"] = gpu_draw_handler
@@ -1006,16 +1006,20 @@ def get_head_mesh_lod_items(self: "CharacterViewOptionsProperties", context: "Co
     return items
 
 
-def draw_sphere(position: Vector, color: Color, radius: float = 0.001):
+def draw_sphere(position: Vector, color: "tuple[float, ...]", radius: float = 0.001):
     segments = 16
-    draw_circle_2d(position=position[:], color=color[:], radius=radius, segments=segments)
+    # draw_circle_2d requires a 4-component RGBA color on both Blender 4.5 and 5.x.
+    # mathutils.Color is RGB-only and its constructor differs across versions, so a
+    # plain tuple is passed and normalized to RGBA here.
+    rgba = (color[0], color[1], color[2], color[3] if len(color) > 3 else 1.0)
+    draw_circle_2d(position=position[:], color=rgba, radius=radius, segments=segments)
     rotation_matrix = Matrix.Rotation(math.radians(90), 4, "X")  # type: ignore[call-arg]
     rotation_matrix.translation = position
     x_rotation_matrix = rotation_matrix.to_4x4()
     gpu.matrix.multiply_matrix(x_rotation_matrix)
     draw_circle_2d(
         position=(0, 0, 0),
-        color=color[:],
+        color=rgba,
         radius=radius,
         segments=segments,
     )
@@ -1025,7 +1029,7 @@ def draw_sphere(position: Vector, color: Color, radius: float = 0.001):
     gpu.matrix.multiply_matrix(z_rotation_matrix)
     draw_circle_2d(
         position=(0, 0, 0),
-        color=color[:],
+        color=rgba,
         radius=radius,
         segments=segments,
     )
