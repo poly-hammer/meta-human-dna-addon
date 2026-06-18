@@ -826,6 +826,130 @@ class RigInstance(bpy.types.PropertyGroup):
         return self.data[self.cache_key("head", "driver_bone_names")]
 
     @property
+    def head_gui_control_plan(self) -> list[tuple[int, str, str]]:
+        """Precomputed ``(index, control_name, axis)`` for every head GUI control.
+
+        The control names and axes come from the DNA and never change, so we parse
+        them once at initialization instead of calling ``getGUIControlName`` and
+        splitting strings for every control on every evaluation.
+        """
+        plan = self.data.get(self.cache_key("head", "gui_control_plan"))
+        if plan is not None:
+            return plan
+
+        plan = []
+        if self.head_dna_reader:
+            for index in range(self.head_dna_reader.getGUIControlCount()):
+                full_name = self.head_dna_reader.getGUIControlName(index)
+                control_name, axis = full_name.split(".")
+                axis = axis.rsplit("t", -1)[-1].lower()
+                plan.append((index, control_name, axis))
+
+        self.data[self.cache_key("head", "gui_control_plan")] = plan
+        return plan
+
+    @property
+    def head_raw_quat_plan(self) -> list[tuple[int, str, str]]:
+        """Precomputed ``(index, control_name, axis)`` for the head quaternion raw controls.
+
+        Only ``.q*`` raw controls are driven by bone rotations, so we precompute just
+        those (with their parsed axis) once instead of scanning and parsing every raw
+        control name on every evaluation.
+        """
+        plan = self.data.get(self.cache_key("head", "raw_quat_plan"))
+        if plan is not None:
+            return plan
+
+        plan = []
+        if self.head_dna_reader:
+            for index in range(self.head_dna_reader.getRawControlCount()):
+                full_name = self.head_dna_reader.getRawControlName(index)
+                control_name, axis = full_name.split(".")
+                if not axis.startswith("q"):
+                    continue
+                axis = axis.rsplit("q", -1)[-1].lower()
+                plan.append((index, control_name, axis))
+
+        self.data[self.cache_key("head", "raw_quat_plan")] = plan
+        return plan
+
+    @property
+    def head_animated_map_plan(self) -> list[tuple[int, str]]:
+        """Precomputed ``(index, slider_name)`` for every head animated (texture) map.
+
+        The slider name string is derived purely from the DNA animated-map name, so we
+        build it once at initialization instead of rebuilding it for every map on every
+        evaluation.
+        """
+        plan = self.data.get(self.cache_key("head", "animated_map_plan"))
+        if plan is not None:
+            return plan
+
+        plan = []
+        if self.head_dna_reader:
+            for index in range(self.head_dna_reader.getAnimatedMapCount()):
+                name = self.head_dna_reader.getAnimatedMapName(index)
+                slider_name = (
+                    f"{name.split('.')[0].split('_')[1].lower().replace('cm', 'wm')}.{name.split('.')[-1]}_msk"
+                )
+                plan.append((index, slider_name))
+
+        self.data[self.cache_key("head", "animated_map_plan")] = plan
+        return plan
+
+    @property
+    def head_bone_transform_plan(self) -> list[tuple[int, str, Vector, Euler, Vector, Matrix, bool]]:
+        """Precomputed per-joint transform plan for the head rig (written joints only).
+
+        Each entry is ``(joint_index, bone_name, rest_location, rest_rotation, rest_scale,
+        rest_to_parent_inverse, has_children)``. Driver bones and bones missing from the rig are
+        excluded once here instead of being filtered every frame, and the rest-to-parent matrix
+        inverse (constant for the lifetime of the rig) is precomputed instead of being recomputed
+        for all 870 joints on every evaluation.
+        """
+        plan = self.data.get(self.cache_key("head", "bone_transform_plan"))
+        if plan is not None:
+            return plan
+
+        # don't cache an empty plan until the rig and rest pose are available
+        if not (self.head_rig and self.head_dna_reader and self.head_rest_pose):
+            return []
+
+        plan = []
+        rest_pose = self.head_rest_pose
+        driver_bone_names = frozenset(self.head_driver_bone_names)
+        pose_bones = self.head_rig.pose.bones
+        for index in range(self.head_dna_reader.getJointCount()):
+            name = self.head_dna_reader.getJointName(index)
+            # only update the facial bones or non-driver bones
+            if name in driver_bone_names:
+                continue
+            pose_bone = pose_bones.get(name)
+            if not pose_bone:
+                logger.warning(
+                    f'The bone "{name}" was not found on "{self.head_rig.name}". Rig Logic will not update the bone.'
+                )
+                continue
+            rest_transformations = rest_pose.get(name)
+            if rest_transformations is None:
+                continue
+            rest_location, rest_rotation, rest_scale, rest_to_parent_matrix = rest_transformations
+            plan.append(
+                (
+                    index,
+                    name,
+                    rest_location,
+                    rest_rotation,
+                    rest_scale,
+                    rest_to_parent_matrix.inverted_safe(),
+                    bool(pose_bone.children),
+                )
+            )
+
+        self.data[self.cache_key("head", "bone_transform_plan")] = plan
+        return plan
+
+    @property
     def body_rest_pose(self) -> dict[str, tuple[Vector, Euler, Vector, Matrix]]:
         rest_pose = self.data.get(self.cache_key("body", "rest_pose"), {})
         if rest_pose:
@@ -922,6 +1046,87 @@ class RigInstance(bpy.types.PropertyGroup):
         self.data[self.cache_key("body", "driver_bone_names")] = list(driver_bone_names)
         return self.data[self.cache_key("body", "driver_bone_names")]
 
+    @property
+    def body_raw_plan(self) -> list[tuple[int, str, str]]:
+        """Precomputed ``(index, control_name, axis)`` for every body raw control.
+
+        Body raw controls are all quaternion channels driven by bone rotations. Their
+        names/axes come from the DNA and never change, so we parse them once instead of
+        calling ``getRawControlName`` and splitting strings for every control every frame.
+        """
+        plan = self.data.get(self.cache_key("body", "raw_plan"))
+        if plan is not None:
+            return plan
+
+        plan = []
+        if self.body_dna_reader:
+            for index in range(self.body_dna_reader.getRawControlCount()):
+                full_name = self.body_dna_reader.getRawControlName(index)
+                control_name, axis = full_name.split(".")
+                axis = axis.rsplit("q", -1)[-1].lower()
+                plan.append((index, control_name, axis))
+
+        self.data[self.cache_key("body", "raw_plan")] = plan
+        return plan
+
+    @property
+    def body_bone_transform_plan(self) -> list[tuple[int, str, Vector, Euler, Vector, Matrix]]:
+        """Precomputed per-joint transform plan for the body rig (written joints only).
+
+        Each entry is ``(joint_index, bone_name, rest_location, rest_rotation, rest_scale,
+        rest_to_parent_inverse)``. Only bones updated via RBFs, twists, or swings are included, so
+        the per-frame ``driven + swing + twist`` list concatenation and membership test (run for
+        all 342 joints every frame) is collapsed into a single precomputed list, and the
+        rest-to-parent inverse is precomputed once instead of every evaluation.
+        """
+        plan = self.data.get(self.cache_key("body", "bone_transform_plan"))
+        if plan is not None:
+            return plan
+
+        # don't cache an empty plan until the rig and rest pose are available
+        if not (self.body_rig and self.body_dna_reader and self.body_rest_pose):
+            return []
+
+        plan = []
+        rest_pose = self.body_rest_pose
+        # bones that are updated via RBFs, twists, or swings
+        updatable_bone_names = (
+            frozenset(self.body_driven_bone_names)
+            | frozenset(self.body_swing_bone_names)
+            | frozenset(self.body_twist_bone_names)
+        )
+        pose_bones = self.body_rig.pose.bones
+        for joint_index in range(self.body_dna_reader.getJointCount()):
+            # skip the root joint
+            if joint_index == 0:
+                continue
+            name = self.body_dna_reader.getJointName(joint_index)
+            if name not in updatable_bone_names:
+                continue
+            pose_bone = pose_bones.get(name)
+            if not pose_bone:
+                logger.warning(
+                    f'The bone "{name}" was not found on "{self.body_rig.name}". Rig Logic will not update the bone.'
+                )
+                continue
+            rest_transformations = rest_pose.get(name)
+            if rest_transformations is None:
+                continue
+            rest_location, rest_rotation, rest_scale, rest_to_parent_matrix = rest_transformations
+            plan.append(
+                (
+                    joint_index,
+                    name,
+                    rest_location,
+                    rest_rotation,
+                    rest_scale,
+                    rest_to_parent_matrix.inverted_safe(),
+                )
+            )
+
+        self.data[self.cache_key("body", "bone_transform_plan")] = plan
+        return plan
+
     def head_initialize(self, update_raw_control_list: bool = True):
         from .bindings import riglogic  # pyright: ignore[reportAttributeAccessIssue]
         from .dna_io import get_dna_reader
@@ -966,6 +1171,11 @@ class RigInstance(bpy.types.PropertyGroup):
         self.head_driven_bone_names  # noqa: B018
         self.head_driver_bone_names  # noqa: B018
         self.head_rest_pose  # noqa: B018
+        # precompute the per-frame evaluation plans (index/name/axis parsed once)
+        self.head_gui_control_plan  # noqa: B018
+        self.head_raw_quat_plan  # noqa: B018
+        self.head_animated_map_plan  # noqa: B018
+        self.head_bone_transform_plan  # noqa: B018
 
         self.data[self.cache_key("head", "initialized")] = True
 
@@ -1017,6 +1227,9 @@ class RigInstance(bpy.types.PropertyGroup):
         self.body_swing_bone_names  # noqa: B018
         self.body_driven_bone_names  # noqa: B018
         self.body_driver_bone_names  # noqa: B018
+        # precompute the per-frame evaluation plan (index/name/axis parsed once)
+        self.body_raw_plan  # noqa: B018
+        self.body_bone_transform_plan  # noqa: B018
 
         self.data[self.cache_key("body", "initialized")] = True
 
@@ -1092,24 +1305,26 @@ class RigInstance(bpy.types.PropertyGroup):
             if constraint and round(constraint.influence, 3) != round(eye_aim_follow_head_switch.location.y, 3):
                 constraint.influence = eye_aim_follow_head_switch.location.y
 
-        # update the eye aim control visibility if needed
+        # update the eye aim control visibility, but only when the eye-aim mode actually changes.
+        # The visibility sweep walks children_recursive, so running it on every evaluation is pure
+        # overhead once the hide states already match the current mode.
         # Note: In Blender 5.0+, the hide property moved from Bone to PoseBone
         if eye_aim_control:
-            current_hide = eye_aim_control.hide if IS_BLENDER_5 else eye_aim_control.bone.hide
-            if self.head_use_eye_aim == current_hide:
+            use_eye_aim = self.head_use_eye_aim
+            if self.data.get(self.cache_key("head", "eye_aim_visibility")) != use_eye_aim:
                 if IS_BLENDER_5:
-                    eye_aim_control.hide = not self.head_use_eye_aim
+                    eye_aim_control.hide = not use_eye_aim
                 else:
-                    eye_aim_control.bone.hide = not self.head_use_eye_aim
+                    eye_aim_control.bone.hide = not use_eye_aim
 
-            for child in eye_aim_control.children_recursive:
-                if not child.name.startswith(("GRP_", "LOC_")):
-                    child_hide = child.hide if IS_BLENDER_5 else child.bone.hide
-                    if self.head_use_eye_aim == child_hide:
+                for child in eye_aim_control.children_recursive:
+                    if not child.name.startswith(("GRP_", "LOC_")):
                         if IS_BLENDER_5:
-                            child.hide = not self.head_use_eye_aim
+                            child.hide = not use_eye_aim
                         else:
-                            child.bone.hide = not self.head_use_eye_aim
+                            child.bone.hide = not use_eye_aim
+
+                self.data[self.cache_key("head", "eye_aim_visibility")] = use_eye_aim
 
     def get_head_gui_control_values_from_eye_aim(self) -> dict[str, dict[str, float]]:
         values = {}
@@ -1184,8 +1399,9 @@ class RigInstance(bpy.types.PropertyGroup):
         converted_quaternions = {}
 
         # convert the quaternion values to the correct coordinate system
+        driver_bone_names = frozenset(self.head_driver_bone_names)
         for pose_bone in self.head_rig_evaluated.pose.bones:
-            if pose_bone.name in self.head_driver_bone_names:
+            if pose_bone.name in driver_bone_names:
                 # get the local quaternion, but from the world matrix to account for constraints, since we
                 # can't always assume the local quaternion value is what is driving the bone rotation. For
                 # example, if the body is driving the head bone transforms via constraints.
@@ -1193,28 +1409,21 @@ class RigInstance(bpy.types.PropertyGroup):
                 quaternion = utilities.get_pose_bone_local_quaternion(pose_bone)
                 converted_quaternions[pose_bone.name] = quaternion
 
-        for index in range(self.head_dna_reader.getRawControlCount()):
-            full_name = self.head_dna_reader.getRawControlName(index)
-            control_name, axis = full_name.split(".")
-            # only process quaternions
-            if not axis.startswith("q"):
-                continue
-
-            axis = axis.rsplit("q", -1)[-1].lower()
-            if self.head_rig_evaluated:
-                # override the values can be provided to update values based on them vs current head rig bone locations
-                # This can be used for baking the values to an action
-                if override_values:
-                    value = override_values.get(control_name, {}).get(axis)
-                    if value is not None:
-                        self.head_instance.setRawControl(index, value)
+        head_instance = self.head_instance
+        for index, control_name, axis in self.head_raw_quat_plan:
+            # override the values can be provided to update values based on them vs current head rig bone locations
+            # This can be used for baking the values to an action
+            if override_values:
+                value = override_values.get(control_name, {}).get(axis)
+                if value is not None:
+                    head_instance.setRawControl(index, value)
+            else:
+                quaternion = converted_quaternions.get(control_name)
+                if quaternion:
+                    value = getattr(quaternion, axis)
+                    head_instance.setRawControl(index, value)
                 else:
-                    quaternion = converted_quaternions.get(control_name)
-                    if quaternion:
-                        value = getattr(quaternion, axis)
-                        self.head_instance.setRawControl(index, value)
-                    else:
-                        missing_raw_controls.append(control_name)
+                    missing_raw_controls.append(control_name)
 
         if missing_raw_controls and not self.data.get(self.cache_key("head", "logged_missing_raw_controls")):
             logger.warning(
@@ -1226,7 +1435,7 @@ class RigInstance(bpy.types.PropertyGroup):
             )
             self.data[self.cache_key("head", "logged_missing_raw_controls")] = True
 
-    def update_head_gui_control_values(self, override_values: dict[str, dict[str, float]] | None = None):  # noqa: PLR0912
+    def update_head_gui_control_values(self, override_values: dict[str, dict[str, float]] | None = None):
         # skip if the face board is not set
         if not self.face_board or not self.head_dna_reader:
             return
@@ -1239,36 +1448,34 @@ class RigInstance(bpy.types.PropertyGroup):
         if self.head_use_eye_aim:
             eye_aim_override_values = self.get_head_gui_control_values_from_eye_aim()
 
-        for index in range(self.head_dna_reader.getGUIControlCount()):
-            full_name = self.head_dna_reader.getGUIControlName(index)
-            control_name, axis = full_name.split(".")
-            axis = axis.rsplit("t", -1)[-1].lower()
-            if self.face_board:
-                # Override values can be provided to update values based on them vs current face board
-                # bone locations. This can be used for baking the values to an action.
-                if override_values:
-                    value = override_values.get(control_name, {}).get(axis)
-                    if value is not None:
-                        self.head_instance.setGUIControl(index, value)
-                else:
-                    pose_bone = self.face_board.pose.bones.get(control_name)
-                    if pose_bone:
-                        value = getattr(pose_bone.location, axis)
-                        # special case for the eye controls, if the center eye control is above 0,
-                        # use that value instead
-                        if control_name in ["CTRL_L_eye", "CTRL_R_eye"]:
-                            center_value = eye_aim_override_values.get(control_name, {}).get(axis)
-                            if center_value is not None:
-                                if abs(center_value) > FLOATING_POINT_PRECISION:
-                                    value = center_value
-                            elif center_eye_control:
-                                center_value = getattr(center_eye_control.location, axis)
-                                if abs(center_value) > FLOATING_POINT_PRECISION:
-                                    value = center_value
+        head_instance = self.head_instance
+        face_pose_bones = self.face_board.pose.bones
+        for index, control_name, axis in self.head_gui_control_plan:
+            # Override values can be provided to update values based on them vs current face board
+            # bone locations. This can be used for baking the values to an action.
+            if override_values:
+                value = override_values.get(control_name, {}).get(axis)
+                if value is not None:
+                    head_instance.setGUIControl(index, value)
+            else:
+                pose_bone = face_pose_bones.get(control_name)
+                if pose_bone:
+                    value = getattr(pose_bone.location, axis)
+                    # special case for the eye controls, if the center eye control is above 0,
+                    # use that value instead
+                    if control_name in ("CTRL_L_eye", "CTRL_R_eye"):
+                        center_value = eye_aim_override_values.get(control_name, {}).get(axis)
+                        if center_value is not None:
+                            if abs(center_value) > FLOATING_POINT_PRECISION:
+                                value = center_value
+                        elif center_eye_control:
+                            center_value = getattr(center_eye_control.location, axis)
+                            if abs(center_value) > FLOATING_POINT_PRECISION:
+                                value = center_value
 
-                        self.head_instance.setGUIControl(index, value)
-                    else:
-                        missing_gui_controls.append(control_name)
+                    head_instance.setGUIControl(index, value)
+                else:
+                    missing_gui_controls.append(control_name)
 
         if missing_gui_controls and not self.data.get(self.cache_key("head", "logged_missing_gui_controls")):
             logger.warning(
@@ -1403,11 +1610,11 @@ class RigInstance(bpy.types.PropertyGroup):
         texture_mask_values = []
 
         # update texture masks values
-        for index, value in enumerate(self.head_instance.getAnimatedMapOutputs()):
-            name = self.head_dna_reader.getAnimatedMapName(index)
-            slider_name = f"{name.split('.')[0].split('_')[1].lower().replace('cm', 'wm')}.{name.split('.')[-1]}_msk"
-
-            mask_slider = head_texture_masks_node.inputs.get(slider_name)
+        node_inputs = head_texture_masks_node.inputs
+        animated_map_outputs = self.head_instance.getAnimatedMapOutputs()
+        for index, slider_name in self.head_animated_map_plan:
+            value = animated_map_outputs[index]
+            mask_slider = node_inputs.get(slider_name)
             if mask_slider:
                 try:
                     mask_slider.default_value = value  # type: ignore[attr-defined]
@@ -1425,11 +1632,18 @@ class RigInstance(bpy.types.PropertyGroup):
 
         return texture_mask_values
 
-    def update_head_bone_transforms(self) -> list[tuple[str, Vector, Euler, Vector]]:
+    def update_head_bone_transforms(self, collect_transforms: bool = False) -> list[tuple[str, Vector, Euler, Vector]]:
         """Update head bone transforms from RigLogic joint outputs.
 
+        Args:
+            collect_transforms: When True, build and return the decomposed
+                (bone_name, location, rotation_euler, scale) tuples used by action baking. The
+                interactive evaluation path leaves this False to skip the per-bone matrix
+                decomposition, which is otherwise pure overhead.
+
         Returns:
-            A list of (bone_name, location, rotation_euler, scale) tuples for each updated bone.
+            A list of (bone_name, location, rotation_euler, scale) tuples for each updated bone,
+            or an empty list when ``collect_transforms`` is False.
         """
         # skip if the head rig is not set
         if not self.head_rig or not self.head_dna_reader:
@@ -1443,73 +1657,68 @@ class RigInstance(bpy.types.PropertyGroup):
         bone_transforms: list[tuple[str, Vector, Euler, Vector]] = []
 
         raw_joint_output = self.head_instance.getJointOutputs()
-        # update joint transforms
-        for index in range(self.head_dna_reader.getJointCount()):
-            # get the bone
-            name = self.head_dna_reader.getJointName(index)
-
-            # only update the facial bones or non-driver bones
-            if name in self.head_driver_bone_names:
+        pose_bones = self.head_rig.pose.bones
+        # update joint transforms using the precomputed plan (index/name/rest/inverse parsed once)
+        for (
+            index,
+            name,
+            rest_location,
+            rest_rotation,
+            rest_scale,
+            rest_to_parent_inverse,
+            has_children,
+        ) in self.head_bone_transform_plan:
+            pose_bone = pose_bones.get(name)
+            if not pose_bone:
                 continue
 
-            pose_bone = self.head_rig.pose.bones.get(name)
-            if pose_bone:
-                # get the rest pose values that we saved during initialization
-                rest_location, rest_rotation, rest_scale, rest_to_parent_matrix = self.head_rest_pose[pose_bone.name]
+            # get the values
+            matrix_index = (index + 1) * 9
+            values = raw_joint_output[(index * 9) : matrix_index]
 
-                # get the values
-                matrix_index = (index + 1) * 9
-                values = raw_joint_output[(index * 9) : matrix_index]
+            # extract the delta values
+            location_delta = Vector([values[0] / SCALE_FACTOR, values[1] / SCALE_FACTOR, values[2] / SCALE_FACTOR])
+            rotation_delta = Euler([math.radians(values[3]), math.radians(values[4]), math.radians(values[5])])
+            scale_delta = Vector(values[6:9])
 
-                # extract the delta values
-                location_delta = Vector([values[0] / SCALE_FACTOR, values[1] / SCALE_FACTOR, values[2] / SCALE_FACTOR])
-                rotation_delta = Euler([math.radians(values[3]), math.radians(values[4]), math.radians(values[5])])
-                scale_delta = Vector(values[6:9])
+            # update the transformations using the rest pose and the delta values
+            # we need to copy the vectors so we don't modify the original rest pose
+            location = Vector(
+                [
+                    rest_location.x + location_delta.x,
+                    rest_location.y + location_delta.y,
+                    rest_location.z + location_delta.z,
+                ]
+            )
+            rotation = Euler(
+                [
+                    rest_rotation.x + rotation_delta.x,
+                    rest_rotation.y + rotation_delta.y,
+                    rest_rotation.z + rotation_delta.z,
+                ],
+                "XYZ",
+            )
+            scale = Vector([rest_scale.x + scale_delta.x, rest_scale.y + scale_delta.y, rest_scale.z + scale_delta.z])
 
-                # update the transformations using the rest pose and the delta values
-                # we need to copy the vectors so we don't modify the original rest pose
-                location = Vector(
-                    [
-                        rest_location.x + location_delta.x,
-                        rest_location.y + location_delta.y,
-                        rest_location.z + location_delta.z,
-                    ]
-                )
-                rotation = Euler(
-                    [
-                        rest_rotation.x + rotation_delta.x,
-                        rest_rotation.y + rotation_delta.y,
-                        rest_rotation.z + rotation_delta.z,
-                    ],
-                    "XYZ",
-                )
-                scale = Vector(
-                    [rest_scale.x + scale_delta.x, rest_scale.y + scale_delta.y, rest_scale.z + scale_delta.z]
-                )
+            # update the bone matrix (rest-to-parent inverse is precomputed in the plan)
+            modified_matrix = Matrix.LocRotScale(location[:], rotation, scale[:])
+            try:
+                pose_bone.matrix_basis = rest_to_parent_inverse @ modified_matrix
+            except AttributeError as error:
+                logger.error(f'Failed to update the bone "{name}" on "{self.head_rig.name}": {error}')
+                continue
 
-                # update the bone matrix
-                modified_matrix = Matrix.LocRotScale(location[:], rotation, scale[:])
-                try:
-                    pose_bone.matrix_basis = rest_to_parent_matrix.inverted_safe() @ modified_matrix
-                except AttributeError as error:
-                    logger.error(f'Failed to update the bone "{name}" on "{self.head_rig.name}": {error}')
-                    continue
+            # if the bone is not a leaf bone, we need to update the rotation again
+            if has_children:
+                pose_bone.rotation_euler = rotation_delta
 
-                # if the bone is not a leaf bone, we need to update the rotation again
-                if pose_bone.children:
-                    pose_bone.rotation_euler = rotation_delta
-
+            if collect_transforms:
                 # for non-leaf bones use the rotation_delta as the final euler, for leaf bones decompose
                 # from the matrix_basis
-                final_rotation = rotation_delta if pose_bone.children else pose_bone.matrix_basis.to_euler("XYZ")
+                final_rotation = rotation_delta if has_children else pose_bone.matrix_basis.to_euler("XYZ")
                 final_location = pose_bone.matrix_basis.to_translation()
                 final_scale = pose_bone.matrix_basis.to_scale()
-
                 bone_transforms.append((name, final_location, final_rotation, final_scale))
-            else:
-                logger.warning(
-                    f'The bone "{name}" was not found on "{self.head_rig.name}". Rig Logic will not update the bone.'
-                )
 
         return bone_transforms
 
@@ -1586,8 +1795,9 @@ class RigInstance(bpy.types.PropertyGroup):
         converted_quaternions = {}
 
         # convert the quaternion values to the correct coordinate system
+        driver_bone_names = frozenset(self.body_driver_bone_names)
         for pose_bone in self.body_rig_evaluated.pose.bones:
-            if pose_bone.name in self.body_driver_bone_names:
+            if pose_bone.name in driver_bone_names:
                 # get the local quaternion, but from the world matrix to account for constraints, since we
                 # can't always assume the local quaternion value is what is driving the bone rotation. For
                 # example, a control rig might be driving the body bone rotation via constraints.
@@ -1595,24 +1805,21 @@ class RigInstance(bpy.types.PropertyGroup):
                 quaternion = utilities.get_pose_bone_local_quaternion(pose_bone)
                 converted_quaternions[pose_bone.name] = quaternion
 
-        for index in range(self.body_dna_reader.getRawControlCount()):
-            full_name = self.body_dna_reader.getRawControlName(index)
-            control_name, axis = full_name.split(".")
-            axis = axis.rsplit("q", -1)[-1].lower()
-            if self.body_rig_evaluated:
-                # override the values can be provided to update values based on them vs current body rig bone locations
-                # This can be used for baking the values to an action
-                if override_values:
-                    value = override_values.get(control_name, {}).get(axis)
-                    if value is not None:
-                        self.body_instance.setRawControl(index, value)
+        body_instance = self.body_instance
+        for index, control_name, axis in self.body_raw_plan:
+            # override the values can be provided to update values based on them vs current body rig bone locations
+            # This can be used for baking the values to an action
+            if override_values:
+                value = override_values.get(control_name, {}).get(axis)
+                if value is not None:
+                    body_instance.setRawControl(index, value)
+            else:
+                quaternion = converted_quaternions.get(control_name)
+                if quaternion:
+                    value = getattr(quaternion, axis)
+                    body_instance.setRawControl(index, value)
                 else:
-                    quaternion = converted_quaternions.get(control_name)
-                    if quaternion:
-                        value = getattr(quaternion, axis)
-                        self.body_instance.setRawControl(index, value)
-                    else:
-                        missing_raw_controls.append(control_name)
+                    missing_raw_controls.append(control_name)
 
         if missing_raw_controls and not self.data.get(self.cache_key("body", "logged_missing_raw_controls")):
             logger.warning(
@@ -1630,11 +1837,18 @@ class RigInstance(bpy.types.PropertyGroup):
         # calculate the changes
         self.body_manager.calculate(self.body_instance)
 
-    def update_body_bone_transforms(self) -> list[tuple[str, Vector, Euler, Vector]]:
+    def update_body_bone_transforms(self, collect_transforms: bool = False) -> list[tuple[str, Vector, Euler, Vector]]:
         """Update body bone transforms from RigLogic joint outputs.
 
+        Args:
+            collect_transforms: When True, build and return the decomposed
+                (bone_name, location, rotation_euler, scale) tuples used by action baking. The
+                interactive evaluation path leaves this False to skip the per-bone matrix
+                decomposition, which is otherwise pure overhead.
+
         Returns:
-            A list of (bone_name, location, rotation_euler, scale) tuples for each updated bone.
+            A list of (bone_name, location, rotation_euler, scale) tuples for each updated bone,
+            or an empty list when ``collect_transforms`` is False.
         """
         # skip if the body rig is not set
         if not self.body_rig or not self.body_dna_reader:
@@ -1648,68 +1862,58 @@ class RigInstance(bpy.types.PropertyGroup):
 
         # get the delta values
         D = self.body_instance.getJointOutputs()
+        pose_bones = self.body_rig.pose.bones
 
-        # update joint transforms
-        for joint_index in range(self.body_dna_reader.getJointCount()):
-            # skip the root joint
-            if joint_index == 0:
+        # update joint transforms using the precomputed plan (only RBF/twist/swing-updated bones)
+        for (
+            joint_index,
+            name,
+            rest_location,
+            rest_rotation,
+            rest_scale,
+            rest_to_parent_inverse,
+        ) in self.body_bone_transform_plan:
+            pose_bone = pose_bones.get(name)
+            if not pose_bone:
                 continue
 
-            # get the bone
-            name = self.body_dna_reader.getJointName(joint_index)
-            pose_bone = self.body_rig.pose.bones.get(name)
-            if pose_bone:
-                # Only update bones that are updated via RBFs, twists, or swings
-                if name not in (self.body_driven_bone_names + self.body_swing_bone_names + self.body_twist_bone_names):
-                    continue
+            # get the values
+            attr_index = joint_index * ATTR_COUNT_PER_QUATERNION_JOINT
+            # extract the delta values
+            location_delta = Vector(
+                [D[attr_index] / SCALE_FACTOR, D[attr_index + 1] / SCALE_FACTOR, D[attr_index + 2] / SCALE_FACTOR]
+            )
+            rotation_delta = Quaternion([D[attr_index + 6], D[attr_index + 3], D[attr_index + 4], D[attr_index + 5]])
+            scale_delta = Vector([D[attr_index + 7], D[attr_index + 8], D[attr_index + 9]])
 
-                # get the values
-                attr_index = joint_index * ATTR_COUNT_PER_QUATERNION_JOINT
-                # get the rest pose values that we saved during initialization
-                rest_location, rest_rotation, rest_scale, rest_to_parent_matrix = self.body_rest_pose[pose_bone.name]
-                # extract the delta values
-                location_delta = Vector(
-                    [D[attr_index] / SCALE_FACTOR, D[attr_index + 1] / SCALE_FACTOR, D[attr_index + 2] / SCALE_FACTOR]
-                )
-                rotation_delta = Quaternion(
-                    [D[attr_index + 6], D[attr_index + 3], D[attr_index + 4], D[attr_index + 5]]
-                )
-                scale_delta = Vector([D[attr_index + 7], D[attr_index + 8], D[attr_index + 9]])
+            # update the transformations using the rest pose and the delta values
+            # we need to copy the vectors so we don't modify the original rest pose
+            location = Vector(
+                [
+                    rest_location.x + location_delta.x,
+                    rest_location.y + location_delta.y,
+                    rest_location.z + location_delta.z,
+                ]
+            )
 
-                # update the transformations using the rest pose and the delta values
-                # we need to copy the vectors so we don't modify the original rest pose
-                location = Vector(
-                    [
-                        rest_location.x + location_delta.x,
-                        rest_location.y + location_delta.y,
-                        rest_location.z + location_delta.z,
-                    ]
-                )
+            rotation = rest_rotation.to_quaternion() @ rotation_delta
 
-                rotation = rest_rotation.to_quaternion() @ rotation_delta
+            scale = Vector([rest_scale.x + scale_delta.x, rest_scale.y + scale_delta.y, rest_scale.z + scale_delta.z])
 
-                scale = Vector(
-                    [rest_scale.x + scale_delta.x, rest_scale.y + scale_delta.y, rest_scale.z + scale_delta.z]
-                )
+            # update the bone matrix (rest-to-parent inverse is precomputed in the plan)
+            modified_matrix = Matrix.LocRotScale(location[:], rotation, scale[:])
+            try:
+                pose_bone.matrix_basis = rest_to_parent_inverse @ modified_matrix
+            except AttributeError as error:
+                logger.error(f'Failed to update the bone "{name}" on "{self.body_rig.name}": {error}')
+                continue
 
-                # update the bone matrix
-                modified_matrix = Matrix.LocRotScale(location[:], rotation, scale[:])
-                try:
-                    pose_bone.matrix_basis = rest_to_parent_matrix.inverted_safe() @ modified_matrix
-                except AttributeError as error:
-                    logger.error(f'Failed to update the bone "{name}" on "{self.body_rig.name}": {error}')
-                    continue
-
+            if collect_transforms:
                 # decompose the final matrix_basis for baking output
                 final_location = pose_bone.matrix_basis.to_translation()
                 final_rotation = pose_bone.matrix_basis.to_euler("XYZ")
                 final_scale = pose_bone.matrix_basis.to_scale()
-
                 bone_transforms.append((name, final_location, final_rotation, final_scale))
-            else:
-                logger.warning(
-                    f'The bone "{name}" was not found on "{self.body_rig.name}". Rig Logic will not update the bone.'
-                )
 
         return bone_transforms
 

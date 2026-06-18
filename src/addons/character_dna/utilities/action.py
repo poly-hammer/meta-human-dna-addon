@@ -574,9 +574,9 @@ def bake_control_curve_values_for_frame(  # noqa: PLR0912
     # accumulate bone transforms into the buffer for bulk writing later
     if bones and bone_keyframe_buffer is not None:
         if component == "head":
-            bone_transforms = instance.update_head_bone_transforms()
+            bone_transforms = instance.update_head_bone_transforms(collect_transforms=True)
         elif component == "body":
-            bone_transforms = instance.update_body_bone_transforms()
+            bone_transforms = instance.update_body_bone_transforms(collect_transforms=True)
         else:
             bone_transforms = []
 
@@ -1111,7 +1111,7 @@ def bake_body_to_action(  # noqa: PLR0912, PLR0915
 
                 # compute driven/twist/swing bone transforms via RigLogic
                 instance.update_body_raw_control_values(override_values=override_values)
-                riglogic_transforms = instance.update_body_bone_transforms()
+                riglogic_transforms = instance.update_body_bone_transforms(collect_transforms=True)
 
                 # filter to only the requested RigLogic bone types
                 filtered_transforms = [
