@@ -106,9 +106,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--import-shape-keys",
+        "--shape-keys",
+        dest="import_shape_keys",
         action="store_true",
         default=False,
-        help="Import shape keys after loading DNA (slower but enables shape key benchmarking)",
+        help="Import shape keys after loading DNA and profile shape key evaluation "
+        "(slower load, but enables the head_shape_keys benchmark segment)",
     )
     parser.add_argument(
         "--format",
@@ -167,16 +170,6 @@ def setup_environment() -> bool:
         shutil.copytree(
             src=bindings_specific_source, dst=bindings_specific_dest, dirs_exist_ok=True
         )
-
-    # Copy core if running in CI and it exists
-    core_dest = bindings_specific_dest / "character_dna_core"
-    if (
-        CORE_SOURCE_PATH.exists()
-        and not core_dest.exists()
-        and os.environ.get("RUNNING_CI")
-    ):
-        print(f"  Copying core from {CORE_SOURCE_PATH}...")
-        shutil.copytree(src=CORE_SOURCE_PATH, dst=core_dest, dirs_exist_ok=True)
 
     # Register the addon with Blender (mirrors tests/fixtures/addon.py)
     addon_name = "character_dna"
@@ -251,27 +244,60 @@ def load_dna_file(dna_path: str, import_shape_keys: bool = False) -> bool:
         print("  ⚠️  No body.dna found - body metrics will be zero")
 
     try:
-        # Import the DNA file
+        # Import the DNA file.
         bpy.ops.character_dna.import_dna(
             filepath=dna_path_str,
             include_body=True,
         )
         print("  ✓ DNA file loaded successfully")
 
-        # Import shape keys if requested
+        # Shape keys cannot be created by the standalone character_dna.import_shape_keys
+        # operator here: it is modal and its timer loop never runs to completion in
+        # --background, so it creates nothing. Drain the same command queue synchronously.
         if import_shape_keys:
-            print("  Importing shape keys (this may take a while)...")
-            try:
-                bpy.ops.character_dna.import_shape_keys()
-                print("  ✓ Shape keys imported successfully")
-            except Exception as e:
-                print(f"  ⚠️  Failed to import shape keys: {e}")
-                # Don't fail the whole benchmark for shape key issues
+            _import_shape_keys_synchronously()
 
         return True
     except Exception as e:
         print(f"  ✗ Failed to load DNA file: {e}")
         return False
+
+
+def _import_shape_keys_synchronously() -> None:
+    """Create the head shape keys headlessly.
+
+    The interactive ``character_dna.import_shape_keys`` operator is modal and its
+    timer loop never ticks to completion in ``--background``. This drains the same
+    command queue the operator builds, then rebuilds the rig instance's shape-key
+    block cache exactly like the operator's ``finish()`` does.
+    """
+    import queue
+
+    import bpy
+
+    from character_dna.editors.shape_key_editor.utilities import build_shape_key_import_commands
+    from character_dna.utilities import get_active_head, get_active_rig_instance
+
+    head = get_active_head()
+    if head is None:
+        print("  ⚠️  No active head component; cannot import shape keys")
+        return
+
+    commands_queue: queue.Queue = queue.Queue()
+    build_shape_key_import_commands(head, commands_queue)
+    total = commands_queue.qsize()
+    print(f"  Importing {total} shape-key commands synchronously...")
+    while not commands_queue.empty():
+        index, mesh_index, _description, kwargs_callback, callback = commands_queue.get()
+        kwargs = kwargs_callback(index, mesh_index)
+        callback(**kwargs)
+
+    # Rebuild the shape-key block cache, mirroring the modal operator's finish().
+    instance = get_active_rig_instance()
+    if instance is not None:
+        instance.data.clear()
+        instance.initialize()
+    print(f"  ✓ Imported shape keys ({len(bpy.data.shape_keys)} shape-key datablocks created)")
 
 
 def run_benchmark(args: argparse.Namespace) -> int:
@@ -290,6 +316,16 @@ def run_benchmark(args: argparse.Namespace) -> int:
     # Load DNA file
     if not load_dna_file(args.dna_file, import_shape_keys=args.import_shape_keys):
         return 1
+
+    # When profiling shape keys, make sure the active instance actually evaluates them
+    # (the property defaults to True, but a saved scene could have disabled it).
+    if args.import_shape_keys:
+        from profiling_utils.profile_rig_evaluation import get_active_rig_instance
+
+        instance = get_active_rig_instance()
+        if instance is not None:
+            instance.evaluate_shape_keys = True
+            print("  ✓ Shape key evaluation enabled for benchmarking")
 
     # Run profiler
     print(
@@ -344,10 +380,13 @@ def run_benchmark(args: argparse.Namespace) -> int:
     print("\n" + "=" * 60)
     print("BENCHMARK SUMMARY (for CI)")
     print("=" * 60)
+    print(f"shape_keys={'ON' if args.import_shape_keys else 'OFF'}")
     print(f"full_evaluation_mean_ms={results.full_evaluation.mean_ms:.3f}")
     print(f"full_evaluation_p95_ms={results.full_evaluation.p95_ms:.3f}")
     print(f"head_cpp_mean_ms={results.head_manager_calculate.mean_ms:.3f}")
     print(f"body_cpp_mean_ms={results.body_manager_calculate.mean_ms:.3f}")
+    print(f"head_shape_keys_mean_ms={results.head_shape_keys.mean_ms:.3f}")
+    print(f"head_shape_keys_p95_ms={results.head_shape_keys.p95_ms:.3f}")
 
     if results.full_evaluation.mean_ms > 0:
         fps = 1000 / results.full_evaluation.mean_ms

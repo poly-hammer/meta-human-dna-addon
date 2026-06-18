@@ -7,6 +7,7 @@ from pprint import pformat
 
 # third party imports
 import bpy
+import numpy as np
 
 from mathutils import Euler, Matrix, Quaternion, Vector
 
@@ -748,6 +749,73 @@ class RigInstance(bpy.types.PropertyGroup):
 
         return self.data[self.cache_key("head", "shape_key_blocks")]
 
+    @property
+    def head_shape_key_apply_plan(
+        self,
+    ) -> list[tuple["bpy.types.bpy_prop_collection", np.ndarray, np.ndarray, list[bpy.types.ShapeKey], np.ndarray]]:
+        """Precomputed per-mesh scatter plan for bulk shape-key value writes.
+
+        Each entry is ``(key_blocks, positions, channels, blocks, buffer)`` for one LOD0
+        head mesh, where ``positions`` are the collection indices of the RigLogic-driven
+        blocks inside that mesh's ``key_blocks``, ``channels`` are the matching blend-shape
+        channel indices into ``getBlendShapeOutputs()``, ``blocks`` are the parallel block
+        references (only used when collecting values for baking), and ``buffer`` is a
+        preallocated ``float32`` scratch array sized to the whole collection.
+
+        This lets ``update_head_shape_keys`` replace hundreds of per-block ``.value =`` RNA
+        writes with one ``foreach_get`` / scatter / ``foreach_set`` per mesh. It holds live
+        ``bpy`` collection wrappers, so it is registered in ``destroy_references`` and rebuilt
+        lazily after an undo.
+        """
+        plan = self.data.get(self.cache_key("head", "shape_key_apply_plan"))
+        if plan is not None:
+            return plan
+
+        plan = []
+        if self.head_dna_reader:
+            for mesh_index in self.head_dna_reader.getMeshIndicesForLOD(0):
+                mesh_object = self.head_mesh_index_lookup.get(mesh_index)
+                if (
+                    not mesh_object
+                    or not isinstance(mesh_object.data, bpy.types.Mesh)
+                    or not mesh_object.data.shape_keys
+                ):
+                    continue
+
+                key_blocks = mesh_object.data.shape_keys.key_blocks
+                # Resolve each namespaced block name to its collection index once.
+                name_to_position = {block.name: position for position, block in enumerate(key_blocks)}
+                dna_mesh_name = mesh_object.name.replace(f"{self.name}_", "")
+
+                positions: list[int] = []
+                channels: list[int] = []
+                blocks: list[bpy.types.ShapeKey] = []
+                for target_index in range(self.head_dna_reader.getBlendShapeTargetCount(mesh_index)):
+                    channel_index = self.head_dna_reader.getBlendShapeChannelIndex(mesh_index, target_index)
+                    name = self.head_dna_reader.getBlendShapeChannelName(channel_index)
+                    position = name_to_position.get(f"{dna_mesh_name}__{name}")
+                    if position is None:
+                        continue
+                    positions.append(position)
+                    channels.append(channel_index)
+                    blocks.append(key_blocks[position])
+
+                if not positions:
+                    continue
+
+                plan.append(
+                    (
+                        key_blocks,
+                        np.asarray(positions, dtype=np.intp),
+                        np.asarray(channels, dtype=np.intp),
+                        blocks,
+                        np.empty(len(key_blocks), dtype=np.float32),
+                    )
+                )
+
+        self.data[self.cache_key("head", "shape_key_apply_plan")] = plan
+        return plan
+
     def sync_shape_key_list(self) -> None:
         """Rebuild the UI shape-key list -- a ``CollectionProperty`` on the scene-stored
         ``ShapeKeyEditorProperties`` -- from the cached block names.
@@ -1166,6 +1234,7 @@ class RigInstance(bpy.types.PropertyGroup):
         self.head_channel_name_to_index_lookup  # noqa: B018
         self.head_channel_index_to_mesh_index_lookup  # noqa: B018
         self.head_shape_key_blocks  # noqa: B018
+        self.head_shape_key_apply_plan  # noqa: B018
         # Mirror the cached blocks into the scene-side UI list now (write-safe context).
         self.sync_shape_key_list()
         self.head_driven_bone_names  # noqa: B018
@@ -1267,6 +1336,7 @@ class RigInstance(bpy.types.PropertyGroup):
             ("head", "mesh_index_lookup"),
             ("head", "shape_key"),
             ("head", "shape_key_blocks"),
+            ("head", "shape_key_apply_plan"),
             ("head", "rig_evaluated"),
             ("body", "rig_evaluated"),
         )
@@ -1532,7 +1602,19 @@ class RigInstance(bpy.types.PropertyGroup):
         # set the provided shape key value to 1.0
         shape_key.value = 1.0
 
-    def update_head_shape_keys(self) -> list[tuple[bpy.types.ShapeKey, float]]:
+    def update_head_shape_keys(self, collect_values: bool = False) -> list[tuple[bpy.types.ShapeKey, float]]:
+        """Push the RigLogic blend-shape outputs onto the head shape-key blocks.
+
+        Values are written per mesh with a single ``foreach_get`` / scatter /
+        ``foreach_set`` instead of one RNA assignment per block, which avoids firing a
+        per-property update for every one of the hundreds of driven blocks. ``foreach_set``
+        does not tag the data for refresh, so each touched shape-key datablock is tagged
+        once afterwards.
+
+        When ``collect_values`` is ``True`` (animation baking) the driven
+        ``(shape_key, value)`` pairs are returned for keyframing; the real-time path leaves
+        it ``False`` and skips building that list.
+        """
         # skip if the head mesh is not set
         if not self.head_mesh or not self.head_dna_reader:
             return []
@@ -1541,58 +1623,40 @@ class RigInstance(bpy.types.PropertyGroup):
         if len(bpy.data.shape_keys) == 0:
             return []
 
-        missing_shape_keys = []
-        shape_key_values = []
+        outputs = np.asarray(self.head_instance.getBlendShapeOutputs(), dtype=np.float32)
+        output_count = outputs.shape[0]
 
-        # update blend shapes
-        for index, value in enumerate(self.head_instance.getBlendShapeOutputs()):
-            for shape_key in self.head_shape_key_blocks.get(index, []):
-                if shape_key:
-                    try:
-                        shape_key.value = value
-                    except AttributeError as error:
-                        logger.error(
-                            f'Failed to update the shape key "{shape_key.name}" on "{self.head_mesh.name}": {error}'
-                        )
-                        return []
-                    shape_key_values.append((shape_key, value))
-                else:
-                    missing_shape_keys.append(index)
+        shape_key_values: list[tuple[bpy.types.ShapeKey, float]] = []
+        for key_blocks, positions, channels, blocks, buffer in self.head_shape_key_apply_plan:
+            # A lower LOD shrinks getBlendShapeOutputs(); drop channels beyond the active
+            # range so the gather never indexes past the array end (higher channels stay
+            # untouched, matching the original enumerate() that stopped at the array end).
+            mask = channels < output_count
+            if mask.all():
+                driven_positions, driven_channels, driven_blocks = positions, channels, blocks
+            else:
+                driven_positions = positions[mask]
+                driven_channels = channels[mask]
+                driven_blocks = [block for block, keep in zip(blocks, mask, strict=True) if keep]
 
-        if missing_shape_keys and not self.data.get(self.cache_key("head", "logged_missing_shape_keys")):
-            name_lookup = {v: k for k, v in self.head_channel_name_to_index_lookup.items()}
-            missing_data = {}
-            # group the missing shape keys by mesh object
-            for index in missing_shape_keys:
-                missing_name = name_lookup[index]
-                mesh_index = self.head_channel_index_to_mesh_index_lookup[index]
-                mesh_object = self.head_mesh_index_lookup[mesh_index]
-                if len(missing_name) > SHAPE_KEY_NAME_MAX_LENGTH:
-                    # skip warning the user about any missing shape keys names being too long.
+            try:
+                key_blocks.foreach_get("value", buffer)
+                buffer[driven_positions] = outputs[driven_channels]
+                key_blocks.foreach_set("value", buffer)
+            except (AttributeError, RuntimeError, ReferenceError) as error:
+                logger.error(f'Failed to update the shape keys on "{self.head_mesh.name}": {error}')
+                return []
 
-                    # Currently, Blender has a limit of 63 characters for shape key names.
-                    # This is something that the user might be able to overcome by changing blender
-                    # source and recompiling. However, this is not something that we can fix in the addon.
+            # foreach_set bypasses the per-property update, so tag the shape-key datablock
+            # for the dependency graph to re-evaluate the deformed mesh.
+            if key_blocks.id_data:
+                key_blocks.id_data.update_tag()
 
-                    # Because this limitation there are 42 missing shape keys from the MetaHuman creator DNA files
-                    # that can't be imported because their names are too long. However these are extreme
-                    # combinations and for most people this will not be an issue.
-                    continue
-
-                missing_data[mesh_object.name] = missing_data.get(mesh_object.name, [])
-                missing_data[mesh_object.name].append(missing_name)
-
-            for mesh_name, missing_names in missing_data.items():
-                logger.warning(
-                    f'The following shape key blocks are missing on "{mesh_name}":\n{pformat(missing_names)}.'
+            if collect_values:
+                driven_values = outputs[driven_channels]
+                shape_key_values.extend(
+                    (block, float(value)) for block, value in zip(driven_blocks, driven_values, strict=True)
                 )
-
-            if len(missing_data.keys()) > 0:
-                logger.warning(
-                    f"A total of {len(missing_data.keys())} shape key blocks are not being updated by Rig Logic."
-                )
-
-            self.data[self.cache_key("head", "logged_missing_shape_keys")] = True
 
         return shape_key_values
 

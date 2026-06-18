@@ -545,7 +545,7 @@ def bake_control_curve_values_for_frame(  # noqa: PLR0912
     # now get the calculated values and bake them to the shape keys value
     if shape_keys:
         if component == "head":
-            for shape_key, value in instance.update_head_shape_keys():
+            for shape_key, value in instance.update_head_shape_keys(collect_values=True):
                 if shape_key_buffer is not None:
                     if shape_key not in shape_key_buffer:
                         shape_key_buffer[shape_key] = []
