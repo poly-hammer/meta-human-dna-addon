@@ -22,10 +22,6 @@ nav:
     - Documentation: "contributing/documentation.md"
     - Testing: "contributing/testing.md"
 
-
-theme:
-  name: material
-
 markdown_extensions:
   - attr_list
   - admonition

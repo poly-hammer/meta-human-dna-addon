@@ -24,7 +24,8 @@
         "releases",
         "*.blend*",
         "*.dna",
-        "*.json"
+        "src/addons/character_dna/resources/**",
+        "src/addons/character_dna/editors/resources/**"
     ],
     "words": [
         "bpy",
@@ -158,7 +159,27 @@
                 "rjo",
                 "jointsmatchingml",
                 "OUTR",
-                "ZYX"
+                "Jopen",
+                "ddx",
+                "ddy",
+                "ddz",
+                "dku",
+                "dkv",
+                "vpnkit",
+                "libgomp",
+                "libstdc",
+                "SLF",
+                "rce",
+                "repushes",
+                "ight",
+                "uvpairs",
+                "vec",
+                "inp",
+                "pyattr",
+                "behaviour",
+                "ccx",
+                "ccy",
+                "intp"
             ]
         },
         {
@@ -168,7 +189,11 @@
                 "LFS",
                 "DCC",
                 "lod",
-                "tga"
+                "tga",
+                "nlstools",
+                "ons",
+                "WSL",
+                "usr"
             ],
             "flagWords": []
         },
