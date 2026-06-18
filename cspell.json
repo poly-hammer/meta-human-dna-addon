@@ -25,7 +25,7 @@
         "*.blend*",
         "*.dna",
         "src/addons/character_dna/resources/**",
-        "src/addons/character_dna/editors/resources/**"
+        "src/addons/character_dna/editors/shared/resources/**"
     ],
     "words": [
         "bpy",
