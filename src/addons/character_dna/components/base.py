@@ -254,30 +254,46 @@ class CharacterComponentBase(metaclass=ABCMeta):
         if not rig_object:
             return
 
-        # The Deformers collection depends only on skin weights and the bone
-        # hierarchy, so it is authored even when no rig definition is available.
-        utilities.assign_deformer_bone_collection(
+        # The volume bones are the leaf joints that do not skin the LOD0 mesh
+        # (the volumetric helper joints, which only drive the lower LODs). They
+        # depend only on skin weights and the bone hierarchy, so they are
+        # authored even when no rig definition is available.
+        volume_joint_names = utilities.get_volume_joint_names(
             rig_object=rig_object,
-            skinned_joint_names=self._get_skinned_joint_names(),
+            skinned_joint_names=self._get_skinned_joint_names(lod=0),
+        )
+        utilities.assign_volume_bone_collection(
+            rig_object=rig_object,
+            volume_joint_names=volume_joint_names,
         )
 
         rig_definition = self._get_rig_definition()
         if not rig_definition or not rig_definition.joint_groups:
             return
 
+        # Keep the volume bones out of the per-joint-group collections so they
+        # are owned solely by the Volume collection (the rig-definition joint
+        # groups still legitimately share surface joints with one another).
         utilities.assign_joint_group_bone_collections(
             rig_object=rig_object,
             joint_groups=rig_definition.joint_groups,
             color_by_joint_name=rig_definition.color_by_joint_name,
+            exclude_joint_names=volume_joint_names,
         )
 
-    def _get_skinned_joint_names(self) -> set[str]:
+    def _get_skinned_joint_names(self, lod: "int | None" = None) -> set[str]:
         """Return the names of every joint that carries at least one skin-weight
-        influence across all of the DNA's meshes."""
+        influence on the DNA's meshes.
+
+        When ``lod`` is given, only the meshes for that LOD are considered; this
+        is how the volume joints are found (a leaf joint that does not skin the
+        LOD0 mesh is a volumetric helper, even though it skins a lower LOD).
+        """
         reader = self.dna_reader
         joint_name_cache: dict[int, str] = {}
         skinned_joint_names: set[str] = set()
-        for mesh_index in range(reader.getMeshCount()):
+        mesh_indices = reader.getMeshIndicesForLOD(lod) if lod is not None else range(reader.getMeshCount())
+        for mesh_index in mesh_indices:
             for vertex_index in range(reader.getSkinWeightsCount(mesh_index)):
                 for joint_index in reader.getSkinWeightsJointIndices(mesh_index, vertex_index):
                     joint_name = joint_name_cache.get(joint_index)

@@ -12,7 +12,7 @@ from mathutils import Euler, Matrix, Quaternion, Vector
 from ..constants import (
     CUSTOM_BONE_SHAPE_NAME,
     CUSTOM_BONE_SHAPE_SCALE,
-    DEFORMER_BONE_COLLECTION,
+    VOLUME_BONE_COLLECTION,
     BodyBoneCollection,
 )
 from ..typing import *  # noqa: F403
@@ -157,11 +157,14 @@ def assign_joint_group_bone_collections(
     rig_object: bpy.types.Object,
     joint_groups: "tuple[RigJointGroup, ...]",
     color_by_joint_name: "dict[str, tuple[float, ...]] | None" = None,
+    exclude_joint_names: "set[str]" = frozenset(),  # type: ignore[assignment]
 ):
     """Create a bone collection per rig-definition joint group and color bones.
 
     Each joint group becomes a bone collection named after the group, with its
-    member bones assigned (bones may belong to several groups). When
+    member bones assigned. Bones in ``exclude_joint_names`` (the volume bones,
+    which are owned by the Volume collection) are kept out of every group
+    collection so the groups stay disjoint and can be hidden individually. When
     ``color_by_joint_name`` is provided, every matching bone is tinted with its
     rig-definition color. Bones and colors absent from the rig are skipped.
     """
@@ -177,6 +180,8 @@ def assign_joint_group_bone_collections(
             collection = rig_object.data.collections.new(name=joint_group.name)
 
         for bone_name in joint_group.joints:
+            if bone_name in exclude_joint_names:
+                continue
             pose_bone = rig_object.pose.bones.get(bone_name)
             if pose_bone:
                 collection.assign(pose_bone)
@@ -188,32 +193,40 @@ def assign_joint_group_bone_collections(
                 set_pose_bone_custom_color(pose_bone, color)
 
 
-def assign_deformer_bone_collection(
-    rig_object: bpy.types.Object,
-    skinned_joint_names: "set[str]",
-):
-    """Author the ``Deformers`` bone collection: every bone except the
-    non-skinned leaf bones.
+def get_volume_joint_names(rig_object: bpy.types.Object, skinned_joint_names: "set[str]") -> "set[str]":
+    """Return the volume bones of ``rig_object``: the non-skinned leaf joints.
 
     MetaHuman head rigs contain many volumetric helper joints that drive no
-    mesh vertices. The ones that are also leaves (no children) only add visual
-    clutter, so the ``Deformers`` collection is the inverse of that set -- it
-    holds every bone that either deforms the mesh (carries skin weights) or has
-    children. ``skinned_joint_names`` is the set of joint names with at least
-    one skin-weight influence. Skipped when the rig has no armature data.
+    mesh vertices. The ones that are also leaves (no children) are the volume
+    bones -- ``skinned_joint_names`` is the set of joint names with at least
+    one skin-weight influence. Returns an empty set when the rig has no
+    armature data.
+    """
+    if not rig_object.data or not isinstance(rig_object.data, bpy.types.Armature):
+        return set()
+    return {bone.name for bone in rig_object.data.bones if not bone.children and bone.name not in skinned_joint_names}
+
+
+def assign_volume_bone_collection(
+    rig_object: bpy.types.Object,
+    volume_joint_names: "set[str]",
+):
+    """Author the ``Volume`` bone collection: the non-skinned leaf joints.
+
+    The volume bones (such as the volumetric face helpers) drive no mesh
+    vertices and only add visual clutter, so they are gathered into their own
+    collection that can be hidden out of the way. Skipped when the rig has no
+    armature data.
     """
     if (not rig_object.data or not rig_object.pose) or not isinstance(rig_object.data, bpy.types.Armature):
         return
 
-    collection = rig_object.data.collections.get(DEFORMER_BONE_COLLECTION)
+    collection = rig_object.data.collections.get(VOLUME_BONE_COLLECTION)
     if not collection:
-        collection = rig_object.data.collections.new(name=DEFORMER_BONE_COLLECTION)
+        collection = rig_object.data.collections.new(name=VOLUME_BONE_COLLECTION)
 
-    for bone in rig_object.data.bones:
-        is_non_skinned_leaf = not bone.children and bone.name not in skinned_joint_names
-        if is_non_skinned_leaf:
-            continue
-        pose_bone = rig_object.pose.bones.get(bone.name)
+    for bone_name in volume_joint_names:
+        pose_bone = rig_object.pose.bones.get(bone_name)
         if pose_bone:
             collection.assign(pose_bone)
 

@@ -301,15 +301,12 @@ class CharacterViewOptionsProperties(bpy.types.PropertyGroup):
         set=callbacks.set_show_body_bones,
         get=callbacks.get_show_body_bones,
     )  # pyright: ignore[reportInvalidTypeForm]
-    solo_deformers: bpy.props.BoolProperty(
-        name="Solo Deformers",
+    hide_volume_bones: bpy.props.BoolProperty(
+        name="Hide Volume Bones",
         default=False,
-        description=(
-            "Show only the deforming bones by soloing the Deformers bone collection, "
-            "hiding the non-skinned leaf joints (such as the volumetric face helpers)"
-        ),
-        set=callbacks.set_solo_deformers,
-        get=callbacks.get_solo_deformers,
+        description=("Hide the volume bones (the non-skinned leaf bones) by hiding the Volume bone collection"),
+        set=callbacks.set_hide_volume_bones,
+        get=callbacks.get_hide_volume_bones,
     )  # pyright: ignore[reportInvalidTypeForm]
 
 

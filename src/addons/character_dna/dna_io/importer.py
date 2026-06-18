@@ -23,6 +23,7 @@ from ..constants import (
     NUMBER_OF_HEAD_LODS,
     SHAPE_KEY_BASIS_NAME,
     UV_MAP_NAME,
+    VERTEX_COLOR_ATTRIBUTE_NAME,
     ComponentType,
 )
 from ..typing import *  # noqa: F403
@@ -336,8 +337,9 @@ class DNAImporter:
             logger.debug(f"No vertex colors found for mesh index {mesh_index}. Skipping vertex color import.")
             return
 
-        bmesh_object.loops.layers.color.verify()
-        color_layer = bmesh_object.loops.layers.color.active
+        color_layer = bmesh_object.loops.layers.color.get(
+            VERTEX_COLOR_ATTRIBUTE_NAME
+        ) or bmesh_object.loops.layers.color.new(VERTEX_COLOR_ATTRIBUTE_NAME)
 
         if self._default_vertex_color_layout:
             for vertex_index in self._dna_reader.getVertexLayoutPositionIndices(mesh_index):
@@ -355,6 +357,23 @@ class DNAImporter:
         #         for loop in face.loops:
         #             vertex_color_index = vertex_color_indices[lookup[loop.vert.index]]  # noqa: ERA001
         #             loop[color_layer] = Vector(vertex_color_values[vertex_color_index])  # noqa: ERA001
+
+    def normalize_color_attributes(self, mesh: bpy.types.Mesh):
+        """Ensure the mesh has a single color attribute named"""
+        color_attributes = mesh.color_attributes
+        if not color_attributes.get(VERTEX_COLOR_ATTRIBUTE_NAME):
+            return
+
+        # Remove every color attribute except the named one (collect first to avoid mutating
+        # the collection while iterating).
+        for attribute in [a for a in color_attributes if a.name != VERTEX_COLOR_ATTRIBUTE_NAME]:
+            color_attributes.remove(attribute)
+
+        for index, attribute in enumerate(color_attributes):
+            if attribute.name == VERTEX_COLOR_ATTRIBUTE_NAME:
+                color_attributes.active_color_index = index
+                color_attributes.render_color_index = index
+                break
 
     def create_mesh_object(self, lod_index: int, mesh_name: str) -> bpy.types.Object:
         name = f"{self._prefix}_{mesh_name}"
@@ -404,6 +423,9 @@ class DNAImporter:
         # send the data back to the mesh and free the BMesh from memory
         bmesh_object.to_mesh(mesh)
         bmesh_object.free()
+
+        # Ensure a single, named color attribute that is both active and active-render
+        self.normalize_color_attributes(mesh)
 
         # Add custom split normals
         # Todo: Implement the custom split normals import. Currently, not correctly implemented

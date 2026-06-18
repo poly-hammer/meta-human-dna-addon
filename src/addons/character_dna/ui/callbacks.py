@@ -18,11 +18,11 @@ from mathutils import Euler, Matrix, Vector
 # local imports
 from ..constants import (
     BODY_MAPS,
-    DEFORMER_BONE_COLLECTION,
     HEAD_MAPS,
     HEAD_TO_BODY_LOD_MAPPING,
     NUMBER_OF_HEAD_LODS,
     POSES_FOLDER,
+    VOLUME_BONE_COLLECTION,
     ToolInfo,
 )
 from ..typing import *  # noqa: F403
@@ -600,27 +600,27 @@ def set_show_body_bones(self: "CharacterViewOptionsProperties", value: bool):
         instance.body_rig.hide_set(not value)
 
 
-def get_solo_deformers(self: "CharacterViewOptionsProperties") -> bool:
+def get_hide_volume_bones(self: "CharacterViewOptionsProperties") -> bool:
     instance = _get_view_options_owner(self)
     if not instance:
         return False
     for rig_object in (instance.head_rig, instance.body_rig):
         if rig_object and isinstance(rig_object.data, bpy.types.Armature):
-            collection = rig_object.data.collections.get(DEFORMER_BONE_COLLECTION)
+            collection = rig_object.data.collections.get(VOLUME_BONE_COLLECTION)
             if collection:
-                return bool(collection.is_solo)
+                return not bool(collection.is_visible)
     return False
 
 
-def set_solo_deformers(self: "CharacterViewOptionsProperties", value: bool):
+def set_hide_volume_bones(self: "CharacterViewOptionsProperties", value: bool):
     instance = _get_view_options_owner(self)
     if not instance:
         return
     for rig_object in (instance.head_rig, instance.body_rig):
         if rig_object and isinstance(rig_object.data, bpy.types.Armature):
-            collection = rig_object.data.collections.get(DEFORMER_BONE_COLLECTION)
+            collection = rig_object.data.collections.get(VOLUME_BONE_COLLECTION)
             if collection:
-                collection.is_solo = value
+                collection.is_visible = not value
 
 
 def set_copied_rig_instance_name(self: "DuplicateRigInstance", value: str):

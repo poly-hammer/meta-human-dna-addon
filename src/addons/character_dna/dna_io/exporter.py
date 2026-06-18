@@ -15,7 +15,7 @@ from mathutils import Matrix, Vector
 # local imports
 from .. import utilities
 from ..bindings import dna  # pyright: ignore[reportAttributeAccessIssue]
-from ..constants import EXTRA_BONES, SCALE_FACTOR, TOPO_GROUP_PREFIX, ComponentType
+from ..constants import EXTRA_BONES, SCALE_FACTOR, TOPO_GROUP_PREFIX, VERTEX_COLOR_ATTRIBUTE_NAME, ComponentType
 from ..exceptions import InvalidComponentTypeError
 from ..typing import *  # noqa: F403  # noqa: F403
 from ..utilities import preserve_context
@@ -379,7 +379,9 @@ class DNAExporter:
     def set_dna_vertex_colors(self, mesh_index: int, bmesh_object: bmesh.types.BMesh):
         vertex_color_indices = list(range(len(bmesh_object.verts)))
         vertex_color_values = []
-        color_layer = bmesh_object.loops.layers.color.active
+        color_layer = (
+            bmesh_object.loops.layers.color.get(VERTEX_COLOR_ATTRIBUTE_NAME) or bmesh_object.loops.layers.color.active
+        )
         if color_layer:
             for face in bmesh_object.faces:
                 for loop in face.loops:

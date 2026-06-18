@@ -293,10 +293,10 @@ class BodyBoneCollection:
     SWINGS = "Swings"
 
 
-# Bone collection that holds every deforming bone (the inverse of the
-# non-skinned leaf bones), so the volumetric face joints can be
-# soloed out of the way.
-DEFORMER_BONE_COLLECTION = "Deformers"
+# Bone collection that holds the volume bones (the non-skinned leaf joints,
+# such as the volumetric face helpers), so they can be hidden out of the way
+# and kept out of the per-joint-group collections.
+VOLUME_BONE_COLLECTION = "Volume"
 
 
 # Prefix used for the vertex groups that store the rig-definition mesh regions.
