@@ -779,8 +779,19 @@ def extract_rig_instance_data_from_blend_file(blend_file_path: Path) -> tuple[li
             f"{blend_file_path.as_posix()} --addon-folder {addon_folder.as_posix()} --addon-name {ToolInfo.NAME}"
         )
 
-    for _line in shell(command=command):
-        pass
+    # Run the extraction in a headless Blender subprocess. The bpy module is known to
+    # segfault during interpreter teardown, which yields a non-zero exit code even when
+    # the extraction itself succeeded. The authoritative results are the error log and
+    # data file written before teardown, so capture the output and always inspect those
+    # files instead of failing the moment the subprocess returns non-zero.
+    subprocess_output: list[str] = []
+    try:
+        for line in shell(command=command):
+            subprocess_output.append(line)  # noqa: PERF402
+    except OSError as error:
+        if not subprocess_output:
+            subprocess_output = str(error).splitlines()
+        logger.debug("Rig instance extraction subprocess exited non-zero: %s", error)
 
     if error_file.exists():
         with error_file.open() as f:
@@ -803,6 +814,11 @@ def extract_rig_instance_data_from_blend_file(blend_file_path: Path) -> tuple[li
             logger.debug(error)
 
         return extracted_data, ""
+
+    # Neither a data file nor an error log was produced, so surface the full subprocess
+    # output to make the failure actionable instead of reporting a generic message.
+    if subprocess_output:
+        return [], "Failed to extract rig instance data from blend file:\n" + "\n".join(subprocess_output)
 
     return [], "Failed to extract rig instance data."
 
