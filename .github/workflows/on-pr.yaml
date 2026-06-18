@@ -101,7 +101,7 @@ jobs:
       base-branch: ${{ github.head_ref }}
 
   benchmark-blender-4-5:
-    needs: [test-blender-5-1-ubuntu-latest, test-blender-5-1-windows-latest, test-blender-5-1-macos-latest]
+    needs: [test-blender-4-5-ubuntu-latest, test-blender-4-5-windows-latest, test-blender-4-5-macos-latest]
     name: Blender 4.5 Benchmark
     uses: poly-hammer/character-dna-addon/.github/workflows/re-use-benchmark.yaml@main
     secrets: inherit
