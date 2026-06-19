@@ -11,7 +11,7 @@ from mathutils import Matrix, Vector
 
 # local imports
 from .. import utilities
-from ..bindings import riglogic  # pyright: ignore[reportAttributeAccessIssue]
+from ..bindings import dna  # pyright: ignore[reportAttributeAccessIssue]
 from ..constants import (
     BONE_DELTA_THRESHOLD,
     HEAD_TO_BODY_LOD_MAPPING,
@@ -19,73 +19,22 @@ from ..constants import (
     SHAPE_KEY_DELTA_THRESHOLD,
     SHAPE_KEY_NAME_MAX_LENGTH,
 )
+from ..typing import *  # noqa: F403  # noqa: F403
 from .exporter import DNAExporter
 from .importer import DNAImporter
+from .misc import get_dna_reader
 
 
 logger = logging.getLogger(__name__)
 
 
 class DNACalibrator(DNAExporter, DNAImporter):
-    def _get_body_bone_lookups(self) -> tuple[dict, dict, dict, dict]:
-        dna_body_bone_translation_lookup = {}
-        dna_body_bone_rotation_lookup = {}
-        body_bone_translation_lookup = {}
-        body_bone_rotation_lookup = {}
+    @property
+    def _auto_lod_enabled(self) -> bool:
+        """Whether auto LOD calibration (LOD0 -> lower-LOD propagation) is active.
 
-        # Ensure the body DNA reader is initialized
-        if not self._instance.body_dna_reader:
-            self._instance.initialize()
-
-        # If this is the head, and the align head and body option is on, then we want to use the
-        # exact same transforms for the body and head bones so that they match perfectly. So we need to
-        # create a body bone lookup so these can be used as the source of truth.
-        if (
-            self._component_type == "head"
-            and self._instance.output_method == "calibrate"
-            and self._instance.output_align_head_and_body
-            and self._instance.body_dna_reader
-            and self._instance.body_rig
-        ):
-            # Extract the body bone transforms from the dna file
-            body_dna_x_translations = self._instance.body_dna_reader.getNeutralJointTranslationXs()
-            body_dna_y_translations = self._instance.body_dna_reader.getNeutralJointTranslationYs()
-            body_dna_z_translations = self._instance.body_dna_reader.getNeutralJointTranslationZs()
-            body_dna_x_rotations = self._instance.body_dna_reader.getNeutralJointRotationXs()
-            body_dna_y_rotations = self._instance.body_dna_reader.getNeutralJointRotationYs()
-            body_dna_z_rotations = self._instance.body_dna_reader.getNeutralJointRotationZs()
-            dna_body_bone_translation_lookup = {
-                self._instance.body_dna_reader.getJointName(index): Vector(
-                    (body_dna_x_translations[index], body_dna_y_translations[index], body_dna_z_translations[index])
-                )
-                for index in range(self._instance.body_dna_reader.getJointCount())
-            }
-            dna_body_bone_rotation_lookup = {
-                self._instance.body_dna_reader.getJointName(index): Vector(
-                    (body_dna_x_rotations[index], body_dna_y_rotations[index], body_dna_z_rotations[index])
-                )
-                for index in range(self._instance.body_dna_reader.getJointCount())
-            }
-
-            # Extract the body bone transforms from the scene
-            indices, bone_names, _, _, translations, rotations = self.get_bone_transforms(
-                self._instance.body_rig, extra_bones=[]
-            )
-
-            body_bone_translation_lookup = {
-                bone_name: Vector(translations[index]) for index, bone_name in zip(indices, bone_names, strict=False)
-            }
-
-            body_bone_rotation_lookup = {
-                bone_name: Vector(rotations[index]) for index, bone_name in zip(indices, bone_names, strict=False)
-            }
-
-        return (
-            dna_body_bone_translation_lookup,
-            dna_body_bone_rotation_lookup,
-            body_bone_translation_lookup,
-            body_bone_rotation_lookup,
-        )
+        This is only available in the Pro edition and when the output option is enabled."""
+        return bool(self._instance.output.auto_update_lods) and self._instance.is_pro
 
     def _get_body_mesh_lookup(
         self, lod_index: int, mesh_name: str, head_to_body_edge_loop_mapping: dict[str, dict[int, int]]
@@ -101,8 +50,9 @@ class DNACalibrator(DNAExporter, DNAImporter):
         body_mesh_lod = bpy.data.objects.get(body_mesh_name)
         if (
             self._component_type == "head"
-            and self._instance.output_method == "calibrate"
-            and self._instance.output_align_head_and_body
+            and self._seam_follower == "head"
+            and self._instance.output.method == "calibrate"
+            and self._instance.output.align_head_and_body
             and body_mesh_lod
         ):
             bmesh_object = self.get_bmesh(body_mesh_lod)
@@ -130,6 +80,13 @@ class DNACalibrator(DNAExporter, DNAImporter):
             self._dna_reader.getMeshName(index): index for index in range(self._dna_reader.getMeshCount())
         }
         head_to_body_edge_loop_mapping = utilities.get_head_to_body_edge_loop_mapping()
+
+        # Collected for optional LOD0 -> lower-LOD propagation: the new LOD0 mesh
+        # positions keyed by DNA mesh index, and the set of lower-LOD DNA mesh
+        # indices that were calibrated directly from in-scene geometry (so the
+        # propagation never overwrites a mesh the artist actually provided).
+        lod0_mesh_writes: dict[int, list[list[float]]] = {}
+        scene_calibrated_lower_lod_indices: set[int] = set()
 
         for lod_index, mesh_objects in self._export_lods.items():
             logger.info(f"Calibrating LOD {lod_index} vertex positions...")
@@ -176,10 +133,195 @@ class DNACalibrator(DNAExporter, DNAImporter):
                         y_values[vertex_index] = vertex_position.y
                         z_values[vertex_index] = vertex_position.z
 
-                self._dna_writer.setVertexPositions(
-                    meshIndex=mesh_index,
-                    positions=[[x, y, z] for x, y, z in zip(x_values, y_values, z_values, strict=False)],
+                positions = [[x, y, z] for x, y, z in zip(x_values, y_values, z_values, strict=False)]
+                self._dna_writer.setVertexPositions(meshIndex=mesh_index, positions=positions)
+
+                if lod_index == 0:
+                    lod0_mesh_writes[mesh_index] = positions
+                else:
+                    scene_calibrated_lower_lod_indices.add(mesh_index)
+
+        propagated_writes = self._propagate_lods_from_lod0(lod0_mesh_writes, scene_calibrated_lower_lod_indices)
+        self._align_seams(lod0_mesh_writes, propagated_writes)
+
+    def _propagate_lods_from_lod0(
+        self, lod0_mesh_writes: dict[int, list[list[float]]], skip_mesh_indices: set[int]
+    ) -> dict[int, list[list[float]]]:
+        """When ``output.auto_update_lods`` is enabled (Pro only), propagate the
+        just-calibrated LOD0 mesh shapes to every lower-LOD mesh that was not
+        calibrated from in-scene geometry, using the shared UV-space solver.
+
+        Returns the positions written to each propagated lower-LOD mesh keyed by
+        its DNA mesh index (empty when nothing was propagated), so the seam
+        alignment pass can re-snap them without re-reading the writer.
+
+        This is a no-op in the free edition (the shared ``editors`` submodule
+        that owns the solver is absent) or when there are no LOD0 writes."""
+        if not lod0_mesh_writes or not self._instance.output.auto_update_lods:
+            return {}
+        if not self._instance.is_pro:
+            return {}
+        try:
+            from ..editors.shared.lod_propagation import propagate_lod0_to_lower_lods
+        except ImportError:
+            logger.error("LOD propagation is unavailable in this build; skipping auto LOD update.")
+            return {}
+
+        return propagate_lod0_to_lower_lods(
+            self._dna_reader,
+            self._dna_writer,
+            lod0_mesh_writes,
+            skip_mesh_indices=skip_mesh_indices,
+            progress_callback=self._report,
+        )
+
+    @staticmethod
+    def _head_lod_for_body_lod(body_lod_index: int) -> int | None:
+        """The lowest (highest-fidelity) head LOD whose neck edge loop maps onto
+        the given body LOD. Several head LODs share a body LOD (and share the same
+        body seam vertices), so the lowest head LOD is the best reference."""
+        candidates = sorted(head for head, body in HEAD_TO_BODY_LOD_MAPPING.items() if body == body_lod_index)
+        return candidates[0] if candidates else None
+
+    def _seam_reference_reader(self) -> "BinaryStreamReader | None":
+        """The reader for the seam reference component (the one the follower snaps
+        onto).
+
+        When ``seam_reference_dna_path`` is set it is read fresh from disk -- this
+        is the partner component that was just exported, so the follower conforms to
+        the geometry that was *actually written* (auto LOD propagation regenerates
+        each component's lower-LOD meshes independently, so the cached template no
+        longer matches the exported partner). When no path is given a head follower
+        falls back to the cached body DNA reader (the imported body); a body
+        follower has no reference and seam alignment is skipped."""
+        if self._seam_reference_dna_path is not None:
+            if not self._seam_reference_dna_path.exists():
+                logger.warning(
+                    "Seam alignment skipped: reference DNA '%s' is unavailable.", self._seam_reference_dna_path
                 )
+                return None
+            return get_dna_reader(file_path=self._seam_reference_dna_path)
+        if self._seam_follower == "head":
+            return self._instance.body_dna_reader
+        return None
+
+    @staticmethod
+    def _read_mesh_positions(reader: "BinaryStreamReader", mesh_name: str) -> list[Vector] | None:
+        """Read a reference mesh's vertex positions (DNA space, cm Y-up) by name,
+        returning ``None`` when the mesh is absent from the reader."""
+        for mesh_index in range(reader.getMeshCount()):
+            if str(reader.getMeshName(mesh_index)) == mesh_name:
+                xs = reader.getVertexPositionXs(mesh_index)
+                ys = reader.getVertexPositionYs(mesh_index)
+                zs = reader.getVertexPositionZs(mesh_index)
+                return [Vector((xs[i], ys[i], zs[i])) for i in range(len(xs))]
+        return None
+
+    def _resolve_seam_pairs(
+        self, mesh_name: str, edge_loop_mapping: dict[str, dict[int, int]]
+    ) -> tuple[str, list[tuple[int, int]]] | None:
+        """Resolve the seam reference mesh name and ``(follower_vertex,
+        reference_vertex)`` pairs for a follower mesh, or ``None`` when the mesh is
+        not the follower component's LOD mesh or has no head/body LOD partner.
+
+        Only the head/body skin mesh carries the neck edge loop, so other meshes in
+        the same LOD (teeth, eyes, ...) are ignored -- their vertex indices are
+        unrelated to the head-to-body mapping."""
+        lod_index = utilities.get_lod_index(mesh_name)
+        if lod_index == -1:
+            return None
+
+        if self._seam_follower == "head":
+            if mesh_name != f"head_lod{lod_index}_mesh":
+                return None
+            body_lod_index = HEAD_TO_BODY_LOD_MAPPING.get(lod_index)
+            if body_lod_index is None:
+                return None
+            reference_mesh_name = f"body_lod{body_lod_index}_mesh"
+            # (follower vertex, reference vertex) == (head vertex, body vertex)
+            pairs = [
+                (int(head_vertex), int(body_vertex))
+                for head_vertex, body_vertex in edge_loop_mapping.get(str(lod_index), {}).items()
+            ]
+            return reference_mesh_name, pairs
+
+        if mesh_name != f"body_lod{lod_index}_mesh":
+            return None
+        head_lod_index = self._head_lod_for_body_lod(lod_index)
+        if head_lod_index is None:
+            return None
+        reference_mesh_name = f"head_lod{head_lod_index}_mesh"
+        # (follower vertex, reference vertex) == (body vertex, head vertex)
+        pairs = [
+            (int(body_vertex), int(head_vertex))
+            for head_vertex, body_vertex in edge_loop_mapping.get(str(head_lod_index), {}).items()
+        ]
+        return reference_mesh_name, pairs
+
+    def _align_seams(
+        self,
+        lod0_mesh_writes: dict[int, list[list[float]]],
+        propagated_writes: dict[int, list[list[float]]],
+    ) -> None:
+        """Snap the head/body neck edge loop so the two components share the exact
+        same vertex positions where they overlap, across every LOD.
+
+        LOD0 is already snapped in :meth:`calibrate_vertex_positions` for a head
+        follower (via :meth:`_get_body_mesh_lookup`), so only the propagated
+        lower-LOD meshes are aligned in that direction. For a body follower the
+        main loop never snaps the body, so every body mesh (LOD0 plus the
+        propagated lower LODs) is aligned onto the head."""
+        follower = self._seam_follower
+        if follower is None or follower != self._component_type:
+            return
+        if self._instance.output.method != "calibrate" or not self._instance.output.align_head_and_body:
+            return
+
+        reference_reader = self._seam_reference_reader()
+        if reference_reader is None:
+            return
+
+        edge_loop_mapping = utilities.get_head_to_body_edge_loop_mapping()
+
+        if follower == "head":
+            meshes = propagated_writes
+        else:
+            meshes = {**lod0_mesh_writes, **propagated_writes}
+
+        reference_cache: dict[str, list[Vector] | None] = {}
+
+        for mesh_index, positions in meshes.items():
+            mesh_name = str(self._dna_reader.getMeshName(mesh_index))
+            resolved = self._resolve_seam_pairs(mesh_name, edge_loop_mapping)
+            if resolved is None:
+                continue
+            reference_mesh_name, vertex_pairs = resolved
+
+            if reference_mesh_name not in reference_cache:
+                reference_cache[reference_mesh_name] = self._read_mesh_positions(reference_reader, reference_mesh_name)
+            reference_positions = reference_cache[reference_mesh_name]
+            if not reference_positions:
+                continue
+
+            modified = False
+            try:
+                for follower_vertex_index, reference_vertex_index in vertex_pairs:
+                    reference_position = reference_positions[reference_vertex_index]
+                    positions[follower_vertex_index] = [
+                        reference_position.x,
+                        reference_position.y,
+                        reference_position.z,
+                    ]
+                    modified = True
+            except IndexError as error:
+                logger.warning(
+                    f"Seam alignment skipped for mesh '{mesh_name}': vertex index out of range ({error}). "
+                    f"A vertex on '{mesh_name}' or '{reference_mesh_name}' may have been deleted."
+                )
+                continue
+
+            if modified:
+                self._dna_writer.setVertexPositions(meshIndex=mesh_index, positions=positions)
 
     def calibrate_shape_keys(self):
         if self._component_type != "head":
@@ -288,9 +430,14 @@ class DNACalibrator(DNAExporter, DNAImporter):
                 real_mesh_name = f"{self._prefix}_{mesh_name}"
                 mesh_object = bpy.data.objects.get(real_mesh_name)
                 if not mesh_object:
-                    logger.warning(
-                        f"Mesh object '{real_mesh_name}' not found for vertex group calibration. Skipping..."
-                    )
+                    # Lower-LOD meshes are expected to be absent from the scene when auto LOD
+                    # calibration is enabled (they get propagated from LOD0), so only warn for
+                    # LOD0 meshes or when auto LOD calibration is off.
+                    message = f"Mesh object '{real_mesh_name}' not found for vertex group calibration. Skipping..."
+                    if lod_index == 0 or not self._auto_lod_enabled:
+                        logger.warning(message)
+                    else:
+                        logger.debug(message)
                     continue
                 if not mesh_object.data or not isinstance(mesh_object.data, bpy.types.Mesh):
                     logger.warning(
@@ -341,16 +488,19 @@ class DNACalibrator(DNAExporter, DNAImporter):
         dna_y_rotations = self._dna_reader.getNeutralJointRotationYs()
         dna_z_rotations = self._dna_reader.getNeutralJointRotationZs()
 
-        # If this is the head, and the align head and body option is on, then we want to use the
-        # exact same transforms for the body and head bones that match.
-        (dna_body_translation_lookup, dna_body_rotation_lookup, body_translation_lookup, body_rotation_lookup) = (
-            self._get_body_bone_lookups()
-        )
-
         self._bone_index_lookup = {
             self._dna_reader.getJointName(index): index for index in range(self._dna_reader.getJointCount())
         }
 
+        # Read the rig's own (already head-to-body reconciled) bone transforms in
+        # this component's export space: joint 0 in world, every other joint
+        # local to its Blender parent. The head and body skeletons do NOT share a
+        # hierarchy (e.g. the head root ``spine_04`` is exported in world space
+        # but is a mid-chain, parent-local joint in the body), so the overlapping
+        # bones must be aligned in WORLD space on the rig itself (done by the
+        # converter's head-to-body reconcile / by the source DNA on an assembled
+        # character) -- never by swapping the body's parent-local values into the
+        # head DNA, which corrupts the head root and shifts the whole skeleton.
         _, bone_names, _, _, translations, rotations = self.get_bone_transforms(
             self._rig_object, extra_bones=self._extra_bones
         )
@@ -358,22 +508,17 @@ class DNACalibrator(DNAExporter, DNAImporter):
             if bone_name in ignored_bone_names:
                 continue
 
-            # First check for the matching body bone, and use that instead if it exists
-            _bone_translation = body_translation_lookup.get(bone_name, Vector(bone_translation))
-            _bone_rotation = body_rotation_lookup.get(bone_name, Vector(bone_rotation))
+            _bone_translation = Vector(bone_translation)
+            _bone_rotation = Vector(bone_rotation)
 
             dna_bone_index = self._bone_index_lookup.get(bone_name)
             if dna_bone_index is not None:
-                # first check for the matching body bone, and use that instead if it exists
-                dna_bone_translation = dna_body_translation_lookup.get(
-                    bone_name,
-                    Vector(
-                        (
-                            dna_x_translations[dna_bone_index],
-                            dna_y_translations[dna_bone_index],
-                            dna_z_translations[dna_bone_index],
-                        )
-                    ),
+                dna_bone_translation = Vector(
+                    (
+                        dna_x_translations[dna_bone_index],
+                        dna_y_translations[dna_bone_index],
+                        dna_z_translations[dna_bone_index],
+                    )
                 )
                 translation_delta = _bone_translation - dna_bone_translation
 
@@ -383,16 +528,12 @@ class DNACalibrator(DNAExporter, DNAImporter):
                     dna_y_translations[dna_bone_index] = _bone_translation[1]
                     dna_z_translations[dna_bone_index] = _bone_translation[2]
 
-                # Get the DNA bone rotation from the body rotation lookup, and use that if it exists
-                dna_bone_rotation = dna_body_rotation_lookup.get(
-                    bone_name,
-                    Vector(
-                        (
-                            dna_x_rotations[dna_bone_index],
-                            dna_y_rotations[dna_bone_index],
-                            dna_z_rotations[dna_bone_index],
-                        )
-                    ),
+                dna_bone_rotation = Vector(
+                    (
+                        dna_x_rotations[dna_bone_index],
+                        dna_y_rotations[dna_bone_index],
+                        dna_z_rotations[dna_bone_index],
+                    )
                 )
                 rotation_delta = _bone_rotation - dna_bone_rotation
 
@@ -416,7 +557,7 @@ class DNACalibrator(DNAExporter, DNAImporter):
 
     def run(self) -> tuple[bool, str, str, Callable | None]:
         self.initialize_scene_data()
-        if self._instance.output_run_validations:
+        if self._instance.output.run_validations:
             valid, title, message, fix = self.validate()
             if not valid:
                 return False, title, message, fix
@@ -424,17 +565,20 @@ class DNACalibrator(DNAExporter, DNAImporter):
         if self._include_meshes:
             self.calibrate_vertex_positions()
         if self._include_shape_keys:
+            self._report("Calibrating shape keys...")
             self.calibrate_shape_keys()
         if self._include_vertex_groups:
+            self._report("Calibrating skin weights...")
             self.calibrate_vertex_groups()
         if self._include_bones:
+            self._report("Calibrating bones...")
             self.calibrate_bone_transforms()
 
         logger.info(f'Saving DNA to: "{self._target_dna_file}"...')
         self._dna_writer.write()
 
-        if not riglogic.Status.isOk():
-            status = riglogic.Status.get()
+        if not dna.Status.isOk():
+            status = dna.Status.get()
             raise RuntimeError(f"Error saving DNA: {status.message}")
         logger.info(f'DNA calibrated successfully to: "{self._target_dna_file}"')
 

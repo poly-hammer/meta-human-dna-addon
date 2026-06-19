@@ -13,7 +13,7 @@ from mathutils import Euler, Matrix, Vector
 
 # local imports
 from .. import utilities
-from ..bindings import riglogic
+from ..bindings import enums  # type: ignore[reportAttributeAccessIssue]
 from ..constants import (
     CUSTOM_BONE_SHAPE_SCALE,
     EXTRA_BONES,
@@ -23,6 +23,7 @@ from ..constants import (
     NUMBER_OF_HEAD_LODS,
     SHAPE_KEY_BASIS_NAME,
     UV_MAP_NAME,
+    VERTEX_COLOR_ATTRIBUTE_NAME,
     ComponentType,
 )
 from ..typing import *  # noqa: F403
@@ -40,7 +41,7 @@ class DNAImporter:
         linear_modifier: float,
         component_type: ComponentType = "head",
         create_extra_bones: bool = True,
-        reader: "riglogic.BinaryStreamReader | None" = None,
+        reader: "dna.BinaryStreamReader | None" = None,
         dna_file_path: Path | None = None,
     ):
         self.rig_object = None
@@ -336,8 +337,9 @@ class DNAImporter:
             logger.debug(f"No vertex colors found for mesh index {mesh_index}. Skipping vertex color import.")
             return
 
-        bmesh_object.loops.layers.color.verify()
-        color_layer = bmesh_object.loops.layers.color.active
+        color_layer = bmesh_object.loops.layers.color.get(
+            VERTEX_COLOR_ATTRIBUTE_NAME
+        ) or bmesh_object.loops.layers.color.new(VERTEX_COLOR_ATTRIBUTE_NAME)
 
         if self._default_vertex_color_layout:
             for vertex_index in self._dna_reader.getVertexLayoutPositionIndices(mesh_index):
@@ -355,6 +357,23 @@ class DNAImporter:
         #         for loop in face.loops:
         #             vertex_color_index = vertex_color_indices[lookup[loop.vert.index]]  # noqa: ERA001
         #             loop[color_layer] = Vector(vertex_color_values[vertex_color_index])  # noqa: ERA001
+
+    def normalize_color_attributes(self, mesh: bpy.types.Mesh):
+        """Ensure the mesh has a single color attribute named"""
+        color_attributes = mesh.color_attributes
+        if not color_attributes.get(VERTEX_COLOR_ATTRIBUTE_NAME):
+            return
+
+        # Remove every color attribute except the named one (collect first to avoid mutating
+        # the collection while iterating).
+        for attribute in [a for a in color_attributes if a.name != VERTEX_COLOR_ATTRIBUTE_NAME]:
+            color_attributes.remove(attribute)
+
+        for index, attribute in enumerate(color_attributes):
+            if attribute.name == VERTEX_COLOR_ATTRIBUTE_NAME:
+                color_attributes.active_color_index = index
+                color_attributes.render_color_index = index
+                break
 
     def create_mesh_object(self, lod_index: int, mesh_name: str) -> bpy.types.Object:
         name = f"{self._prefix}_{mesh_name}"
@@ -404,6 +423,9 @@ class DNAImporter:
         # send the data back to the mesh and free the BMesh from memory
         bmesh_object.to_mesh(mesh)
         bmesh_object.free()
+
+        # Ensure a single, named color attribute that is both active and active-render
+        self.normalize_color_attributes(mesh)
 
         # Add custom split normals
         # Todo: Implement the custom split normals import. Currently, not correctly implemented
@@ -473,7 +495,7 @@ class DNAImporter:
                 if index == 0:
                     rotation_matrix = Matrix.Rotation(math.radians(90), 4, "X").to_4x4()  # type: ignore[arg-type]
                     global_matrix = (
-                        rotation_matrix @ Matrix.Translation(location)
+                        rotation_matrix @ Matrix.Translation(location[:])
                     ) @ euler_rotation.to_matrix().to_4x4()
 
                 # Otherwise they are in parent space
@@ -482,7 +504,7 @@ class DNAImporter:
                     parent_bone_name = self._dna_reader.getJointName(parent_index)
                     parent_bone = self.rig_object.data.edit_bones[parent_bone_name]
                     # Calculate the global transformation matrix of the bone
-                    local_matrix = Matrix.Translation(location) @ euler_rotation.to_matrix().to_4x4()
+                    local_matrix = Matrix.Translation(location[:]) @ euler_rotation.to_matrix().to_4x4()
                     global_matrix = parent_bone.matrix @ local_matrix
 
                 return global_matrix
@@ -568,7 +590,7 @@ class DNAImporter:
             # The first bone is in object space
             if index == 0:
                 edit_bone.length = self._linear_modifier
-                edit_bone.matrix = Matrix.Translation(location) @ euler_rotation.to_matrix().to_4x4()
+                edit_bone.matrix = Matrix.Translation(location[:]) @ euler_rotation.to_matrix().to_4x4()
                 # The last extra bone should be the parent of first bone in the DNA file
                 edit_bone.parent = extra_edit_bone
 
@@ -580,7 +602,7 @@ class DNAImporter:
                 edit_bone.parent = parent_bone
                 edit_bone.length = self._linear_modifier
                 # Calculate the global transformation matrix of the bone
-                local_matrix = Matrix.Translation(location) @ euler_rotation.to_matrix().to_4x4()
+                local_matrix = Matrix.Translation(location[:]) @ euler_rotation.to_matrix().to_4x4()
                 global_matrix = parent_bone.matrix @ local_matrix
                 edit_bone.matrix = global_matrix
 
@@ -602,7 +624,7 @@ class DNAImporter:
             input_indices = self._dna_reader.getSwingInputControlIndices(swing_index)
             output_indices = self._dna_reader.getSwingOutputJointIndices(swing_index)
             weights = self._dna_reader.getSwingBlendWeights(swing_index)
-            axis = self._dna_reader.getSwingSetupTwistAxis(swing_index)
+            axis = enums.TwistAxis(self._dna_reader.getSwingSetupTwistAxis(swing_index))
 
             # there should always be 4 input controls for a bone's quaternion rotation
             if len(input_indices) != 4:
@@ -626,7 +648,7 @@ class DNAImporter:
             input_indices = self._dna_reader.getTwistInputControlIndices(twist_index)
             output_indices = self._dna_reader.getTwistOutputJointIndices(twist_index)
             weights = self._dna_reader.getTwistBlendWeights(twist_index)
-            axis = self._dna_reader.getTwistSetupTwistAxis(twist_index)
+            axis = enums.TwistAxis(self._dna_reader.getTwistSetupTwistAxis(twist_index))
 
             # there should always be 4 input controls for a bone's quaternion rotation
             if len(input_indices) != 4:

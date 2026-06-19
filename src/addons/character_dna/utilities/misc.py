@@ -1,5 +1,7 @@
 # standard library imports
+import contextlib
 import hashlib
+import importlib
 import json
 import logging
 import math
@@ -139,6 +141,33 @@ def preserve_context(func: Callable) -> Callable:
     return wrapper
 
 
+@contextlib.contextmanager
+def preserved_context() -> Generator[dict[str, Any], None, None]:
+    """Context manager that snapshots the current scene context on entry and
+    restores it on exit. Disables dependency graph evaluation for the duration
+    so that intermediate mode/selection changes do not trigger rig evaluation.
+
+    Yields the snapshotted context dict so it can be inspected or manipulated
+    before it is restored on exit.
+
+    Usage::
+
+        with preserved_context() as context:
+            switch_to_edit_mode(some_object)
+            # ... inspect or mutate ``context`` as needed ...
+        # scene context (mode, selection, active object, frame, cursor) is
+        # automatically restored here.
+    """
+    window_manager_properties = get_addon_window_manager_properties()
+    window_manager_properties.evaluate_dependency_graph = False
+    context = get_current_context()
+    try:
+        yield context
+    finally:
+        set_context(context)
+        window_manager_properties.evaluate_dependency_graph = True
+
+
 def deselect_all():
     for scene_object in bpy.data.objects:
         scene_object.select_set(False)
@@ -159,6 +188,7 @@ def switch_to_object_mode():
 
 def switch_to_edit_mode(*scene_object: bpy.types.Object):
     select_only(*scene_object)
+    switch_to_object_mode()
     bpy.ops.object.mode_set(mode="EDIT")
 
 
@@ -171,6 +201,13 @@ def switch_to_sculpt_mode(*scene_object: bpy.types.Object):
 def switch_to_bone_edit_mode(*armature_object: bpy.types.Object):
     # Switch to edit mode so we can get edit bone data
     if bpy.context.mode != "EDIT_ARMATURE":
+        # A hidden object cannot be the active object for a mode switch, so the
+        # mode_set poll would raise "Context missing active object". Unhide the
+        # armature first so it is visible and settable as the active object.
+        for _armature_object in armature_object:
+            _armature_object.hide_viewport = False
+            with contextlib.suppress(RuntimeError):
+                _armature_object.hide_set(False)
         select_only(*armature_object)
         if bpy.context.view_layer:
             bpy.context.view_layer.objects.active = armature_object[0]
@@ -280,6 +317,10 @@ def pre_undo(*_: Any) -> None:
     addon_window_manager_properties = get_addon_window_manager_properties(context)
     addon_scene_properties = get_addon_scene_properties(context)
 
+    # Always invalidate the caches that hold live `bpy` RNA wrappers
+    for instance in addon_scene_properties.rig_instance_list:
+        instance.destroy_references()
+
     # Only run the pre-undo logic if the current context is a 3D view area
     if context.area and context.area.type == "VIEW_3D" and context.region and context.region.type == "WINDOW":
         addon_window_manager_properties.evaluate_dependency_graph = False
@@ -291,9 +332,15 @@ def pre_undo(*_: Any) -> None:
         # destroy cached data related rig instances, since undo can change the data
         # in a way that makes the cached data invalid
         for instance in addon_scene_properties.rig_instance_list:
-            if active_object in [instance.head_mesh, instance.head_rig, instance.face_board]:
+            if (
+                active_object in [instance.head_mesh, instance.head_rig, instance.face_board]
+                and instance.auto_evaluate_head
+            ):
                 instance.destroy_head()
-            if active_object in [instance.body_mesh, instance.body_rig, instance.control_rig]:
+            if (
+                active_object in [instance.body_mesh, instance.body_rig, instance.control_rig]
+                and instance.auto_evaluate_body
+            ):
                 instance.destroy_body()
 
 
@@ -343,8 +390,11 @@ def post_save(*_: Any) -> None:
     if not instance:
         return
 
-    # Create a DNA backup
-    from ..editors.backup_manager.core import BackupType, create_backup
+    # Create a DNA backup (Pro editors only; no-op in the free edition).
+    try:
+        from ..editors.backup_manager.core import BackupType, create_backup
+    except ImportError:
+        return
 
     create_backup(instance, BackupType.BLENDER_FILE_SAVE)
 
@@ -511,7 +561,7 @@ def rename_rig_instance(instance: "RigInstance", old_name: str, new_name: str):
     if instance.body_material:
         instance.body_material.name = instance.body_material.name.replace(old_name, new_name)
 
-    for item in instance.output_head_item_list.values() + instance.output_body_item_list.values():
+    for item in instance.output.head_item_list.values() + instance.output.body_item_list.values():
         # don't rename these again
         if item.scene_object in [
             instance.face_board,
@@ -558,7 +608,7 @@ def rename_as_lod0_meshes(mesh_objects: list[bpy.types.Object]):
                 mesh_object.name = f"{mesh_object.name}_lod0_mesh"
 
         # re-populate the output items
-        instance.output_head_item_list.clear()
+        instance.output.head_item_list.clear()
         update_head_output_items(None, bpy.context)  # type: ignore[arg-type]
 
 
@@ -616,7 +666,7 @@ def import_head_texture_logic_node() -> bpy.types.NodeTree | None:
 
 
 def dependencies_are_valid() -> bool:
-    for module_name in ["riglogic", "character_dna_core"]:
+    for module_name in ["riglogic"]:
         module = next((module for key, module in sys.modules.items() if key.endswith(module_name)), None)
         if module and getattr(module, "__is_fake__", False):
             return False
@@ -729,8 +779,19 @@ def extract_rig_instance_data_from_blend_file(blend_file_path: Path) -> tuple[li
             f"{blend_file_path.as_posix()} --addon-folder {addon_folder.as_posix()} --addon-name {ToolInfo.NAME}"
         )
 
-    for _line in shell(command=command):
-        pass
+    # Run the extraction in a headless Blender subprocess. The bpy module is known to
+    # segfault during interpreter teardown, which yields a non-zero exit code even when
+    # the extraction itself succeeded. The authoritative results are the error log and
+    # data file written before teardown, so capture the output and always inspect those
+    # files instead of failing the moment the subprocess returns non-zero.
+    subprocess_output: list[str] = []
+    try:
+        for line in shell(command=command):
+            subprocess_output.append(line)  # noqa: PERF402
+    except OSError as error:
+        if not subprocess_output:
+            subprocess_output = str(error).splitlines()
+        logger.debug("Rig instance extraction subprocess exited non-zero: %s", error)
 
     if error_file.exists():
         with error_file.open() as f:
@@ -753,6 +814,11 @@ def extract_rig_instance_data_from_blend_file(blend_file_path: Path) -> tuple[li
             logger.debug(error)
 
         return extracted_data, ""
+
+    # Neither a data file nor an error log was produced, so surface the full subprocess
+    # output to make the failure actionable instead of reporting a generic message.
+    if subprocess_output:
+        return [], "Failed to extract rig instance data from blend file:\n" + "\n".join(subprocess_output)
 
     return [], "Failed to extract rig instance data."
 
@@ -996,7 +1062,7 @@ def migrate_legacy_data(context: "Context") -> Literal["default", "collection_da
                     instance.head_dna_file_path = _instance_data.get("head_dna_file_path")
                 output_folder_path = _instance_data.get("output_folder_path")
                 if output_folder_path is not None:
-                    instance.output_folder_path = _instance_data.get("output_folder_path")
+                    instance.output.folder_path = _instance_data.get("output_folder_path")
 
                 # Rigs
                 _body_rig = _instance_data.get("body_rig")
@@ -1060,15 +1126,22 @@ def migrate_legacy_data(context: "Context") -> Literal["default", "collection_da
             if scene_data is not None and hasattr(scene_data, key):
                 del scene_data[key]
 
+    # Final cleanup to remove any old addon keys in the scene data after migration
+    addon_scene_properties = None
+    for addon_id in ADDON_IDS:
+        if addon_id != ToolInfo.NAME and addon_id in context.scene:
+            del context.scene[addon_id]
+            return "default"
+
     return "default"
 
 
-def get_addon_preferences() -> "CharacterAddonProperties | None":
+def get_addon_preferences() -> "CharacterAddonPreferences | None":
     """
     Gets the addon preferences for the Character DNA addon.
 
     Returns:
-        CharacterAddonProperties | None: The addon preferences or None if not found.
+        CharacterAddonPreferences | None: The addon preferences or None if not found.
     """
     if not bpy.context.preferences:
         return None
@@ -1085,6 +1158,58 @@ def get_addon_preferences() -> "CharacterAddonProperties | None":
             ToolInfo.EXTENSION_ID = extension_id
             return bpy.context.preferences.addons[extension_id].preferences  # type: ignore[attr-defined]
     return None
+
+
+def editors_available() -> bool:
+    """Return ``True`` when the optional Pro ``editors`` submodule is present.
+
+    The presence of the ``editors`` package's ``__init__.py`` is the single
+    source of truth for "is this the Pro edition?". The result is cached on the
+    centralized window-manager ``data`` dictionary so repeated polls are cheap.
+    """
+    from ..properties import CharacterWindowManagerProperties
+
+    cache = CharacterWindowManagerProperties.data
+    if "editors_available" not in cache:
+        editors_init = Path(__file__).parent.parent / "editors" / "__init__.py"
+        cache["editors_available"] = editors_init.is_file()
+    return cache["editors_available"]
+
+
+def get_editors() -> ModuleType | None:
+    """Return the imported ``editors`` registry module, or ``None`` when absent.
+
+    The resolved module (or ``None`` when the submodule is missing or fails to
+    import) is cached on the centralized window-manager ``data`` dictionary so a
+    failed import is not retried on every call. When the submodule is missing
+    (free edition) the caller should fall back to the core-only behavior.
+    """
+    from ..properties import CharacterWindowManagerProperties
+
+    cache = CharacterWindowManagerProperties.data
+    if "editors_module" not in cache:
+        module: ModuleType | None = None
+        if editors_available():
+            try:
+                module = importlib.import_module("..editors", package=__package__)
+            except Exception:
+                logger.exception("Failed to import the editors submodule; running without it.")
+        cache["editors_module"] = module
+    return cache["editors_module"]
+
+
+def pro_features_visible() -> bool:
+    """Return ``True`` when the Pro editor UI should be shown.
+
+    This is the case only in a Pro build (the ``editors`` submodule is present)
+    *and* when the ``show_pro_features`` preview toggle is enabled. Pro users can
+    disable the toggle to preview what the free edition's UI looks like.
+    """
+    if not editors_available():
+        return False
+
+    preferences = get_addon_preferences()
+    return bool(getattr(preferences, "show_pro_features", True))
 
 
 def get_addon_window_manager_properties(context: bpy.types.Context | None = None) -> "CharacterWindowManagerProperties":

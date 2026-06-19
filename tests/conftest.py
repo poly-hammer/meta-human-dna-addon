@@ -30,7 +30,7 @@ import shutil  # noqa: E402
 from pathlib import Path  # noqa: E402
 
 # import this to ensure that mathutils is available
-import bpy   # pyright: ignore
+import bpy  # pyright: ignore
 import pytest  # noqa: E402
 
 from mathutils import Euler, Vector  # noqa: E402
@@ -48,7 +48,39 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
 
 
 def pytest_unconfigure() -> None:
-    """Force exit to prevent bpy's C++ cleanup from hanging on process teardown."""
+    """Force exit to prevent bpy's C++ cleanup from hanging/crashing on teardown.
+
+    Blender's C++ teardown (and its guarded allocator's "Not freed memory
+    blocks" report) runs during interpreter/DLL shutdown and can raise a benign
+    access violation. ``os._exit`` still triggers Windows ``ExitProcess``, which
+    runs the DLL detach handlers that crash. To keep the test run output clean
+    we flush buffered output, disable pytest's ``faulthandler`` so no crash dump
+    is printed, then terminate the process immediately:
+
+    - On Windows, ``TerminateProcess`` skips ``DLL_PROCESS_DETACH`` entirely,
+      avoiding both the access violation and the allocator's memory report.
+    - Elsewhere, ``os._exit`` is sufficient.
+    """
+    import faulthandler
+
+    # Flush buffered output before the hard exit so nothing is lost.
+    sys.stdout.flush()
+    sys.stderr.flush()
+
+    # pytest installs faulthandler; disable it so the hard exit stays quiet.
+    faulthandler.disable()
+
+    if sys.platform == "win32":
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32
+        # Use explicit 64-bit-safe signatures so the (HANDLE)-1 current-process
+        # pseudo handle isn't truncated by ctypes' default c_int marshalling.
+        kernel32.GetCurrentProcess.restype = ctypes.c_void_p
+        kernel32.TerminateProcess.argtypes = [ctypes.c_void_p, ctypes.c_uint]
+        kernel32.TerminateProcess.restype = ctypes.c_int
+        kernel32.TerminateProcess(kernel32.GetCurrentProcess(), _session_exit_code)
+
     os._exit(_session_exit_code)
 
 
@@ -58,7 +90,6 @@ def pytest_configure():
     """
 
     bindings_source_folder = REPO_ROOT.parent / "character-dna-bindings"
-    core_source_folder = REPO_ROOT.parent / "character-dna-core"
     bindings_destination_folder = REPO_ROOT / "src" / "addons" / "character_dna" / "bindings"
 
     bindings_specific_source_folder = bindings_source_folder / OS_NAME / ARCH / PYTHON_VERSION
@@ -77,32 +108,29 @@ def pytest_configure():
             src=bindings_specific_source_folder, dst=bindings_specific_destination_folder, dirs_exist_ok=True
         )
 
-    # If running tests on the CI, copy core to the specific destination folder
-    core_destination_folder = bindings_specific_destination_folder / "character_dna_core"
-    if core_source_folder.exists() and not core_destination_folder.exists() and os.environ.get("RUNNING_CI"):
-        shutil.copytree(src=core_source_folder, dst=core_destination_folder, dirs_exist_ok=True)
-
     # ensure the addon module is on the python path
     sys.path.append(str(REPO_ROOT / "src" / "addons"))
 
+
 from fixtures.addon import addon, disable_auto_save  # pyright: ignore[reportUnusedImport] # noqa: E402, F401
 from fixtures.dna_data import (  # noqa: E402, F401
-    calibrated_head_dna_json_data, #  pyright: ignore[reportUnusedImport]
-    exported_head_dna_json_data, #  pyright: ignore[reportUnusedImport]
-    original_head_dna_json_data, #  pyright: ignore[reportUnusedImport]
+    calibrated_head_and_body_dna_json_data,  #  pyright: ignore[reportUnusedImport]
+    calibrated_head_dna_json_data,  #  pyright: ignore[reportUnusedImport]
+    exported_head_dna_json_data,  #  pyright: ignore[reportUnusedImport]
+    original_head_dna_json_data,  #  pyright: ignore[reportUnusedImport]
 )
 from fixtures.scene import (  # noqa: E402, F401
-    head_armature, #  pyright: ignore[reportUnusedImport]
-    head_bmesh, #  pyright: ignore[reportUnusedImport]
-    load_body_dna, #  pyright: ignore[reportUnusedImport]
-    load_body_dna_for_pose_editing, #  pyright: ignore[reportUnusedImport]
+    head_armature,  #  pyright: ignore[reportUnusedImport]
+    head_bmesh,  #  pyright: ignore[reportUnusedImport]
+    load_body_dna,  #  pyright: ignore[reportUnusedImport]
+    load_body_dna_for_pose_editing,  #  pyright: ignore[reportUnusedImport]
     load_body_dna_for_pose_roundtrip,  #  pyright: ignore[reportUnusedImport]
-    load_dna_for_rig_instance_ops, #  pyright: ignore[reportUnusedImport]
-    load_full_dna_for_animation, #  pyright: ignore[reportUnusedImport]
-    load_head_dna, #  pyright: ignore[reportUnusedImport]
-    load_mhc_conformed_topology_meshes, #  pyright: ignore[reportUnusedImport]
-    modify_head_scene, #  pyright: ignore[reportUnusedImport]
-    setup_reference_blend_file, #  pyright: ignore[reportUnusedImport]
+    load_dna_for_rig_instance_ops,  #  pyright: ignore[reportUnusedImport]
+    load_full_dna_for_animation,  #  pyright: ignore[reportUnusedImport]
+    load_head_dna,  #  pyright: ignore[reportUnusedImport]
+    load_mhc_conformed_topology_meshes,  #  pyright: ignore[reportUnusedImport]
+    modify_head_scene,  #  pyright: ignore[reportUnusedImport]
+    setup_reference_blend_file,  #  pyright: ignore[reportUnusedImport]
 )
 
 
@@ -166,6 +194,29 @@ def changed_head_vertex_location() -> tuple[Vector, Vector, Vector]:
         Vector((0.85206276, 170.66174, -4.644782)),  # original dna value Y-up
         Vector((0.8358, 175.288, -5.9853077)),  # new dna value Y-up
     )
+
+
+@pytest.fixture(scope="session")
+def changed_head_lower_lod_vertices() -> list[dict]:
+    # Expected lower-LOD head vertex positions after `auto_update_lods` propagates
+    # the calibrated LOD0 shape down through the UV-barycentric solver. Lower-LOD
+    # meshes are not in the scene, so the whole mesh is resampled and no longer
+    # matches the original DNA; we spot-check one representative vertex per LOD.
+    #
+    # `vertex_index` is the DNA position index; `new_dna` is the expected position
+    # in DNA space (Y-up, centimeters). Captured from the verified calibration
+    # pipeline via scratches/lod-calibration/capture_head_lod_samples.py (each is
+    # the most-displaced vertex whose neighbour-residual ratio stays <= 3, i.e. a
+    # genuine reshape rather than a UV-seam outlier).
+    return [
+        {"mesh_name": "head_lod1_mesh", "vertex_index": 5428, "new_dna": Vector((-1.853883, 157.567673, 4.342460))},
+        {"mesh_name": "head_lod2_mesh", "vertex_index": 277, "new_dna": Vector((-2.114160, 155.254501, 10.113000))},
+        {"mesh_name": "head_lod3_mesh", "vertex_index": 113, "new_dna": Vector((-12.515163, 144.529144, -3.673704))},
+        {"mesh_name": "head_lod4_mesh", "vertex_index": 419, "new_dna": Vector((-0.035253, 171.710617, 6.063716))},
+        {"mesh_name": "head_lod5_mesh", "vertex_index": 557, "new_dna": Vector((5.704913, 156.775757, -0.068503))},
+        {"mesh_name": "head_lod6_mesh", "vertex_index": 264, "new_dna": Vector((9.747909, 145.155396, -4.185964))},
+        {"mesh_name": "head_lod7_mesh", "vertex_index": 88, "new_dna": Vector((5.533078, 146.514130, -5.096119))},
+    ]
 
 
 @pytest.fixture(scope="session")

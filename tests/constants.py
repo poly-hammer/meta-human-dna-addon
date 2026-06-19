@@ -26,6 +26,12 @@ TOLERANCE = {
     "skinWeights": 1e-5,
 }
 
+# Maximum allowed angular difference (in degrees) between an expected and an exported/calibrated
+# joint orientation. Joint rotations are compared as a whole-orientation angular difference rather
+# than per-axis euler components, since near gimbal lock individual axes can differ noticeably while
+# the actual orientation is effectively identical.
+ROTATION_ANGLE_TOLERANCE = 0.31
+
 DNA_DEFINITION_VERSION = "defn1.1"
 
 DNA_BEHAVIOR_VERSION = "bhvr1.1"

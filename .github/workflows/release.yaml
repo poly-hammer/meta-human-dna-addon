@@ -65,7 +65,7 @@ jobs:
 
   # Test with Blender 5.1
   test-blender-5-1-ubuntu-latest:
-    needs: [test-blender-4-5-ubuntu-latest]
+    needs: [lint]
     name: Blender 5.1 Tests
     uses: poly-hammer/poly-hammer-workflows/.github/workflows/re-use-blender-tests.yaml@main
     secrets: inherit
@@ -77,7 +77,7 @@ jobs:
       base: "character-dna"
 
   test-blender-5-1-windows-latest:
-    needs: [test-blender-4-5-windows-latest]
+    needs: [lint]
     name: Blender 5.1 Tests
     uses: poly-hammer/poly-hammer-workflows/.github/workflows/re-use-blender-tests.yaml@main
     secrets: inherit
@@ -89,7 +89,7 @@ jobs:
       base: "character-dna"
 
   test-blender-5-1-macos-latest:
-    needs: [test-blender-4-5-macos-latest]
+    needs: [lint]
     name: Blender 5.1 Tests
     uses: poly-hammer/poly-hammer-workflows/.github/workflows/re-use-blender-tests.yaml@main
     secrets: inherit
@@ -106,6 +106,9 @@ jobs:
         test-blender-5-1-ubuntu-latest,
         test-blender-5-1-windows-latest,
         test-blender-5-1-macos-latest,
+        test-blender-4-5-ubuntu-latest,
+        test-blender-4-5-windows-latest,
+        test-blender-4-5-macos-latest,
       ]
     name: Release
     uses: poly-hammer/poly-hammer-workflows/.github/workflows/re-use-blender-release.yaml@main
@@ -114,4 +117,3 @@ jobs:
       python-version: "3.13"
       environment: ${{ github.event.inputs.environment || 'staging' }}
       addon-id: "character_dna"
-      legacy-release: true

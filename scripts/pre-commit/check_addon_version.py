@@ -22,37 +22,11 @@ from __future__ import annotations
 
 import argparse
 import fnmatch
-import platform
 import re
 import subprocess
 import sys
 from pathlib import Path
 from typing import NamedTuple
-
-
-# Platform detection for core package paths
-def _get_platform_info() -> tuple[str, str, str]:
-    """Get OS name, architecture, and Python version for platform-specific paths.
-
-    Returns:
-        Tuple of (os_name, arch, python_version)
-    """
-    # Determine architecture
-    arch = "x64"
-    if "arm" in platform.processor().lower():
-        arch = "arm64"
-
-    # Determine OS
-    os_name = "windows"
-    if sys.platform == "darwin":
-        os_name = "macos"
-    elif sys.platform == "linux":
-        os_name = "linux"
-
-    # Determine Python version
-    python_version = f"py{sys.version_info.major}{sys.version_info.minor}"
-
-    return os_name, arch, python_version
 
 
 class Version(NamedTuple):
@@ -90,6 +64,32 @@ class Version(NamedTuple):
         if len(parts) != 3:
             raise ValueError(f"Invalid version tuple: {tuple_str}")
         return cls(int(parts[0]), int(parts[1]), int(parts[2]))
+
+
+def get_repo_root() -> Path:
+    """Return the absolute path to the top-level (parent) git repository root.
+
+    When called from inside a submodule, walks up to the superproject root.
+    """
+    # If inside a submodule, this returns the superproject working tree
+    result = subprocess.run(
+        ["git", "rev-parse", "--show-superproject-working-tree"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    superproject = result.stdout.strip()
+    if superproject:
+        return Path(superproject)
+
+    # Not a submodule — use the current repo root
+    result = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return Path(result.stdout.strip())
 
 
 def get_staged_files() -> list[Path]:
@@ -176,23 +176,6 @@ def read_version_from_uv_lock(file_path: Path, package_name: str) -> Version | N
     return Version.from_string(match.group(1))
 
 
-def read_version_from_version_py(file_path: Path) -> Version | None:
-    """Read version from a version.py file with __version__ = "x.y.z".
-
-    Returns None if the file doesn't exist or version not found.
-    """
-    if not file_path.exists():
-        return None
-
-    content = file_path.read_text(encoding="utf-8")
-    # Match: __version__ = "0.5.4"
-    pattern = r'^__version__\s*=\s*["\'](\d+\.\d+\.\d+)["\']'
-    match = re.search(pattern, content, re.MULTILINE)
-    if not match:
-        return None
-    return Version.from_string(match.group(1))
-
-
 def write_version_to_init(file_path: Path, version: Version) -> None:
     """Write version to addon __init__.py bl_info dict."""
     content = file_path.read_text(encoding="utf-8")
@@ -227,27 +210,6 @@ def write_version_to_uv_lock(
 
     # Match the package block and replace version
     pattern = rf'(\[\[package\]\]\s*\nname\s*=\s*"{re.escape(package_name)}"\s*\nversion\s*=\s*)"[\d.]+"'
-    replacement = rf'\g<1>"{version}"'
-    new_content, count = re.subn(pattern, replacement, content, flags=re.MULTILINE)
-
-    if count == 0:
-        return False
-
-    # Preserve LF line endings
-    file_path.write_text(new_content, encoding="utf-8", newline="\n")
-    return True
-
-
-def write_version_to_version_py(file_path: Path, version: Version) -> bool:
-    """Write version to a version.py file with __version__ = "x.y.z".
-
-    Returns True if the file was updated, False if file doesn't exist.
-    """
-    if not file_path.exists():
-        return False
-
-    content = file_path.read_text(encoding="utf-8")
-    pattern = r'^(__version__\s*=\s*)["\'][\d.]+["\']'
     replacement = rf'\g<1>"{version}"'
     new_content, count = re.subn(pattern, replacement, content, flags=re.MULTILINE)
 
@@ -311,10 +273,6 @@ def sync_version_to_all_files(
     pyproject_path: Path,
     uv_lock_path: Path,
     package_name: str,
-    core_pyproject_path: Path,
-    core_uv_lock_path: Path,
-    core_version_py_path: Path,
-    core_package_name: str,
     stage_files: bool = False,
 ) -> list[Path]:
     """Sync version to all version files.
@@ -341,20 +299,6 @@ def sync_version_to_all_files(
         updated_files.append(uv_lock_path)
         print(f"  Updated {uv_lock_path} for package '{package_name}'")
 
-    # Update core package version files if they exist
-    if core_pyproject_path.exists():
-        write_version_to_toml(core_pyproject_path, version)
-        updated_files.append(core_pyproject_path)
-        print(f"  Updated {core_pyproject_path}")
-
-    if write_version_to_uv_lock(core_uv_lock_path, core_package_name, version):
-        updated_files.append(core_uv_lock_path)
-        print(f"  Updated {core_uv_lock_path} for package '{core_package_name}'")
-
-    if write_version_to_version_py(core_version_py_path, version):
-        updated_files.append(core_version_py_path)
-        print(f"  Updated {core_version_py_path}")
-
     # Stage files if requested
     if stage_files:
         for file_path in updated_files:
@@ -372,28 +316,14 @@ def main() -> int:
     """
     args = parse_args()
 
+    repo_root = get_repo_root()
+
     # Build paths based on addon name
-    addon_base_path = Path("src/addons") / args.addon_name
+    addon_base_path = repo_root / "src/addons" / args.addon_name
     addon_init_path = addon_base_path / "__init__.py"
     blender_manifest_path = addon_base_path / "blender_manifest.toml"
-    pyproject_path = Path("pyproject.toml")
-    uv_lock_path = Path("uv.lock")
-
-    # Core package paths (for character_dna_core bindings)
-    # Use platform detection for the correct path
-    os_name, arch, python_version = _get_platform_info()
-    core_base_path = (
-        addon_base_path
-        / "bindings"
-        / os_name
-        / arch
-        / python_version
-        / "character_dna_core"
-    )
-    core_pyproject_path = core_base_path / "pyproject.toml"
-    core_uv_lock_path = core_base_path / "uv.lock"
-    core_version_py_path = core_base_path / "src" / "character_dna_core" / "version.py"
-    core_package_name = "character-dna-core"
+    pyproject_path = repo_root / "pyproject.toml"
+    uv_lock_path = repo_root / "uv.lock"
 
     # Convert addon name to package name format (underscores to hyphens)
     package_name = args.addon_name.replace("_", "-") + "-addon"
@@ -427,10 +357,6 @@ def main() -> int:
             pyproject_path=pyproject_path,
             uv_lock_path=uv_lock_path,
             package_name=package_name,
-            core_pyproject_path=core_pyproject_path,
-            core_uv_lock_path=core_uv_lock_path,
-            core_version_py_path=core_version_py_path,
-            core_package_name=core_package_name,
             stage_files=args.stage,
         )
 
@@ -462,34 +388,12 @@ def main() -> int:
     # Read uv.lock version if it exists
     uv_lock_version = read_version_from_uv_lock(uv_lock_path, package_name)
 
-    # Read core package versions if they exist
-    core_pyproject_version = None
-    core_uv_lock_version = None
-    core_version_py_version = None
-
-    if core_pyproject_path.exists():
-        try:
-            core_pyproject_version = read_version_from_toml(core_pyproject_path)
-        except ValueError:
-            pass  # File exists but version not found
-
-    core_uv_lock_version = read_version_from_uv_lock(
-        core_uv_lock_path, core_package_name
-    )
-    core_version_py_version = read_version_from_version_py(core_version_py_path)
-
     print("Current versions:")
     print(f"  __init__.py:           {init_version}")
     print(f"  blender_manifest.toml: {manifest_version}")
     print(f"  pyproject.toml:        {pyproject_version}")
     if uv_lock_version:
         print(f"  uv.lock:               {uv_lock_version}")
-    if core_pyproject_version:
-        print(f"  core/pyproject.toml:   {core_pyproject_version}")
-    if core_uv_lock_version:
-        print(f"  core/uv.lock:          {core_uv_lock_version}")
-    if core_version_py_version:
-        print(f"  core/version.py:       {core_version_py_version}")
 
     # Check if relevant files have changed (matching watch patterns, excluding version files)
     relevant_changes = has_relevant_changes(staged_files, watch_patterns, version_files)
@@ -513,26 +417,16 @@ def main() -> int:
             pyproject_path=pyproject_path,
             uv_lock_path=uv_lock_path,
             package_name=package_name,
-            core_pyproject_path=core_pyproject_path,
-            core_uv_lock_path=core_uv_lock_path,
-            core_version_py_path=core_version_py_path,
-            core_package_name=core_package_name,
             stage_files=True,
         )
 
         print("Version files updated and staged.")
         return 0
 
-    # Check if versions are in sync (include uv.lock and core package versions if they exist)
+    # Check if versions are in sync (include uv.lock if it exists)
     all_versions = [init_version, manifest_version, pyproject_version]
     if uv_lock_version:
         all_versions.append(uv_lock_version)
-    if core_pyproject_version:
-        all_versions.append(core_pyproject_version)
-    if core_uv_lock_version:
-        all_versions.append(core_uv_lock_version)
-    if core_version_py_version:
-        all_versions.append(core_version_py_version)
 
     if len(set(all_versions)) > 1:
         print("\nERROR: Version mismatch detected!")
@@ -542,12 +436,6 @@ def main() -> int:
         print(f"  pyproject.toml:        {pyproject_version}")
         if uv_lock_version:
             print(f"  uv.lock:               {uv_lock_version}")
-        if core_pyproject_version:
-            print(f"  core/pyproject.toml:   {core_pyproject_version}")
-        if core_uv_lock_version:
-            print(f"  core/uv.lock:          {core_uv_lock_version}")
-        if core_version_py_version:
-            print(f"  core/version.py:       {core_version_py_version}")
         print("\nPlease sync the versions manually or let this hook auto-bump by")
         print("unstaging the version files and committing your addon changes again.")
         return 1

@@ -1,0 +1,3 @@
+[submodule "src/addons/character_dna/editors"]
+	path = src/addons/character_dna/editors
+	url = https://github.com/poly-hammer/character-dna-addon-editors.git

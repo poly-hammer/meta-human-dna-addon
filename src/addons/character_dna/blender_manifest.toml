@@ -1,5 +1,5 @@
 # =============================================================================
-# Blender Extension Manifest (Blender 4.2+)
+# Blender Extension Manifest (Blender 4.5+)
 # https://docs.blender.org/manual/en/latest/advanced/extensions.html
 # =============================================================================
 
@@ -11,7 +11,7 @@ schema_version = "1.0.0"
 id = "character_dna"
 name = "Character DNA"
 tagline = "Customize MetaHuman DNA files with RigLogic evaluation support"
-version = "0.7.2"
+version = "0.8.1"
 type = "add-on"
 
 # =============================================================================
@@ -31,14 +31,20 @@ blender_version_max = "5.2.0"
 # =============================================================================
 # License Information
 # =============================================================================
-license = ["GPL-3.0 license"]
-copyright = ["2026 Poly Hammer"]
+# The add-on's own code is licensed under GPL-3.0. It also bundles and
+# redistributes the OpenRigLogic DNA/RigLogic Python bindings and the Sentry SDK.
+license = ["GPL-3.0 license", "MIT license"]
+copyright = [
+    "2026 Poly Hammer",
+    "2026 Epic Games, Inc. (OpenRigLogic DNA and RigLogic libraries, MIT License)",
+    "2018 Functional Software, Inc. dba Sentry (sentry-sdk, MIT License)",
+]
 
 # =============================================================================
 # Extension Description
 # =============================================================================
 description = """
-Character DNA is a industry grade Blender addon that provides comprehensive support
+Character DNA is an industry grade Blender addon that provides comprehensive support
 for Epic Games' MetaHuman DNA file format.
 
 ## Key Features

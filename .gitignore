@@ -1,4 +1,5 @@
 .idea
+.DS_Store
 __pycache__
 venv
 .venv
@@ -10,7 +11,6 @@ venv
 releases
 tests/extra_test_files
 tests/test_files/unreal_projects
-src/addons/character_dna/resources/packages
 src/addons/character_dna/bindings/windows
 src/addons/character_dna/bindings/linux
 src/addons/character_dna/bindings/macos

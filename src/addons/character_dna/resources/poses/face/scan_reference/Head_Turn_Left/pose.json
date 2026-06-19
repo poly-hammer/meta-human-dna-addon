@@ -1,0 +1,61 @@
+{
+    "face_board": {},
+    "body": {
+        "neck_01": {
+            "location": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "rotation": [
+                19.5736,
+                4.19085,
+                0.708945
+            ],
+            "scale": [
+                1.0,
+                1.0,
+                1.0
+            ]
+        },
+        "neck_02": {
+            "location": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "rotation": [
+                19.6347,
+                3.88238,
+                0.687337
+            ],
+            "scale": [
+                1.0,
+                1.0,
+                1.0
+            ]
+        },
+        "head": {
+            "location": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "rotation": [
+                25.0,
+                0.0,
+                0.0
+            ],
+            "scale": [
+                1.0,
+                1.0,
+                1.0
+            ]
+        }
+    },
+    "description": "Turn the head left holding a neutral expression.",
+    "tags": [
+        "MH50",
+        "neck"
+    ]
+}

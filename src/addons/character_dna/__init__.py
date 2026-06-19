@@ -8,13 +8,7 @@ import bpy
 # This import is necessary to register custom icons
 import bpy.utils.previews  # pyright: ignore[reportMissingModuleSource, reportUnusedImport]
 
-from . import constants, key_maps, manual_map, operators, properties, rig_instance, utilities
-
-# Backup Manager
-from .editors.backup_manager import operators as backup_manager_operators, ui as backup_manager_ui
-
-# RBF Editor
-from .editors.rbf_editor import operators as rbf_editor_operators, ui as rbf_editor_ui
+from . import constants, manual_map, operators, properties, rig_instance, utilities
 from .ui import addon_preferences, importer, menus, view_3d
 
 
@@ -23,7 +17,7 @@ logger = logging.getLogger(constants.ToolInfo.NAME)
 bl_info = {
     "name": "Character DNA",
     "author": "Poly Hammer",
-    "version": (0, 7, 2),
+    "version": (0, 8, 1),
     "blender": (4, 5, 0),
     "location": "File > Import > MetaHuman DNA",
     "description": (
@@ -39,77 +33,26 @@ bl_info = {
 # in the scene.
 post_setup_scene_callbacks: list[Callable[[rig_instance.RigInstance], None]] = []
 
-# RBF Editor
-rbf_editor_operator_classes = [
-    rbf_editor_operators.AddRBFSolver,
-    rbf_editor_operators.RemoveRBFSolver,
-    rbf_editor_operators.EvaluateRBFSolvers,
-    rbf_editor_operators.EditRBFSolver,
-    rbf_editor_operators.RevertRBFSolver,
-    rbf_editor_operators.CommitRBFSolverChanges,
-    rbf_editor_operators.AddRBFPose,
-    rbf_editor_operators.DuplicateRBFPose,
-    rbf_editor_operators.RemoveRBFPose,
-    rbf_editor_operators.ApplyRBFPoseEdits,
-    rbf_editor_operators.AddRBFDriven,
-    rbf_editor_operators.RemoveRBFDriven,
-    rbf_editor_operators.MirrorRBFSolver,
-    rbf_editor_operators.MirrorRBFPose,
-]
-rbf_editor_ui_classes = [
-    rbf_editor_ui.CHARACTER_DNA_PT_rbf_editor,
-    rbf_editor_ui.CHARACTER_DNA_PT_rbf_editor_solver_settings_sub_panel,
-    rbf_editor_ui.CHARACTER_DNA_PT_rbf_editor_poses_sub_panel,
-    rbf_editor_ui.CHARACTER_DNA_PT_rbf_editor_drivers_sub_panel,
-    rbf_editor_ui.CHARACTER_DNA_PT_rbf_editor_driven_sub_panel,
-    rbf_editor_ui.CHARACTER_DNA_PT_rbf_editor_footer_sub_panel,
-    rbf_editor_ui.CHARACTER_DNA_UL_bone_selection,
-    rbf_editor_ui.CHARACTER_DNA_UL_rbf_solvers,
-    rbf_editor_ui.CHARACTER_DNA_UL_rbf_poses,
-    rbf_editor_ui.CHARACTER_DNA_UL_rbf_drivers,
-    rbf_editor_ui.CHARACTER_DNA_UL_rbf_driven,
-]
-
-# Backup Manager
-backup_manager_operator_classes = [
-    backup_manager_operators.CHARACTER_DNA_OT_restore_backup,
-    backup_manager_operators.CHARACTER_DNA_OT_delete_backup,
-    backup_manager_operators.CHARACTER_DNA_OT_open_backup_folder,
-    backup_manager_operators.CHARACTER_DNA_OT_sync_backups,
-    backup_manager_operators.CHARACTER_DNA_OT_create_manual_backup,
-]
-backup_manager_ui_classes = [
-    backup_manager_ui.CHARACTER_DNA_UL_dna_backups,
-    backup_manager_ui.CHARACTER_DNA_PT_dna_backups,
-]
-
-# Main Addon
+# Main Addon. Editor operators/panels are registered separately via the optional
+# ``editors`` submodule registry (see ``utilities.get_editors``), so this list
+# contains only the core classes. The upsell panel is always registered; its
+# ``poll`` hides it when the Pro editor UI is visible.
 classes = [
     operators.ImportCharacterDna,
     operators.DNA_FH_import_dna,
-    operators.ConvertSelectedToDna,
     operators.AppendOrLinkCharacter,
     operators.ImportFaceBoardAnimation,
     operators.ImportComponentAnimation,
     operators.BakeFaceBoardAnimation,
     operators.BakeComponentAnimation,
-    operators.ImportShapeKeys,
     operators.TestSentry,
     operators.MigrateLegacyData,
-    operators.OpenBuildToolDocumentation,
-    operators.OpenMetricsCollectionAgreement,
     operators.MetricsCollectionConsent,
-    operators.MirrorSelectedBones,
-    operators.ShrinkWrapVertexGroup,
-    # operators.AutoFitSelectedBones,
-    operators.RevertBoneTransformsToDna,
     operators.ForceEvaluate,
+    operators.MapRawToGuiControls,
     operators.SendToMetaHumanCreator,
     operators.ExportSelectedComponent,
     operators.GenerateMaterial,
-    operators.SculptThisShapeKey,
-    operators.EditThisShapeKey,
-    operators.ReImportThisShapeKey,
     operators.DuplicateRigInstance,
     operators.AddRigLogicTextureNode,
     operators.ReportError,
@@ -119,33 +62,28 @@ classes = [
     operators.UILIST_RIG_INSTANCE_OT_entry_remove,
     operators.UILIST_ADDON_PREFERENCES_OT_extra_dna_entry_add,
     operators.UILIST_ADDON_PREFERENCES_OT_extra_dna_entry_remove,
-    *backup_manager_operator_classes,
-    *rbf_editor_operator_classes,
+    operators.FaceBoardSearchPose,
     importer.CHARACTER_DNA_FILE_DATA_PT_panel,
     importer.CHARACTER_DNA_LODS_PT_panel,
     importer.CHARACTER_DNA_EXTRAS_PT_panel,
     importer.CHARACTER_DNA_FILE_INFO_PT_panel,
+    view_3d.CHARACTER_DNA_PT_face_pose_tags,
     view_3d.CHARACTER_DNA_PT_face_board,
+    view_3d.CHARACTER_DNA_UL_psd_correctives,
+    view_3d.CHARACTER_DNA_PT_psd_correctives,
+    view_3d.CHARACTER_DNA_PT_face_board_footer,
     view_3d.CHARACTER_DNA_PT_view_options,
     view_3d.CHARACTER_DNA_PT_rig_instance,
     view_3d.CHARACTER_DNA_PT_rig_instance_head_sub_panel,
     view_3d.CHARACTER_DNA_PT_rig_instance_body_sub_panel,
     view_3d.CHARACTER_DNA_PT_rig_instance_footer_sub_panel,
-    view_3d.CHARACTER_DNA_PT_utilities,
-    view_3d.CHARACTER_DNA_PT_mesh_utilities_sub_panel,
-    view_3d.CHARACTER_DNA_PT_armature_utilities_sub_panel,
-    view_3d.CHARACTER_DNA_PT_animation_utilities_sub_panel,
-    # view_3d.CHARACTER_DNA_PT_materials_utilities_sub_panel,
-    view_3d.CHARACTER_DNA_PT_utilities_sub_panel,
-    *rbf_editor_ui_classes,
-    view_3d.CHARACTER_DNA_PT_shape_keys,
-    view_3d.CHARACTER_DNA_UL_shape_keys,
-    *backup_manager_ui_classes,
+    view_3d.CHARACTER_DNA_PT_animation_panel,
     view_3d.CHARACTER_DNA_UL_output_items,
     view_3d.CHARACTER_DNA_UL_rig_instances,
     view_3d.CHARACTER_DNA_PT_output_panel,
     view_3d.CHARACTER_DNA_PT_output_buttons_sub_panel,
     view_3d.CHARACTER_DNA_PT_migrate_legacy_data,
+    view_3d.CHARACTER_DNA_PT_pro_upsell,
 ]
 
 app_handlers = {
@@ -177,16 +115,22 @@ def register():
         addon_preferences.register()
         properties.register()
 
-        # register the classes
+        # register the core classes
         for cls in classes:
             bpy.utils.register_class(cls)
+
+        # register the optional Pro editor classes (no-op in the free edition)
+        editors = utilities.get_editors()
+        if editors is not None:
+            editors.register_classes()
 
         # add menu items
         menus.add_dna_import_menu()
         menus.add_rig_logic_texture_node_menu()
 
-        # register key maps
-        key_maps.register()
+        # start the optional Pro editor runtime services (toast overlay, worker cleanup)
+        if editors is not None:
+            editors.register_runtime()
 
     except Exception as error:
         logger.error(error)
@@ -206,6 +150,13 @@ def unregister():
 
     utilities.teardown_scene()
 
+    editors = utilities.get_editors()
+
+    # Stop the optional Pro editor runtime services (ML matchers, NLS workers,
+    # Docker containers, toast overlay).
+    if editors is not None:
+        editors.unregister_runtime()
+
     if not os.environ.get("CHARACTER_DNA_DEV"):
         rig_instance.stop_listening()
 
@@ -223,10 +174,11 @@ def unregister():
         menus.remove_dna_import_menu()
         menus.remove_rig_logic_texture_node_menu()
 
-        # unregister key maps
-        key_maps.unregister()
+        # unregister the optional Pro editor classes (no-op in the free edition)
+        if editors is not None:
+            editors.unregister_classes()
 
-        # unregister the classes
+        # unregister the core classes
         for cls in reversed(classes):
             if hasattr(cls, "bl_rna"):
                 bpy.utils.unregister_class(cls)

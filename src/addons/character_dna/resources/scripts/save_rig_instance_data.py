@@ -70,11 +70,17 @@ def main():
 
 
         for addon_id in ADDON_IDS:
-            if addon_id in list(bpy.context.scene.keys()) and addon_id != args.addon_name:
-                raise ValueError(
-                    f"Legacy addon data detected! To fix this, please open, upgrade, and save the scene data "
-                    f"of the .blend file {args.blend_file}."
-                )
+            if addon_id != args.addon_name and addon_id in list(bpy.context.scene.keys()):
+                # Only treat a foreign addon key as legacy data that needs migration if it
+                # actually contains rig instance data. Empty leftover property groups (e.g.
+                # from a previously-registered addon baked into the startup file) are harmless
+                # and must be ignored, otherwise extraction fails for unrelated reasons.
+                legacy_scene_data = bpy.context.scene[addon_id]
+                if any(legacy_scene_data.get(key) for key in DATA_KEYS):
+                    raise ValueError(
+                        f"Legacy addon data detected! To fix this, please open, upgrade, and save the scene data "
+                        f"of the .blend file {args.blend_file}."
+                    )
 
             scene_properties = getattr(bpy.context.scene, addon_id, None)
             if not scene_properties:

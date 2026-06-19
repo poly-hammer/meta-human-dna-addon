@@ -1,6 +1,8 @@
 import math
 import tempfile
 
+from enum import IntEnum
+from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
@@ -15,8 +17,26 @@ IS_BLENDER_5 = bpy.app.version >= (5, 0, 0)
 class ToolInfo:
     NAME: str = "character_dna"
     EXTENSION_ID: str | None = None
-    BUILD_TOOL_DOCUMENTATION: str = "https://docs.polyhammer.com/hammer-build-tool/setup/"
+    HOW_TO_INSTALL: str = "https://dashboard.portal.polyhammer.com"
+    GET_PRO: str = "https://polyhammer.com/character-dna-addon"
     METRICS_COLLECTION_AGREEMENT: str = "https://www.polyhammer.com/dpa"
+
+
+class PanelOrder(IntEnum):
+    """Top-to-bottom ordering of the addon's N-panel UI panels."""
+
+    FACE_BOARD = 10
+    VIEW_OPTIONS = 20
+    RIG_INSTANCES = 30
+    ANIMATION = 40
+    CONVERTER = 50
+    RAW_CONTROL_EDITOR = 60
+    SHAPE_KEY_EDITOR = 70
+    RBF_EDITOR = 80
+    BACKUP_MANAGER = 90
+    OUTPUT = 100
+    MIGRATE_LEGACY_DATA = 110
+    PRO_UPSELL = 120
 
 
 Axis = Literal["X", "Y", "Z"]
@@ -34,10 +54,12 @@ SENTRY_DSN = "https://38575ef4609265865b46dcc274249962@sentry.poly-hammer.com/13
 INVALID_NAME_CHARACTERS_REGEX = r"[^-+\w]+"
 LOD_REGEX = r"(?i)(_LOD\d).*"
 
-HEAD_TOPOLOGY_MESH = "head_topology"
-HEAD_TOPOLOGY_MESH_CAGE = "head_topology_cage"
-HEAD_SHRINK_WRAP_MODIFIER_PREFIX = "shrink_wrap"
 TOPO_GROUP_PREFIX = "TOPO_GROUP_"
+
+# Prefix of every MetaHuman face expression raw control in the DNA
+# (e.g. ``CTRL_expressions.jawOpen``). Lives at the top level so both the
+# Raw Control Editor and the shared dependency-chain resolver can use it.
+RAW_CONTROL_PREFIX = "CTRL_expressions."
 
 # this is the difference in scale between unreal and blender
 SCALE_FACTOR = 100.0
@@ -57,7 +79,6 @@ VERTEX_COLOR_ATTRIBUTE_NAME = "Color"
 MESH_VERTEX_COLORS_FILE_NAME = "head_vertex_colors.json"
 FLOATING_POINT_PRECISION = 0.0001
 DEFAULT_UV_TOLERANCE = 0.001
-DEFAULT_HEAD_MESH_VERTEX_POSITION_COUNT = 24408
 RBF_SOLVER_POSTFIX = "_UERBFSolver"
 
 HEAD_MESH_SHADER_MAPPING = {
@@ -75,6 +96,30 @@ HEAD_MESH_SHADER_MAPPING = {
 BODY_MESH_SHADER_MAPPING = {"body_lod": "body_shader"}
 
 TEMP_FOLDER = Path(tempfile.gettempdir()) / f"{ToolInfo.NAME}_addon"
+
+
+@lru_cache(maxsize=1)
+def get_user_data_folder() -> Path:
+    """Return this extension's persistent, per-user data folder.
+
+    Resolves to ``bpy.utils.extension_path_user`` — a user-writable
+    location that requires no admin rights and, unlike the system temp
+    folder, is never swept by the OS (Windows Storage Sense, Linux
+    ``/tmp`` clearing on reboot, macOS ``/var/folders`` pruning). Use it
+    for expensive-to-regenerate caches (the extracted NLS module + ML
+    model) that must survive across sessions.
+
+    Falls back to ``TEMP_FOLDER`` when the add-on is loaded as a legacy
+    add-on rather than an installed extension (e.g. the test harness),
+    where Blender cannot resolve an extension path.
+    """
+    try:
+        return Path(bpy.utils.extension_path_user(__package__, create=True))  # pyright: ignore[reportArgumentType]
+    except (ValueError, AttributeError):
+        TEMP_FOLDER.mkdir(parents=True, exist_ok=True)
+        return TEMP_FOLDER
+
+
 RESOURCES_FOLDER = Path(__file__).parent / "resources"
 BINDINGS_FOLDER = Path(__file__).parent / "bindings"
 POSES_FOLDER = RESOURCES_FOLDER / "poses"
@@ -82,14 +127,10 @@ BLENDS_FOLDER = RESOURCES_FOLDER / "blends"
 SCRIPTS_FOLDER = RESOURCES_FOLDER / "scripts"
 IMAGES_FOLDER = RESOURCES_FOLDER / "images"
 MAPPINGS_FOLDER = RESOURCES_FOLDER / "mappings"
-BASE_DNA_FOLDER = RESOURCES_FOLDER / "dna"
 UI_FOLDER = RESOURCES_FOLDER / "ui"
+RIG_DEFINITIONS_FOLDER = RESOURCES_FOLDER / "rig_definitions"
 
 DEFAULT_BACKUPS_FOLDER = TEMP_FOLDER / "backups"
-
-HEAD_TOPOLOGY_VERTEX_GROUPS_FILE_PATH = MAPPINGS_FOLDER / "head_topology_vertex_groups.json"
-
-BODY_TOPOLOGY_VERTEX_GROUPS_FILE_PATH = MAPPINGS_FOLDER / "body_topology_vertex_groups.json"
 
 HEAD_TO_BODY_EDGE_LOOP_FILE_PATH = MAPPINGS_FOLDER / "head_to_body_edge_loop.json"
 
@@ -202,8 +243,6 @@ FACE_BOARD_SWITCHES = ["CTRL_rigLogicSwitch", "CTRL_lookAtSwitch", "CTRL_faceGUI
 
 EXCLUDED_FACE_BOARD_CONTROLS = ["CTRL_rigLogic", "CTRL_expressions", "CTRL_faceGUI", "CTRL_C_eyesAim"]
 
-BODY_HIGH_LEVEL_TOPOLOGY_GROUPS = ["torso", "arm_L", "arm_R", "hand_R", "hand_L", "leg_L", "leg_R", "foot_L", "foot_R"]
-
 HEAD_TO_BODY_LOD_MAPPING = {0: 0, 1: 0, 2: 1, 3: 1, 4: 2, 5: 2, 6: 3, 7: 3}
 
 # Set to Ada's height, but locations will be scaled proportionally to match spine_04 location from DNA file.
@@ -254,5 +293,23 @@ class BodyBoneCollection:
     SWINGS = "Swings"
 
 
+# Bone collection that holds the volume bones (the non-skinned leaf joints,
+# such as the volumetric face helpers), so they can be hidden out of the way
+# and kept out of the per-joint-group collections.
+VOLUME_BONE_COLLECTION = "Volume"
+
+
+# Prefix used for the vertex groups that store the rig-definition mesh regions.
+REGION_VERTEX_GROUP_PREFIX = "REGION_"
+
+
 ADDON_IDS = ["meta_human_dna", "meta_human_dna_pro", "character_dna", "character_dna_pro"]
 LEGACY_DATA_KEYS = ["rig_logic_instance_list"]
+
+PRO_EDITORS = (
+    ("Raw Control Editor", "DECORATE_DRIVER"),
+    ("RBF Editor", "DRIVER_ROTATIONAL_DIFFERENCE"),
+    ("Shape Key Editor", "SHAPEKEY_DATA"),
+    ("DNA Converter", "RNA"),
+    ("Backup Manager", "FILE_BACKUP"),
+)

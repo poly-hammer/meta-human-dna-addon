@@ -18,11 +18,11 @@ from utilities.bones import get_bone_differences, show_differences
 def set_body_pose(solver_name: str, pose_name: str) -> tuple[Any, int, int] | tuple[None, int, int]:
     instance = get_active_rig_instance()
     if instance:
-        instance.editing_rbf_solver = True
+        instance.rbf_editor.is_editing = True
         instance.auto_evaluate_body = False
-        for solver_index, solver in enumerate(instance.rbf_solver_list):  # type: ignore
+        for solver_index, solver in enumerate(instance.rbf_editor.rbf_solver_list):  # type: ignore
             if solver.name == solver_name:
-                instance.rbf_solver_list_active_index = solver_index  # type: ignore
+                instance.rbf_editor.rbf_solver_list_active_index = solver_index  # type: ignore
                 for pose_index, pose in enumerate(solver.poses):  # type: ignore
                     if pose.name == pose_name:
                         solver.poses_active_index = pose_index  # type: ignore
@@ -201,5 +201,5 @@ def assert_body_pose(
         f"exceeds the tolerance {tolerance}:\n{pformat(differences)}"
     )
 
-    instance.editing_rbf_solver = False
+    instance.rbf_editor.is_editing = False
     instance.auto_evaluate_body = True

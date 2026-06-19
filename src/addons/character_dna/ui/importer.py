@@ -38,11 +38,14 @@ class CHARACTER_DNA_FILE_DATA_PT_panel(bpy.types.Panel):
         # row.prop(operator, "import_normals")  # noqa: ERA001
         row = layout.row()
         row.prop(operator, "import_bones")
-        # row = layout.row()  # noqa: ERA001
-        # TODO: See if we what to import shape keys during initial import
-        # row.prop(operator, "import_shape_keys")  # noqa: ERA001
         row = layout.row()
         row.prop(operator, "import_vertex_groups")
+        # TODO: Maybe support importing regions as vertex groups on the head
+        # if stem != "body":
+        #     row = layout.row() # noqa: ERA001
+        #     row.prop(operator, "import_region_vertex_groups") # noqa: ERA001
+        row = layout.row()
+        row.prop(operator, "import_bone_collections")
         if stem != "body":
             row = layout.row()
             row.prop(operator, "import_vertex_colors")
@@ -169,18 +172,20 @@ class CHARACTER_DNA_FILE_INFO_PT_panel(bpy.types.Panel):
                 if not reader:
                     return
 
-                dna_info["_dna_reader"] = reader
+                dna_info["_dna_reader"] = reader  # pyright: ignore[reportArgumentType]
 
             dna_reader = dna_info["_dna_reader"]
+            from ..bindings import enums  # type: ignore[reportAttributeAccessIssue]
+
             row = self.layout.row()
             row.label(text="Name: ")
             row.label(text=str(dna_reader.getName()))
             row = self.layout.row()
             row.label(text="Archetype: ")
-            row.label(text=str(dna_reader.getArchetype().name))
+            row.label(text=str(enums.Archetype(dna_reader.getArchetype()).name))
             row = self.layout.row()
             row.label(text="Gender: ")
-            row.label(text=str(dna_reader.getGender().name))
+            row.label(text=str(enums.Gender(dna_reader.getGender()).name))
             row = self.layout.row()
             row.label(text="Age: ")
             row.label(text=str(dna_reader.getAge()))
@@ -198,19 +203,19 @@ class CHARACTER_DNA_FILE_INFO_PT_panel(bpy.types.Panel):
             row.label(text=str(dna_reader.getDBName()))
             row = self.layout.row()
             row.label(text="Translation Units: ")
-            row.label(text=str(dna_reader.getTranslationUnit().name))
+            row.label(text=str(enums.TranslationUnit(dna_reader.getTranslationUnit()).name))
             row = self.layout.row()
             row.label(text="Rotation Units: ")
-            row.label(text=str(dna_reader.getRotationUnit().name))
+            row.label(text=str(enums.RotationUnit(dna_reader.getRotationUnit()).name))
             row = self.layout.row()
             row.label(text="X Axis: ")
-            row.label(text=str(dna_reader.getCoordinateSystem().xAxis.name))
+            row.label(text=str(enums.Direction(dna_reader.getCoordinateSystem().x).name))
             row = self.layout.row()
             row.label(text="Y Axis: ")
-            row.label(text=str(dna_reader.getCoordinateSystem().yAxis.name))
+            row.label(text=str(enums.Direction(dna_reader.getCoordinateSystem().y).name))
             row = self.layout.row()
             row.label(text="Z Axis: ")
-            row.label(text=str(dna_reader.getCoordinateSystem().zAxis.name))
+            row.label(text=str(enums.Direction(dna_reader.getCoordinateSystem().z).name))
 
 
 class ImportAsset(ImportHelper):

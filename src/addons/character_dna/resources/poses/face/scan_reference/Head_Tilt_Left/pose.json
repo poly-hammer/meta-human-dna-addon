@@ -1,0 +1,61 @@
+{
+    "face_board": {},
+    "body": {
+        "neck_01": {
+            "location": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "rotation": [
+                -3.27488,
+                14.6462,
+                -0.420975
+            ],
+            "scale": [
+                1.0,
+                1.0,
+                1.0
+            ]
+        },
+        "neck_02": {
+            "location": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "rotation": [
+                -3.03841,
+                14.696,
+                -0.391906
+            ],
+            "scale": [
+                1.0,
+                1.0,
+                1.0
+            ]
+        },
+        "head": {
+            "location": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "rotation": [
+                0.0,
+                10.0,
+                0.0
+            ],
+            "scale": [
+                1.0,
+                1.0,
+                1.0
+            ]
+        }
+    },
+    "description": "Tilt the head to the left holding a neutral expression.",
+    "tags": [
+        "MH50",
+        "neck"
+    ]
+}

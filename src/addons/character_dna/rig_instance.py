@@ -7,6 +7,7 @@ from pprint import pformat
 
 # third party imports
 import bpy
+import numpy as np
 
 from mathutils import Euler, Matrix, Quaternion, Vector
 
@@ -93,7 +94,7 @@ def _compute_body_input_signature(
     been evaluated, so the driver bone names aren't cached), in which case the caller should
     evaluate rather than risk skipping a real update.
     """
-    driver_bone_names = instance.data.get(f"{instance.name}_body_driver_bone_names")
+    driver_bone_names = instance.data.get(instance.cache_key("body", "driver_bone_names"))
     body_rig = instance.body_rig
     if not driver_bone_names or not body_rig:
         return None
@@ -253,9 +254,9 @@ def rig_instance_listener(_: "Scene", dependency_graph: bpy.types.Depsgraph, is_
                         # (never evaluated), so fall through and evaluate.
                         input_signature = _compute_body_input_signature(instance, dependency_graph)
                         if input_signature is not None:
-                            if input_signature == instance.data.get(f"{instance.name}_body_input_signature"):
+                            if input_signature == instance.data.get(instance.cache_key("body", "input_signature")):
                                 continue
-                            instance.data[f"{instance.name}_body_input_signature"] = input_signature
+                            instance.data[instance.cache_key("body", "input_signature")] = input_signature
 
                         # heads have rbf driven bones that move based on neck quaternions, so if head rig
                         # is present, evaluate all
@@ -308,38 +309,6 @@ def start_listening():
     callbacks.update_head_output_items(None, context)
     bpy.app.handlers.depsgraph_update_post.append(rig_instance_listener)  # type: ignore[call-arg]
     bpy.app.handlers.frame_change_post.append(frame_change_handler)  # type: ignore[call-arg]
-
-
-class OutputData(bpy.types.PropertyGroup):
-    include: bpy.props.BoolProperty(default=True, description="Whether to include this data in the output")  # pyright: ignore[reportInvalidTypeForm]
-    name: bpy.props.StringProperty(default="", description="The name of the shape key")  # pyright: ignore[reportInvalidTypeForm]
-    scene_object: bpy.props.PointerProperty(
-        type=bpy.types.Object,
-        description=(
-            "A object that is associated with the dna data. This automatically "
-            "gets set based on what is linked in the Rig Instance data"
-        ),
-    )  # pyright: ignore[reportInvalidTypeForm]
-    image_object: bpy.props.PointerProperty(
-        type=bpy.types.Image,
-        description=(
-            "A object that is associated with the dna data. This automatically "
-            "gets set based on what is linked in the Rig Instance data"
-        ),
-    )  # pyright: ignore[reportInvalidTypeForm]
-    relative_file_path: bpy.props.StringProperty(
-        default="", description="The relative file path from the output folder"
-    )  # pyright: ignore[reportInvalidTypeForm]
-    editable_name: bpy.props.BoolProperty(default=True, description="Whether to include this data in the output")  # pyright: ignore[reportInvalidTypeForm]
-
-
-class ShapeKeyData(bpy.types.PropertyGroup):
-    name: bpy.props.StringProperty(default="", description="The name of the shape key")  # pyright: ignore[reportInvalidTypeForm]
-    value: bpy.props.FloatProperty(
-        default=0.0,
-        description="The value of the shape key",
-        get=callbacks.get_shape_key_value,  # this makes the value read-only
-    )  # pyright: ignore[reportInvalidTypeForm]
 
 
 class RigInstance(bpy.types.PropertyGroup):
@@ -458,145 +427,7 @@ class RigInstance(bpy.types.PropertyGroup):
         update=callbacks.update_body_output_items,  # type: ignore[call-arg]
     )  # pyright: ignore[reportInvalidTypeForm]
 
-    # ----- View Options Properties -----
-    active_lod: bpy.props.EnumProperty(
-        name="Active LOD",
-        items=callbacks.get_head_mesh_lod_items,  # type: ignore[call-arg]
-        description="Choose what Level of Detail should be displayed from the face",
-        options={"ANIMATABLE"},
-        set=callbacks.set_active_lod,
-        get=callbacks.get_active_lod,
-    )  # pyright: ignore[reportInvalidTypeForm]
-    active_material_preview: bpy.props.EnumProperty(
-        name="Material Color",
-        items=[
-            ("combined", "Combined", "Displays all combined textures maps"),
-            ("masks", "Masks", "Displays only the color of the mask texture maps"),
-            ("normals", "Normals", "Displays only the color of the normal texture maps"),
-            ("topology", "Topology", "Displays only the mesh topology colors"),
-        ],
-        description="Choose what color should be shown by the material",
-        default="combined",
-        set=callbacks.set_active_material_preview,
-        get=callbacks.get_active_material_preview,
-    )  # pyright: ignore[reportInvalidTypeForm]
-    show_face_board: bpy.props.BoolProperty(
-        name="Show Face Board",
-        default=False,
-        description="Whether to show or hide the face board that belongs to this rig instance in the 3D view",
-        set=callbacks.set_show_face_board,
-        get=callbacks.get_show_face_board,
-    )  # pyright: ignore[reportInvalidTypeForm]
-    show_control_rig: bpy.props.BoolProperty(
-        name="Show Control Rig",
-        default=False,
-        description="Whether to show or hide the control rig that belongs to this rig instance in the 3D view",
-        set=callbacks.set_show_control_rig,
-        get=callbacks.get_show_control_rig,
-    )  # pyright: ignore[reportInvalidTypeForm]
-    show_head_bones: bpy.props.BoolProperty(
-        name="Show Head Bones",
-        default=False,
-        description="Whether to show or hide the head bones that belong to this rig instance in the 3D view",
-        set=callbacks.set_show_head_bones,
-        get=callbacks.get_show_head_bones,
-    )  # pyright: ignore[reportInvalidTypeForm]
-    show_body_bones: bpy.props.BoolProperty(
-        name="Show Body Bones",
-        default=False,
-        description="Whether to show or hide the body bones that belong to this MetaHuman instance in the 3D view",
-        set=callbacks.set_show_body_bones,
-        get=callbacks.get_show_body_bones,
-    )  # pyright: ignore[reportInvalidTypeForm]
-
-    # --------------------- Mesh Utilities Properties ------------------
-    mesh_topology_selection_mode: bpy.props.EnumProperty(
-        name="Selection Mode",
-        default="isolate",
-        items=[
-            ("add", "Add", "Adds the chosen topology group to the current selection"),
-            ("isolate", "Isolate", "Isolates the chosen topology group by de-selecting everything else"),
-        ],
-        description="Choose what selection mode to use when selecting the head topology groups",
-    )  # pyright: ignore[reportInvalidTypeForm]
-    head_mesh_topology_groups: bpy.props.EnumProperty(
-        name="Topology Groups",
-        items=callbacks.get_head_mesh_topology_groups,  # type: ignore[call-arg]
-        description="Select the bone group to display in the 3D view",
-        options={"ANIMATABLE"},
-        update=callbacks.update_head_topology_selection,  # type: ignore[call-arg]
-    )  # pyright: ignore[reportInvalidTypeForm]
-    head_shrink_wrap_target: bpy.props.PointerProperty(
-        type=bpy.types.Object,
-        name="Material",
-        description=(
-            "The head mesh that the shrink wrap modifier will target. This is the mesh that you will wrap "
-            "the head topology to"
-        ),
-        poll=callbacks.poll_shrink_wrap_target,
-    )  # pyright: ignore[reportInvalidTypeForm]
-    body_mesh_topology_groups: bpy.props.EnumProperty(
-        name="Topology Groups",
-        items=callbacks.get_body_mesh_topology_groups,  # type: ignore[call-arg]
-        description="Select the bone group to display in the 3D view",
-        options={"ANIMATABLE"},
-        update=callbacks.update_body_topology_selection,  # type: ignore[call-arg]
-    )  # pyright: ignore[reportInvalidTypeForm]
-    body_shrink_wrap_target: bpy.props.PointerProperty(
-        type=bpy.types.Object,
-        name="Material",
-        description=(
-            "The body mesh that the shrink wrap modifier will target. This is the mesh that you will wrap "
-            "the body topology to"
-        ),
-        poll=callbacks.poll_shrink_wrap_target,
-    )  # pyright: ignore[reportInvalidTypeForm]
-    body_show_only_high_level_topology_groups: bpy.props.BoolProperty(
-        name="Show Only High Level Topology Groups",
-        description=(
-            "Use this to only show the high level topology groups in the topology group selection dropdown. "
-            "This is useful for when you have a lot of topology groups and want to focus on the high level ones"
-        ),
-        default=False,
-    )  # pyright: ignore[reportInvalidTypeForm]
-    body_reset_rbf_pose_on_change: bpy.props.BoolProperty(
-        name="Reset RBF Pose on Change",
-        description=(
-            "If enabled, resets the rig to its rest pose before when changing the active RBF pose from one "
-            "pose to another. This isolates the pose changes to only the selected pose"
-        ),
-        default=True,
-    )  # pyright: ignore[reportInvalidTypeForm]
-
-    # --------------------- Armature Utilities Properties ------------------
-    rig_bone_group_selection_mode: bpy.props.EnumProperty(
-        name="Selection Mode",
-        default="isolate",
-        items=[
-            ("add", "Add", "Adds the chosen bone group to the current selection"),
-            ("isolate", "Isolate", "Isolates the chosen bone group by de-selecting everything else"),
-        ],
-        description="Choose what selection mode to use when selecting the head topology groups",
-    )  # pyright: ignore[reportInvalidTypeForm]
-    head_rig_bone_groups: bpy.props.EnumProperty(
-        name="Bone Groups",
-        items=callbacks.get_head_rig_bone_groups,  # type: ignore[call-arg]
-        description="Select the bone group to display in the 3D view",
-        options={"ANIMATABLE"},
-        update=callbacks.update_head_rig_bone_group_selection,  # type: ignore[call-arg]
-    )  # pyright: ignore[reportInvalidTypeForm]
-    body_rig_bone_groups: bpy.props.EnumProperty(
-        name="Bone Groups",
-        items=callbacks.get_body_rig_bone_groups,  # type: ignore[call-arg]
-        description="Select the bone group to display in the 3D view",
-        options={"ANIMATABLE"},
-        update=callbacks.update_body_rig_bone_group_selection,  # type: ignore[call-arg]
-    )  # pyright: ignore[reportInvalidTypeForm]
-    list_surface_bone_groups: bpy.props.BoolProperty(
-        name="List Surface Bones",
-        default=False,
-        description="Whether to also show the surface bone groups in the bone group selection dropdown",
-    )  # pyright: ignore[reportInvalidTypeForm]
+    # ----- Internal Properties -----
     head_to_body_constraint_influence: bpy.props.FloatProperty(
         name="Constrain Head to Body",
         default=0.0,
@@ -607,133 +438,18 @@ class RigInstance(bpy.types.PropertyGroup):
         subtype="FACTOR",
     )  # pyright: ignore[reportInvalidTypeForm]
 
-    # ----- Shape Keys Properties -----
-    active_shape_key_mesh_name: bpy.props.EnumProperty(
-        name="Active Shape Key Mesh",
-        description="This determines which mesh object's shape keys value are being displayed in the shape key list",
-        options={"ANIMATABLE"},
-        items=callbacks.get_active_shape_key_mesh_names,  # type: ignore[call-arg]
-    )  # pyright: ignore[reportInvalidTypeForm]
-    solo_shape_key: bpy.props.BoolProperty(
-        name="Solo Shape Key",
-        description=(
-            "If this is enabled, every time you sculpt/edit a shape key, it will set all other shape keys to "
-            "0 and the selected shape key to 1"
-        ),
-        default=False,
-    )  # pyright: ignore[reportInvalidTypeForm]
-    generate_neutral_shapes: bpy.props.BoolProperty(
-        name="Generate Neutral Shapes",
-        description=(
-            "Use this to generate neutral shape keys that match the names in the DNA file. This is useful "
-            "when you can't import the deltas because vert ids are not the same, or you just want to use neutral "
-            "shapes as a starting point"
-        ),
-        default=False,
-    )  # pyright: ignore[reportInvalidTypeForm]
-
-    # ----- Output Properties -----
-    output_run_validations: bpy.props.BoolProperty(
-        name="Validate", description="Whether to run validations before exporting", default=True
-    )  # pyright: ignore[reportInvalidTypeForm]
-    output_folder_path: bpy.props.StringProperty(
-        name="Output Folder",
-        description="The root folder where the output files will be saved",
-        subtype="DIR_PATH",
-        options={"PATH_SUPPORTS_BLEND_RELATIVE"},
-    )  # pyright: ignore[reportInvalidTypeForm]
-    output_method: bpy.props.EnumProperty(
-        name="DNA Output Method",
-        description="The output method to use when creating the dna file",
-        default="calibrate",
-        items=[
-            (
-                "calibrate",
-                "Calibrate",
-                (
-                    "Uses the original dna file and calibrates the included bones and mesh changes into a new dna"
-                    " file. Use this method if your vert indices and bone names are the same as the original DNA."
-                    " This is the recommended method"
-                ),
-                "NONE",
-                0,
-            ),
-            (
-                "overwrite",
-                "Overwrite",
-                (
-                    "(Experimental, and not fully functional yet) Uses the original dna file and overwrites the"
-                    " dna data based on the current mesh and armature data in the scene. Use this method if your "
-                    "vert indices and bone names are different from the original DNA. Only use this method when "
-                    "calibration method is not possible"
-                ),
-                "ERROR",
-                1,
-            ),
-        ],
-    )  # pyright: ignore[reportInvalidTypeForm]
-    output_component: bpy.props.EnumProperty(
-        name="DNA Output Component",
-        description="Which component to output use when creating the dna file",
-        default="head",
-        items=[("head", "Head", "The head component of the DNA"), ("body", "Body", "The body component of the DNA")],
-        update=callbacks.update_output_component,  # type: ignore[call-arg]
-    )  # pyright: ignore[reportInvalidTypeForm]
-    output_format: bpy.props.EnumProperty(
-        name="File Format",
-        description="The file format to use when output the dna file. Either binary or json",
-        default="binary",
-        items=[
-            (
-                "json",
-                "JSON",
-                (
-                    "Writes the dna file in a human readable json format. Use this method if you want to manually "
-                    "edit the dna file"
-                ),
-            ),
-            (
-                "binary",
-                "Binary",
-                (
-                    "Writes the dna file in a binary format. Use this method if you want to use the dna file with the"
-                    " rig logic system"
-                ),
-            ),
-        ],
-    )  # pyright: ignore[reportInvalidTypeForm]
-    output_align_head_and_body: bpy.props.BoolProperty(
-        name="Align Head and Body",
-        description=(
-            "Whether to align the overlapping head and body bones, as well as, aligning the vertices "
-            "in the edge loop around the neck during the calibration process"
-        ),
-        default=True,
-    )  # pyright: ignore[reportInvalidTypeForm]
-
-    # ----- Internal Properties -----
     old_name: bpy.props.StringProperty(default="")  # pyright: ignore[reportInvalidTypeForm]
-    shape_key_list: bpy.props.CollectionProperty(type=ShapeKeyData)  # pyright: ignore[reportInvalidTypeForm]
-    shape_key_list_active_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
-
-    output_head_item_list: bpy.props.CollectionProperty(type=OutputData)  # pyright: ignore[reportInvalidTypeForm]
-    output_head_item_active_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
-    output_body_item_list: bpy.props.CollectionProperty(type=OutputData)  # pyright: ignore[reportInvalidTypeForm]
-    output_body_item_active_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
-    calibrate_bones: bpy.props.BoolProperty(default=True)  # pyright: ignore[reportInvalidTypeForm]
-    calibrate_meshes: bpy.props.BoolProperty(default=True)  # pyright: ignore[reportInvalidTypeForm]
-    calibrate_shape_keys: bpy.props.BoolProperty(default=True)  # pyright: ignore[reportInvalidTypeForm]
-
-    # rbf editor
-    editing_rbf_solver: bpy.props.BoolProperty(default=False)  # pyright: ignore[reportInvalidTypeForm]
 
     # this holds the rig logic references
     data = {}
 
     warning_messages = []
 
+    def cache_key(self, component: str, descriptor: str) -> str:
+        return f"{self.name}_{component}_{descriptor}"
+
     def get_shape_key(self, mesh_index: int) -> bpy.types.Key | None:
-        shape_key = self.data.get(f"{self.name}_shape_key", {}).get(mesh_index)
+        shape_key = self.data.get(self.cache_key("head", "shape_key"), {}).get(mesh_index)
         try:
             if shape_key:
                 return shape_key
@@ -750,13 +466,13 @@ class RigInstance(bpy.types.PropertyGroup):
 
         mesh_object = self.head_mesh_index_lookup.get(mesh_index)
         if mesh_object:
-            self.data[f"{self.name}_shape_key"] = self.data.get(f"{self.name}_shape_key", {})
+            self.data[self.cache_key("head", "shape_key")] = self.data.get(self.cache_key("head", "shape_key"), {})
             for shape_key in bpy.data.shape_keys:
                 if shape_key.user == mesh_object.data:
                     key_block = shape_key.key_blocks.get(name)
                     if key_block:
                         # store the shape key in the shape key property so we don't have to search for it again
-                        self.data[f"{self.name}_shape_key"][mesh_index] = shape_key
+                        self.data[self.cache_key("head", "shape_key")][mesh_index] = shape_key
                         return key_block
         return None
 
@@ -765,13 +481,13 @@ class RigInstance(bpy.types.PropertyGroup):
             dependency_graph = bpy.context.evaluated_depsgraph_get()
 
         if self.head_rig:
-            self.data[f"{self.name}_head_rig_evaluated"] = self.head_rig.evaluated_get(dependency_graph)
+            self.data[self.cache_key("head", "rig_evaluated")] = self.head_rig.evaluated_get(dependency_graph)
         if self.body_rig:
-            self.data[f"{self.name}_body_rig_evaluated"] = self.body_rig.evaluated_get(dependency_graph)
+            self.data[self.cache_key("body", "rig_evaluated")] = self.body_rig.evaluated_get(dependency_graph)
 
     @property
     def head_rig_evaluated(self) -> bpy.types.Object | None:
-        result = self.data.get(f"{self.name}_head_rig_evaluated")
+        result = self.data.get(self.cache_key("head", "rig_evaluated"))
         if result is not None:
             return result
         # Lazy fallback: only call evaluated_depsgraph_get() when the cached value is missing.
@@ -791,7 +507,7 @@ class RigInstance(bpy.types.PropertyGroup):
 
     @property
     def body_rig_evaluated(self) -> bpy.types.Object | None:
-        result = self.data.get(f"{self.name}_body_rig_evaluated")
+        result = self.data.get(self.cache_key("body", "rig_evaluated"))
         if result is not None:
             return result
         # Lazy fallback: only call evaluated_depsgraph_get() when the cached value is missing.
@@ -811,18 +527,18 @@ class RigInstance(bpy.types.PropertyGroup):
 
     @property
     def is_pro(self) -> bool:
-        return True
+        return utilities.pro_features_visible()
 
     @property
     def head_valid(self) -> bool:
-        logged_warning = self.data.get(f"{self.name}_logged_head_validation_warning", False)
+        logged_warning = self.data.get(self.cache_key("head", "logged_validation_warning"), False)
 
         if not self.head_dna_file_path:
             if not logged_warning:
                 logger.warning(
                     f"The Head DNA file path is not set. The Rig Instance {self.name} will not be initialized."
                 )
-                self.data[f"{self.name}_logged_head_validation_warning"] = True
+                self.data[self.cache_key("head", "logged_validation_warning")] = True
             return False
         dna_file_path = Path(bpy.path.abspath(self.head_dna_file_path))
         if not dna_file_path.is_file():
@@ -831,7 +547,7 @@ class RigInstance(bpy.types.PropertyGroup):
                     f'The Head DNA file path "{dna_file_path}" is not a file. The Rig Instance {self.name} '
                     "will not be initialized."
                 )
-                self.data[f"{self.name}_logged_head_validation_warning"] = True
+                self.data[self.cache_key("head", "logged_validation_warning")] = True
             return False
 
         if not dna_file_path.exists():
@@ -840,24 +556,24 @@ class RigInstance(bpy.types.PropertyGroup):
                     f'The Head DNA file path "{dna_file_path}" does not exist. The Rig Instance {self.name} '
                     "will not be initialized."
                 )
-                self.data[f"{self.name}_logged_head_validation_warning"] = True
+                self.data[self.cache_key("head", "logged_validation_warning")] = True
             return False
         if not self.face_board:
             if not logged_warning:
                 logger.warning(f"The Face board is not set. The Rig Instance {self.name} will not be initialized.")
-                self.data[f"{self.name}_logged_head_validation_warning"] = True
+                self.data[self.cache_key("head", "logged_validation_warning")] = True
             return False
         return True
 
     @property
     def body_valid(self) -> bool:
-        logged_warning = self.data.get(f"{self.name}_logged_body_validation_warning", False)
+        logged_warning = self.data.get(self.cache_key("body", "logged_validation_warning"), False)
         if not self.body_dna_file_path:
             if not logged_warning:
                 logger.warning(
                     f"The Body DNA file path is not set. The Rig Instance {self.name} will not be initialized."
                 )
-                self.data[f"{self.name}_logged_body_validation_warning"] = True
+                self.data[self.cache_key("body", "logged_validation_warning")] = True
             return False
 
         dna_file_path = Path(bpy.path.abspath(self.body_dna_file_path))
@@ -867,7 +583,7 @@ class RigInstance(bpy.types.PropertyGroup):
                     f'The Body DNA file path "{dna_file_path}" is not a file. The Rig Instance {self.name}'
                     " will not be initialized."
                 )
-                self.data[f"{self.name}_logged_body_validation_warning"] = True
+                self.data[self.cache_key("body", "logged_validation_warning")] = True
             return False
 
         if not dna_file_path.exists():
@@ -876,7 +592,7 @@ class RigInstance(bpy.types.PropertyGroup):
                     f'The Body DNA file path "{dna_file_path}" does not exist. The Rig Instance {self.name} '
                     "will not be initialized."
                 )
-                self.data[f"{self.name}_logged_body_validation_warning"] = True
+                self.data[self.cache_key("body", "logged_validation_warning")] = True
             return False
         return True
 
@@ -890,11 +606,11 @@ class RigInstance(bpy.types.PropertyGroup):
 
     @property
     def head_initialized(self) -> bool:
-        return bool(self.data.get(f"{self.name}_head_initialized"))
+        return bool(self.data.get(self.cache_key("head", "initialized")))
 
     @property
     def body_initialized(self) -> bool:
-        return bool(self.data.get(f"{self.name}_body_initialized"))
+        return bool(self.data.get(self.cache_key("body", "initialized")))
 
     @property
     def head_use_eye_aim(self) -> bool:
@@ -906,7 +622,7 @@ class RigInstance(bpy.types.PropertyGroup):
         if not self.head_dna_reader:
             return {}
 
-        mesh_index_lookup = self.data.get(f"{self.name}_head_mesh_index_lookup", {})
+        mesh_index_lookup = self.data.get(self.cache_key("head", "mesh_index_lookup"), {})
         if mesh_index_lookup:
             return mesh_index_lookup
 
@@ -916,15 +632,15 @@ class RigInstance(bpy.types.PropertyGroup):
             if mesh_object:
                 mesh_index_lookup[mesh_index] = mesh_object
 
-        self.data[f"{self.name}_head_mesh_index_lookup"] = mesh_index_lookup
-        return self.data[f"{self.name}_head_mesh_index_lookup"]
+        self.data[self.cache_key("head", "mesh_index_lookup")] = mesh_index_lookup
+        return self.data[self.cache_key("head", "mesh_index_lookup")]
 
     @property
     def head_channel_name_to_index_lookup(self) -> dict[str, int]:
         if not self.head_dna_reader:
             return {}
 
-        channel_name_to_index_lookup = self.data.get(f"{self.name}_head_channel_name_to_index_lookup", {})
+        channel_name_to_index_lookup = self.data.get(self.cache_key("head", "channel_name_to_index_lookup"), {})
         if channel_name_to_index_lookup:
             return channel_name_to_index_lookup
 
@@ -935,15 +651,15 @@ class RigInstance(bpy.types.PropertyGroup):
                 shape_key_name = self.head_dna_reader.getBlendShapeChannelName(channel_index)
                 channel_name_to_index_lookup[f"{mesh_name}__{shape_key_name}"] = channel_index
 
-        self.data[f"{self.name}_head_channel_name_to_index_lookup"] = channel_name_to_index_lookup
-        return self.data[f"{self.name}_head_channel_name_to_index_lookup"]
+        self.data[self.cache_key("head", "channel_name_to_index_lookup")] = channel_name_to_index_lookup
+        return self.data[self.cache_key("head", "channel_name_to_index_lookup")]
 
     @property
     def head_channel_index_to_mesh_index_lookup(self) -> dict[int, int]:
         if not self.head_dna_reader:
             return {}
 
-        mesh_shape_key_index_lookup = self.data.get(f"{self.name}_head_mesh_shape_key_index_lookup", {})
+        mesh_shape_key_index_lookup = self.data.get(self.cache_key("head", "mesh_shape_key_index_lookup"), {})
         if mesh_shape_key_index_lookup:
             return mesh_shape_key_index_lookup
 
@@ -952,43 +668,48 @@ class RigInstance(bpy.types.PropertyGroup):
             for index in range(self.head_dna_reader.getBlendShapeTargetCount(mesh_index)):
                 channel_index = self.head_dna_reader.getBlendShapeChannelIndex(mesh_index, index)
                 mesh_shape_key_index_lookup[channel_index] = mesh_index
-        self.data[f"{self.name}_head_mesh_shape_key_index_lookup"] = mesh_shape_key_index_lookup
+        self.data[self.cache_key("head", "mesh_shape_key_index_lookup")] = mesh_shape_key_index_lookup
         return mesh_shape_key_index_lookup
 
     @property
     def head_manager(self) -> "riglogic.RigLogic":
-        return self.data.get(f"{self.name}_head_manager")
+        return self.data.get(self.cache_key("head", "manager"))  # pyright: ignore[reportReturnType]
 
     @property
     def head_instance(self) -> "riglogic.RigInstance":
-        return self.data.get(f"{self.name}_head_instance")
+        return self.data.get(self.cache_key("head", "instance"))  # pyright: ignore[reportReturnType]
 
     @property
-    def head_dna_reader(self) -> "riglogic.BinaryStreamReader":
-        return self.data.get(f"{self.name}_head_dna_reader")
+    def head_dna_reader(self) -> "dna.BinaryStreamReader":
+        return self.data.get(self.cache_key("head", "dna_reader"))  # pyright: ignore[reportReturnType]
 
     @property
     def body_manager(self) -> "riglogic.RigLogic":
-        return self.data.get(f"{self.name}_body_manager")
+        return self.data.get(self.cache_key("body", "manager"))  # pyright: ignore[reportReturnType]
 
     @property
     def body_instance(self) -> "riglogic.RigInstance":
-        return self.data.get(f"{self.name}_body_instance")
+        return self.data.get(self.cache_key("body", "instance"))  # pyright: ignore[reportReturnType]
 
     @property
-    def body_dna_reader(self) -> "riglogic.BinaryStreamReader":
-        return self.data.get(f"{self.name}_body_dna_reader")
+    def body_dna_reader(self) -> "dna.BinaryStreamReader":
+        return self.data.get(self.cache_key("body", "dna_reader"))  # pyright: ignore[reportReturnType]
 
     @property
     def head_shape_key_blocks(self) -> dict[int, list[bpy.types.ShapeKey]]:
         if not self.head_dna_reader:
             return {}
 
-        shape_key_blocks = self.data.get(f"{self.name}_head_shape_key_blocks")
+        shape_key_blocks = self.data.get(self.cache_key("head", "shape_key_blocks"))
         if shape_key_blocks is None:
-            self.shape_key_list.clear()
             mesh_index = 0  # this is the head lod 0 mesh index
             shape_key_blocks = {}
+            # Ordered, namespaced block names backing the UI shape key list. Kept as plain
+            # strings (undo-safe) and written to the scene-side `shape_key_list` collection
+            # separately by `sync_shape_key_list`. This getter only writes to `self.data`
+            # (never ID data), so it is safe to call from a property getter / UI draw -- e.g.
+            # when undo clears the volatile block cache via `destroy_references`.
+            shape_key_block_names: list[str] = []
 
             # Note: That lod 0 is the only lod that has shape keys
             failed_to_cache_count = 0
@@ -1005,9 +726,8 @@ class RigInstance(bpy.types.PropertyGroup):
                     shape_key_block_name = f"{dna_mesh_name}__{name}"
                     shape_key_block = self.get_shape_key_block(mesh_index=mesh_index, name=shape_key_block_name)
                     if shape_key_block:
-                        # store the shape key block names in the shape key list as well
-                        shape_key_item = self.shape_key_list.add()
-                        shape_key_item.name = shape_key_block_name
+                        # remember the block name for the UI list (built in a write-safe context)
+                        shape_key_block_names.append(shape_key_block_name)
 
                         # store the shape key block in a list on the dictionary
                         key_block_list = shape_key_blocks.get(channel_index, [])
@@ -1024,13 +744,102 @@ class RigInstance(bpy.types.PropertyGroup):
                     "keys to cache them."
                 )
 
-            self.data[f"{self.name}_head_shape_key_blocks"] = shape_key_blocks
+            self.data[self.cache_key("head", "shape_key_block_names")] = shape_key_block_names
+            self.data[self.cache_key("head", "shape_key_blocks")] = shape_key_blocks
 
-        return self.data[f"{self.name}_head_shape_key_blocks"]
+        return self.data[self.cache_key("head", "shape_key_blocks")]
+
+    @property
+    def head_shape_key_apply_plan(
+        self,
+    ) -> list[tuple["bpy.types.bpy_prop_collection", np.ndarray, np.ndarray, list[bpy.types.ShapeKey], np.ndarray]]:
+        """Precomputed per-mesh scatter plan for bulk shape-key value writes.
+
+        Each entry is ``(key_blocks, positions, channels, blocks, buffer)`` for one LOD0
+        head mesh, where ``positions`` are the collection indices of the RigLogic-driven
+        blocks inside that mesh's ``key_blocks``, ``channels`` are the matching blend-shape
+        channel indices into ``getBlendShapeOutputs()``, ``blocks`` are the parallel block
+        references (only used when collecting values for baking), and ``buffer`` is a
+        preallocated ``float32`` scratch array sized to the whole collection.
+
+        This lets ``update_head_shape_keys`` replace hundreds of per-block ``.value =`` RNA
+        writes with one ``foreach_get`` / scatter / ``foreach_set`` per mesh. It holds live
+        ``bpy`` collection wrappers, so it is registered in ``destroy_references`` and rebuilt
+        lazily after an undo.
+        """
+        plan = self.data.get(self.cache_key("head", "shape_key_apply_plan"))
+        if plan is not None:
+            return plan
+
+        plan = []
+        if self.head_dna_reader:
+            for mesh_index in self.head_dna_reader.getMeshIndicesForLOD(0):
+                mesh_object = self.head_mesh_index_lookup.get(mesh_index)
+                if (
+                    not mesh_object
+                    or not isinstance(mesh_object.data, bpy.types.Mesh)
+                    or not mesh_object.data.shape_keys
+                ):
+                    continue
+
+                key_blocks = mesh_object.data.shape_keys.key_blocks
+                # Resolve each namespaced block name to its collection index once.
+                name_to_position = {block.name: position for position, block in enumerate(key_blocks)}
+                dna_mesh_name = mesh_object.name.replace(f"{self.name}_", "")
+
+                positions: list[int] = []
+                channels: list[int] = []
+                blocks: list[bpy.types.ShapeKey] = []
+                for target_index in range(self.head_dna_reader.getBlendShapeTargetCount(mesh_index)):
+                    channel_index = self.head_dna_reader.getBlendShapeChannelIndex(mesh_index, target_index)
+                    name = self.head_dna_reader.getBlendShapeChannelName(channel_index)
+                    position = name_to_position.get(f"{dna_mesh_name}__{name}")
+                    if position is None:
+                        continue
+                    positions.append(position)
+                    channels.append(channel_index)
+                    blocks.append(key_blocks[position])
+
+                if not positions:
+                    continue
+
+                plan.append(
+                    (
+                        key_blocks,
+                        np.asarray(positions, dtype=np.intp),
+                        np.asarray(channels, dtype=np.intp),
+                        blocks,
+                        np.empty(len(key_blocks), dtype=np.float32),
+                    )
+                )
+
+        self.data[self.cache_key("head", "shape_key_apply_plan")] = plan
+        return plan
+
+    def sync_shape_key_list(self) -> None:
+        """Rebuild the UI shape-key list -- a ``CollectionProperty`` on the scene-stored
+        ``ShapeKeyEditorProperties`` -- from the cached block names.
+
+        This writes ID data, so it must only be called from a write-safe context such as
+        ``head_initialize`` or an operator, never from a property getter or UI draw. The
+        list is undo-tracked by Blender, so it does not need rebuilding on undo; only the
+        volatile ``shape_key_blocks`` wrapper cache does (see ``destroy_references``)."""
+        shape_key_editor: ShapeKeyEditorProperties | None = getattr(self, "shape_key_editor", None)
+        if not shape_key_editor:
+            return
+
+        # Ensure the block cache (and its ordered names) exist before mirroring them.
+        self.head_shape_key_blocks  # noqa: B018
+        shape_key_block_names = self.data.get(self.cache_key("head", "shape_key_block_names"), [])
+
+        shape_key_editor.shape_key_list.clear()
+        for shape_key_block_name in shape_key_block_names:
+            shape_key_item = shape_key_editor.shape_key_list.add()
+            shape_key_item.name = shape_key_block_name
 
     @property
     def head_rest_pose(self) -> dict[str, tuple[Vector, Euler, Vector, Matrix]]:
-        rest_pose = self.data.get(f"{self.name}_head_rest_pose", {})
+        rest_pose = self.data.get(self.cache_key("head", "rest_pose"), {})
         if rest_pose:
             return rest_pose
 
@@ -1045,13 +854,13 @@ class RigInstance(bpy.types.PropertyGroup):
                 rest_pose[pose_bone.name] = utilities.get_bone_rest_transformations(pose_bone.bone)
 
         # save the rest pose so we don't have to calculate it again
-        self.data[f"{self.name}_head_rest_pose"] = rest_pose
+        self.data[self.cache_key("head", "rest_pose")] = rest_pose
         # return a copy so the original rest position is not modified
-        return self.data[f"{self.name}_head_rest_pose"]
+        return self.data[self.cache_key("head", "rest_pose")]
 
     @property
     def head_driven_bone_names(self) -> list[str]:
-        driven_bone_names = self.data.get(f"{self.name}_head_driven_bone_names", [])
+        driven_bone_names = self.data.get(self.cache_key("head", "driven_bone_names"), [])
         if driven_bone_names:
             return driven_bone_names
 
@@ -1063,12 +872,12 @@ class RigInstance(bpy.types.PropertyGroup):
                     driven_bone_names.append(self.head_dna_reader.getJointName(joint_index))
 
         # save the driven bone names so we don't have to query them again
-        self.data[f"{self.name}_head_driven_bone_names"] = list(set(driven_bone_names))
-        return self.data[f"{self.name}_head_driven_bone_names"]
+        self.data[self.cache_key("head", "driven_bone_names")] = list(set(driven_bone_names))
+        return self.data[self.cache_key("head", "driven_bone_names")]
 
     @property
     def head_driver_bone_names(self) -> list[str]:
-        driver_bone_names = self.data.get(f"{self.name}_head_driver_bone_names", [])
+        driver_bone_names = self.data.get(self.cache_key("head", "driver_bone_names"), [])
         if driver_bone_names:
             return driver_bone_names
 
@@ -1080,13 +889,137 @@ class RigInstance(bpy.types.PropertyGroup):
                 driver_bone_names.add(control_name)
 
         # save the raw control bone names so we don't have to query them again
-        self.data[f"{self.name}_head_driver_bone_names"] = list(driver_bone_names)
+        self.data[self.cache_key("head", "driver_bone_names")] = list(driver_bone_names)
         # return a copy so the original raw control bone names are not modified
-        return self.data[f"{self.name}_head_driver_bone_names"]
+        return self.data[self.cache_key("head", "driver_bone_names")]
+
+    @property
+    def head_gui_control_plan(self) -> list[tuple[int, str, str]]:
+        """Precomputed ``(index, control_name, axis)`` for every head GUI control.
+
+        The control names and axes come from the DNA and never change, so we parse
+        them once at initialization instead of calling ``getGUIControlName`` and
+        splitting strings for every control on every evaluation.
+        """
+        plan = self.data.get(self.cache_key("head", "gui_control_plan"))
+        if plan is not None:
+            return plan
+
+        plan = []
+        if self.head_dna_reader:
+            for index in range(self.head_dna_reader.getGUIControlCount()):
+                full_name = self.head_dna_reader.getGUIControlName(index)
+                control_name, axis = full_name.split(".")
+                axis = axis.rsplit("t", -1)[-1].lower()
+                plan.append((index, control_name, axis))
+
+        self.data[self.cache_key("head", "gui_control_plan")] = plan
+        return plan
+
+    @property
+    def head_raw_quat_plan(self) -> list[tuple[int, str, str]]:
+        """Precomputed ``(index, control_name, axis)`` for the head quaternion raw controls.
+
+        Only ``.q*`` raw controls are driven by bone rotations, so we precompute just
+        those (with their parsed axis) once instead of scanning and parsing every raw
+        control name on every evaluation.
+        """
+        plan = self.data.get(self.cache_key("head", "raw_quat_plan"))
+        if plan is not None:
+            return plan
+
+        plan = []
+        if self.head_dna_reader:
+            for index in range(self.head_dna_reader.getRawControlCount()):
+                full_name = self.head_dna_reader.getRawControlName(index)
+                control_name, axis = full_name.split(".")
+                if not axis.startswith("q"):
+                    continue
+                axis = axis.rsplit("q", -1)[-1].lower()
+                plan.append((index, control_name, axis))
+
+        self.data[self.cache_key("head", "raw_quat_plan")] = plan
+        return plan
+
+    @property
+    def head_animated_map_plan(self) -> list[tuple[int, str]]:
+        """Precomputed ``(index, slider_name)`` for every head animated (texture) map.
+
+        The slider name string is derived purely from the DNA animated-map name, so we
+        build it once at initialization instead of rebuilding it for every map on every
+        evaluation.
+        """
+        plan = self.data.get(self.cache_key("head", "animated_map_plan"))
+        if plan is not None:
+            return plan
+
+        plan = []
+        if self.head_dna_reader:
+            for index in range(self.head_dna_reader.getAnimatedMapCount()):
+                name = self.head_dna_reader.getAnimatedMapName(index)
+                slider_name = (
+                    f"{name.split('.')[0].split('_')[1].lower().replace('cm', 'wm')}.{name.split('.')[-1]}_msk"
+                )
+                plan.append((index, slider_name))
+
+        self.data[self.cache_key("head", "animated_map_plan")] = plan
+        return plan
+
+    @property
+    def head_bone_transform_plan(self) -> list[tuple[int, str, Vector, Euler, Vector, Matrix, bool]]:
+        """Precomputed per-joint transform plan for the head rig (written joints only).
+
+        Each entry is ``(joint_index, bone_name, rest_location, rest_rotation, rest_scale,
+        rest_to_parent_inverse, has_children)``. Driver bones and bones missing from the rig are
+        excluded once here instead of being filtered every frame, and the rest-to-parent matrix
+        inverse (constant for the lifetime of the rig) is precomputed instead of being recomputed
+        for all 870 joints on every evaluation.
+        """
+        plan = self.data.get(self.cache_key("head", "bone_transform_plan"))
+        if plan is not None:
+            return plan
+
+        # don't cache an empty plan until the rig and rest pose are available
+        if not (self.head_rig and self.head_dna_reader and self.head_rest_pose):
+            return []
+
+        plan = []
+        rest_pose = self.head_rest_pose
+        driver_bone_names = frozenset(self.head_driver_bone_names)
+        pose_bones = self.head_rig.pose.bones
+        for index in range(self.head_dna_reader.getJointCount()):
+            name = self.head_dna_reader.getJointName(index)
+            # only update the facial bones or non-driver bones
+            if name in driver_bone_names:
+                continue
+            pose_bone = pose_bones.get(name)
+            if not pose_bone:
+                logger.warning(
+                    f'The bone "{name}" was not found on "{self.head_rig.name}". Rig Logic will not update the bone.'
+                )
+                continue
+            rest_transformations = rest_pose.get(name)
+            if rest_transformations is None:
+                continue
+            rest_location, rest_rotation, rest_scale, rest_to_parent_matrix = rest_transformations
+            plan.append(
+                (
+                    index,
+                    name,
+                    rest_location,
+                    rest_rotation,
+                    rest_scale,
+                    rest_to_parent_matrix.inverted_safe(),
+                    bool(pose_bone.children),
+                )
+            )
+
+        self.data[self.cache_key("head", "bone_transform_plan")] = plan
+        return plan
 
     @property
     def body_rest_pose(self) -> dict[str, tuple[Vector, Euler, Vector, Matrix]]:
-        rest_pose = self.data.get(f"{self.name}_body_rest_pose", {})
+        rest_pose = self.data.get(self.cache_key("body", "rest_pose"), {})
         if rest_pose:
             return rest_pose
 
@@ -1103,13 +1036,13 @@ class RigInstance(bpy.types.PropertyGroup):
                 rest_pose[pose_bone.name] = utilities.get_bone_rest_transformations(pose_bone.bone, rotation_mode="XYZ")
 
         # save the rest pose so we don't have to calculate it again
-        self.data[f"{self.name}_body_rest_pose"] = rest_pose
+        self.data[self.cache_key("body", "rest_pose")] = rest_pose
         # return a copy so the original rest position is not modified
-        return self.data[f"{self.name}_body_rest_pose"]
+        return self.data[self.cache_key("body", "rest_pose")]
 
     @property
     def body_twist_bone_names(self) -> list[str]:
-        twist_bone_names = self.data.get(f"{self.name}_body_twist_bone_names", [])
+        twist_bone_names = self.data.get(self.cache_key("body", "twist_bone_names"), [])
         if twist_bone_names:
             return twist_bone_names
 
@@ -1119,12 +1052,12 @@ class RigInstance(bpy.types.PropertyGroup):
                 twist_bone_names.append(self.body_dna_reader.getJointName(output_index))
 
         # save the updated bone names so we don't have to query them again
-        self.data[f"{self.name}_body_twist_bone_names"] = list(set(twist_bone_names))
-        return self.data[f"{self.name}_body_twist_bone_names"]
+        self.data[self.cache_key("body", "twist_bone_names")] = list(set(twist_bone_names))
+        return self.data[self.cache_key("body", "twist_bone_names")]
 
     @property
     def body_swing_bone_names(self) -> list[str]:
-        swing_bone_names = self.data.get(f"{self.name}_body_swing_bone_names", [])
+        swing_bone_names = self.data.get(self.cache_key("body", "swing_bone_names"), [])
         if swing_bone_names:
             return swing_bone_names
 
@@ -1134,12 +1067,12 @@ class RigInstance(bpy.types.PropertyGroup):
                 swing_bone_names.append(self.body_dna_reader.getJointName(output_index))
 
         # save the updated bone names so we don't have to query them again
-        self.data[f"{self.name}_body_swing_bone_names"] = list(set(swing_bone_names))
-        return self.data[f"{self.name}_body_swing_bone_names"]
+        self.data[self.cache_key("body", "swing_bone_names")] = list(set(swing_bone_names))
+        return self.data[self.cache_key("body", "swing_bone_names")]
 
     @property
     def body_driven_bone_names(self) -> list[str]:
-        driven_bone_names = self.data.get(f"{self.name}_body_driven_bone_names", [])
+        driven_bone_names = self.data.get(self.cache_key("body", "driven_bone_names"), [])
         if driven_bone_names:
             return driven_bone_names
 
@@ -1151,8 +1084,8 @@ class RigInstance(bpy.types.PropertyGroup):
                     driven_bone_names.append(self.body_dna_reader.getJointName(joint_index))
 
         # save the driven bone names so we don't have to query them again
-        self.data[f"{self.name}_body_driven_bone_names"] = list(set(driven_bone_names))
-        return self.data[f"{self.name}_body_driven_bone_names"]
+        self.data[self.cache_key("body", "driven_bone_names")] = list(set(driven_bone_names))
+        return self.data[self.cache_key("body", "driven_bone_names")]
 
     @property
     def body_driver_bone_names(self) -> list[str]:
@@ -1160,7 +1093,7 @@ class RigInstance(bpy.types.PropertyGroup):
             return []
 
         # check if we have already cached the driver bone names
-        driver_bone_names = self.data.get(f"{self.name}_body_driver_bone_names", [])
+        driver_bone_names = self.data.get(self.cache_key("body", "driver_bone_names"), [])
         if driver_bone_names:
             return driver_bone_names
 
@@ -1178,10 +1111,91 @@ class RigInstance(bpy.types.PropertyGroup):
                     driver_bone_names.add(bone_name)
 
         # save the driver bone names so we don't have to query them again
-        self.data[f"{self.name}_body_driver_bone_names"] = list(driver_bone_names)
-        return self.data[f"{self.name}_body_driver_bone_names"]
+        self.data[self.cache_key("body", "driver_bone_names")] = list(driver_bone_names)
+        return self.data[self.cache_key("body", "driver_bone_names")]
 
-    def head_initialize(self):
+    @property
+    def body_raw_plan(self) -> list[tuple[int, str, str]]:
+        """Precomputed ``(index, control_name, axis)`` for every body raw control.
+
+        Body raw controls are all quaternion channels driven by bone rotations. Their
+        names/axes come from the DNA and never change, so we parse them once instead of
+        calling ``getRawControlName`` and splitting strings for every control every frame.
+        """
+        plan = self.data.get(self.cache_key("body", "raw_plan"))
+        if plan is not None:
+            return plan
+
+        plan = []
+        if self.body_dna_reader:
+            for index in range(self.body_dna_reader.getRawControlCount()):
+                full_name = self.body_dna_reader.getRawControlName(index)
+                control_name, axis = full_name.split(".")
+                axis = axis.rsplit("q", -1)[-1].lower()
+                plan.append((index, control_name, axis))
+
+        self.data[self.cache_key("body", "raw_plan")] = plan
+        return plan
+
+    @property
+    def body_bone_transform_plan(self) -> list[tuple[int, str, Vector, Euler, Vector, Matrix]]:
+        """Precomputed per-joint transform plan for the body rig (written joints only).
+
+        Each entry is ``(joint_index, bone_name, rest_location, rest_rotation, rest_scale,
+        rest_to_parent_inverse)``. Only bones updated via RBFs, twists, or swings are included, so
+        the per-frame ``driven + swing + twist`` list concatenation and membership test (run for
+        all 342 joints every frame) is collapsed into a single precomputed list, and the
+        rest-to-parent inverse is precomputed once instead of every evaluation.
+        """
+        plan = self.data.get(self.cache_key("body", "bone_transform_plan"))
+        if plan is not None:
+            return plan
+
+        # don't cache an empty plan until the rig and rest pose are available
+        if not (self.body_rig and self.body_dna_reader and self.body_rest_pose):
+            return []
+
+        plan = []
+        rest_pose = self.body_rest_pose
+        # bones that are updated via RBFs, twists, or swings
+        updatable_bone_names = (
+            frozenset(self.body_driven_bone_names)
+            | frozenset(self.body_swing_bone_names)
+            | frozenset(self.body_twist_bone_names)
+        )
+        pose_bones = self.body_rig.pose.bones
+        for joint_index in range(self.body_dna_reader.getJointCount()):
+            # skip the root joint
+            if joint_index == 0:
+                continue
+            name = self.body_dna_reader.getJointName(joint_index)
+            if name not in updatable_bone_names:
+                continue
+            pose_bone = pose_bones.get(name)
+            if not pose_bone:
+                logger.warning(
+                    f'The bone "{name}" was not found on "{self.body_rig.name}". Rig Logic will not update the bone.'
+                )
+                continue
+            rest_transformations = rest_pose.get(name)
+            if rest_transformations is None:
+                continue
+            rest_location, rest_rotation, rest_scale, rest_to_parent_matrix = rest_transformations
+            plan.append(
+                (
+                    joint_index,
+                    name,
+                    rest_location,
+                    rest_rotation,
+                    rest_scale,
+                    rest_to_parent_matrix.inverted_safe(),
+                )
+            )
+
+        self.data[self.cache_key("body", "bone_transform_plan")] = plan
+        return plan
+
+    def head_initialize(self, update_raw_control_list: bool = True):
         from .bindings import riglogic  # pyright: ignore[reportAttributeAccessIssue]
         from .dna_io import get_dna_reader
 
@@ -1190,7 +1204,7 @@ class RigInstance(bpy.types.PropertyGroup):
 
         # ---- Initialize the Head Rig Instance ---
         # set the dna reader
-        self.data[f"{self.name}_head_dna_reader"] = get_dna_reader(
+        self.data[self.cache_key("head", "dna_reader")] = get_dna_reader(
             file_path=Path(bpy.path.abspath(self.head_dna_file_path)).absolute(), memory_resource=None
         )
 
@@ -1203,12 +1217,16 @@ class RigInstance(bpy.types.PropertyGroup):
                     pose_bone.rotation_mode = "QUATERNION"
 
         # set the rig logic manager and instance
-        self.data[f"{self.name}_head_manager"] = riglogic.RigLogic.create(
-            reader=self.data[f"{self.name}_head_dna_reader"], config=riglogic.Configuration(), memRes=None
+        self.data[self.cache_key("head", "manager")] = riglogic.RigLogic.create(
+            self.head_dna_reader, riglogic.Configuration(), None
         )
-        self.data[f"{self.name}_head_instance"] = riglogic.RigInstance.create(
-            rigLogic=self.data[f"{self.name}_head_manager"], memRes=None
+        self.data[self.cache_key("head", "instance")] = riglogic.RigInstance.create(
+            rigLogic=self.head_manager, memRes=None
         )
+
+        # populate the body rbf solver list
+        if update_raw_control_list:
+            self.update_head_raw_control_list()
 
         # calling theses properties will cache their values
         self.head_texture_masks_node  # noqa: B018
@@ -1216,11 +1234,19 @@ class RigInstance(bpy.types.PropertyGroup):
         self.head_channel_name_to_index_lookup  # noqa: B018
         self.head_channel_index_to_mesh_index_lookup  # noqa: B018
         self.head_shape_key_blocks  # noqa: B018
+        self.head_shape_key_apply_plan  # noqa: B018
+        # Mirror the cached blocks into the scene-side UI list now (write-safe context).
+        self.sync_shape_key_list()
         self.head_driven_bone_names  # noqa: B018
         self.head_driver_bone_names  # noqa: B018
         self.head_rest_pose  # noqa: B018
+        # precompute the per-frame evaluation plans (index/name/axis parsed once)
+        self.head_gui_control_plan  # noqa: B018
+        self.head_raw_quat_plan  # noqa: B018
+        self.head_animated_map_plan  # noqa: B018
+        self.head_bone_transform_plan  # noqa: B018
 
-        self.data[f"{self.name}_head_initialized"] = True
+        self.data[self.cache_key("head", "initialized")] = True
 
     def body_initialize(self, update_rbf_solver_list: bool = True):
         from .bindings import riglogic  # pyright: ignore[reportAttributeAccessIssue]
@@ -1231,7 +1257,7 @@ class RigInstance(bpy.types.PropertyGroup):
 
         # ---- Initialize the Body Rig Instance ---
         # set the body dna reader
-        self.data[f"{self.name}_body_dna_reader"] = get_dna_reader(
+        self.data[self.cache_key("body", "dna_reader")] = get_dna_reader(
             file_path=Path(bpy.path.abspath(self.body_dna_file_path)).absolute(), memory_resource=None
         )
 
@@ -1244,25 +1270,20 @@ class RigInstance(bpy.types.PropertyGroup):
                     pose_bone.rotation_mode = "XYZ"
 
         # set the rig logic manager and instance
-        self.data[f"{self.name}_body_manager"] = riglogic.RigLogic.create(
-            reader=self.data[f"{self.name}_body_dna_reader"],
-            config=riglogic.Configuration(
-                calculationType=riglogic.CalculationType.AnyVector,
-                loadJoints=True,
-                loadBlendShapes=True,
-                loadAnimatedMaps=True,
-                loadMachineLearnedBehavior=True,
-                loadRBFBehavior=True,
-                loadTwistSwingBehavior=True,
-                translationType=riglogic.TranslationType.Vector,
-                rotationType=riglogic.RotationType.Quaternions,
-                rotationOrder=riglogic.RotationOrder.ZYX,
-                scaleType=riglogic.ScaleType.Vector,
-            ),
-            memRes=None,
-        )
-        self.data[f"{self.name}_body_instance"] = riglogic.RigInstance.create(
-            rigLogic=self.data[f"{self.name}_body_manager"], memRes=None
+        body_config = riglogic.Configuration()
+        body_config.calculationType = riglogic.CalculationType_AnyVector
+        body_config.loadJoints = True
+        body_config.loadBlendShapes = True
+        body_config.loadAnimatedMaps = True
+        body_config.loadMachineLearnedBehavior = True
+        body_config.loadRBFBehavior = True
+        body_config.loadTwistSwingBehavior = True
+        body_config.translationType = riglogic.TranslationType_Vector
+        body_config.rotationType = riglogic.RotationType_Quaternions
+        body_config.scaleType = riglogic.ScaleType_Vector
+        self.data[self.cache_key("body", "manager")] = riglogic.RigLogic.create(self.body_dna_reader, body_config, None)
+        self.data[self.cache_key("body", "instance")] = riglogic.RigInstance.create(
+            rigLogic=self.body_manager, memRes=None
         )
 
         # populate the body rbf solver list
@@ -1275,8 +1296,11 @@ class RigInstance(bpy.types.PropertyGroup):
         self.body_swing_bone_names  # noqa: B018
         self.body_driven_bone_names  # noqa: B018
         self.body_driver_bone_names  # noqa: B018
+        # precompute the per-frame evaluation plan (index/name/axis parsed once)
+        self.body_raw_plan  # noqa: B018
+        self.body_bone_transform_plan  # noqa: B018
 
-        self.data[f"{self.name}_body_initialized"] = True
+        self.data[self.cache_key("body", "initialized")] = True
 
     def initialize(self):
         self.head_initialize()
@@ -1291,14 +1315,33 @@ class RigInstance(bpy.types.PropertyGroup):
         for key in list(self.data.keys()):
             if key.startswith(f"{self.name}_head_"):
                 del self.data[key]
-        self.data[f"{self.name}_head_initialized"] = False
+        self.data[self.cache_key("head", "initialized")] = False
 
     def destroy_body(self):
         # clear the body rig logic data, this frees them up to be garbage collected
         for key in list(self.data.keys()):
             if key.startswith(f"{self.name}_body_"):
                 del self.data[key]
-        self.data[f"{self.name}_body_initialized"] = False
+        self.data[self.cache_key("body", "initialized")] = False
+
+    def destroy_references(self):
+        # The `data` cache dict survives an undo/redo, but the live `bpy` RNA wrappers it
+        # holds do not: undo can free and reallocate the underlying objects, leaving these
+        # entries pointing at removed StructRNA. Any later access then raises
+        # `ReferenceError: StructRNA of type Object has been removed`. Drop only the
+        # wrapper-holding caches so they lazily rebuild from fresh wrappers on next access.
+        # The RigLogic C++ instances and the plain value-copy caches (rest pose, bone-name
+        # lists, channel lookups) are undo-safe, so the component stays initialized.
+        reference_descriptors = (
+            ("head", "mesh_index_lookup"),
+            ("head", "shape_key"),
+            ("head", "shape_key_blocks"),
+            ("head", "shape_key_apply_plan"),
+            ("head", "rig_evaluated"),
+            ("body", "rig_evaluated"),
+        )
+        for component, descriptor in reference_descriptors:
+            self.data.pop(self.cache_key(component, descriptor), None)
 
     def destroy(self):
         self.destroy_head()
@@ -1332,24 +1375,26 @@ class RigInstance(bpy.types.PropertyGroup):
             if constraint and round(constraint.influence, 3) != round(eye_aim_follow_head_switch.location.y, 3):
                 constraint.influence = eye_aim_follow_head_switch.location.y
 
-        # update the eye aim control visibility if needed
+        # update the eye aim control visibility, but only when the eye-aim mode actually changes.
+        # The visibility sweep walks children_recursive, so running it on every evaluation is pure
+        # overhead once the hide states already match the current mode.
         # Note: In Blender 5.0+, the hide property moved from Bone to PoseBone
         if eye_aim_control:
-            current_hide = eye_aim_control.hide if IS_BLENDER_5 else eye_aim_control.bone.hide
-            if self.head_use_eye_aim == current_hide:
+            use_eye_aim = self.head_use_eye_aim
+            if self.data.get(self.cache_key("head", "eye_aim_visibility")) != use_eye_aim:
                 if IS_BLENDER_5:
-                    eye_aim_control.hide = not self.head_use_eye_aim
+                    eye_aim_control.hide = not use_eye_aim
                 else:
-                    eye_aim_control.bone.hide = not self.head_use_eye_aim
+                    eye_aim_control.bone.hide = not use_eye_aim
 
-            for child in eye_aim_control.children_recursive:
-                if not child.name.startswith(("GRP_", "LOC_")):
-                    child_hide = child.hide if IS_BLENDER_5 else child.bone.hide
-                    if self.head_use_eye_aim == child_hide:
+                for child in eye_aim_control.children_recursive:
+                    if not child.name.startswith(("GRP_", "LOC_")):
                         if IS_BLENDER_5:
-                            child.hide = not self.head_use_eye_aim
+                            child.hide = not use_eye_aim
                         else:
-                            child.bone.hide = not self.head_use_eye_aim
+                            child.bone.hide = not use_eye_aim
+
+                self.data[self.cache_key("head", "eye_aim_visibility")] = use_eye_aim
 
     def get_head_gui_control_values_from_eye_aim(self) -> dict[str, dict[str, float]]:
         values = {}
@@ -1424,8 +1469,9 @@ class RigInstance(bpy.types.PropertyGroup):
         converted_quaternions = {}
 
         # convert the quaternion values to the correct coordinate system
+        driver_bone_names = frozenset(self.head_driver_bone_names)
         for pose_bone in self.head_rig_evaluated.pose.bones:
-            if pose_bone.name in self.head_driver_bone_names:
+            if pose_bone.name in driver_bone_names:
                 # get the local quaternion, but from the world matrix to account for constraints, since we
                 # can't always assume the local quaternion value is what is driving the bone rotation. For
                 # example, if the body is driving the head bone transforms via constraints.
@@ -1433,30 +1479,23 @@ class RigInstance(bpy.types.PropertyGroup):
                 quaternion = utilities.get_pose_bone_local_quaternion(pose_bone)
                 converted_quaternions[pose_bone.name] = quaternion
 
-        for index in range(self.head_dna_reader.getRawControlCount()):
-            full_name = self.head_dna_reader.getRawControlName(index)
-            control_name, axis = full_name.split(".")
-            # only process quaternions
-            if not axis.startswith("q"):
-                continue
-
-            axis = axis.rsplit("q", -1)[-1].lower()
-            if self.head_rig_evaluated:
-                # override the values can be provided to update values based on them vs current head rig bone locations
-                # This can be used for baking the values to an action
-                if override_values:
-                    value = override_values.get(control_name, {}).get(axis)
-                    if value is not None:
-                        self.head_instance.setRawControl(index, value)
+        head_instance = self.head_instance
+        for index, control_name, axis in self.head_raw_quat_plan:
+            # override the values can be provided to update values based on them vs current head rig bone locations
+            # This can be used for baking the values to an action
+            if override_values:
+                value = override_values.get(control_name, {}).get(axis)
+                if value is not None:
+                    head_instance.setRawControl(index, value)
+            else:
+                quaternion = converted_quaternions.get(control_name)
+                if quaternion:
+                    value = getattr(quaternion, axis)
+                    head_instance.setRawControl(index, value)
                 else:
-                    quaternion = converted_quaternions.get(control_name)
-                    if quaternion:
-                        value = getattr(quaternion, axis)
-                        self.head_instance.setRawControl(index, value)
-                    else:
-                        missing_raw_controls.append(control_name)
+                    missing_raw_controls.append(control_name)
 
-        if missing_raw_controls and not self.data.get(f"{self.name}_head_logged_missing_raw_controls"):
+        if missing_raw_controls and not self.data.get(self.cache_key("head", "logged_missing_raw_controls")):
             logger.warning(
                 f'The following raw controls are missing on "{self.head_rig.name}":\n{pformat(missing_raw_controls)}.'
             )
@@ -1464,9 +1503,9 @@ class RigInstance(bpy.types.PropertyGroup):
             logger.warning(
                 f"This is most likely due to the these bones being missing from the rig {self.head_rig.name}."
             )
-            self.data[f"{self.name}_head_logged_missing_raw_controls"] = True
+            self.data[self.cache_key("head", "logged_missing_raw_controls")] = True
 
-    def update_head_gui_control_values(self, override_values: dict[str, dict[str, float]] | None = None):  # noqa: PLR0912
+    def update_head_gui_control_values(self, override_values: dict[str, dict[str, float]] | None = None):
         # skip if the face board is not set
         if not self.face_board or not self.head_dna_reader:
             return
@@ -1479,38 +1518,36 @@ class RigInstance(bpy.types.PropertyGroup):
         if self.head_use_eye_aim:
             eye_aim_override_values = self.get_head_gui_control_values_from_eye_aim()
 
-        for index in range(self.head_dna_reader.getGUIControlCount()):
-            full_name = self.head_dna_reader.getGUIControlName(index)
-            control_name, axis = full_name.split(".")
-            axis = axis.rsplit("t", -1)[-1].lower()
-            if self.face_board:
-                # Override values can be provided to update values based on them vs current face board
-                # bone locations. This can be used for baking the values to an action.
-                if override_values:
-                    value = override_values.get(control_name, {}).get(axis)
-                    if value is not None:
-                        self.head_instance.setGUIControl(index, value)
+        head_instance = self.head_instance
+        face_pose_bones = self.face_board.pose.bones
+        for index, control_name, axis in self.head_gui_control_plan:
+            # Override values can be provided to update values based on them vs current face board
+            # bone locations. This can be used for baking the values to an action.
+            if override_values:
+                value = override_values.get(control_name, {}).get(axis)
+                if value is not None:
+                    head_instance.setGUIControl(index, value)
+            else:
+                pose_bone = face_pose_bones.get(control_name)
+                if pose_bone:
+                    value = getattr(pose_bone.location, axis)
+                    # special case for the eye controls, if the center eye control is above 0,
+                    # use that value instead
+                    if control_name in ("CTRL_L_eye", "CTRL_R_eye"):
+                        center_value = eye_aim_override_values.get(control_name, {}).get(axis)
+                        if center_value is not None:
+                            if abs(center_value) > FLOATING_POINT_PRECISION:
+                                value = center_value
+                        elif center_eye_control:
+                            center_value = getattr(center_eye_control.location, axis)
+                            if abs(center_value) > FLOATING_POINT_PRECISION:
+                                value = center_value
+
+                    head_instance.setGUIControl(index, value)
                 else:
-                    pose_bone = self.face_board.pose.bones.get(control_name)
-                    if pose_bone:
-                        value = getattr(pose_bone.location, axis)
-                        # special case for the eye controls, if the center eye control is above 0,
-                        # use that value instead
-                        if control_name in ["CTRL_L_eye", "CTRL_R_eye"]:
-                            center_value = eye_aim_override_values.get(control_name, {}).get(axis)
-                            if center_value is not None:
-                                if abs(center_value) > FLOATING_POINT_PRECISION:
-                                    value = center_value
-                            elif center_eye_control:
-                                center_value = getattr(center_eye_control.location, axis)
-                                if abs(center_value) > FLOATING_POINT_PRECISION:
-                                    value = center_value
+                    missing_gui_controls.append(control_name)
 
-                        self.head_instance.setGUIControl(index, value)
-                    else:
-                        missing_gui_controls.append(control_name)
-
-        if missing_gui_controls and not self.data.get(f"{self.name}_logged_missing_gui_controls"):
+        if missing_gui_controls and not self.data.get(self.cache_key("head", "logged_missing_gui_controls")):
             logger.warning(
                 f'The following GUI controls are missing on "{self.face_board.name}":\n{pformat(missing_gui_controls)}.'
             )
@@ -1522,10 +1559,10 @@ class RigInstance(bpy.types.PropertyGroup):
             logger.warning(
                 "Using a new .dna file created from the latest version of MetaHuman Creator will probably resolve this."
             )
-            self.data[f"{self.name}_logged_missing_gui_controls"] = True
+            self.data[self.cache_key("head", "logged_missing_gui_controls")] = True
 
         # set the active LOD level for the head instance to optimize performance
-        self.head_instance.setLOD(level=int(self.active_lod[-1]))
+        self.head_instance.setLOD(level=int(self.view_options.active_lod[-1]))  # pyright: ignore[reportAttributeAccessIssue]
         # map the GUI changes to the raw controls
         self.head_manager.mapGUIToRawControls(self.head_instance)
 
@@ -1534,6 +1571,18 @@ class RigInstance(bpy.types.PropertyGroup):
 
         # calculate the controls
         self.head_manager.calculate(self.head_instance)
+
+    def apply_gui_controls_to_face_board(self):
+        if not self.face_board or not self.head_dna_reader or not self.head_instance:
+            return
+
+        for index in range(self.head_dna_reader.getGUIControlCount()):
+            full_name = self.head_dna_reader.getGUIControlName(index)
+            control_name, axis = full_name.split(".")
+            axis = axis.rsplit("t", -1)[-1].lower()
+            pose_bone = self.face_board.pose.bones.get(control_name)
+            if pose_bone:
+                setattr(pose_bone.location, axis, self.head_instance.getGUIControl(index))
 
     def solo_head_shape_key_value(self, shape_key: bpy.types.ShapeKey):
         # skip if the head mesh is not set
@@ -1553,7 +1602,19 @@ class RigInstance(bpy.types.PropertyGroup):
         # set the provided shape key value to 1.0
         shape_key.value = 1.0
 
-    def update_head_shape_keys(self) -> list[tuple[bpy.types.ShapeKey, float]]:
+    def update_head_shape_keys(self, collect_values: bool = False) -> list[tuple[bpy.types.ShapeKey, float]]:
+        """Push the RigLogic blend-shape outputs onto the head shape-key blocks.
+
+        Values are written per mesh with a single ``foreach_get`` / scatter /
+        ``foreach_set`` instead of one RNA assignment per block, which avoids firing a
+        per-property update for every one of the hundreds of driven blocks. ``foreach_set``
+        does not tag the data for refresh, so each touched shape-key datablock is tagged
+        once afterwards.
+
+        When ``collect_values`` is ``True`` (animation baking) the driven
+        ``(shape_key, value)`` pairs are returned for keyframing; the real-time path leaves
+        it ``False`` and skips building that list.
+        """
         # skip if the head mesh is not set
         if not self.head_mesh or not self.head_dna_reader:
             return []
@@ -1562,58 +1623,40 @@ class RigInstance(bpy.types.PropertyGroup):
         if len(bpy.data.shape_keys) == 0:
             return []
 
-        missing_shape_keys = []
-        shape_key_values = []
+        outputs = np.asarray(self.head_instance.getBlendShapeOutputs(), dtype=np.float32)
+        output_count = outputs.shape[0]
 
-        # update blend shapes
-        for index, value in enumerate(self.head_instance.getBlendShapeOutputs()):
-            for shape_key in self.head_shape_key_blocks.get(index, []):
-                if shape_key:
-                    try:
-                        shape_key.value = value
-                    except AttributeError as error:
-                        logger.error(
-                            f'Failed to update the shape key "{shape_key.name}" on "{self.head_mesh.name}": {error}'
-                        )
-                        return []
-                    shape_key_values.append((shape_key, value))
-                else:
-                    missing_shape_keys.append(index)
+        shape_key_values: list[tuple[bpy.types.ShapeKey, float]] = []
+        for key_blocks, positions, channels, blocks, buffer in self.head_shape_key_apply_plan:
+            # A lower LOD shrinks getBlendShapeOutputs(); drop channels beyond the active
+            # range so the gather never indexes past the array end (higher channels stay
+            # untouched, matching the original enumerate() that stopped at the array end).
+            mask = channels < output_count
+            if mask.all():
+                driven_positions, driven_channels, driven_blocks = positions, channels, blocks
+            else:
+                driven_positions = positions[mask]
+                driven_channels = channels[mask]
+                driven_blocks = [block for block, keep in zip(blocks, mask, strict=True) if keep]
 
-        if missing_shape_keys and not self.data.get(f"{self.name}_logged_missing_shape_keys"):
-            name_lookup = {v: k for k, v in self.head_channel_name_to_index_lookup.items()}
-            missing_data = {}
-            # group the missing shape keys by mesh object
-            for index in missing_shape_keys:
-                missing_name = name_lookup[index]
-                mesh_index = self.head_channel_index_to_mesh_index_lookup[index]
-                mesh_object = self.head_mesh_index_lookup[mesh_index]
-                if len(missing_name) > SHAPE_KEY_NAME_MAX_LENGTH:
-                    # skip warning the user about any missing shape keys names being too long.
+            try:
+                key_blocks.foreach_get("value", buffer)
+                buffer[driven_positions] = outputs[driven_channels]
+                key_blocks.foreach_set("value", buffer)
+            except (AttributeError, RuntimeError, ReferenceError) as error:
+                logger.error(f'Failed to update the shape keys on "{self.head_mesh.name}": {error}')
+                return []
 
-                    # Currently, Blender has a limit of 63 characters for shape key names.
-                    # This is something that the user might be able to overcome by changing blender
-                    # source and recompiling. However, this is not something that we can fix in the addon.
+            # foreach_set bypasses the per-property update, so tag the shape-key datablock
+            # for the dependency graph to re-evaluate the deformed mesh.
+            if key_blocks.id_data:
+                key_blocks.id_data.update_tag()
 
-                    # Because this limitation there are 42 missing shape keys from the MetaHuman creator DNA files
-                    # that can't be imported because their names are too long. However these are extreme
-                    # combinations and for most people this will not be an issue.
-                    continue
-
-                missing_data[mesh_object.name] = missing_data.get(mesh_object.name, [])
-                missing_data[mesh_object.name].append(missing_name)
-
-            for mesh_name, missing_names in missing_data.items():
-                logger.warning(
-                    f'The following shape key blocks are missing on "{mesh_name}":\n{pformat(missing_names)}.'
+            if collect_values:
+                driven_values = outputs[driven_channels]
+                shape_key_values.extend(
+                    (block, float(value)) for block, value in zip(driven_blocks, driven_values, strict=True)
                 )
-
-            if len(missing_data.keys()) > 0:
-                logger.warning(
-                    f"A total of {len(missing_data.keys())} shape key blocks are not being updated by Rig Logic."
-                )
-
-            self.data[f"{self.name}_logged_missing_shape_keys"] = True
 
         return shape_key_values
 
@@ -1631,11 +1674,11 @@ class RigInstance(bpy.types.PropertyGroup):
         texture_mask_values = []
 
         # update texture masks values
-        for index, value in enumerate(self.head_instance.getAnimatedMapOutputs()):
-            name = self.head_dna_reader.getAnimatedMapName(index)
-            slider_name = f"{name.split('.')[0].split('_')[1].lower().replace('cm', 'wm')}.{name.split('.')[-1]}_msk"
-
-            mask_slider = head_texture_masks_node.inputs.get(slider_name)
+        node_inputs = head_texture_masks_node.inputs
+        animated_map_outputs = self.head_instance.getAnimatedMapOutputs()
+        for index, slider_name in self.head_animated_map_plan:
+            value = animated_map_outputs[index]
+            mask_slider = node_inputs.get(slider_name)
             if mask_slider:
                 try:
                     mask_slider.default_value = value  # type: ignore[attr-defined]
@@ -1653,11 +1696,18 @@ class RigInstance(bpy.types.PropertyGroup):
 
         return texture_mask_values
 
-    def update_head_bone_transforms(self) -> list[tuple[str, Vector, Euler, Vector]]:
+    def update_head_bone_transforms(self, collect_transforms: bool = False) -> list[tuple[str, Vector, Euler, Vector]]:
         """Update head bone transforms from RigLogic joint outputs.
 
+        Args:
+            collect_transforms: When True, build and return the decomposed
+                (bone_name, location, rotation_euler, scale) tuples used by action baking. The
+                interactive evaluation path leaves this False to skip the per-bone matrix
+                decomposition, which is otherwise pure overhead.
+
         Returns:
-            A list of (bone_name, location, rotation_euler, scale) tuples for each updated bone.
+            A list of (bone_name, location, rotation_euler, scale) tuples for each updated bone,
+            or an empty list when ``collect_transforms`` is False.
         """
         # skip if the head rig is not set
         if not self.head_rig or not self.head_dna_reader:
@@ -1670,74 +1720,69 @@ class RigInstance(bpy.types.PropertyGroup):
 
         bone_transforms: list[tuple[str, Vector, Euler, Vector]] = []
 
-        raw_joint_output = self.head_instance.getRawJointOutputs()
-        # update joint transforms
-        for index in range(self.head_dna_reader.getJointCount()):
-            # get the bone
-            name = self.head_dna_reader.getJointName(index)
-
-            # only update the facial bones or non-driver bones
-            if name in self.head_driver_bone_names:
+        raw_joint_output = self.head_instance.getJointOutputs()
+        pose_bones = self.head_rig.pose.bones
+        # update joint transforms using the precomputed plan (index/name/rest/inverse parsed once)
+        for (
+            index,
+            name,
+            rest_location,
+            rest_rotation,
+            rest_scale,
+            rest_to_parent_inverse,
+            has_children,
+        ) in self.head_bone_transform_plan:
+            pose_bone = pose_bones.get(name)
+            if not pose_bone:
                 continue
 
-            pose_bone = self.head_rig.pose.bones.get(name)
-            if pose_bone:
-                # get the rest pose values that we saved during initialization
-                rest_location, rest_rotation, rest_scale, rest_to_parent_matrix = self.head_rest_pose[pose_bone.name]
+            # get the values
+            matrix_index = (index + 1) * 9
+            values = raw_joint_output[(index * 9) : matrix_index]
 
-                # get the values
-                matrix_index = (index + 1) * 9
-                values = raw_joint_output[(index * 9) : matrix_index]
+            # extract the delta values
+            location_delta = Vector([values[0] / SCALE_FACTOR, values[1] / SCALE_FACTOR, values[2] / SCALE_FACTOR])
+            rotation_delta = Euler([math.radians(values[3]), math.radians(values[4]), math.radians(values[5])])
+            scale_delta = Vector(values[6:9])
 
-                # extract the delta values
-                location_delta = Vector([values[0] / SCALE_FACTOR, values[1] / SCALE_FACTOR, values[2] / SCALE_FACTOR])
-                rotation_delta = Euler([math.radians(values[3]), math.radians(values[4]), math.radians(values[5])])
-                scale_delta = Vector(values[6:9])
+            # update the transformations using the rest pose and the delta values
+            # we need to copy the vectors so we don't modify the original rest pose
+            location = Vector(
+                [
+                    rest_location.x + location_delta.x,
+                    rest_location.y + location_delta.y,
+                    rest_location.z + location_delta.z,
+                ]
+            )
+            rotation = Euler(
+                [
+                    rest_rotation.x + rotation_delta.x,
+                    rest_rotation.y + rotation_delta.y,
+                    rest_rotation.z + rotation_delta.z,
+                ],
+                "XYZ",
+            )
+            scale = Vector([rest_scale.x + scale_delta.x, rest_scale.y + scale_delta.y, rest_scale.z + scale_delta.z])
 
-                # update the transformations using the rest pose and the delta values
-                # we need to copy the vectors so we don't modify the original rest pose
-                location = Vector(
-                    [
-                        rest_location.x + location_delta.x,
-                        rest_location.y + location_delta.y,
-                        rest_location.z + location_delta.z,
-                    ]
-                )
-                rotation = Euler(
-                    [
-                        rest_rotation.x + rotation_delta.x,
-                        rest_rotation.y + rotation_delta.y,
-                        rest_rotation.z + rotation_delta.z,
-                    ],
-                    "XYZ",
-                )
-                scale = Vector(
-                    [rest_scale.x + scale_delta.x, rest_scale.y + scale_delta.y, rest_scale.z + scale_delta.z]
-                )
+            # update the bone matrix (rest-to-parent inverse is precomputed in the plan)
+            modified_matrix = Matrix.LocRotScale(location[:], rotation, scale[:])
+            try:
+                pose_bone.matrix_basis = rest_to_parent_inverse @ modified_matrix
+            except AttributeError as error:
+                logger.error(f'Failed to update the bone "{name}" on "{self.head_rig.name}": {error}')
+                continue
 
-                # update the bone matrix
-                modified_matrix = Matrix.LocRotScale(location, rotation, scale)
-                try:
-                    pose_bone.matrix_basis = rest_to_parent_matrix.inverted_safe() @ modified_matrix
-                except AttributeError as error:
-                    logger.error(f'Failed to update the bone "{name}" on "{self.head_rig.name}": {error}')
-                    continue
+            # if the bone is not a leaf bone, we need to update the rotation again
+            if has_children:
+                pose_bone.rotation_euler = rotation_delta
 
-                # if the bone is not a leaf bone, we need to update the rotation again
-                if pose_bone.children:
-                    pose_bone.rotation_euler = rotation_delta
-
+            if collect_transforms:
                 # for non-leaf bones use the rotation_delta as the final euler, for leaf bones decompose
                 # from the matrix_basis
-                final_rotation = rotation_delta if pose_bone.children else pose_bone.matrix_basis.to_euler("XYZ")
+                final_rotation = rotation_delta if has_children else pose_bone.matrix_basis.to_euler("XYZ")
                 final_location = pose_bone.matrix_basis.to_translation()
                 final_scale = pose_bone.matrix_basis.to_scale()
-
                 bone_transforms.append((name, final_location, final_rotation, final_scale))
-            else:
-                logger.warning(
-                    f'The bone "{name}" was not found on "{self.head_rig.name}". Rig Logic will not update the bone.'
-                )
 
         return bone_transforms
 
@@ -1761,7 +1806,7 @@ class RigInstance(bpy.types.PropertyGroup):
                 else:
                     self.body_instance.setRawControl(index, 0.0)
 
-            self.body_instance.setLOD(level=int(self.active_lod[-1]))
+            self.body_instance.setLOD(level=int(self.view_options.active_lod[-1]))  # pyright: ignore[reportAttributeAccessIssue]
             self.body_manager.calculate(self.body_instance)
         else:
             self.update_body_raw_control_values()
@@ -1789,11 +1834,11 @@ class RigInstance(bpy.types.PropertyGroup):
                     else:
                         self.head_instance.setRawControl(index, 0.0)
 
-            self.head_instance.setLOD(level=int(self.active_lod[-1]))
+            self.head_instance.setLOD(level=int(self.view_options.active_lod[-1]))  # pyright: ignore[reportAttributeAccessIssue]
             self.head_manager.calculate(self.head_instance)
         else:
             self.update_head_raw_control_values()
-            self.head_instance.setLOD(level=int(self.active_lod[-1]))
+            self.head_instance.setLOD(level=int(self.view_options.active_lod[-1]))  # pyright: ignore[reportAttributeAccessIssue]
             self.head_manager.calculate(self.head_instance)
 
         self.update_head_bone_transforms()
@@ -1814,8 +1859,9 @@ class RigInstance(bpy.types.PropertyGroup):
         converted_quaternions = {}
 
         # convert the quaternion values to the correct coordinate system
+        driver_bone_names = frozenset(self.body_driver_bone_names)
         for pose_bone in self.body_rig_evaluated.pose.bones:
-            if pose_bone.name in self.body_driver_bone_names:
+            if pose_bone.name in driver_bone_names:
                 # get the local quaternion, but from the world matrix to account for constraints, since we
                 # can't always assume the local quaternion value is what is driving the bone rotation. For
                 # example, a control rig might be driving the body bone rotation via constraints.
@@ -1823,26 +1869,23 @@ class RigInstance(bpy.types.PropertyGroup):
                 quaternion = utilities.get_pose_bone_local_quaternion(pose_bone)
                 converted_quaternions[pose_bone.name] = quaternion
 
-        for index in range(self.body_dna_reader.getRawControlCount()):
-            full_name = self.body_dna_reader.getRawControlName(index)
-            control_name, axis = full_name.split(".")
-            axis = axis.rsplit("q", -1)[-1].lower()
-            if self.body_rig_evaluated:
-                # override the values can be provided to update values based on them vs current body rig bone locations
-                # This can be used for baking the values to an action
-                if override_values:
-                    value = override_values.get(control_name, {}).get(axis)
-                    if value is not None:
-                        self.body_instance.setRawControl(index, value)
+        body_instance = self.body_instance
+        for index, control_name, axis in self.body_raw_plan:
+            # override the values can be provided to update values based on them vs current body rig bone locations
+            # This can be used for baking the values to an action
+            if override_values:
+                value = override_values.get(control_name, {}).get(axis)
+                if value is not None:
+                    body_instance.setRawControl(index, value)
+            else:
+                quaternion = converted_quaternions.get(control_name)
+                if quaternion:
+                    value = getattr(quaternion, axis)
+                    body_instance.setRawControl(index, value)
                 else:
-                    quaternion = converted_quaternions.get(control_name)
-                    if quaternion:
-                        value = getattr(quaternion, axis)
-                        self.body_instance.setRawControl(index, value)
-                    else:
-                        missing_raw_controls.append(control_name)
+                    missing_raw_controls.append(control_name)
 
-        if missing_raw_controls and not self.data.get(f"{self.name}_body_logged_missing_raw_controls"):
+        if missing_raw_controls and not self.data.get(self.cache_key("body", "logged_missing_raw_controls")):
             logger.warning(
                 f'The following raw controls are missing on "{self.body_rig.name}":\n{pformat(missing_raw_controls)}.'
             )
@@ -1850,19 +1893,26 @@ class RigInstance(bpy.types.PropertyGroup):
             logger.warning(
                 f"This is most likely due to the these bones being missing from the rig {self.body_rig.name}."
             )
-            self.data[f"{self.name}_body_logged_missing_raw_controls"] = True
+            self.data[self.cache_key("body", "logged_missing_raw_controls")] = True
 
         # set the active LOD level for the body instance to optimize performance
-        self.body_instance.setLOD(level=int(self.active_lod[-1]))
+        self.body_instance.setLOD(level=int(self.view_options.active_lod[-1]))  # pyright: ignore[reportAttributeAccessIssue]
 
         # calculate the changes
         self.body_manager.calculate(self.body_instance)
 
-    def update_body_bone_transforms(self) -> list[tuple[str, Vector, Euler, Vector]]:
+    def update_body_bone_transforms(self, collect_transforms: bool = False) -> list[tuple[str, Vector, Euler, Vector]]:
         """Update body bone transforms from RigLogic joint outputs.
 
+        Args:
+            collect_transforms: When True, build and return the decomposed
+                (bone_name, location, rotation_euler, scale) tuples used by action baking. The
+                interactive evaluation path leaves this False to skip the per-bone matrix
+                decomposition, which is otherwise pure overhead.
+
         Returns:
-            A list of (bone_name, location, rotation_euler, scale) tuples for each updated bone.
+            A list of (bone_name, location, rotation_euler, scale) tuples for each updated bone,
+            or an empty list when ``collect_transforms`` is False.
         """
         # skip if the body rig is not set
         if not self.body_rig or not self.body_dna_reader:
@@ -1875,79 +1925,77 @@ class RigInstance(bpy.types.PropertyGroup):
         bone_transforms: list[tuple[str, Vector, Euler, Vector]] = []
 
         # get the delta values
-        D = self.body_instance.getRawJointOutputs()
+        D = self.body_instance.getJointOutputs()
+        pose_bones = self.body_rig.pose.bones
 
-        # update joint transforms
-        for joint_index in range(self.body_dna_reader.getJointCount()):
-            # skip the root joint
-            if joint_index == 0:
+        # update joint transforms using the precomputed plan (only RBF/twist/swing-updated bones)
+        for (
+            joint_index,
+            name,
+            rest_location,
+            rest_rotation,
+            rest_scale,
+            rest_to_parent_inverse,
+        ) in self.body_bone_transform_plan:
+            pose_bone = pose_bones.get(name)
+            if not pose_bone:
                 continue
 
-            # get the bone
-            name = self.body_dna_reader.getJointName(joint_index)
-            pose_bone = self.body_rig.pose.bones.get(name)
-            if pose_bone:
-                # Only update bones that are updated via RBFs, twists, or swings
-                if name not in (self.body_driven_bone_names + self.body_swing_bone_names + self.body_twist_bone_names):
-                    continue
+            # get the values
+            attr_index = joint_index * ATTR_COUNT_PER_QUATERNION_JOINT
+            # extract the delta values
+            location_delta = Vector(
+                [D[attr_index] / SCALE_FACTOR, D[attr_index + 1] / SCALE_FACTOR, D[attr_index + 2] / SCALE_FACTOR]
+            )
+            rotation_delta = Quaternion([D[attr_index + 6], D[attr_index + 3], D[attr_index + 4], D[attr_index + 5]])
+            scale_delta = Vector([D[attr_index + 7], D[attr_index + 8], D[attr_index + 9]])
 
-                # get the values
-                attr_index = joint_index * ATTR_COUNT_PER_QUATERNION_JOINT
-                # get the rest pose values that we saved during initialization
-                rest_location, rest_rotation, rest_scale, rest_to_parent_matrix = self.body_rest_pose[pose_bone.name]
-                # extract the delta values
-                location_delta = Vector(
-                    [D[attr_index] / SCALE_FACTOR, D[attr_index + 1] / SCALE_FACTOR, D[attr_index + 2] / SCALE_FACTOR]
-                )
-                rotation_delta = Quaternion(
-                    [D[attr_index + 6], D[attr_index + 3], D[attr_index + 4], D[attr_index + 5]]
-                )
-                scale_delta = Vector([D[attr_index + 7], D[attr_index + 8], D[attr_index + 9]])
+            # update the transformations using the rest pose and the delta values
+            # we need to copy the vectors so we don't modify the original rest pose
+            location = Vector(
+                [
+                    rest_location.x + location_delta.x,
+                    rest_location.y + location_delta.y,
+                    rest_location.z + location_delta.z,
+                ]
+            )
 
-                # update the transformations using the rest pose and the delta values
-                # we need to copy the vectors so we don't modify the original rest pose
-                location = Vector(
-                    [
-                        rest_location.x + location_delta.x,
-                        rest_location.y + location_delta.y,
-                        rest_location.z + location_delta.z,
-                    ]
-                )
+            rotation = rest_rotation.to_quaternion() @ rotation_delta
 
-                rotation = rest_rotation.to_quaternion() @ rotation_delta
+            scale = Vector([rest_scale.x + scale_delta.x, rest_scale.y + scale_delta.y, rest_scale.z + scale_delta.z])
 
-                scale = Vector(
-                    [rest_scale.x + scale_delta.x, rest_scale.y + scale_delta.y, rest_scale.z + scale_delta.z]
-                )
+            # update the bone matrix (rest-to-parent inverse is precomputed in the plan)
+            modified_matrix = Matrix.LocRotScale(location[:], rotation, scale[:])
+            try:
+                pose_bone.matrix_basis = rest_to_parent_inverse @ modified_matrix
+            except AttributeError as error:
+                logger.error(f'Failed to update the bone "{name}" on "{self.body_rig.name}": {error}')
+                continue
 
-                # update the bone matrix
-                modified_matrix = Matrix.LocRotScale(location, rotation, scale)
-                try:
-                    pose_bone.matrix_basis = rest_to_parent_matrix.inverted_safe() @ modified_matrix
-                except AttributeError as error:
-                    logger.error(f'Failed to update the bone "{name}" on "{self.body_rig.name}": {error}')
-                    continue
-
+            if collect_transforms:
                 # decompose the final matrix_basis for baking output
                 final_location = pose_bone.matrix_basis.to_translation()
                 final_rotation = pose_bone.matrix_basis.to_euler("XYZ")
                 final_scale = pose_bone.matrix_basis.to_scale()
-
                 bone_transforms.append((name, final_location, final_rotation, final_scale))
-            else:
-                logger.warning(
-                    f'The bone "{name}" was not found on "{self.body_rig.name}". Rig Logic will not update the bone.'
-                )
 
         return bone_transforms
 
     def update_body_rbf_solver_list(self):
         try:
-            from .editors.rbf_editor.core import update_body_rbf_solver_list
+            from .editors.rbf_editor.callbacks import update_body_rbf_solver_list as _update
 
-            update_body_rbf_solver_list(self)  # pyright: ignore[reportArgumentType]
+            _update(self)  # pyright: ignore[reportArgumentType]
         except ImportError:
             logger.debug("Could not import the RBF editor module to update the body RBF solver list.")
+
+    def update_head_raw_control_list(self):
+        try:
+            from .editors.raw_control_editor.callbacks import update_head_raw_control_list as _update
+
+            _update(self)  # pyright: ignore[reportArgumentType]
+        except ImportError:
+            logger.debug("Could not import the raw control editor module to update the head raw control list.")
 
     def evaluate(self, component: "ComponentType" = "all", dependency_graph: bpy.types.Depsgraph | None = None):
         window_manager_properties = utilities.get_addon_window_manager_properties()

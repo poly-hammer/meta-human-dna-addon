@@ -14,10 +14,10 @@ from mathutils import Matrix, Vector
 
 # local imports
 from .. import utilities
-from ..bindings import riglogic  # pyright: ignore[reportAttributeAccessIssue]
-from ..constants import EXTRA_BONES, SCALE_FACTOR, TOPO_GROUP_PREFIX, ComponentType
+from ..bindings import dna  # pyright: ignore[reportAttributeAccessIssue]
+from ..constants import EXTRA_BONES, SCALE_FACTOR, TOPO_GROUP_PREFIX, VERTEX_COLOR_ATTRIBUTE_NAME, ComponentType
 from ..exceptions import InvalidComponentTypeError
-from ..typing import *  # noqa: F403
+from ..typing import *  # noqa: F403  # noqa: F403
 from ..utilities import preserve_context
 from .misc import get_dna_reader, get_dna_writer
 
@@ -38,7 +38,10 @@ class DNAExporter:
         vertex_groups: bool = True,
         file_name: str | None = None,
         component_type: ComponentType | None = None,
-        reader: "riglogic.BinaryStreamReader | None" = None,
+        reader: "BinaryStreamReader | None" = None,
+        progress_callback: "Callable[[str, float | None], None] | None" = None,
+        seam_follower: ComponentType | None = "head",
+        seam_reference_dna_path: "str | Path | None" = None,
     ):
         self._instance = instance
         self._linear_modifier = linear_modifier
@@ -50,9 +53,19 @@ class DNAExporter:
         self._include_bones = bones
         self._include_textures = textures
         self._include_vertex_colors = vertex_colors
-        self._component_type = component_type or instance.output_component
+        self._progress_callback = progress_callback
+        # Seam alignment between the head and body neck edge loop. ``seam_follower``
+        # names which component is snapped onto the other ("head" -> head conforms
+        # to the body, the default Output-panel behavior; "body" -> body conforms
+        # to the head, used by the converter once the head DNA is already written).
+        # ``None`` disables seam alignment entirely. ``seam_reference_dna_path`` is
+        # the on-disk DNA to read the reference component's seam from when the
+        # cached reader would be stale (the converter's just-written head.dna).
+        self._seam_follower = seam_follower
+        self._seam_reference_dna_path = Path(seam_reference_dna_path) if seam_reference_dna_path is not None else None
+        self._component_type = component_type or instance.output.component
 
-        self._output_folder = Path(bpy.path.abspath(instance.output_folder_path))
+        self._output_folder = Path(bpy.path.abspath(instance.output.folder_path))
 
         if self._component_type == "head":
             self.source_dna_file = Path(bpy.path.abspath(instance.head_dna_file_path))
@@ -61,7 +74,7 @@ class DNAExporter:
         else:
             raise InvalidComponentTypeError(self._component_type)
 
-        self._target_dna_file = Path(bpy.path.abspath(instance.output_folder_path)) / (
+        self._target_dna_file = Path(bpy.path.abspath(instance.output.folder_path)) / (
             file_name or f"{instance.name}.dna"
         )
 
@@ -71,9 +84,9 @@ class DNAExporter:
         else:
             self._dna_reader = reader
 
-        self._dna_writer = get_dna_writer(file_path=self._target_dna_file, file_format=self._instance.output_format)
+        self._dna_writer = get_dna_writer(file_path=self._target_dna_file, file_format=self._instance.output.format)
         # Populate the writer with the data from the reader
-        self._dna_writer.setFrom(self._dna_reader, riglogic.DataLayer.All, riglogic.UnknownLayerPolicy.Preserve, None)
+        self._dna_writer.setFrom(self._dna_reader, dna.DataLayer_All, dna.UnknownLayerPolicy_Preserve, None)
 
         # The head and body mesh are always the first mesh in the DNA file
         if self._component_type == "head":
@@ -93,16 +106,30 @@ class DNAExporter:
         self._bone_index_lookup = {}
         self._vertex_color_data = []
 
+    def _report(self, message: str, fraction: float | None = None) -> None:
+        """Forward a status update to the optional progress callback.
+
+        ``fraction`` is a ``0.0..1.0`` position within the export/calibration
+        phase (or ``None`` for a message-only update). Failures in the callback
+        (e.g. a UI that has gone away) are swallowed so they can never break the
+        DNA write."""
+        if self._progress_callback is None:
+            return
+        try:
+            self._progress_callback(message, fraction)
+        except Exception:
+            logger.exception("Progress callback failed; continuing export.")
+
     def initialize_scene_data(self):
         mesh_objects = []
         output_items = []
         main_mesh_object = None
 
         if self._component_type == "head":
-            output_items = self._instance.output_head_item_list
+            output_items = self._instance.output.head_item_list
             main_mesh_object = self._instance.head_mesh
         elif self._component_type == "body":
-            output_items = self._instance.output_body_item_list
+            output_items = self._instance.output.body_item_list
             main_mesh_object = self._instance.body_mesh
 
         for output_item in output_items:
@@ -352,7 +379,9 @@ class DNAExporter:
     def set_dna_vertex_colors(self, mesh_index: int, bmesh_object: bmesh.types.BMesh):
         vertex_color_indices = list(range(len(bmesh_object.verts)))
         vertex_color_values = []
-        color_layer = bmesh_object.loops.layers.color.active
+        color_layer = (
+            bmesh_object.loops.layers.color.get(VERTEX_COLOR_ATTRIBUTE_NAME) or bmesh_object.loops.layers.color.active
+        )
         if color_layer:
             for face in bmesh_object.faces:
                 for loop in face.loops:
@@ -465,7 +494,7 @@ class DNAExporter:
 
     def run(self) -> tuple[bool, str, str, Callable | None]:
         self.initialize_scene_data()
-        if self._instance.output_run_validations:
+        if self._instance.output.run_validations:
             valid, title, message, fix = self.validate()
             if not valid:
                 return False, title, message, fix
@@ -560,8 +589,8 @@ class DNAExporter:
                 bmesh_object.free()
 
         self._dna_writer.write()
-        if not riglogic.Status.isOk():
-            status = riglogic.Status.get()
+        if not dna.Status.isOk():
+            status = dna.Status.get()
             raise RuntimeError(f"Error saving DNA: {status.message}")
         logger.info(f'DNA exported successfully to: "{self._target_dna_file}"')
 

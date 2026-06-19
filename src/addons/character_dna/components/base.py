@@ -13,8 +13,6 @@ from typing import Any
 # third party imports
 import bpy
 
-from mathutils import Matrix
-
 # local imports
 from .. import utilities
 from ..constants import (
@@ -59,6 +57,7 @@ class CharacterComponentBase(metaclass=ABCMeta):
         dna_file_path: Path | None = None,
         dna_import_properties: "CharacterImportProperties | None" = None,
         component_type: ComponentType = "head",
+        focus_on_import: bool = True,
     ):
         # make sure dna file path is a Path object
         dna_file_path = Path(bpy.path.abspath(str(dna_file_path))) if dna_file_path else None
@@ -70,6 +69,7 @@ class CharacterComponentBase(metaclass=ABCMeta):
         self._linear_modifier = None
         self._angle_modifier = None
         self._component_type = component_type
+        self._focus_on_import = focus_on_import
 
         # determine the asset root folder based on the dna file path
         self.asset_root_folder = None
@@ -82,7 +82,7 @@ class CharacterComponentBase(metaclass=ABCMeta):
                 self.asset_root_folder = Path(bpy.path.abspath(str(rig_instance.body_dna_file_path))).parent
 
         self.rig_instance: "RigInstance" = rig_instance  # type: ignore[assignment]  # noqa: UP037
-        self.addon_properties: "CharacterAddonProperties" = utilities.get_addon_preferences()  # pyright: ignore[reportAttributeAccessIssue]  # noqa: UP037
+        self.addon_properties: "CharacterAddonPreferences" = utilities.get_addon_preferences()  # pyright: ignore[reportAttributeAccessIssue]  # noqa: UP037
         self.window_manager_properties: CharacterWindowManagerProperties = (
             utilities.get_addon_window_manager_properties()
         )
@@ -116,16 +116,17 @@ class CharacterComponentBase(metaclass=ABCMeta):
         elif self.dna_import_properties and self.dna_import_properties.alternate_maps_folder:
             self.maps_folder = Path(self.dna_import_properties.alternate_maps_folder)
 
-        file_format = "binary" if (dna_file_path or self.dna_file_path).suffix.lower() == ".dna" else "json"
-        self.dna_reader = get_dna_reader(file_path=dna_file_path or self.dna_file_path, file_format=file_format)
-        self.dna_importer = DNAImporter(
-            instance=self.rig_instance,
-            import_properties=self.dna_import_properties,
-            linear_modifier=self.linear_modifier,
-            reader=self.dna_reader,
-            component_type=self.component_type,
-            dna_file_path=dna_file_path,
-        )
+        file_path = dna_file_path or self.dna_file_path
+        if file_path.is_file() and file_path.exists():
+            self.dna_reader = get_dna_reader(file_path=dna_file_path or self.dna_file_path, file_format="binary")
+            self.dna_importer = DNAImporter(
+                instance=self.rig_instance,
+                import_properties=self.dna_import_properties,
+                linear_modifier=self.linear_modifier,
+                reader=self.dna_reader,
+                component_type=self.component_type,
+                dna_file_path=dna_file_path,
+            )
 
     @property
     def component_type(self) -> ComponentType:
@@ -133,7 +134,9 @@ class CharacterComponentBase(metaclass=ABCMeta):
 
     @property
     def linear_modifier(self) -> float:
-        unit = self.dna_reader.getTranslationUnit()
+        from ..bindings import enums  # type: ignore[reportAttributeAccessIssue]
+
+        unit = enums.TranslationUnit(self.dna_reader.getTranslationUnit())
         # is centimeter
         if unit.name.lower() == "cm":
             return 1 / SCALE_FACTOR
@@ -144,7 +147,9 @@ class CharacterComponentBase(metaclass=ABCMeta):
 
     @property
     def angle_modifier(self) -> float:
-        unit = self.dna_reader.getRotationUnit()
+        from ..bindings import enums  # type: ignore[reportAttributeAccessIssue]
+
+        unit = enums.RotationUnit(self.dna_reader.getRotationUnit())
         # is degree
         if unit.name.lower() == "degrees":
             return 180 / math.pi
@@ -222,6 +227,81 @@ class CharacterComponentBase(metaclass=ABCMeta):
 
     def _get_lods_settings(self) -> list[tuple[int, bool]]:
         return [(i, getattr(self.dna_import_properties, f"import_lod{i}")) for i in range(NUMBER_OF_HEAD_LODS)]
+
+    def _get_rig_definition(self) -> "RigDefinition | None":
+        """Return the rig definition for this component, or ``None`` if missing.
+
+        The colors, joint-group names and region memberships used on import live
+        only in the rig definition, so callers degrade gracefully (log + skip)
+        when it cannot be loaded.
+        """
+        from ..rig_definition import get_rig_definition
+
+        try:
+            return get_rig_definition(self.component_type)
+        except (FileNotFoundError, ValueError, KeyError) as error:
+            logger.warning(f"No rig definition available for '{self.component_type}': {error}")
+            return None
+
+    def _build_joint_group_collections(self):
+        """Author one bone collection per rig-definition joint group and color bones.
+
+        Joint-group names and per-joint colors are derived from the rig
+        definition (the DNA stores neither), so this is skipped when the rig
+        definition is unavailable.
+        """
+        rig_object = self.head_rig_object if self.component_type == "head" else self.body_rig_object
+        if not rig_object:
+            return
+
+        # The volume bones are the leaf joints that do not skin the LOD0 mesh
+        # (the volumetric helper joints, which only drive the lower LODs). They
+        # depend only on skin weights and the bone hierarchy, so they are
+        # authored even when no rig definition is available.
+        volume_joint_names = utilities.get_volume_joint_names(
+            rig_object=rig_object,
+            skinned_joint_names=self._get_skinned_joint_names(lod=0),
+        )
+        utilities.assign_volume_bone_collection(
+            rig_object=rig_object,
+            volume_joint_names=volume_joint_names,
+        )
+
+        rig_definition = self._get_rig_definition()
+        if not rig_definition or not rig_definition.joint_groups:
+            return
+
+        # Keep the volume bones out of the per-joint-group collections so they
+        # are owned solely by the Volume collection (the rig-definition joint
+        # groups still legitimately share surface joints with one another).
+        utilities.assign_joint_group_bone_collections(
+            rig_object=rig_object,
+            joint_groups=rig_definition.joint_groups,
+            color_by_joint_name=rig_definition.color_by_joint_name,
+            exclude_joint_names=volume_joint_names,
+        )
+
+    def _get_skinned_joint_names(self, lod: "int | None" = None) -> set[str]:
+        """Return the names of every joint that carries at least one skin-weight
+        influence on the DNA's meshes.
+
+        When ``lod`` is given, only the meshes for that LOD are considered; this
+        is how the volume joints are found (a leaf joint that does not skin the
+        LOD0 mesh is a volumetric helper, even though it skins a lower LOD).
+        """
+        reader = self.dna_reader
+        joint_name_cache: dict[int, str] = {}
+        skinned_joint_names: set[str] = set()
+        mesh_indices = reader.getMeshIndicesForLOD(lod) if lod is not None else range(reader.getMeshCount())
+        for mesh_index in mesh_indices:
+            for vertex_index in range(reader.getSkinWeightsCount(mesh_index)):
+                for joint_index in reader.getSkinWeightsJointIndices(mesh_index, vertex_index):
+                    joint_name = joint_name_cache.get(joint_index)
+                    if joint_name is None:
+                        joint_name = reader.getJointName(joint_index)
+                        joint_name_cache[joint_index] = joint_name
+                    skinned_joint_names.add(joint_name)
+        return skinned_joint_names
 
     def _organize_viewport(self):
         if self.head_rig_object:
@@ -374,18 +454,6 @@ class CharacterComponentBase(metaclass=ABCMeta):
             body_topology_image = bpy.data.images.get(BODY_TOPOLOGY_TEXTURE)
             if body_topology_image:
                 bpy.data.images.remove(body_topology_image)
-
-    def _mirror_bone_to(self, from_bone: bpy.types.PoseBone, to_bone_name: str) -> bpy.types.PoseBone | None:
-        if self.head_rig_object and self.head_rig_object.pose:
-            to_bone = self.head_rig_object.pose.bones.get(to_bone_name)
-            location = from_bone.matrix.to_translation()
-            location.x *= -1
-            if to_bone:
-                to_bone.matrix = Matrix.Translation(location)
-                return to_bone
-
-        logger.error(f"Could not find bone {to_bone_name}")
-        return None
 
     def _delete_rig_instance(self):
         if (
@@ -545,54 +613,6 @@ class CharacterComponentBase(metaclass=ABCMeta):
 
         return True, "Validation successful!"
 
-    def mirror_selected_bones(self) -> tuple[bool, str]:
-        if self.head_rig_object:
-            ignored_bone_names = utilities.get_ignored_bones_names(self.head_rig_object)
-            selected_pose_bones = [
-                pose_bone for pose_bone in bpy.context.selected_pose_bones if pose_bone.name not in ignored_bone_names
-            ]
-
-            # Validate that the selected bones are all on the same side
-            left_side_count = 0
-            right_side_count = 0
-            for pose_bone in selected_pose_bones:
-                if pose_bone.name.endswith("_l") or pose_bone.name.startswith("FACIAL_L"):
-                    left_side_count += 1
-                elif pose_bone.name.endswith("_r") or pose_bone.name.startswith("FACIAL_R"):
-                    right_side_count += 1
-
-            if left_side_count and right_side_count:
-                return False, (
-                    "Selected bones must all be on the same side! Your selection "
-                    f"has {left_side_count} on the left and {right_side_count} on the right."
-                )
-
-            # Now mirror the bones
-            for pose_bone in selected_pose_bones:
-                mirrored_bone = None
-                if pose_bone.name.endswith("_l"):
-                    parts = pose_bone.name.rsplit("_l", 1)
-                    bone_name = "_r".join(parts)
-                    mirrored_bone = self._mirror_bone_to(from_bone=pose_bone, to_bone_name=bone_name)
-                elif pose_bone.name.startswith("FACIAL_L"):
-                    bone_name = pose_bone.name.replace("FACIAL_L", "FACIAL_R", 1)
-                    mirrored_bone = self._mirror_bone_to(from_bone=pose_bone, to_bone_name=bone_name)
-                elif pose_bone.name.endswith("_r"):
-                    parts = pose_bone.name.rsplit("_r", 1)
-                    bone_name = "_l".join(parts)
-                    mirrored_bone = self._mirror_bone_to(from_bone=pose_bone, to_bone_name=bone_name)
-                elif pose_bone.name.startswith("FACIAL_R"):
-                    bone_name = pose_bone.name.replace("FACIAL_R", "FACIAL_L", 1)
-                    mirrored_bone = self._mirror_bone_to(from_bone=pose_bone, to_bone_name=bone_name)
-
-                if mirrored_bone:
-                    mirrored_bone.bone.select = True
-
-            # apply the pose changes
-            utilities.apply_pose(self.head_rig_object, selected=True)
-
-        return True, "Bones mirrored successfully!"
-
     @preserve_context
     def pre_convert_mesh_cleanup(self, mesh_object: bpy.types.Object) -> bpy.types.Object | None:
         if not mesh_object.data or not isinstance(mesh_object.data, bpy.types.Mesh):
@@ -611,7 +631,7 @@ class CharacterComponentBase(metaclass=ABCMeta):
             utilities.switch_to_edit_mode(mesh_object)
             bpy.ops.mesh.select_all(action="SELECT")
             bpy.ops.mesh.separate(type="MATERIAL")
-            for separated_mesh in bpy.context.selectable_objects:
+            for separated_mesh in bpy.context.selectable_objects or []:
                 if head_material_name in [i.name for i in separated_mesh.data.materials]:  # type: ignore[attr-defined]
                     new_mesh_object = separated_mesh
                     new_mesh_object.name = mesh_object_name
@@ -626,7 +646,7 @@ class CharacterComponentBase(metaclass=ABCMeta):
         """
         Writes the export manifest to a JSON file like MetaHuman Creator does for a DCC export.
         """
-        file_path = Path(bpy.path.abspath(str(self.rig_instance.output_folder_path))) / "ExportManifest.json"
+        file_path = Path(bpy.path.abspath(str(self.rig_instance.output.folder_path))) / "ExportManifest.json"
         with file_path.open("w") as file:
             json.dump(
                 {
@@ -653,40 +673,8 @@ class CharacterComponentBase(metaclass=ABCMeta):
             if constraint:
                 constraint.influence = influence
 
-    @preserve_context
-    def snap_head_bones_to_body_bones(self):
-        if not self.rig_instance.head_rig or not self.rig_instance.body_rig:
-            return
-
-        self.rig_instance.head_rig.hide_set(False)
-        self.rig_instance.body_rig.hide_set(False)
-        # Switch to edit mode to access edit bones data
-        utilities.switch_to_bone_edit_mode(self.rig_instance.head_rig, self.rig_instance.body_rig)
-
-        # snap the head rig to the body rig in rest pose
-        for head_edit_bone in self.rig_instance.head_rig.data.edit_bones:
-            # get the corresponding body edit bone
-            body_edit_bone = self.rig_instance.body_rig.data.edit_bones.get(head_edit_bone.name)
-            if body_edit_bone:
-                # Get world space matrices
-                body_world_matrix = self.rig_instance.body_rig.matrix_world
-                head_world_matrix = self.rig_instance.head_rig.matrix_world
-
-                # Convert body bone positions to world space
-                body_head_world = body_world_matrix @ body_edit_bone.head
-                body_tail_world = body_world_matrix @ body_edit_bone.tail
-
-                # Convert world positions to head rig local space
-                head_edit_bone.head = head_world_matrix.inverted() @ body_head_world
-                head_edit_bone.tail = head_world_matrix.inverted() @ body_tail_world
-                head_edit_bone.roll = body_edit_bone.roll
-
     @abstractmethod
     def ingest(self, align: bool = True, constrain: bool = True) -> tuple[bool, str]:
-        pass
-
-    @abstractmethod
-    def export(self):
         pass
 
     @abstractmethod
@@ -694,23 +682,11 @@ class CharacterComponentBase(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def create_topology_vertex_groups(self):
+    def set_pose(self):
         pass
 
     @abstractmethod
-    def select_vertex_group(self):
-        pass
-
-    @abstractmethod
-    def select_bone_group(self):
-        pass
-
-    @abstractmethod
-    def shrink_wrap_vertex_group(self):
-        pass
-
-    @abstractmethod
-    def revert_bone_transforms_to_dna(self):
+    def reset_poses(self):
         pass
 
     @abstractmethod

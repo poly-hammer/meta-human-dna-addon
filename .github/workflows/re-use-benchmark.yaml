@@ -118,7 +118,7 @@ jobs:
       - name: Install Dependencies
         run: |
           cd character-dna-addon
-          uv sync
+          uv sync --python ${{ inputs.python-version }}
           uv pip install --upgrade bpy==${{ inputs.blender-version }}.*
 
       - name: Restore Baseline from Cache
@@ -146,7 +146,7 @@ jobs:
       - name: Run Benchmark
         run: |
           cd character-dna-addon
-          uv run python scripts/profiling_utils/ci_benchmark.py \
+          uv run --no-sync --python ${{ inputs.python-version }} python scripts/profiling_utils/ci_benchmark.py \
             --iterations ${{ inputs.iterations }} \
             --warmup ${{ inputs.warmup }} \
             --output reports/profiling \
@@ -161,7 +161,7 @@ jobs:
           echo "Comparing against baseline with ${{ inputs.threshold }}% threshold..."
 
           # Run comparison
-          uv run python scripts/profiling_utils/ci_benchmark.py \
+          uv run --no-sync --python ${{ inputs.python-version }} python scripts/profiling_utils/ci_benchmark.py \
             --compare reports/profiling/benchmark-baseline.json reports/profiling/current/current.json \
             --threshold ${{ inputs.threshold }} \
             2>&1 | tee comparison_output.txt
@@ -239,7 +239,7 @@ jobs:
 
       - name: Post PR Comment (if regression detected)
         if: inputs.is-pull-request == true && steps.compare.outputs.has_regressions == 'true'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
