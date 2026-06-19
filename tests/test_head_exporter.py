@@ -2,7 +2,7 @@ import pytest
 
 from mathutils import Euler, Vector
 
-from constants import HEAD_DNA_FILE, IGNORED_BONE_ROTATIONS_ON_EXPORT, TOLERANCE
+from constants import CI_EXPORT_MESH_NAMES, HEAD_DNA_FILE, IGNORED_BONE_ROTATIONS_ON_EXPORT, TOLERANCE
 from utilities.assertions import assert_bone_definitions, assert_mesh_geometry
 from utilities.dna_data import get_test_bone_definitions_params, get_test_mesh_geometry_params
 
@@ -38,7 +38,12 @@ def test_bone_definitions(
 @pytest.mark.parametrize(
     ("mesh_name", "attribute", "axis_name"),
     get_test_mesh_geometry_params(
-        lods=[0], vertex_positions=True, normals=False, uvs=True, dna_file_path=HEAD_DNA_FILE
+        lods=[0],
+        vertex_positions=True,
+        normals=False,
+        uvs=True,
+        dna_file_path=HEAD_DNA_FILE,
+        ci_required=CI_EXPORT_MESH_NAMES,
     ),
 )
 def test_mesh_geometry(

@@ -11,7 +11,7 @@ import pytest
 from mathutils import Vector
 
 from character_dna.constants import CUSTOM_BONE_SHAPE_NAME, CUSTOM_BONE_SHAPE_SCALE, POSES_FOLDER
-from constants import TEST_FBX_POSES_FOLDER, TEST_JSON_POSES_FOLDER
+from constants import CI_POSE_SAMPLE_SIZE, RUNNING_CI, TEST_FBX_POSES_FOLDER, TEST_JSON_POSES_FOLDER
 from utilities.bones import get_bone_differences, show_differences
 
 
@@ -26,6 +26,12 @@ def get_all_pose_names() -> list[str]:
                     continue
                 if ("wrinkle_maps" not in pose_name) and ("scan_reference" not in pose_name):
                     pose_names.append(str(Path(root).relative_to(POSES_FOLDER)))
+
+    # On CI aggressively subsample the poses. Sort first for a deterministic
+    # selection across runners.
+    if RUNNING_CI:
+        pose_names = sorted(pose_names)[:CI_POSE_SAMPLE_SIZE]
+
     return pose_names
 
 

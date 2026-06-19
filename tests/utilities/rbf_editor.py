@@ -8,10 +8,10 @@ from typing import Any
 import bpy
 import pytest
 
-from constants import FINGER_NAMES, TEST_FBX_POSES_FOLDER, TEST_JSON_POSES_FOLDER
 from character_dna.constants import CUSTOM_BONE_SHAPE_NAME, CUSTOM_BONE_SHAPE_SCALE
 from character_dna.ui.callbacks import get_active_rig_instance
 from character_dna.utilities import copy_mesh, select_only
+from constants import CI_BODY_POSE_SAMPLE_SIZE, FINGER_NAMES, RUNNING_CI, TEST_FBX_POSES_FOLDER, TEST_JSON_POSES_FOLDER
 from utilities.bones import get_bone_differences, show_differences
 
 
@@ -54,6 +54,13 @@ def get_all_body_pose_names(exclude_fingers: bool = False) -> list[tuple[str, st
                     if prefix in FINGER_NAMES and exclude_fingers:
                         continue
                     pose_names.append(Path(pose_name).parts)
+
+    # On CI aggressively subsample these poses: each parametrized case drives a
+    # full enter -> edit -> commit -> re-evaluate DNA roundtrip, so this is the
+    # heaviest per-case test. Sort first for a deterministic selection across
+    # runners.
+    if RUNNING_CI:
+        pose_names = sorted(pose_names)[:CI_BODY_POSE_SAMPLE_SIZE]
 
     return pose_names
 

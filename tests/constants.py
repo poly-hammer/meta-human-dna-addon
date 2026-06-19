@@ -1,7 +1,30 @@
+import os
+
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).parent.parent
+
+# When running on CI (``RUNNING_CI`` is exported by the test workflow) the
+# high-cardinality, DNA-driven parametrized tests are aggressively subsampled to
+# cut runtime and memory. Local runs leave the env var unset and stay fully
+# parametrized.
+RUNNING_CI = bool(os.environ.get("RUNNING_CI"))
+
+# CI subsample sizes for the heaviest generators.
+CI_BONE_SAMPLE_SIZE = 15
+CI_POSE_SAMPLE_SIZE = 5
+CI_BODY_POSE_SAMPLE_SIZE = 3  # RBF pose roundtrip is the heaviest per-case test
+
+# Entities the assertions explicitly verify as "changed" must always survive the
+# CI subsample, otherwise the change-applied coverage is silently lost. These
+# mirror the ``changed_head_*`` fixtures in conftest.py.
+CI_REQUIRED_BONE_NAMES = ["FACIAL_C_12IPV_Chin3"]
+# The calibrator keeps every head LOD: the lower-LOD propagation assertions only
+# run when each ``head_lod{1..7}_mesh`` param is present (see assertions.py).
+CI_CALIBRATE_MESH_NAMES = [f"head_lod{index}_mesh" for index in range(8)]
+CI_EXPORT_MESH_NAMES = ["head_lod0_mesh"]
+CI_SKIN_WEIGHT_MESH_NAMES = ["head_lod0_mesh"]
 
 ADDON_NAME = "character_dna"
 

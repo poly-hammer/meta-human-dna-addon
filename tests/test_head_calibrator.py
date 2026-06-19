@@ -2,7 +2,13 @@ import pytest
 
 from mathutils import Euler, Vector
 
-from constants import HEAD_DNA_FILE, IGNORED_BONE_ROTATIONS_ON_CALIBRATE, TOLERANCE
+from constants import (
+    CI_CALIBRATE_MESH_NAMES,
+    CI_SKIN_WEIGHT_MESH_NAMES,
+    HEAD_DNA_FILE,
+    IGNORED_BONE_ROTATIONS_ON_CALIBRATE,
+    TOLERANCE,
+)
 from utilities.assertions import (
     assert_bone_behaviors,
     assert_bone_definitions,
@@ -53,7 +59,13 @@ def test_bone_behaviors(original_head_dna_json_data, calibrated_head_dna_json_da
 
 @pytest.mark.parametrize(
     ("mesh_name", "attribute", "axis_name"),
-    get_test_mesh_geometry_params(vertex_positions=True, normals=True, uvs=True, dna_file_path=HEAD_DNA_FILE),
+    get_test_mesh_geometry_params(
+        vertex_positions=True,
+        normals=True,
+        uvs=True,
+        dna_file_path=HEAD_DNA_FILE,
+        ci_required=CI_CALIBRATE_MESH_NAMES,
+    ),
 )
 def test_mesh_geometry(
     original_head_dna_json_data,
@@ -130,7 +142,8 @@ def test_lower_lod_seam_aligns_to_body(
 
 
 @pytest.mark.parametrize(
-    ("mesh_name", "attribute", "mesh_vertex_count"), get_test_skin_weights_params(dna_file_path=HEAD_DNA_FILE)
+    ("mesh_name", "attribute", "mesh_vertex_count"),
+    get_test_skin_weights_params(dna_file_path=HEAD_DNA_FILE, ci_required=CI_SKIN_WEIGHT_MESH_NAMES),
 )
 def test_skin_weights(
     original_head_dna_json_data,
