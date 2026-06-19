@@ -61,7 +61,7 @@ class IsolatedModuleLoader:
 
     # Populated per process; reset whenever this module is re-imported (dev
     # reload). Loaded compiled modules are also reused from ``sys.modules`` when
-    # still present (dev mode keeps them), so the ``.pyd`` is never re-initialised.
+    # still present (dev mode keeps them), so the ``.pyd`` is never re-initialized.
     _loaded: dict = {}
     _rootdirs: dict = {}
 
@@ -85,7 +85,7 @@ class IsolatedModuleLoader:
         rootdir = cls._rootdirs.get(module_name) or str(combo_folder)
 
         # Reuse an already-loaded binding (e.g. across a dev-mode reload) so the
-        # compiled extension is not initialised twice in the same process.
+        # compiled extension is not initialized twice in the same process.
         existing = sys.modules.get(module_name)
         if existing is not None:
             existing_file = getattr(existing, "__file__", "") or ""
@@ -142,7 +142,7 @@ class IsolatedModuleLoader:
 
     @classmethod
     def exec_module(cls, module):
-        # The module returned by ``create_module`` is already initialised.
+        # The module returned by ``create_module`` is already initialized.
         return None
 
 
@@ -183,7 +183,7 @@ def _load_bindings(folder):
 
     # In a packaged release the extension validator runs and flags any leftover
     # top-level modules; strip them. In dev mode they are deliberately kept so a
-    # subsequent reload reuses the already-initialised compiled extensions.
+    # subsequent reload reuses the already-initialized compiled extensions.
     if not is_dev_mode:
         _strip_bare_binding_modules()
 
