@@ -193,7 +193,7 @@ wheels = [
 
 [[package]]
 name = "character-dna-addon"
-version = "0.8.4"
+version = "0.8.5"
 source = { editable = "." }
 dependencies = [
     { name = "sentry-sdk" },

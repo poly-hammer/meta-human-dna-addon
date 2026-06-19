@@ -21,4 +21,4 @@
 ## Tests Passing On
 
 * Blender `4.5`, `5.1` (installed from blender.org)
-* Unreal `5.6`, `5.7`, `5.8`
+* Unreal `5.6`, `5.7`

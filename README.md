@@ -28,7 +28,7 @@ However, please consider [financially supporting](https://polyhammer.com/charact
 
 ## Support
 
-The addon is compatible with MetaHuman `.dna` files that have been created with MetaHuman Creator in Unreal `5.6`, `5.7`, `5.8`. The current Blender support for the addon is listed below:
+The addon is compatible with MetaHuman `.dna` files that have been created with MetaHuman Creator in Unreal `5.6`, `5.7`. The current Blender support for the addon is listed below:
 
 | Blender Version | Platform | Architecture |
 | --------------- | -------- | ------------ |
