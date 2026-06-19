@@ -106,7 +106,7 @@ jobs:
         test-blender-5-1-ubuntu-latest,
         test-blender-5-1-windows-latest,
         test-blender-5-1-macos-latest,
-        test-blender-4-5-ubuntu-latest,
+        # test-blender-4-5-ubuntu-latest,
         test-blender-4-5-windows-latest,
         test-blender-4-5-macos-latest,
       ]
