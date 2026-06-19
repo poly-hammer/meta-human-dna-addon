@@ -73,6 +73,10 @@
             "filename": "src/**",
             "description": "Source code - Blender API and addon technical terms",
             "words": [
+                "AVX",
+                "dlopen",
+                "usr",
+                "buildx",
                 "blf",
                 "cdna",
                 "_tgt",
