@@ -35,7 +35,7 @@ jobs:
     with:
       python-version: "3.11"
       blender-version: "4.5"
-      runner-os: "ubuntu-latest"
+      runner-os: "poly-hammer-runner-linux"
       addon-id: "character_dna"
       base: "character-dna"
 
@@ -72,7 +72,7 @@ jobs:
     with:
       python-version: "3.13"
       blender-version: "5.1"
-      runner-os: "ubuntu-latest"
+      runner-os: "poly-hammer-runner-linux"
       addon-id: "character_dna"
       base: "character-dna"
 
