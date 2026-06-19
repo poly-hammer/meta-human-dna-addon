@@ -38,6 +38,52 @@ from mathutils import Euler, Vector  # noqa: E402
 from constants import REPO_ROOT  # noqa: E402
 
 
+_session_exit_code = 0
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """Capture the exit code before unconfigure."""
+    global _session_exit_code
+    _session_exit_code = exitstatus
+
+
+def pytest_unconfigure() -> None:
+    """Force exit to prevent bpy's C++ cleanup from hanging/crashing on teardown.
+
+    Blender's C++ teardown (and its guarded allocator's "Not freed memory
+    blocks" report) runs during interpreter/DLL shutdown and can raise a benign
+    access violation. ``os._exit`` still triggers Windows ``ExitProcess``, which
+    runs the DLL detach handlers that crash. To keep the test run output clean
+    we flush buffered output, disable pytest's ``faulthandler`` so no crash dump
+    is printed, then terminate the process immediately:
+
+    - On Windows, ``TerminateProcess`` skips ``DLL_PROCESS_DETACH`` entirely,
+      avoiding both the access violation and the allocator's memory report.
+    - Elsewhere, ``os._exit`` is sufficient.
+    """
+    import faulthandler
+
+    # Flush buffered output before the hard exit so nothing is lost.
+    sys.stdout.flush()
+    sys.stderr.flush()
+
+    # pytest installs faulthandler; disable it so the hard exit stays quiet.
+    faulthandler.disable()
+
+    if sys.platform == "win32":
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32
+        # Use explicit 64-bit-safe signatures so the (HANDLE)-1 current-process
+        # pseudo handle isn't truncated by ctypes' default c_int marshalling.
+        kernel32.GetCurrentProcess.restype = ctypes.c_void_p
+        kernel32.TerminateProcess.argtypes = [ctypes.c_void_p, ctypes.c_uint]
+        kernel32.TerminateProcess.restype = ctypes.c_int
+        kernel32.TerminateProcess(kernel32.GetCurrentProcess(), _session_exit_code)
+
+    os._exit(_session_exit_code)
+
+
 def pytest_configure():
     """
     Installs the bindings for the addon.

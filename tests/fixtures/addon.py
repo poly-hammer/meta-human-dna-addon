@@ -30,11 +30,6 @@ def addon(addons: list[tuple[str, Path]]):
         sys.path.remove(str(scripts_folder))
         bpy.context.preferences.filepaths.script_directories.remove(script_directory)  # type: ignore
 
-    # Forces Blender to free memory blocks
-    bpy.ops.wm.read_factory_settings(use_empty=True)
-    # Close Blender
-    bpy.ops.wm.quit_blender()
-
 
 @pytest.fixture(scope="session", autouse=True)
 def disable_auto_save():
