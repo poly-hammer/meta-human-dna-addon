@@ -6,6 +6,7 @@
 * Re-Written implementation of the Shape Key Editor, allowing for controlled isolation of expression dependency chains
 * Re-Written auto-fitting algorithm now under the `Converter` panel.
 * Automatic LOD mesh shape synchronization based on LOD0
+* New Groom Import that brings MetaHuman grooms (hair) from Unreal into Blender as hair Curves attached to the head, via a headless Unreal export commandlet (`tools/groom_exporter`).
 
 ## Minor Changes
 
@@ -21,4 +22,4 @@
 ## Tests Passing On
 
 * Blender `4.5`, `5.1` (installed from blender.org)
-* Unreal `5.6`, `5.7`
+* Unreal `5.6`, `5.7`, `5.8`

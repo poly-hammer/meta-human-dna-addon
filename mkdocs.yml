@@ -13,6 +13,7 @@ nav:
     - Rig Logic: "user-interface/rig-logic.md"
     - Shape Keys: "user-interface/shape-keys.md"
     - Output: "user-interface/output.md"
+    - Groom Import: "user-interface/groom-import.md"
   - Raw Control Editor:
     - Installing Docker: "raw-control-editor/installing-docker.md"
   - Workflows:
