@@ -406,7 +406,12 @@ class DNACalibrator(DNAExporter, DNAImporter):
                             # scene units to the delta
                             converted_delta = new_delta / self._linear_modifier
                             dna_delta_vertex_indices.append(vertex_index)
-                            dna_delta_values.append((converted_delta.x, converted_delta.y, converted_delta.z))
+                            # The DNA writer's typemap requires a list of [x, y, z] lists of plain
+                            # Python floats (matching ``setVertexPositions``); tuples or mathutils
+                            # scalars are rejected with a SystemError/TypeError.
+                            dna_delta_values.append(
+                                [float(converted_delta.x), float(converted_delta.y), float(converted_delta.z)]
+                            )
 
                     largest_delta_count = max(largest_delta_count, len(dna_delta_vertex_indices))
 
