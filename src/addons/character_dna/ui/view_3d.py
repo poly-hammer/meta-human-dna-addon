@@ -798,6 +798,45 @@ class CHARACTER_DNA_PT_output_buttons_sub_panel(bpy.types.Panel):
             row.operator(f"{ToolInfo.NAME}.send_to_meta_human_creator", icon="UV_SYNC_SELECT", text="MetaHuman Creator")
 
 
+class CHARACTER_DNA_PT_groom_import_sub_panel(bpy.types.Panel):
+    """Import MetaHuman grooms (exported from Unreal) as Blender hair Curves."""
+
+    bl_parent_id = "CHARACTER_DNA_PT_output_panel"
+    bl_label = "Groom Import"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "Character DNA"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context: "Context"):
+        if not self.layout:
+            return
+
+        error = valid_rig_instance_exists(context, ignore_face_board=True)
+        if error:
+            return
+
+        properties = getattr(context.scene, ToolInfo.NAME)
+        active_index = properties.rig_instance_list_active_index
+        instance = properties.rig_instance_list[active_index]
+
+        row = self.layout.row()
+        row.label(text="Groom Folder:")
+        row = self.layout.row()
+        if not instance.output.groom_folder_path:
+            row.alert = True
+        row.prop(instance.output, "groom_folder_path", text="", icon="FILE_FOLDER")
+
+        row = self.layout.row()
+        row.prop(instance.output, "groom_attach_to_surface")
+
+        row = self.layout.row()
+        if not instance.output.groom_folder_path:
+            row.enabled = False
+        row.scale_y = 1.5
+        row.operator(f"{ToolInfo.NAME}.import_groom", icon="CURVES_DATA", text="Import Groom")
+
+
 class CHARACTER_DNA_PT_migrate_legacy_data(bpy.types.Panel):
     bl_label = "Migrate Legacy Data"
     bl_category = "Character DNA"

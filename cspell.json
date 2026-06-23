@@ -40,7 +40,17 @@
         "Raasch",
         "rbf",
         "character_dna",
-        "Steagall"
+        "Steagall",
+        "ascontiguousarray",
+        "cdgr",
+        "fbx",
+        "lod",
+        "nbytes",
+        "tobytes",
+        "uasset",
+        "uplugin",
+        "uproject",
+        "pch"
     ],
     "dictionaries": [
         "python",

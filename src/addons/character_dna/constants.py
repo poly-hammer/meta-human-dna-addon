@@ -303,6 +303,22 @@ VOLUME_BONE_COLLECTION = "Volume"
 REGION_VERTEX_GROUP_PREFIX = "REGION_"
 
 
+# ----------------------- Groom import (UE5 grooms -> Blender hair curves) -----------------------
+# The directory picked in the Output panel must contain a groom manifest written
+# by the Unreal commandlet (see ``tools/groom_exporter``). The manifest lists
+# each groom plus the per-groom binary geometry file (``GROOM_GEOMETRY_EXTENSION``).
+GROOM_MANIFEST_FILE_NAME = "groom_manifest.json"
+GROOM_GEOMETRY_EXTENSION = ".cdgr"
+# Custom curve-domain attributes authored on the imported hair ``Curves`` objects.
+GROOM_GROUP_ID_ATTRIBUTE = "groom_group_id"
+GROOM_GUIDE_ATTRIBUTE = "groom_guide"
+# Collection the imported groom Curves objects are grouped under, per rig instance.
+GROOM_COLLECTION_SUFFIX = "grooms"
+# Fallback point radius (metres, ~0.1 mm diameter) used when a groom ships no
+# width data, so the imported hair is still visible rather than zero-thickness.
+GROOM_DEFAULT_RADIUS = 0.00005
+
+
 ADDON_IDS = ["meta_human_dna", "meta_human_dna_pro", "character_dna", "character_dna_pro"]
 LEGACY_DATA_KEYS = ["rig_logic_instance_list"]
 

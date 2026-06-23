@@ -52,6 +52,7 @@ classes = [
     operators.MapRawToGuiControls,
     operators.SendToMetaHumanCreator,
     operators.ExportSelectedComponent,
+    operators.ImportGroom,
     operators.GenerateMaterial,
     operators.DuplicateRigInstance,
     operators.AddRigLogicTextureNode,
@@ -82,6 +83,7 @@ classes = [
     view_3d.CHARACTER_DNA_UL_rig_instances,
     view_3d.CHARACTER_DNA_PT_output_panel,
     view_3d.CHARACTER_DNA_PT_output_buttons_sub_panel,
+    view_3d.CHARACTER_DNA_PT_groom_import_sub_panel,
     view_3d.CHARACTER_DNA_PT_migrate_legacy_data,
     view_3d.CHARACTER_DNA_PT_pro_upsell,
 ]
