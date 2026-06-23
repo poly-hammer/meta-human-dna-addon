@@ -20,6 +20,7 @@ from .constants import (
     ToolInfo,
 )
 from .dna_io import DNACalibrator, DNAExporter
+from .groom_io import GroomImporter
 from .properties import BlendFileCharacterCollection, CharacterImportProperties
 from .typing import *  # noqa: F403
 from .ui import callbacks, importer
@@ -1077,6 +1078,49 @@ class ExportSelectedComponent(bpy.types.Operator):
 
         utilities.set_context(current_context)
 
+        return {"FINISHED"}
+
+
+class ImportGroom(bpy.types.Operator):
+    """Import MetaHuman grooms exported from Unreal as Blender hair Curves.
+
+    Reads the groom folder set on the active rig instance (a manifest plus the
+    per-groom geometry files written by the groom commandlet), builds the
+    highest-detail strands as hair Curves, and attaches them to the head mesh.
+    """
+
+    bl_idname = f"{ToolInfo.NAME}.import_groom"
+    bl_label = "Import Groom"
+
+    def execute(self, context: "Context") -> set[str]:
+        instance = callbacks.get_active_rig_instance()
+        if not instance:
+            self.report(
+                {"ERROR"},
+                "No active rig instance found. Please select an instance from the list under the Rig Instance panel.",
+            )
+            return {"CANCELLED"}
+
+        folder_path = instance.output.groom_folder_path
+        if not folder_path:
+            self.report({"ERROR"}, "Please set a groom folder before importing.")
+            return {"CANCELLED"}
+        if folder_path.startswith("//") and not bpy.data.filepath:
+            self.report({"ERROR"}, "File must be saved to use a relative path")
+            return {"CANCELLED"}
+
+        groom_importer = GroomImporter(
+            folder_path=folder_path,
+            surface_object=instance.head_mesh,
+            collection_name=f"{instance.name}_{constants.GROOM_COLLECTION_SUFFIX}",
+            attach_to_surface=instance.output.groom_attach_to_surface,
+        )
+        valid, title, message, fix = groom_importer.run()
+        if not valid:
+            utilities.report_error_panel(title=title, message=message, fix=fix, width=400)
+            return {"CANCELLED"}
+
+        self.report({"INFO"}, message)
         return {"FINISHED"}
 
 

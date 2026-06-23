@@ -242,6 +242,26 @@ class CharacterOutputProperties(bpy.types.PropertyGroup):
     calibrate_meshes: bpy.props.BoolProperty(default=True)  # pyright: ignore[reportInvalidTypeForm]
     calibrate_shape_keys: bpy.props.BoolProperty(default=True)  # pyright: ignore[reportInvalidTypeForm]
 
+    # ----------------- Groom import (UE5 grooms -> Blender hair curves) -----------------
+    groom_folder_path: bpy.props.StringProperty(
+        name="Groom Folder",
+        description=(
+            "The folder containing grooms exported from Unreal by the groom commandlet "
+            "(a groom_manifest.json plus the per-groom geometry files). The highest-detail "
+            "strands are imported as Blender hair Curves"
+        ),
+        subtype="DIR_PATH",
+        options={"PATH_SUPPORTS_BLEND_RELATIVE"},
+    )  # pyright: ignore[reportInvalidTypeForm]
+    groom_attach_to_surface: bpy.props.BoolProperty(
+        name="Attach to Head",
+        description=(
+            "Set the imported hair Curves' surface to the head mesh so the strand roots stay "
+            "anchored to the scalp by UV when the head deforms"
+        ),
+        default=True,
+    )  # pyright: ignore[reportInvalidTypeForm]
+
 
 class CharacterViewOptionsProperties(bpy.types.PropertyGroup):
     """
