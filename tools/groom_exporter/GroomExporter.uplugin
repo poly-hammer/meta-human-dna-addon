@@ -1,0 +1,25 @@
+{
+    "FileVersion": 1,
+    "Version": 1,
+    "VersionName": "1.0",
+    "FriendlyName": "Groom Exporter Commandlet",
+    "Description": "Headless export of MetaHuman UGroomAsset strand geometry to the Character DNA add-on's flat groom format (.cdgr + groom_manifest.json), plus optional hair-cards FBX export.",
+    "Category": "Geometry",
+    "CreatedBy": "Poly Hammer",
+    "EnabledByDefault": false,
+    "CanContainContent": false,
+    "Installed": false,
+    "Modules": [
+        {
+            "Name": "GroomExporter",
+            "Type": "Editor",
+            "LoadingPhase": "Default"
+        }
+    ],
+    "Plugins": [
+        {
+            "Name": "HairStrands",
+            "Enabled": true
+        }
+    ]
+}
