@@ -68,46 +68,69 @@ def main():
         os.makedirs(data_file.parent, exist_ok=True)
         data = {}
 
+        def field(obj, key):
+            # A live RigInstance (registered edition) is read via RNA attribute; a
+            # raw IDProperty group (old prototype) is read via `.get`.
+            if hasattr(obj, 'bl_rna'):
+                return getattr(obj, key, None)
+            if hasattr(obj, 'get'):
+                return obj.get(key)
+            return None
+
+        def name_of(value):
+            return value.name if value else None
 
         for addon_id in ADDON_IDS:
-            if addon_id != args.addon_name and addon_id in list(bpy.context.scene.keys()):
-                # Only treat a foreign addon key as legacy data that needs migration if it
-                # actually contains rig instance data. Empty leftover property groups (e.g.
-                # from a previously-registered addon baked into the startup file) are harmless
-                # and must be ignored, otherwise extraction fails for unrelated reasons.
-                legacy_scene_data = bpy.context.scene[addon_id]
-                if any(legacy_scene_data.get(key) for key in DATA_KEYS):
-                    raise ValueError(
-                        f"Legacy addon data detected! To fix this, please open, upgrade, and save the scene data "
-                        f"of the .blend file {args.blend_file}."
-                    )
-
-            scene_properties = getattr(bpy.context.scene, addon_id, None)
-            if not scene_properties:
+            # Read registered editions (current + read-only sibling) via attribute
+            # access so data saved by EITHER edition (character_dna or
+            # character_dna_pro) is found regardless of which one is enabled. Saved
+            # PointerProperty data is only exposed once a matching property is
+            # registered, so subscript access would miss the sibling edition. The
+            # old prototype stored plain custom properties, read via subscript.
+            group = getattr(bpy.context.scene, addon_id, None)
+            if group is None:
+                group = bpy.context.scene.get(addon_id)
+            if not group:
                 continue
 
-            rig_instance_list = []
-            for key in DATA_KEYS:
-                rig_instance_list = scene_properties.get(key, [])
-                if rig_instance_list:
-                    break
+            if hasattr(group, 'bl_rna'):
+                sources = list(group.rig_instance_list)
+            else:
+                sources = []
+                for key in DATA_KEYS:
+                    value = group.get(key)
+                    if value:
+                        sources = list(value)
+                        break
 
-            data.update({
-                i.get('name', i.get('instance_name')): {
-                    'face_board': i.get('face_board').name if i.get('face_board') else None,
-                    'head_mesh': i.get('head_mesh').name if i.get('head_mesh') else None,
-                    'head_rig': i.get('head_rig').name if i.get('head_rig') else None,
-                    'head_material': i.get('head_material').name if i.get('head_material') else None,
-                    'head_dna_file_path': bpy.path.abspath(i.get('head_dna_file_path', '')),
-                    'control_rig': i.get('control_rig').name if i.get('control_rig') else None,
-                    'body_mesh': i.get('body_mesh').name if i.get('body_mesh') else None,
-                    'body_rig': i.get('body_rig').name if i.get('body_rig') else None,
-                    'body_material': i.get('body_material').name if i.get('body_material') else None,
-                    'body_dna_file_path': bpy.path.abspath(i.get('body_dna_file_path', '')),
-                    'output_folder_path': i.get('output_folder_path', ''),
+            for i in sources:
+                name = field(i, 'name') or field(i, 'instance_name')
+                if not name:
+                    continue
+
+                # Output folder: the current format nests it under `output`; the
+                # old prototype stored it flat as `output_folder_path`.
+                output_folder_path = field(i, 'output_folder_path')
+                if output_folder_path is None:
+                    output = field(i, 'output')
+                    if output is not None:
+                        output_folder_path = field(output, 'folder_path')
+
+                data[name] = {
+                    'face_board': name_of(field(i, 'face_board')),
+                    'head_mesh': name_of(field(i, 'head_mesh')),
+                    'head_rig': name_of(field(i, 'head_rig')),
+                    'head_material': name_of(field(i, 'head_material')),
+                    'head_dna_file_path': bpy.path.abspath(field(i, 'head_dna_file_path') or ''),
+                    'control_rig': name_of(field(i, 'control_rig')),
+                    'body_mesh': name_of(field(i, 'body_mesh')),
+                    'body_rig': name_of(field(i, 'body_rig')),
+                    'body_material': name_of(field(i, 'body_material')),
+                    'body_dna_file_path': bpy.path.abspath(field(i, 'body_dna_file_path') or ''),
+                    'output_folder_path': output_folder_path or '',
                 }
-                for i in rig_instance_list
-            })
+
+
     except Exception as error:
         with open(f'{data_file.parent / data_file.stem}_error.log', 'w') as f:
             f.write(str(error) + traceback.format_exc())

@@ -5,7 +5,7 @@ import logging
 import bpy
 
 # local imports
-from .constants import NUMBER_OF_HEAD_LODS, ToolInfo
+from .constants import NUMBER_OF_HEAD_LODS, SIBLING_EDITIONS, ToolInfo
 from .rig_instance import (
     RigInstance,
 )
@@ -512,6 +512,13 @@ def register():
         bpy.utils.register_class(CharacterFaceBoardProperties)
         bpy.utils.register_class(CharacterSceneProperties)
         setattr(bpy.types.Scene, ToolInfo.NAME, bpy.props.PointerProperty(type=CharacterSceneProperties))  # type: ignore[attr-defined]
+        # Register the sibling edition's scene pointer read-only so rig-instance
+        # data saved by the other edition (Free vs Pro) is exposed on load and can
+        # be migrated. Saved PointerProperty data is only accessible when a
+        # matching property is registered.
+        sibling_id = SIBLING_EDITIONS.get(ToolInfo.NAME)
+        if sibling_id and not hasattr(bpy.types.Scene, sibling_id):
+            setattr(bpy.types.Scene, sibling_id, bpy.props.PointerProperty(type=CharacterSceneProperties))  # type: ignore[attr-defined]
     except ValueError as error:
         logger.debug(error)
 
@@ -582,3 +589,7 @@ def unregister():
 
     if hasattr(bpy.types.Scene, ToolInfo.NAME):
         delattr(bpy.types.Scene, ToolInfo.NAME)
+
+    sibling_id = SIBLING_EDITIONS.get(ToolInfo.NAME)
+    if sibling_id and hasattr(bpy.types.Scene, sibling_id):
+        delattr(bpy.types.Scene, sibling_id)

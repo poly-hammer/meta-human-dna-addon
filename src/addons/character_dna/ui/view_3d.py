@@ -7,7 +7,7 @@ import bpy
 from bl_ui.generic_ui_list import draw_ui_list
 
 # local imports
-from ..constants import ADDON_IDS, LEGACY_DATA_KEYS, PRO_EDITORS, PanelOrder, ToolInfo
+from ..constants import PRO_EDITORS, PanelOrder, ToolInfo
 from ..typing import *  # noqa: F403
 
 
@@ -808,14 +808,12 @@ class CHARACTER_DNA_PT_migrate_legacy_data(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context: "Context") -> bool:
-        for addon_id in ADDON_IDS:
-            if any(getattr(context.scene, addon_id, {}).get(key) for key in LEGACY_DATA_KEYS):
-                return True
-            # if a scene data key belongs to an older addon (i.e. not the current addon), that means the data is from
-            # an older version of the addon and should be migrated
-            if addon_id != ToolInfo.NAME and addon_id in context.scene:
-                return True
-        return False
+        from .. import utilities
+
+        # Show the manual migration fallback whenever data saved by another edition
+        # or an older version is present. Auto-migration on file load normally
+        # clears this first, so the panel stays hidden in the common case.
+        return utilities.detect_legacy_data(context.scene) is not None
 
     def draw(self, context: "Context"):
         if not self.layout:
