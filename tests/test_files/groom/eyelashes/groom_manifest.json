@@ -1,0 +1,30 @@
+{
+  "format": "character_dna_groom",
+  "version": 1,
+  "source": "fixture",
+  "space": {
+    "units": "cm",
+    "up_axis": "Z",
+    "handedness": "left"
+  },
+  "grooms": [
+    {
+      "name": "Eyelashes_S_Sparse",
+      "kind": "strands",
+      "geometry": "Eyelashes_S_Sparse.cdgr",
+      "group_id": 0,
+      "lod": 0,
+      "curve_count": 6,
+      "point_count": 78,
+      "guide_count": 0,
+      "binding": "Eyelashes_S_Sparse_Binding",
+      "surface": "head"
+    },
+    {
+      "name": "Eyelashes_S_Sparse",
+      "kind": "cards",
+      "geometry": "Eyelashes_S_Sparse_CardsMesh_Group0_LOD2.fbx",
+      "lod": 2
+    }
+  ]
+}
