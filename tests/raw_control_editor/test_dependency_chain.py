@@ -256,6 +256,85 @@ def test_deforms_blends_distinguishes_blend_and_joint_correctives() -> None:
     assert rows["bone_tgt"].deforms_blends is False
 
 
+class _ChannelReader:
+    """Reader double exposing raw-control names plus the blend-shape-channel
+    behavior surface, so the channel fallback for net-less layer-1 correctives
+    can backward-solve base controls from the DNA."""
+
+    def __init__(
+        self,
+        *,
+        raw_control_names: list[str],
+        channel_names: list[str],
+        bsc_input_indices: list[int],
+        bsc_output_indices: list[int],
+    ) -> None:
+        self._raw = raw_control_names
+        self._channels = channel_names
+        self._bsc_in = bsc_input_indices
+        self._bsc_out = bsc_output_indices
+
+    def getRawControlCount(self) -> int:
+        return len(self._raw)
+
+    def getRawControlName(self, index: int) -> str:
+        return self._raw[index]
+
+    def getBlendShapeChannelCount(self) -> int:
+        return len(self._channels)
+
+    def getBlendShapeChannelName(self, index: int) -> str:
+        return self._channels[index]
+
+    def getBlendShapeChannelInputIndices(self) -> list[int]:
+        return self._bsc_in
+
+    def getBlendShapeChannelOutputIndices(self) -> list[int]:
+        return self._bsc_out
+
+    def getPSDRowIndices(self) -> list[int]:
+        return []
+
+    def getPSDColumnIndices(self) -> list[int]:
+        return []
+
+
+def _netless_layer1_rig() -> tuple[_ChannelReader, _FakeRigDefinition]:
+    """A layer-1 corrective driven directly by a single raw control (``tongue_up``)
+    has no ``psd_net``; its base control must be recovered from the DNA blend-shape
+    channel it drives (``tongue_up_IN`` <- ``tongueUp``)."""
+    reader = _ChannelReader(
+        raw_control_names=_names("tongueUp"),
+        channel_names=["tongue_up_IN", "tongue_upBendUp_IN"],
+        bsc_input_indices=[0, 0],
+        bsc_output_indices=[0, 1],
+    )
+    rig = _FakeRigDefinition(
+        db_name="netless",
+        expressions=[
+            _Expr("tongue_up", None, []),
+            _Expr("tongue_up_tgt", None, [_Deformer("JointsAndBlendShapes")]),
+        ],
+        psd_definitions=[
+            _PsdDef("tongue_up", target="tongue_up_tgt", layer=1, corrective="tongue_up_cor"),
+        ],
+        psd_nets=[],
+    )
+    return reader, rig
+
+
+def test_build_psd_corrective_rows_recovers_netless_layer1_from_channels() -> None:
+    """A layer-1 corrective with no psd_nets recovers its single base control from
+    the blend-shape channel it drives (matched by the corrective stem)."""
+    reader, rig = _netless_layer1_rig()
+    rows = build_psd_corrective_rows(reader, rig)
+    assert len(rows) == 1
+    assert rows[0].name == "tongue_up_tgt"
+    # Only ``tongue_up_IN`` matches the stem (``tongue_upBendUp_IN`` does not start
+    # with ``tongue_up_``), so just its single driver is recovered.
+    assert rows[0].base_control_indices == (0,)
+
+
 # ===========================================================================
 # Pure-DNA raw-control activation solve (no rig definition).
 # ===========================================================================

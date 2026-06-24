@@ -35,6 +35,7 @@ from ..constants import (
     INVALID_NAME_CHARACTERS_REGEX,
     LEGACY_DATA_KEYS,
     MATERIALS_FILE_PATH,
+    MIGRATABLE_DATA_KEYS,
     NUMBER_OF_HEAD_LODS,
     SCRIPTS_FOLDER,
     TEMP_FOLDER,
@@ -283,6 +284,16 @@ def get_addon_version() -> str:
 
 def setup_scene(*_: Any) -> None:
     from .. import post_setup_scene_callbacks
+
+    # Auto-migrate rig-instance data saved by a different addon edition (Free vs
+    # Pro) or an older version before initializing, so reopening a .blend always
+    # yields a correctly populated rig-instance list. Guard against failures so a
+    # migration error never aborts scene setup.
+    if detect_legacy_data(bpy.context.scene):
+        try:
+            migrate_legacy_data(bpy.context)
+        except Exception as error:
+            logger.exception(f"Failed to auto-migrate legacy scene data: {error}")
 
     scene_properties = getattr(bpy.context.scene, ToolInfo.NAME, object)
 
@@ -1004,6 +1015,145 @@ def collection_to_list(collection: bpy.types.bpy_prop_collection) -> list:
     return item_list
 
 
+def get_raw_scene_data(scene: bpy.types.Scene, addon_id: str) -> Any:
+    """Return the rig-instance data group stored under ``addon_id`` on ``scene``.
+
+    The current edition and its read-only sibling (Free vs Pro) are registered
+    scene ``PointerProperty`` groups, so their data is exposed via attribute
+    access. The old ``meta_human_dna`` prototype instead stored plain custom
+    properties, which are read via subscript. ID-pointer sub-properties resolve to
+    their real datablocks when read from the returned group either way. Returns
+    ``None`` when no data is present.
+    """
+    if not scene:
+        return None
+    group = getattr(scene, addon_id, None)
+    if group is not None:
+        return group
+    try:
+        return scene.get(addon_id)
+    except (KeyError, TypeError):
+        return None
+
+
+def _field(source: Any, name: str) -> Any:
+    """Read ``name`` from a rig-instance ``source``.
+
+    ``source`` is either a live ``RigInstance`` (a registered edition, read via
+    RNA attribute) or a raw IDProperty group/dict from the old prototype (read via
+    ``get``). A live RNA struct exposes ``bl_rna``; a raw IDProperty group does
+    not.
+    """
+    if hasattr(source, "bl_rna"):
+        return getattr(source, name, None)
+    if hasattr(source, "get"):
+        return source.get(name)
+    return None
+
+
+def _rig_instance_sources(group: Any, key: str) -> list:
+    """Return the list of rig-instance sources held under ``key`` on ``group``."""
+    if group is None:
+        return []
+    # Registered editions expose the list through the RNA collection; the old
+    # prototype stored it as a plain custom property.
+    if hasattr(group, "bl_rna") and key == "rig_instance_list":
+        return list(group.rig_instance_list)
+    data = group.get(key) if hasattr(group, "get") else None
+    return list(data) if data else []
+
+
+def detect_legacy_data(scene: bpy.types.Scene) -> tuple[str, str] | None:
+    """Detect rig-instance data that belongs to a different edition or version.
+
+    Returns a ``(addon_id, data_key)`` tuple for the first scene key that holds
+    migratable rig-instance data, or ``None`` when nothing needs migrating. A key
+    qualifies when it is a *foreign* edition (not :attr:`ToolInfo.NAME`) holding
+    rig-instance data, or when the current edition still stores the old
+    ``rig_logic_instance_list`` format that must be upgraded in place. ``data_key``
+    is an empty string when only asset collections survived (collection-data
+    migration).
+    """
+    if not scene:
+        return None
+
+    for addon_id in ADDON_IDS:
+        group = get_raw_scene_data(scene, addon_id)
+        if group is None:
+            continue
+
+        for key in MIGRATABLE_DATA_KEYS:
+            if _rig_instance_sources(group, key) and (addon_id != ToolInfo.NAME or key in LEGACY_DATA_KEYS):
+                return addon_id, key
+
+        # An old-prototype custom-property group with no rig-instance list can
+        # still be reconstructed from the asset collection names in the scene.
+        if addon_id != ToolInfo.NAME and not hasattr(group, "bl_rna") and not group:
+            return addon_id, ""
+
+    return None
+
+
+def _resolve_datablock(value: Any, collection: bpy.types.bpy_prop_collection) -> bpy.types.ID | None:
+    """Resolve a rig-instance pointer field to a datablock in ``collection``.
+
+    A live RNA pointer and a raw IDProperty ID-pointer both expose ``.name``;
+    older data may instead store the datablock name as a plain string. Returns
+    ``None`` when the value is empty or no matching datablock exists.
+    """
+    if not value:
+        return None
+    name = value if isinstance(value, str) else getattr(value, "name", None)
+    if not name:
+        return None
+    return collection.get(name)
+
+
+def _copy_rig_instance_fields(target_properties: "CharacterSceneProperties", source: Any) -> None:
+    """Create a rig instance on ``target_properties`` from a migration ``source``.
+
+    ``source`` is either a live ``RigInstance`` (sibling edition) or a raw
+    IDProperty group (old prototype). Recognized fields are copied onto a freshly
+    added rig instance, resolving object and material pointers by name. Handles
+    both the current nested ``output`` group and the old flat ``output_folder_path``
+    field.
+    """
+    name = _field(source, "name") or _field(source, "instance_name")
+    if not name:
+        return
+    instance = target_properties.rig_instance_list.add()
+    instance.name = name
+
+    for field in ("head_dna_file_path", "body_dna_file_path"):
+        value = _field(source, field)
+        if value:
+            setattr(instance, field, value)
+
+    for field in ("face_board", "control_rig", "head_mesh", "head_rig", "body_mesh", "body_rig"):
+        resolved = _resolve_datablock(_field(source, field), bpy.data.objects)
+        if resolved is not None:
+            setattr(instance, field, resolved)
+
+    for field in ("head_material", "body_material"):
+        resolved = _resolve_datablock(_field(source, field), bpy.data.materials)
+        if resolved is not None:
+            setattr(instance, field, resolved)
+
+    # Output folder: the current format nests it under ``output``; the old
+    # prototype stored it flat as ``output_folder_path``.
+    output_folder_path = _field(source, "output_folder_path")
+    if output_folder_path is None:
+        output = _field(source, "output")
+        if output is not None:
+            output_folder_path = _field(output, "folder_path")
+    if output_folder_path:
+        instance.output.folder_path = output_folder_path
+
+    head_to_body_constraint_influence = _field(source, "head_to_body_constraint_influence")
+    if head_to_body_constraint_influence is not None:
+        instance.head_to_body_constraint_influence = head_to_body_constraint_influence
+
+
 def migrate_by_collection_data(context: "Context", addon_id: str) -> None:
     for collection in bpy.context.collection.children_recursive:
         if collection.name.endswith("_lod0"):
@@ -1026,114 +1176,75 @@ def migrate_by_collection_data(context: "Context", addon_id: str) -> None:
 
 
 @exclude_rig_instance_evaluation
-def migrate_legacy_data(context: "Context") -> Literal["default", "collection_data"]:  # noqa: PLR0912, PLR0915
-    addon_scene_properties = None
-    for addon_id in ADDON_IDS:
-        # When a addon id is found in the scene keys that belongs to an older addon (i.e. not the current addon) and
-        # has no data, we can assume that the data can only be migrated by looking at the collection in the scene.
-        if addon_id != ToolInfo.NAME and addon_id in context.scene and not context.scene.get(addon_id):
-            migrate_by_collection_data(context, addon_id)
-            return "collection_data"
+def migrate_legacy_data(
+    context: "Context",
+) -> Literal["default", "collection_data", "cross_edition", "legacy_format"]:
+    """Migrate rig-instance data saved by a different addon edition or version.
 
-        addon_scene_properties = get_addon_scene_properties(context, id_override=addon_id)
-        if addon_scene_properties:
-            break
+    Handles three scenarios, all keyed off :func:`detect_legacy_data`:
 
-    if not addon_scene_properties:
-        logger.error("Failed to find addon scene properties for data migration.")
+    * **Cross-edition** — the .blend was saved by the sibling edition
+      (``character_dna`` vs ``character_dna_pro``). Both editions share the same
+      ``RigInstance`` layout, so each instance is rebuilt field-by-field.
+    * **Legacy format** — the old ``meta_human_dna`` prototype stored its rig
+      instances under ``rig_logic_instance_list`` with the same field names but a
+      flat output folder; each instance is rebuilt the same way.
+    * **Collection data** — only the asset collections survived (no rig-instance
+      list), so instances are reconstructed from the ``*_lod0`` collection names.
+
+    Returns a status string describing which path ran.
+    """
+    scene = context.scene
+    if not scene:
         return "default"
 
-    rig_instance_names = [instance.name for instance in addon_scene_properties.rig_instance_list]
-    for key in LEGACY_DATA_KEYS:
-        # Migrate rig instance data from old format to new format
-        old_data = addon_scene_properties.get(key, [])
-        for _instance_data in old_data:
-            name = _instance_data.get("name", _instance_data.get("instance_name"))
-            if name is not None and name not in rig_instance_names:
-                instance = addon_scene_properties.rig_instance_list.add()
-                instance.name = name
+    detected = detect_legacy_data(scene)
+    if not detected:
+        return "default"
 
-                # File Paths
-                body_dna_file_path = _instance_data.get("body_dna_file_path")
-                if body_dna_file_path is not None:
-                    instance.body_dna_file_path = _instance_data.get("body_dna_file_path")
-                head_dna_file_path = _instance_data.get("head_dna_file_path")
-                if head_dna_file_path is not None:
-                    instance.head_dna_file_path = _instance_data.get("head_dna_file_path")
-                output_folder_path = _instance_data.get("output_folder_path")
-                if output_folder_path is not None:
-                    instance.output.folder_path = _instance_data.get("output_folder_path")
+    addon_id, data_key = detected
 
-                # Rigs
-                _body_rig = _instance_data.get("body_rig")
-                if _body_rig:
-                    body_rig = bpy.data.objects.get(_body_rig.name)
-                    if body_rig is not None:
-                        instance.body_rig = body_rig
+    # No rig-instance list survived; rebuild from the asset collection names.
+    if not data_key:
+        migrate_by_collection_data(context, addon_id)
+        return "collection_data"
 
-                _head_rig = _instance_data.get("head_rig")
-                if _head_rig:
-                    head_rig = bpy.data.objects.get(_head_rig.name)
-                    if head_rig is not None:
-                        instance.head_rig = head_rig
+    raw_data = get_raw_scene_data(scene, addon_id)
+    sources = _rig_instance_sources(raw_data, data_key)
 
-                _face_board = _instance_data.get("face_board")
-                if _face_board:
-                    face_board = bpy.data.objects.get(_face_board.name)
-                    if face_board is not None:
-                        instance.face_board = face_board
+    target_properties = get_addon_scene_properties(context)
+    existing_names = [instance.name for instance in target_properties.rig_instance_list]
 
-                _control_rig = _instance_data.get("control_rig")
-                if _control_rig:
-                    control_rig = bpy.data.objects.get(_control_rig.name)
-                    if control_rig is not None:
-                        instance.control_rig = control_rig
+    # Rebuild each instance through the RNA so the data lands in the current
+    # edition's managed storage. A raw IDProperty subtree copy is not viable here:
+    # registered PointerProperty data is not exposed as a plain subscriptable
+    # IDProperty, so the registered property would never read it back.
+    for source in sources:
+        name = _field(source, "name") or _field(source, "instance_name")
+        if name and name not in existing_names:
+            _copy_rig_instance_fields(target_properties, source)
 
-                # Meshes
-                _body_mesh = _instance_data.get("body_mesh")
-                if _body_mesh:
-                    body_mesh = bpy.data.objects.get(_body_mesh.name)
-                    if body_mesh is not None:
-                        instance.body_mesh = body_mesh
-                _head_mesh = _instance_data.get("head_mesh")
-                if _head_mesh:
-                    head_mesh = bpy.data.objects.get(_head_mesh.name)
-                    if head_mesh is not None:
-                        instance.head_mesh = head_mesh
+    migrate_type: Literal["cross_edition", "legacy_format"] = (
+        "cross_edition" if data_key == "rig_instance_list" else "legacy_format"
+    )
 
-                # Materials
-                _body_material = _instance_data.get("body_material")
-                if _body_material:
-                    body_material = bpy.data.materials.get(_body_material.name)
-                    if body_material is not None:
-                        instance.body_material = body_material
-                _head_material = _instance_data.get("head_material")
-                if _head_material:
-                    head_material = bpy.data.materials.get(_head_material.name)
-                    if head_material is not None:
-                        instance.head_material = head_material
+    # Clear the migrated sibling list so it is neither re-detected nor re-saved.
+    if addon_id != ToolInfo.NAME and hasattr(raw_data, "bl_rna"):
+        raw_data.rig_instance_list.clear()
 
-                # Other Properties
-                head_to_body_constraint_influence = _instance_data.get("head_to_body_constraint_influence")
-                if head_to_body_constraint_influence is not None:
-                    instance.head_to_body_constraint_influence = head_to_body_constraint_influence
+    # Remove any subscript-stored foreign/legacy keys (old prototype).
+    for other_id in ADDON_IDS:
+        if other_id != ToolInfo.NAME and other_id in scene:
+            del scene[other_id]
 
-        # Remove old data after migration
-        for addon_id in ADDON_IDS:
-            if addon_id == ToolInfo.NAME:
-                continue
-            scene_data = getattr(context.scene, ToolInfo.NAME)
-            if scene_data is not None and hasattr(scene_data, key):
-                del scene_data[key]
+    # Drop any stale legacy list key left on the current edition's group.
+    current_group = getattr(scene, ToolInfo.NAME, None)
+    if current_group is not None:
+        for key in LEGACY_DATA_KEYS:
+            if current_group.get(key) is not None:
+                del current_group[key]
 
-    # Final cleanup to remove any old addon keys in the scene data after migration
-    addon_scene_properties = None
-    for addon_id in ADDON_IDS:
-        if addon_id != ToolInfo.NAME and addon_id in context.scene:
-            del context.scene[addon_id]
-            return "default"
-
-    return "default"
+    return migrate_type
 
 
 def get_addon_preferences() -> "CharacterAddonPreferences | None":

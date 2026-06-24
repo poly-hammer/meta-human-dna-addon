@@ -913,6 +913,10 @@ class MigrateLegacyData(bpy.types.Operator):
                 "Migrated legacy data using collection data. DNA file paths were NOT recovered and you will need "
                 "to update them manually.",
             )
+        elif migrate_type in {"cross_edition", "legacy_format"}:
+            self.report({"INFO"}, "Migrated rig instance data. Save the .blend file to keep the changes.")
+        else:
+            self.report({"INFO"}, "No legacy data found to migrate.")
         return {"FINISHED"}
 
 

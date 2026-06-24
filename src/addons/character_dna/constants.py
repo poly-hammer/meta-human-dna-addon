@@ -304,7 +304,23 @@ REGION_VERTEX_GROUP_PREFIX = "REGION_"
 
 
 ADDON_IDS = ["meta_human_dna", "meta_human_dna_pro", "character_dna", "character_dna_pro"]
+# Maps each current-generation edition to its sibling edition. Both editions
+# store rig instances under the same ``rig_instance_list`` key with an identical
+# layout. Saved scene ``PointerProperty`` data is only readable when a matching
+# property is registered, so the sibling's scene pointer is registered read-only
+# (see ``properties.register``) to expose data saved by the other edition for
+# migration.
+SIBLING_EDITIONS = {"character_dna": "character_dna_pro", "character_dna_pro": "character_dna"}
+# The old prototype (``meta_human_dna``) stored its rig instances under
+# ``rig_logic_instance_list``. These keys require the field-by-field legacy
+# migration that maps the old field names onto the current property group.
 LEGACY_DATA_KEYS = ["rig_logic_instance_list"]
+# Every scene-data key that can hold rig instance data, newest first. The
+# current format (shared by ``character_dna`` and ``character_dna_pro``) uses
+# ``rig_instance_list``; the old prototype used ``rig_logic_instance_list``.
+# Used to detect migratable data and to read it regardless of which edition or
+# addon version saved the .blend file.
+MIGRATABLE_DATA_KEYS = ["rig_instance_list", "rig_logic_instance_list"]
 
 PRO_EDITORS = (
     ("Raw Control Editor", "DECORATE_DRIVER"),
