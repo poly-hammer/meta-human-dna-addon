@@ -41,6 +41,7 @@ if TYPE_CHECKING:
         ShapeKeyEditorPreferences,
         ShapeKeyEditorProperties,
     )
+    from .editors.shared.rbf_solve import RBFDriverTarget, RBFPoseTarget  # noqa: TC004
     from .operators import BakeAnimationBase, DuplicateRigInstance  # noqa: TC004
     from .properties import (
         CharacterAddonProperties,
@@ -196,9 +197,11 @@ if TYPE_CHECKING:
         "RBFDrivenBoneSelectionItem",
         "RBFDrivenData",
         "RBFDriverData",
+        "RBFDriverTarget",
         "RBFEditorPreferences",
         "RBFEditorProperties",
         "RBFPoseData",
+        "RBFPoseTarget",
         "RBFSolverData",
         "RawControlEditorPreferences",
         "RawControlEditorProperties",

@@ -212,14 +212,35 @@ def _neutralize_binding_file_attrs(*wrapper_modules):
             pass
 
 
+def _add_dll_directory_once(folder_path):
+    """Register ``folder_path`` as a DLL search directory at most once per process.
+
+    Each ``os.add_dll_directory`` call appends a new entry to the process-wide DLL
+    search list -- calling it repeatedly with the same folder (as happens on every
+    dev-mode addon reload, which re-executes this module) makes that list grow
+    without bound until Windows rejects it with ``WinError 206`` ("filename or
+    extension is too long"). The set of already-registered folders is stashed on
+    ``sys`` so it survives the module re-execution a reload performs."""
+    if not (sys.platform == "win32" and hasattr(os, "add_dll_directory") and os.path.isdir(folder_path)):
+        return
+    registered = getattr(sys, "_character_dna_dll_directories", None)
+    if registered is None:
+        registered = set()
+        sys._character_dna_dll_directories = registered  # type: ignore[attr-defined]
+    abs_folder = os.path.abspath(folder_path)
+    if abs_folder in registered:
+        return
+    os.add_dll_directory(abs_folder)
+    registered.add(abs_folder)
+
+
 def _load_bindings(folder):
     _register_loader()
 
     folder_path = str(folder)
     # Make the compiled extensions' sibling DLLs discoverable without mutating
     # ``sys.path`` (which the extension validator forbids).
-    if sys.platform == "win32" and hasattr(os, "add_dll_directory") and os.path.isdir(folder_path):
-        os.add_dll_directory(folder_path)
+    _add_dll_directory_once(folder_path)
 
     # ``riglogic.py`` depends on ``dna``, so load ``dna`` first.
     dna_module = IsolatedModuleLoader.load_module("dna", rootdir=folder_path)

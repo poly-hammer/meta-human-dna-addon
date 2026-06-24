@@ -85,6 +85,7 @@
                 "fmin",
                 "xfer",
                 "linearization",
+                "HturnUp_NKstretch_UL",
                 "tri_",
                 "lodprop_tgt",
                 "lodprop_src",
@@ -183,6 +184,7 @@
                 "behaviour",
                 "ccx",
                 "ccy",
+                "wxyz",
                 "intp"
             ]
         },
