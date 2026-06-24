@@ -29,6 +29,8 @@
     ],
     "words": [
         "bpy",
+        "cytoscape",
+        "dagre",
         "dba",
         "nls",
         "pyi",

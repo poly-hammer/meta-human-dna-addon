@@ -18,9 +18,9 @@ if TYPE_CHECKING:
         DnaBackupEntry,
     )
     from .editors.converter.properties import ConverterExtraMeshItem, ConverterProperties  # noqa: TC004
+    from .editors.correctives_viewer.properties import CorrectivesViewerProperties, PsdCorrectiveListItem  # noqa: TC004
     from .editors.raw_control_editor.nls_worker import WorkerPython, WorkerPythonError  # noqa: TC004
     from .editors.raw_control_editor.properties import (  # noqa: TC004
-        PsdCorrectiveListItem,
         RawControlEditorPreferences,
         RawControlEditorProperties,
         RawControlListItem,
@@ -93,6 +93,7 @@ if TYPE_CHECKING:
         backup_manager: BackupManagerProperties
         rbf_editor: RBFEditorProperties
         raw_control_editor: RawControlEditorProperties
+        correctives_viewer: CorrectivesViewerProperties
         shape_key_editor: ShapeKeyEditorProperties
         output: CharacterOutputProperties
         view_options: CharacterViewOptionsProperties
@@ -189,6 +190,7 @@ if TYPE_CHECKING:
         "Context",
         "ConverterExtraMeshItem",
         "ConverterProperties",
+        "CorrectivesViewerProperties",
         "DnaBackupEntry",
         "DuplicateRigInstance",
         "OutputData",

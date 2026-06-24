@@ -1,5 +1,6 @@
 ## Patch Changes
 
+* Added a Correctives Viewer editor: lists the DNA's PSD corrective targets and renders the full or selected corrective dependency graph as an interactive, zoomable HTML chart
 * Made rig instance edition's interoperable
 * Fixed Link/Append bug with output folder path
 * Fixed data type bug on Shape Key Editor commit [#327](https://github.com/poly-hammer/character-dna-addon/issues/327)
