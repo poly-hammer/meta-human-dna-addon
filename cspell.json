@@ -29,6 +29,7 @@
     ],
     "words": [
         "bpy",
+        ".npz",
         "cytoscape",
         "dagre",
         "dba",

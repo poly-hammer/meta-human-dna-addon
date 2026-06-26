@@ -570,6 +570,13 @@ class CHARACTER_DNA_PT_rig_instance_footer_sub_panel(RigInstanceDependentPanel):
         if not self.layout:
             return
 
+        instance = get_active_rig_instance()
+        if not instance:
+            return
+
+        row = self.layout.row()
+        row.prop(instance, "head_to_body_constraint_influence", text="Head to Body Constraint Influence")
+        self.layout.separator()
         row = self.layout.row()
         row.scale_y = 1.5
         row.operator(f"{ToolInfo.NAME}.force_evaluate", icon="FILE_REFRESH")

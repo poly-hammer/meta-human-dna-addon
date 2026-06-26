@@ -17,8 +17,16 @@ if TYPE_CHECKING:
         BackupManagerProperties,
         DnaBackupEntry,
     )
-    from .editors.converter.properties import ConverterExtraMeshItem, ConverterProperties  # noqa: TC004
+    from .editors.converter.properties import (  # noqa: TC004
+        ConverterExtraMeshItem,
+        ConverterProperties,
+    )
     from .editors.correctives_viewer.properties import CorrectivesViewerProperties, PsdCorrectiveListItem  # noqa: TC004
+    from .editors.mesh_editor.properties import (  # noqa: TC004
+        MeshDataTransferItem,
+        MeshEditorProperties,
+        ShimDataItem,
+    )
     from .editors.raw_control_editor.nls_worker import WorkerPython, WorkerPythonError  # noqa: TC004
     from .editors.raw_control_editor.properties import (  # noqa: TC004
         RawControlEditorPreferences,
@@ -193,6 +201,8 @@ if TYPE_CHECKING:
         "CorrectivesViewerProperties",
         "DnaBackupEntry",
         "DuplicateRigInstance",
+        "MeshDataTransferItem",
+        "MeshEditorProperties",
         "OutputData",
         "Preferences",
         "PsdCorrectiveListItem",
@@ -216,6 +226,7 @@ if TYPE_CHECKING:
         "ShapeKeyDependencyItem",
         "ShapeKeyEditorPreferences",
         "ShapeKeyEditorProperties",
+        "ShimDataItem",
         "TargetMeshItem",
         "WindowManager",
         "WorkerPython",

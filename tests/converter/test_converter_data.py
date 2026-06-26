@@ -203,5 +203,28 @@ def test_report_unmapped_joints_logs_only_unmapped(caplog) -> None:
     assert not any(a_mapped_joint in message for message in messages)
 
 
+# ---------------------------------------------------------------------------
+# joints_mapped_by_meshes (head-vs-body reconcile authority)
+# ---------------------------------------------------------------------------
+
+
+def test_joints_mapped_by_meshes_selects_head_only_shared_bones() -> None:
+    """The shared neck / clavicle_out / head joints are mapped on the head mesh
+    only, so the head-vs-body difference selects exactly the joints the head fit
+    is authoritative for during reconcile -- and excludes body-owned joints."""
+    head_joints = bone_mapping.joints_mapped_by_meshes({"head_lod0_mesh"})
+    body_joints = bone_mapping.joints_mapped_by_meshes({"body_lod0_mesh"})
+    head_authoritative = head_joints - body_joints
+
+    for joint in ("neck_01", "neck_02", "head", "clavicle_out_l", "clavicle_out_r"):
+        assert joint in head_joints, f"{joint} should be mapped on head_lod0_mesh"
+        assert joint not in body_joints, f"{joint} must not be mapped on body_lod0_mesh"
+        assert joint in head_authoritative
+
+    # Body-owned shared joints must stay body-authoritative (not in the set).
+    assert "spine_04" in body_joints
+    assert "spine_04" not in head_authoritative
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
