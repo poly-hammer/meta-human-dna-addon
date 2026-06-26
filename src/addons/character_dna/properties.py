@@ -444,14 +444,6 @@ class CharacterSceneProperties(bpy.types.PropertyGroup):
         set=callbacks.set_highlight_matching_active_bone,
         get=callbacks.get_highlight_matching_active_bone,
     )  # pyright: ignore[reportInvalidTypeForm]
-    push_along_normal_distance: bpy.props.FloatProperty(
-        name="Distance Along Normal",
-        description="The distance to push the selected bone along the head mesh vertex normals",
-        default=0.001,
-        min=0.0,
-        step=1,
-        precision=5,
-    )  # pyright: ignore[reportInvalidTypeForm]
     # --------------------- riglogic properties ------------------
     rig_instance_list: bpy.props.CollectionProperty(type=RigInstance)  # pyright: ignore[reportInvalidTypeForm]
     rig_instance_list_active_index: bpy.props.IntProperty(

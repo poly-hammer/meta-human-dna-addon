@@ -77,8 +77,13 @@
             "description": "Source code - Blender API and addon technical terms",
             "words": [
                 "AVX",
+                "PYTHONNOUSERSITE",
+                "MPS",
+                "Rodrigues",
                 "dlopen",
                 "usr",
+                "npz",
+                "savez_compressed",
                 "buildx",
                 "blf",
                 "cdna",
