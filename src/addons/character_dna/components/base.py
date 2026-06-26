@@ -664,13 +664,42 @@ class CharacterComponentBase(metaclass=ABCMeta):
     def constrain_head_to_body(self):
         utilities.constrain_head_to_body(self.rig_instance)
 
-    def set_head_to_body_constraint_influence(self, influence: float):
-        if not self.rig_instance.head_rig:
-            return
+    def _get_head_to_body_constraints(self) -> list[bpy.types.Constraint]:
+        """Return the head→body copy-transforms constraints, cached.
 
-        for pose_bone in self.rig_instance.head_rig.pose.bones:
-            constraint = pose_bone.constraints.get(utilities.get_body_constraint_name(pose_bone.name))
-            if constraint:
+        Dragging the influence slider fires the update callback on every
+        step, and rescanning every head pose bone (rebuilding the
+        per-bone constraint name and doing a name lookup) made the panel
+        stutter on dense MetaHuman head rigs. The constraint references
+        are stable for the lifetime of the rig, so they are cached on the
+        instance and rebuilt lazily; the cache is dropped when the
+        constraints are (re)built and on undo via ``destroy_references``.
+        """
+        instance = self.rig_instance
+        head_rig = instance.head_rig
+        if not head_rig:
+            return []
+
+        key = instance.cache_key("head", "body_constraints")
+        constraints = instance.data.get(key)
+        if constraints is None:
+            constraints = []
+            for pose_bone in head_rig.pose.bones:
+                constraint = pose_bone.constraints.get(utilities.get_body_constraint_name(pose_bone.name))
+                if constraint:
+                    constraints.append(constraint)
+            instance.data[key] = constraints
+        return constraints
+
+    def set_head_to_body_constraint_influence(self, influence: float):
+        try:
+            for constraint in self._get_head_to_body_constraints():
+                constraint.influence = influence
+        except ReferenceError:
+            # A cached constraint wrapper went stale (e.g. the rig was rebuilt
+            # without the cache being invalidated); drop it and rebuild once.
+            self.rig_instance.data.pop(self.rig_instance.cache_key("head", "body_constraints"), None)
+            for constraint in self._get_head_to_body_constraints():
                 constraint.influence = influence
 
     @abstractmethod

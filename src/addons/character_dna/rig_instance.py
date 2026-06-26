@@ -430,7 +430,7 @@ class RigInstance(bpy.types.PropertyGroup):
     # ----- Internal Properties -----
     head_to_body_constraint_influence: bpy.props.FloatProperty(
         name="Constrain Head to Body",
-        default=0.0,
+        default=1.0,
         description="The influence of the head to body constraint",
         update=callbacks.update_head_to_body_constraint_influence,  # type: ignore[call-arg]
         min=0.0,
@@ -1337,6 +1337,7 @@ class RigInstance(bpy.types.PropertyGroup):
             ("head", "shape_key"),
             ("head", "shape_key_blocks"),
             ("head", "shape_key_apply_plan"),
+            ("head", "body_constraints"),
             ("head", "rig_evaluated"),
             ("body", "rig_evaluated"),
         )

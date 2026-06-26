@@ -374,6 +374,9 @@ def constrain_head_to_body(instance: "RigInstance"):
             constraint.target_space = "WORLD"
             constraint.owner_space = "WORLD"
 
+    # Drop the cached constraint list so the influence setter rebuilds it
+    # from the freshly created constraints below (and on later edits).
+    instance.data.pop(instance.cache_key("head", "body_constraints"), None)
     instance.head_to_body_constraint_influence = 1.0
 
 
