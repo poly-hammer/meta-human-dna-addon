@@ -251,9 +251,10 @@ class CHARACTER_DNA_PT_face_board_footer(bpy.types.Panel):
         if instance and instance.is_pro and instance.raw_control_editor.is_editing:
             layout.enabled = False
 
-        row = layout.row()
-        row.scale_y = 1.5
-        row.operator(f"{ToolInfo.NAME}.map_raw_to_gui_controls", icon="UV_SYNC_SELECT")
+        if instance and instance.is_pro:
+            row = layout.row()
+            row.scale_y = 1.5
+            row.operator(f"{ToolInfo.NAME}.map_raw_to_gui_controls", icon="UV_SYNC_SELECT")
 
 
 class CHARACTER_DNA_PT_animation_panel(bpy.types.Panel):
@@ -357,6 +358,19 @@ class CHARACTER_DNA_PT_view_options(RigInstanceDependentPanel):
                 text="Body Bones",
                 icon="HIDE_OFF" if body_rig and not body_rig.hide_get() else "HIDE_ON",
             )
+
+            # Bone Visibility toggles for matching, volume, and internal bones.
+            row = col.row()
+            row.enabled = view_options.show_head_bones
+            row.prop(instance.view_options, "hide_volume_bones", text="Hide Volume")
+
+            row = col.row()
+            row.enabled = view_options.show_head_bones
+            row.prop(instance.view_options, "solo_internal_bones", text="Solo Internal")
+
+            row = col.row()
+            row.prop(properties, "highlight_matching_active_bone", text="Show Matching")
+
             col = grid.column()
             col.enabled = bool(instance.head_mesh)
             col.label(text="Active LOD:")
@@ -380,12 +394,6 @@ class CHARACTER_DNA_PT_view_options(RigInstanceDependentPanel):
                 text="Control Rig",
                 icon="HIDE_OFF" if control_rig and not control_rig.hide_get() else "HIDE_ON",
             )
-
-            row = self.layout.row()
-            row.prop(properties, "highlight_matching_active_bone", text="Show Matching Bone")
-            sub_row = row.row()
-            sub_row.enabled = bool(instance.head_rig or instance.body_rig)
-            sub_row.prop(instance.view_options, "hide_volume_bones", text="Hide Volume Bones")
         else:
             draw_rig_instance_error(self.layout, error)
 

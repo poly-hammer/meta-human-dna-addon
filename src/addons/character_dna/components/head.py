@@ -330,8 +330,11 @@ class CharacterComponentHead(CharacterComponentBase):
             if pose_bone and bone_name not in FACE_BOARD_SWITCHES + EXCLUDED_FACE_BOARD_CONTROLS:
                 pose_bone.location = Vector(transform_data["location"])
 
-        # Apply body pose to head only if no body_rig exists
-        if not self.rig_instance.body_rig:
+        # Apply body pose to the head bones directly when the head is not driven
+        # by the body rig (no body rig, or the head-to-body constraint influence is
+        # 0.0). When the head is constrained to the body, the body component poses
+        # the body bones and the head follows via the copy-transforms constraints.
+        if not self.rig_instance.head_constrained_to_body:
             body_data: dict = data.get("body", {})
             if body_data and self.rig_instance.head_rig and self.rig_instance.head_rig.pose:
                 for bone_name, transform_data in body_data.items():

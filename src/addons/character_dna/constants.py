@@ -48,8 +48,12 @@ FACE_BOARD_NAME = "face_gui"
 HEAD_MATERIAL_NAME = "head_shader"
 BODY_MATERIAL_NAME = "body_shader"
 MASKS_TEXTURE = "combined_masks.tga"
-HEAD_TOPOLOGY_TEXTURE = "head_topology.png"
-BODY_TOPOLOGY_TEXTURE = "body_topology.png"
+# material-color preview enum items
+MATERIAL_PREVIEW_ITEMS_BASE = (
+    ("combined", "Combined", "Displays all combined textures maps", "NONE", 0),
+    ("masks", "Masks", "Displays only the color of the mask texture maps", "NONE", 1),
+    ("normals", "Normals", "Displays only the color of the normal texture maps", "NONE", 2),
+)
 NUMBER_OF_HEAD_LODS = 8
 SENTRY_DSN = "https://38575ef4609265865b46dcc274249962@sentry.poly-hammer.com/13"
 
@@ -139,10 +143,6 @@ HEAD_TO_BODY_EDGE_LOOP_FILE_PATH = MAPPINGS_FOLDER / "head_to_body_edge_loop.jso
 MESH_VERTEX_COLORS_FILE_PATH = MAPPINGS_FOLDER / MESH_VERTEX_COLORS_FILE_NAME
 
 MASKS_TEXTURE_FILE_PATH = IMAGES_FOLDER / MASKS_TEXTURE
-
-HEAD_TOPOLOGY_TEXTURE_FILE_PATH = IMAGES_FOLDER / HEAD_TOPOLOGY_TEXTURE
-
-BODY_TOPOLOGY_TEXTURE_FILE_PATH = IMAGES_FOLDER / BODY_TOPOLOGY_TEXTURE
 
 MATERIALS_FILE_PATH = BLENDS_FOLDER / "materials.blend"
 
@@ -300,6 +300,13 @@ class BodyBoneCollection:
 # and kept out of the per-joint-group collections.
 VOLUME_BONE_COLLECTION = "Volume"
 
+# Bone collection that holds the internal bones, so the user can solo it to
+# quickly hide the surface-skinning and volume leaf bones and get a clear view
+# of the internal skeleton on the head rig. A bone is internal when it has
+# children, or it is a leaf joint that skins a non-surface mesh (such as the
+# teeth or eyes) rather than the surface (``head_lod0_mesh``) mesh.
+INTERNAL_BONE_COLLECTION = "Internal"
+
 
 # Prefix used for the vertex groups that store the rig-definition mesh regions.
 REGION_VERTEX_GROUP_PREFIX = "REGION_"
@@ -325,9 +332,10 @@ LEGACY_DATA_KEYS = ["rig_logic_instance_list"]
 MIGRATABLE_DATA_KEYS = ["rig_instance_list", "rig_logic_instance_list"]
 
 PRO_EDITORS = (
+    ("Converter", "RNA"),
+    ("Mesh Editor", "MESH_DATA"),
     ("Raw Control Editor", "DECORATE_DRIVER"),
     ("RBF Editor", "DRIVER_ROTATIONAL_DIFFERENCE"),
     ("Shape Key Editor", "SHAPEKEY_DATA"),
-    ("DNA Converter", "RNA"),
     ("Backup Manager", "FILE_BACKUP"),
 )

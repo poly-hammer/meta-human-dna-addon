@@ -20,6 +20,8 @@ from ..constants import (
     BODY_MAPS,
     HEAD_MAPS,
     HEAD_TO_BODY_LOD_MAPPING,
+    INTERNAL_BONE_COLLECTION,
+    MATERIAL_PREVIEW_ITEMS_BASE,
     NUMBER_OF_HEAD_LODS,
     POSES_FOLDER,
     VOLUME_BONE_COLLECTION,
@@ -115,7 +117,29 @@ def get_body_texture_logic_node(material: bpy.types.Material) -> bpy.types.Shade
 
 
 def get_active_material_preview(self: "CharacterViewOptionsProperties") -> int:
-    return self.get("active_material_preview", 0)
+    value = self.get("active_material_preview", 0)
+    if value >= len(MATERIAL_PREVIEW_ITEMS_BASE):
+        instance = _get_view_options_owner(self)
+        if not instance or not instance.is_pro:
+            return 0
+    return value
+
+
+def get_active_material_preview_items(
+    self: "CharacterViewOptionsProperties", context: "Context"
+) -> tuple[tuple[str, str, str, str, int], ...]:
+    """Dynamic items for the material-color preview enum.
+
+    The free edition exposes Combined / Masks / Normals. The Pro edition appends the Topology
+    preview (always last), resolved from the ``editors/shared`` submodule and gated on the
+    owning rig instance being Pro.
+    """
+    instance = _get_view_options_owner(self)
+    if instance and instance.is_pro:
+        from ..editors.shared import callbacks as shared_callbacks
+
+        return shared_callbacks.get_active_material_preview_items(self, context)
+    return MATERIAL_PREVIEW_ITEMS_BASE
 
 
 def get_face_pose_previews_items(
@@ -621,6 +645,29 @@ def set_hide_volume_bones(self: "CharacterViewOptionsProperties", value: bool):
             collection = rig_object.data.collections.get(VOLUME_BONE_COLLECTION)
             if collection:
                 collection.is_visible = not value
+
+
+def get_solo_internal_bones(self: "CharacterViewOptionsProperties") -> bool:
+    instance = _get_view_options_owner(self)
+    if not instance:
+        return False
+    head_rig = instance.head_rig
+    if head_rig and isinstance(head_rig.data, bpy.types.Armature):
+        collection = head_rig.data.collections.get(INTERNAL_BONE_COLLECTION)
+        if collection:
+            return bool(collection.is_solo)
+    return False
+
+
+def set_solo_internal_bones(self: "CharacterViewOptionsProperties", value: bool):
+    instance = _get_view_options_owner(self)
+    if not instance:
+        return
+    head_rig = instance.head_rig
+    if head_rig and isinstance(head_rig.data, bpy.types.Armature):
+        collection = head_rig.data.collections.get(INTERNAL_BONE_COLLECTION)
+        if collection:
+            collection.is_solo = value
 
 
 def set_copied_rig_instance_name(self: "DuplicateRigInstance", value: str):

@@ -8,6 +8,7 @@ import sys
 from abc import ABCMeta, abstractmethod
 from datetime import UTC, datetime
 from pathlib import Path
+from types import ModuleType
 from typing import Any
 
 # third party imports
@@ -21,15 +22,11 @@ from ..constants import (
     BODY_MATERIAL_NAME,
     BODY_MESH_SHADER_MAPPING,
     BODY_TEXTURE_LOGIC_NODE_NAME,
-    BODY_TOPOLOGY_TEXTURE,
-    BODY_TOPOLOGY_TEXTURE_FILE_PATH,
     DEFAULT_UV_TOLERANCE,
     FACE_BOARD_NAME,
     HEAD_MATERIAL_NAME,
     HEAD_MESH_SHADER_MAPPING,
     HEAD_TEXTURE_LOGIC_NODE_NAME,
-    HEAD_TOPOLOGY_TEXTURE,
-    HEAD_TOPOLOGY_TEXTURE_FILE_PATH,
     INVALID_NAME_CHARACTERS_REGEX,
     LEGACY_ALTERNATE_HEAD_TEXTURE_FILE_NAMES,
     MASKS_TEXTURE,
@@ -47,6 +44,14 @@ from ..utilities import preserve_context
 
 
 logger = logging.getLogger(__name__)
+
+
+def _get_topology_texture_constants() -> ModuleType | None:
+    if not utilities.editors_available():
+        return None
+    from ..editors.shared import constants as shared_constants
+
+    return shared_constants
 
 
 class CharacterComponentBase(metaclass=ABCMeta):
@@ -258,13 +263,26 @@ class CharacterComponentBase(metaclass=ABCMeta):
         # (the volumetric helper joints, which only drive the lower LODs). They
         # depend only on skin weights and the bone hierarchy, so they are
         # authored even when no rig definition is available.
+        skinned_joint_names = self._get_skinned_joint_names(lod=0)
         volume_joint_names = utilities.get_volume_joint_names(
             rig_object=rig_object,
-            skinned_joint_names=self._get_skinned_joint_names(lod=0),
+            skinned_joint_names=skinned_joint_names,
         )
         utilities.assign_volume_bone_collection(
             rig_object=rig_object,
             volume_joint_names=volume_joint_names,
+        )
+        # The internal bones are the non-leaf joints plus the leaf joints that
+        # skin a non-surface mesh (such as the teeth or eyes) instead of the
+        # surface (``*_lod0_mesh``) mesh, so the surface skinning is resolved
+        # separately from the full LOD0 skin set.
+        utilities.assign_internal_bone_collection(
+            rig_object=rig_object,
+            skinned_joint_names=skinned_joint_names,
+            surface_skinned_joint_names=self._get_skinned_joint_names(
+                lod=0,
+                mesh_names={f"{self.component_type}_lod0_mesh"},
+            ),
         )
 
         rig_definition = self._get_rig_definition()
@@ -281,19 +299,24 @@ class CharacterComponentBase(metaclass=ABCMeta):
             exclude_joint_names=volume_joint_names,
         )
 
-    def _get_skinned_joint_names(self, lod: "int | None" = None) -> set[str]:
+    def _get_skinned_joint_names(self, lod: "int | None" = None, mesh_names: "set[str] | None" = None) -> set[str]:
         """Return the names of every joint that carries at least one skin-weight
         influence on the DNA's meshes.
 
         When ``lod`` is given, only the meshes for that LOD are considered; this
         is how the volume joints are found (a leaf joint that does not skin the
         LOD0 mesh is a volumetric helper, even though it skins a lower LOD).
+        When ``mesh_names`` is given, only the meshes with those DNA names are
+        considered; this is how the surface-skinning joints are isolated from the
+        joints that skin the other meshes (such as the teeth or eyes).
         """
         reader = self.dna_reader
         joint_name_cache: dict[int, str] = {}
         skinned_joint_names: set[str] = set()
         mesh_indices = reader.getMeshIndicesForLOD(lod) if lod is not None else range(reader.getMeshCount())
         for mesh_index in mesh_indices:
+            if mesh_names is not None and reader.getMeshName(mesh_index) not in mesh_names:
+                continue
             for vertex_index in range(reader.getSkinWeightsCount(mesh_index)):
                 for joint_index in reader.getSkinWeightsJointIndices(mesh_index, vertex_index):
                     joint_name = joint_name_cache.get(joint_index)
@@ -356,12 +379,19 @@ class CharacterComponentBase(metaclass=ABCMeta):
         return image_file
 
     def _set_image_textures(self, materials: list[bpy.types.Material]):  # noqa: PLR0912
+        shared_constants = _get_topology_texture_constants()
         # set the combined mask image and topology image
         if self.component_type == "head":
             bpy.data.images[MASKS_TEXTURE].filepath = str(MASKS_TEXTURE_FILE_PATH)
-            bpy.data.images[HEAD_TOPOLOGY_TEXTURE].filepath = str(HEAD_TOPOLOGY_TEXTURE_FILE_PATH)
+            if shared_constants:
+                bpy.data.images[shared_constants.HEAD_TOPOLOGY_TEXTURE].filepath = str(
+                    shared_constants.HEAD_TOPOLOGY_TEXTURE_FILE_PATH
+                )
         elif self.component_type == "body":
-            bpy.data.images[BODY_TOPOLOGY_TEXTURE].filepath = str(BODY_TOPOLOGY_TEXTURE_FILE_PATH)
+            if shared_constants:
+                bpy.data.images[shared_constants.BODY_TOPOLOGY_TEXTURE].filepath = str(
+                    shared_constants.BODY_TOPOLOGY_TEXTURE_FILE_PATH
+                )
 
         for material in materials:
             if not material.node_tree:
@@ -411,9 +441,11 @@ class CharacterComponentBase(metaclass=ABCMeta):
         # remove any extra masks and topology images
         for image in bpy.data.images:
             if self.component_type == "head":
-                image_names = [MASKS_TEXTURE, HEAD_TOPOLOGY_TEXTURE]
+                image_names = [MASKS_TEXTURE]
+                if shared_constants:
+                    image_names.append(shared_constants.HEAD_TOPOLOGY_TEXTURE)
             if self.component_type == "body":
-                image_names = [BODY_TOPOLOGY_TEXTURE]
+                image_names = [shared_constants.BODY_TOPOLOGY_TEXTURE] if shared_constants else []
 
             if image.name in image_names:
                 continue
@@ -428,11 +460,11 @@ class CharacterComponentBase(metaclass=ABCMeta):
                     if self.component_type == "head":
                         if node.label == MASKS_TEXTURE:
                             node.image = bpy.data.images[MASKS_TEXTURE]  # type: ignore[attr-defined]
-                        if node.label == HEAD_TOPOLOGY_TEXTURE:
-                            node.image = bpy.data.images[HEAD_TOPOLOGY_TEXTURE]  # type: ignore[attr-defined]
+                        if shared_constants and node.label == shared_constants.HEAD_TOPOLOGY_TEXTURE:
+                            node.image = bpy.data.images[shared_constants.HEAD_TOPOLOGY_TEXTURE]  # type: ignore[attr-defined]
                     elif self.component_type == "body":
-                        if node.label == BODY_TOPOLOGY_TEXTURE:
-                            node.image = bpy.data.images[BODY_TOPOLOGY_TEXTURE]  # type: ignore[attr-defined]
+                        if shared_constants and node.label == shared_constants.BODY_TOPOLOGY_TEXTURE:
+                            node.image = bpy.data.images[shared_constants.BODY_TOPOLOGY_TEXTURE]  # type: ignore[attr-defined]
 
     def _purge_existing_materials(self):
         shader_mapping = HEAD_MESH_SHADER_MAPPING if self.component_type == "head" else BODY_MESH_SHADER_MAPPING
@@ -441,19 +473,22 @@ class CharacterComponentBase(metaclass=ABCMeta):
             if material:
                 bpy.data.materials.remove(material)
 
+        shared_constants = _get_topology_texture_constants()
         if self.component_type == "head":
             masks_image = bpy.data.images.get(MASKS_TEXTURE)
             if masks_image:
                 bpy.data.images.remove(masks_image)
 
-            head_topology_image = bpy.data.images.get(HEAD_TOPOLOGY_TEXTURE)
-            if head_topology_image:
-                bpy.data.images.remove(head_topology_image)
+            if shared_constants:
+                head_topology_image = bpy.data.images.get(shared_constants.HEAD_TOPOLOGY_TEXTURE)
+                if head_topology_image:
+                    bpy.data.images.remove(head_topology_image)
 
         elif self.component_type == "body":
-            body_topology_image = bpy.data.images.get(BODY_TOPOLOGY_TEXTURE)
-            if body_topology_image:
-                bpy.data.images.remove(body_topology_image)
+            if shared_constants:
+                body_topology_image = bpy.data.images.get(shared_constants.BODY_TOPOLOGY_TEXTURE)
+                if body_topology_image:
+                    bpy.data.images.remove(body_topology_image)
 
     def _delete_rig_instance(self):
         if (

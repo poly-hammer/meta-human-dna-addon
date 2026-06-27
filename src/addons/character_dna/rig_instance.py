@@ -613,6 +613,10 @@ class RigInstance(bpy.types.PropertyGroup):
         return bool(self.data.get(self.cache_key("body", "initialized")))
 
     @property
+    def head_constrained_to_body(self) -> bool:
+        return bool(self.body_rig) and round(self.head_to_body_constraint_influence, 4) > 0.0
+
+    @property
     def head_use_eye_aim(self) -> bool:
         look_at_switch = self.face_board.pose.bones.get("CTRL_lookAtSwitch")
         return look_at_switch and look_at_switch.location.y >= 0.99

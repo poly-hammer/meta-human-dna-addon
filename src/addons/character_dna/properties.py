@@ -262,14 +262,8 @@ class CharacterViewOptionsProperties(bpy.types.PropertyGroup):
     )  # pyright: ignore[reportInvalidTypeForm]
     active_material_preview: bpy.props.EnumProperty(
         name="Material Color",
-        items=[
-            ("combined", "Combined", "Displays all combined textures maps"),
-            ("masks", "Masks", "Displays only the color of the mask texture maps"),
-            ("normals", "Normals", "Displays only the color of the normal texture maps"),
-            ("topology", "Topology", "Displays only the mesh topology colors"),
-        ],
+        items=callbacks.get_active_material_preview_items,  # type: ignore[arg-type]
         description="Choose what color should be shown by the material",
-        default="combined",
         set=callbacks.set_active_material_preview,
         get=callbacks.get_active_material_preview,
     )  # pyright: ignore[reportInvalidTypeForm]
@@ -307,6 +301,16 @@ class CharacterViewOptionsProperties(bpy.types.PropertyGroup):
         description=("Hide the volume bones (the non-skinned leaf bones) by hiding the Volume bone collection"),
         set=callbacks.set_hide_volume_bones,
         get=callbacks.get_hide_volume_bones,
+    )  # pyright: ignore[reportInvalidTypeForm]
+    solo_internal_bones: bpy.props.BoolProperty(
+        name="Solo Internal Bones",
+        default=False,
+        description=(
+            "Solo the internal bones (every non-leaf joint) by soloing the Internal bone collection on the head "
+            "rig, hiding the volume and skinned surface leaf bones for a clear view of the internal skeleton"
+        ),
+        set=callbacks.set_solo_internal_bones,
+        get=callbacks.get_solo_internal_bones,
     )  # pyright: ignore[reportInvalidTypeForm]
 
 
