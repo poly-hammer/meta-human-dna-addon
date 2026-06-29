@@ -813,6 +813,8 @@ def update_face_pose(self: "RigInstance", context: "Context"):
         switch_to_pose_mode,
     )
 
+    instances_to_update = []
+
     selected_armature_objects = {obj for obj in context.selected_objects or [] if obj.type == "ARMATURE"}
 
     active_instance = get_active_rig_instance()
@@ -833,13 +835,18 @@ def update_face_pose(self: "RigInstance", context: "Context"):
             if head:
                 head.set_pose()
 
+            instances_to_update.append(instance)
+
     if not active_instance.face_board.hide_get():
         selected_armature_objects.add(active_instance.face_board)
 
     switch_to_pose_mode(*selected_armature_objects)
 
     addon_window_manager_properties.evaluate_dependency_graph = True
-    active_instance.evaluate()
+
+    # Evaluate all instances that share that face board
+    for instance in instances_to_update:
+        instance.evaluate()
 
 
 def update_head_to_body_constraint_influence(self: "RigInstance", context: "Context"):  # noqa: ARG001

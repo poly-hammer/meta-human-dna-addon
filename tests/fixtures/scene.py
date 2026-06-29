@@ -171,6 +171,12 @@ def load_mhc_conformed_topology_meshes(addon):
     for component in ["head", "body"]:
         file_path = TEST_FBX_FOLDER / "mhc_conformed_topology" / f"{component}.fbx"
         bpy.ops.import_scene.fbx(filepath=str(file_path))
+    # The FBX importer leaves the Y-up -> Z-up conversion as an unapplied object
+    # rotation. The converter requires zeroed transforms, so apply them (this is
+    # geometrically neutral: world-space geometry is preserved).
+    bpy.ops.object.select_all(action="SELECT")
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    bpy.ops.object.select_all(action="DESELECT")
 
 
 @pytest.fixture(scope="session")

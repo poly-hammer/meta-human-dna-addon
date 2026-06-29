@@ -348,7 +348,12 @@ class ImportFaceBoardAnimation(ImportAnimationBase, importer.ImportAnimation):
         file_path = self.filepath  # type: ignore[attr-defined]
         logger.info(f"Importing animation {file_path}")
         head = utilities.get_active_head()
+
         if head:
+            if not head.face_board_object:
+                self.report({"ERROR"}, "No face board object found for the active head")
+                return {"CANCELLED"}
+
             head.import_action(
                 Path(file_path),
                 is_face_board=True,
@@ -357,6 +362,8 @@ class ImportFaceBoardAnimation(ImportAnimationBase, importer.ImportAnimation):
                 prefix_instance_name=self.prefix_instance_name,
                 prefix_component_name=self.prefix_component_name,
             )
+            utilities.switch_to_pose_mode(*head.face_board_object)
+            self.report({"INFO"}, f"Imported face board animation from {file_path}")
         return {"FINISHED"}
 
 
@@ -390,6 +397,10 @@ class ImportComponentAnimation(ImportAnimationBase, importer.ImportAnimation):
         elif self.component_type == "body":
             body = utilities.get_active_body()
             if body:
+                if not body.body_rig_object:
+                    self.report({"ERROR"}, "No body rig object found for the active body")
+                    return {"CANCELLED"}
+
                 body.import_action(
                     file_path,
                     round_sub_frames=self.round_sub_frames,
@@ -397,6 +408,7 @@ class ImportComponentAnimation(ImportAnimationBase, importer.ImportAnimation):
                     prefix_instance_name=self.prefix_instance_name,
                     prefix_component_name=self.prefix_component_name,
                 )
+                utilities.switch_to_pose_mode(*body.body_rig_object)
 
         self.report({"INFO"}, f"Imported {self.component_type} animation from {file_path}")
 
