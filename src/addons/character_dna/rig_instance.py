@@ -1665,6 +1665,35 @@ class RigInstance(bpy.types.PropertyGroup):
 
         return shape_key_values
 
+    def zero_head_shape_keys(self) -> None:
+        """Set every RigLogic-driven head shape-key block value to 0.0 so the
+        LOD0 head meshes show the basis (bone-deformed) shape with no
+        blend-shape contribution.
+        """
+        # skip if the head mesh is not set
+        if not self.head_mesh or not self.head_dna_reader:
+            return
+
+        # skip if there are no shape keys
+        if len(bpy.data.shape_keys) == 0:
+            return
+
+        for key_blocks, positions, _channels, _blocks, buffer in self.head_shape_key_apply_plan:
+            try:
+                # Read current values, zero only the RigLogic-driven blocks
+                # (leaving any non-driven blocks untouched), write back.
+                key_blocks.foreach_get("value", buffer)
+                buffer[positions] = 0.0
+                key_blocks.foreach_set("value", buffer)
+            except (AttributeError, RuntimeError, ReferenceError) as error:
+                logger.error(f'Failed to zero the shape keys on "{self.head_mesh.name}": {error}')
+                continue
+
+            # foreach_set bypasses the per-property update, so tag the shape-key
+            # datablock for the dependency graph to re-evaluate the deformed mesh.
+            if key_blocks.id_data:
+                key_blocks.id_data.update_tag()
+
     def update_head_texture_masks(self) -> list[tuple[str, float]]:
         # skip if the material is not set
         if not self.head_material or not self.head_dna_reader:
