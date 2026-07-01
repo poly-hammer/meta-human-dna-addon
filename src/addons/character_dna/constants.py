@@ -110,8 +110,7 @@ def get_user_data_folder() -> Path:
     location that requires no admin rights and, unlike the system temp
     folder, is never swept by the OS (Windows Storage Sense, Linux
     ``/tmp`` clearing on reboot, macOS ``/var/folders`` pruning). Use it
-    for expensive-to-regenerate caches (the extracted NLS module + ML
-    model) that must survive across sessions.
+    for expensive-to-regenerate caches that must survive across sessions.
 
     Falls back to ``TEMP_FOLDER`` when the add-on is loaded as a legacy
     add-on rather than an installed extension (e.g. the test harness),

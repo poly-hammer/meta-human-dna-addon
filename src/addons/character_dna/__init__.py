@@ -150,8 +150,7 @@ def unregister():
 
     editors = utilities.get_editors()
 
-    # Stop the optional Pro editor runtime services (ML matchers, NLS workers,
-    # Docker containers, toast overlay).
+    # Stop the optional Pro editor runtime services (solver workers, toast overlay).
     if editors is not None:
         editors.unregister_runtime()
 

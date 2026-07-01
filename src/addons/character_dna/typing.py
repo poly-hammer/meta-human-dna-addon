@@ -27,7 +27,6 @@ if TYPE_CHECKING:
         MeshEditorProperties,
         ShimDataItem,
     )
-    from .editors.raw_control_editor.nls_worker import WorkerPython, WorkerPythonError  # noqa: TC004
     from .editors.raw_control_editor.properties import (  # noqa: TC004
         RawControlEditorPreferences,
         RawControlEditorProperties,
@@ -229,8 +228,6 @@ if TYPE_CHECKING:
         "ShimDataItem",
         "TargetMeshItem",
         "WindowManager",
-        "WorkerPython",
-        "WorkerPythonError",
         "dna",
         "riglogic",
     ]

@@ -1558,45 +1558,6 @@ class AddRigLogicTextureNode(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class CHARACTER_DNA_OT_extract_metahuman_for_maya_dependencies(bpy.types.Operator):
-    """Extract the `nls` Python package and `jm_model` ML model out of the
-    user-configured `MetaHumanForMaya.zip` into the addon's temp folder.
-
-    The Raw Control Editor's Match Bones to Mesh operator loads both of
-    these at runtime; without them the matcher cannot run."""
-
-    bl_idname = f"{ToolInfo.NAME}.extract_metahuman_for_maya_dependencies"
-    bl_label = "Extract Dependencies"
-    bl_description = (
-        "Unpack the `nls` Python package and ML model from the configured "
-        "`MetaHumanForMaya.zip` into the addon's temp folder"
-    )
-    bl_options = {"REGISTER", "INTERNAL"}
-
-    def execute(self, context: "Context") -> set[str]:
-        from .editors.raw_control_editor import dependency_extraction
-
-        addon_preferences = utilities.get_addon_preferences()
-        if not addon_preferences:
-            self.report({"ERROR"}, "Addon preferences are not available.")
-            return {"CANCELLED"}
-        raw_zip_path = addon_preferences.raw_control_editor.metahuman_for_maya_zip_path
-        if not raw_zip_path:
-            self.report({"ERROR"}, "Set `MetaHuman for Maya Zip Path` in addon preferences first.")
-            return {"CANCELLED"}
-        zip_path = Path(bpy.path.abspath(raw_zip_path))
-        try:
-            result = dependency_extraction.extract_dependencies(zip_path)
-        except dependency_extraction.DependencyExtractionError as exc:
-            self.report({"ERROR"}, str(exc))
-            return {"CANCELLED"}
-        self.report(
-            {"INFO"},
-            f"Extracted MetaHuman for Maya dependencies: nls={result.nls_dir}, model={result.model_path}",
-        )
-        return {"FINISHED"}
-
-
 class UILIST_ADDON_PREFERENCES_OT_extra_dna_entry_remove(GenericUIListOperator, bpy.types.Operator):
     """Remove the selected entry from the list"""
 
