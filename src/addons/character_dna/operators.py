@@ -362,7 +362,7 @@ class ImportFaceBoardAnimation(ImportAnimationBase, importer.ImportAnimation):
                 prefix_instance_name=self.prefix_instance_name,
                 prefix_component_name=self.prefix_component_name,
             )
-            utilities.switch_to_pose_mode(*head.face_board_object)
+            utilities.switch_to_pose_mode(head.face_board_object)
             self.report({"INFO"}, f"Imported face board animation from {file_path}")
         return {"FINISHED"}
 
@@ -408,7 +408,7 @@ class ImportComponentAnimation(ImportAnimationBase, importer.ImportAnimation):
                     prefix_instance_name=self.prefix_instance_name,
                     prefix_component_name=self.prefix_component_name,
                 )
-                utilities.switch_to_pose_mode(*body.body_rig_object)
+                utilities.switch_to_pose_mode(body.body_rig_object)
 
         self.report({"INFO"}, f"Imported {self.component_type} animation from {file_path}")
 
@@ -975,13 +975,19 @@ class SendToMetaHumanCreator(bpy.types.Operator):
                 )
                 return {"CANCELLED"}
 
-            last_component = None
+            last_component: CharacterComponentBase = None  # pyright: ignore[reportAssignmentType]
             # Export the body first so the head can conform its neck edge loop onto
             # the freshly-written body DNA. Auto LOD propagation regenerates each
             # component's lower-LOD meshes independently, so the head must snap to the
             # body that is actually written (not the imported template) for the neck
             # seam to line up across every LOD in the exported files.
             output_folder = Path(bpy.path.abspath(instance.output.folder_path))
+
+            # Build every component's exporter up front so all validations can run
+            # before any DNA is written -- otherwise a later component's validation
+            # (and its fix dialog) would only surface after an earlier component had
+            # already been exported to disk.
+            component_exporters: list[tuple[object, DNAExporter]] = []
             for component in [body, head]:
                 seam_reference_dna_path = None
                 if component.component_type == "head":
@@ -1003,14 +1009,24 @@ class SendToMetaHumanCreator(bpy.types.Operator):
                         file_name=f"{component.component_type}.dna",
                         component_type=component.component_type,
                     )
+                component_exporters.append((component, dna_io_instance))
 
+            # Phase 1: validate every component before writing anything to disk.
+            for _component, dna_io_instance in component_exporters:
+                valid, title, message, fix = dna_io_instance.validate_scene()
+                if not valid:
+                    utilities.report_error_panel(title=title, message=message, fix=fix, width=500)
+                    return {"CANCELLED"}
+
+            # Phase 2: all validations passed -- export each component.
+            for component, dna_io_instance in component_exporters:
                 valid, title, message, fix = dna_io_instance.run()
                 if not valid:
                     utilities.report_error_panel(title=title, message=message, fix=fix, width=500)
                     return {"CANCELLED"}
                 self.report({"INFO"}, message)
 
-                last_component = component
+                last_component = component  # pyright: ignore[reportAssignmentType]
 
             # write a manifest file to the output folder similar to the MetaHuman Creator DCC export
             if last_component:

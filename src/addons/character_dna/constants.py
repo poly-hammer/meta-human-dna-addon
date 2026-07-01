@@ -60,8 +60,6 @@ SENTRY_DSN = "https://38575ef4609265865b46dcc274249962@sentry.poly-hammer.com/13
 INVALID_NAME_CHARACTERS_REGEX = r"[^-+\w]+"
 LOD_REGEX = r"(?i)(_LOD\d).*"
 
-TOPO_GROUP_PREFIX = "TOPO_GROUP_"
-
 # Prefix of every MetaHuman face expression raw control in the DNA
 # (e.g. ``CTRL_expressions.jawOpen``). Lives at the top level so both the
 # Raw Control Editor and the shared dependency-chain resolver can use it.

@@ -177,10 +177,10 @@ class CharacterOutputProperties(bpy.types.PropertyGroup):
                 "overwrite",
                 "Overwrite",
                 (
-                    "(Experimental, and not fully functional yet) Uses the original dna file and overwrites the"
-                    " dna data based on the current mesh and armature data in the scene. Use this method if your "
-                    "vert indices and bone names are different from the original DNA. Only use this method when "
-                    "calibration method is not possible"
+                    "(Experimental) Uses the original dna file and rewrites the mesh and armature data from scratch "
+                    "based on the current scene, while preserving the underlying rig behavior controls, and "
+                    "blend-shape channel wiring. Use this method if your vert indices, mesh set, or bones differ "
+                    "from the original DNA. Only use this method when the calibration method is not possible"
                 ),
                 "ERROR",
                 1,
