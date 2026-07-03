@@ -81,3 +81,23 @@ def test_convert_meshes_to_dna(load_mhc_conformed_topology_meshes, base_dna_fold
     assert manifest_file.exists(), "ExportManifest.json should be written alongside the DNA"
     manifest = json.loads(manifest_file.read_text())
     assert manifest["metaHumanName"] == name, "Manifest should record the converted MetaHuman name"
+
+    # ``zero_shape_deltas`` defaults on, so the converted head DNA should carry no
+    # blend shape deltas even though the base DNA does.
+    from character_dna.dna_io import get_dna_reader
+
+    def _blend_shape_delta_count(dna_path: Path) -> int:
+        reader = get_dna_reader(dna_path)
+        assert reader is not None, f"Should be able to read {dna_path}"
+        return sum(
+            len(reader.getBlendShapeTargetVertexIndices(mesh_index, target_index))
+            for mesh_index in range(reader.getMeshCount())
+            for target_index in range(reader.getBlendShapeTargetCount(mesh_index))
+        )
+
+    assert _blend_shape_delta_count(base_dna_folder / "head.dna") > 0, (
+        "The base head DNA should ship blend shape deltas for this test to be meaningful"
+    )
+    assert _blend_shape_delta_count(output_folder / "head.dna") == 0, (
+        "zero_shape_deltas should clear every blend shape delta in the converted head DNA"
+    )

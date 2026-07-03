@@ -27,6 +27,7 @@ def test_view_3d(panel_class):
     "operator_class",
     [
         operators.ForceEvaluate,
+        operators.RefreshOutputItems,
         operators.ImportCharacterDna,
     ],
 )

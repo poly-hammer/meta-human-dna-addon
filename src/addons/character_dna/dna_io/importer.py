@@ -256,7 +256,7 @@ class DNAImporter:
                     z_values[normal_indices[index]] * self._linear_modifier,
                 ]
                 for index in self._index_to_vert
-            ]
+            ]  # pyright: ignore[reportArgumentType]
         )
 
     def set_mesh_vertex_positions(self, mesh_index: int, bmesh_object: bmesh.types.BMesh):
@@ -342,10 +342,23 @@ class DNAImporter:
         ) or bmesh_object.loops.layers.color.new(VERTEX_COLOR_ATTRIBUTE_NAME)
 
         if self._default_vertex_color_layout:
+            # The bundled default layout is keyed by the standard MetaHuman mesh
+            # ordering/vertex counts; when it is applied to a custom (overwrite)
+            # DNA whose mesh set or topology differs, the lookups can fall out of
+            # range. Guard every access so a mismatched layout skips gracefully
+            # instead of raising and dropping the whole mesh from the import.
+            vertex_count = len(bmesh_object.verts)
+            index_count = len(vertex_color_indices)
+            value_count = len(vertex_color_values)
             for vertex_index in self._dna_reader.getVertexLayoutPositionIndices(mesh_index):
+                if vertex_index >= vertex_count or vertex_index >= index_count:
+                    continue
+                color_index = vertex_color_indices[vertex_index]
+                if color_index >= value_count:
+                    continue
                 vert = bmesh_object.verts[vertex_index]
+                value = vertex_color_values[color_index]
                 for loop in vert.link_loops:
-                    value = vertex_color_values[vertex_color_indices[vertex_index]]
                     loop[color_layer] = Vector(value)
 
         # Todo: Implement the custom vertex color layout from exported JSON file
@@ -624,7 +637,7 @@ class DNAImporter:
             input_indices = self._dna_reader.getSwingInputControlIndices(swing_index)
             output_indices = self._dna_reader.getSwingOutputJointIndices(swing_index)
             weights = self._dna_reader.getSwingBlendWeights(swing_index)
-            axis = enums.TwistAxis(self._dna_reader.getSwingSetupTwistAxis(swing_index))
+            axis = enums.TwistAxis(self._dna_reader.getSwingSetupTwistAxis(swing_index))  # pyright: ignore[reportCallIssue]
 
             # there should always be 4 input controls for a bone's quaternion rotation
             if len(input_indices) != 4:
@@ -648,7 +661,7 @@ class DNAImporter:
             input_indices = self._dna_reader.getTwistInputControlIndices(twist_index)
             output_indices = self._dna_reader.getTwistOutputJointIndices(twist_index)
             weights = self._dna_reader.getTwistBlendWeights(twist_index)
-            axis = enums.TwistAxis(self._dna_reader.getTwistSetupTwistAxis(twist_index))
+            axis = enums.TwistAxis(self._dna_reader.getTwistSetupTwistAxis(twist_index))  # pyright: ignore[reportCallIssue]
 
             # there should always be 4 input controls for a bone's quaternion rotation
             if len(input_indices) != 4:

@@ -348,7 +348,12 @@ class ImportFaceBoardAnimation(ImportAnimationBase, importer.ImportAnimation):
         file_path = self.filepath  # type: ignore[attr-defined]
         logger.info(f"Importing animation {file_path}")
         head = utilities.get_active_head()
+
         if head:
+            if not head.face_board_object:
+                self.report({"ERROR"}, "No face board object found for the active head")
+                return {"CANCELLED"}
+
             head.import_action(
                 Path(file_path),
                 is_face_board=True,
@@ -357,6 +362,8 @@ class ImportFaceBoardAnimation(ImportAnimationBase, importer.ImportAnimation):
                 prefix_instance_name=self.prefix_instance_name,
                 prefix_component_name=self.prefix_component_name,
             )
+            utilities.switch_to_pose_mode(head.face_board_object)
+            self.report({"INFO"}, f"Imported face board animation from {file_path}")
         return {"FINISHED"}
 
 
@@ -390,6 +397,10 @@ class ImportComponentAnimation(ImportAnimationBase, importer.ImportAnimation):
         elif self.component_type == "body":
             body = utilities.get_active_body()
             if body:
+                if not body.body_rig_object:
+                    self.report({"ERROR"}, "No body rig object found for the active body")
+                    return {"CANCELLED"}
+
                 body.import_action(
                     file_path,
                     round_sub_frames=self.round_sub_frames,
@@ -397,6 +408,7 @@ class ImportComponentAnimation(ImportAnimationBase, importer.ImportAnimation):
                     prefix_instance_name=self.prefix_instance_name,
                     prefix_component_name=self.prefix_component_name,
                 )
+                utilities.switch_to_pose_mode(body.body_rig_object)
 
         self.report({"INFO"}, f"Imported {self.component_type} animation from {file_path}")
 
@@ -847,6 +859,23 @@ class ForceEvaluate(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class RefreshOutputItems(bpy.types.Operator):
+    """Refresh the Output items list so it reflects the current scene meshes,
+    textures, and rig for the active rig instance"""
+
+    bl_idname = f"{ToolInfo.NAME}.refresh_output_items"
+    bl_label = "Refresh Output Items"
+
+    @classmethod
+    def poll(cls, _: "Context") -> bool:
+        return callbacks.get_active_rig_instance() is not None
+
+    def execute(self, context: "Context") -> set[str]:
+        callbacks.update_head_output_items(None, context)  # type: ignore[arg-type]
+        callbacks.update_body_output_items(None, context)  # type: ignore[arg-type]
+        return {"FINISHED"}
+
+
 class MapRawToGuiControls(bpy.types.Operator):
     """Backward-solve the face board from the head rig's raw controls. Maps the
     current raw control values to GUI controls via rig logic and applies the result
@@ -963,13 +992,19 @@ class SendToMetaHumanCreator(bpy.types.Operator):
                 )
                 return {"CANCELLED"}
 
-            last_component = None
+            last_component: CharacterComponentBase = None  # pyright: ignore[reportAssignmentType]
             # Export the body first so the head can conform its neck edge loop onto
             # the freshly-written body DNA. Auto LOD propagation regenerates each
             # component's lower-LOD meshes independently, so the head must snap to the
             # body that is actually written (not the imported template) for the neck
             # seam to line up across every LOD in the exported files.
             output_folder = Path(bpy.path.abspath(instance.output.folder_path))
+
+            # Build every component's exporter up front so all validations can run
+            # before any DNA is written -- otherwise a later component's validation
+            # (and its fix dialog) would only surface after an earlier component had
+            # already been exported to disk.
+            component_exporters: list[tuple[object, DNAExporter]] = []
             for component in [body, head]:
                 seam_reference_dna_path = None
                 if component.component_type == "head":
@@ -991,14 +1026,24 @@ class SendToMetaHumanCreator(bpy.types.Operator):
                         file_name=f"{component.component_type}.dna",
                         component_type=component.component_type,
                     )
+                component_exporters.append((component, dna_io_instance))
 
+            # Phase 1: validate every component before writing anything to disk.
+            for _component, dna_io_instance in component_exporters:
+                valid, title, message, fix = dna_io_instance.validate_scene()
+                if not valid:
+                    utilities.report_error_panel(title=title, message=message, fix=fix, width=500)
+                    return {"CANCELLED"}
+
+            # Phase 2: all validations passed -- export each component.
+            for component, dna_io_instance in component_exporters:
                 valid, title, message, fix = dna_io_instance.run()
                 if not valid:
                     utilities.report_error_panel(title=title, message=message, fix=fix, width=500)
                     return {"CANCELLED"}
                 self.report({"INFO"}, message)
 
-                last_component = component
+                last_component = component  # pyright: ignore[reportAssignmentType]
 
             # write a manifest file to the output folder similar to the MetaHuman Creator DCC export
             if last_component:
@@ -1527,45 +1572,6 @@ class AddRigLogicTextureNode(bpy.types.Operator):
         node.label = f"{active_material.name} {HEAD_TEXTURE_LOGIC_NODE_LABEL}"
         node.node_tree = texture_logic_node
         node.location = cursor_location
-        return {"FINISHED"}
-
-
-class CHARACTER_DNA_OT_extract_metahuman_for_maya_dependencies(bpy.types.Operator):
-    """Extract the `nls` Python package and `jm_model` ML model out of the
-    user-configured `MetaHumanForMaya.zip` into the addon's temp folder.
-
-    The Raw Control Editor's Match Bones to Mesh operator loads both of
-    these at runtime; without them the matcher cannot run."""
-
-    bl_idname = f"{ToolInfo.NAME}.extract_metahuman_for_maya_dependencies"
-    bl_label = "Extract Dependencies"
-    bl_description = (
-        "Unpack the `nls` Python package and ML model from the configured "
-        "`MetaHumanForMaya.zip` into the addon's temp folder"
-    )
-    bl_options = {"REGISTER", "INTERNAL"}
-
-    def execute(self, context: "Context") -> set[str]:
-        from .editors.raw_control_editor import dependency_extraction
-
-        addon_preferences = utilities.get_addon_preferences()
-        if not addon_preferences:
-            self.report({"ERROR"}, "Addon preferences are not available.")
-            return {"CANCELLED"}
-        raw_zip_path = addon_preferences.raw_control_editor.metahuman_for_maya_zip_path
-        if not raw_zip_path:
-            self.report({"ERROR"}, "Set `MetaHuman for Maya Zip Path` in addon preferences first.")
-            return {"CANCELLED"}
-        zip_path = Path(bpy.path.abspath(raw_zip_path))
-        try:
-            result = dependency_extraction.extract_dependencies(zip_path)
-        except dependency_extraction.DependencyExtractionError as exc:
-            self.report({"ERROR"}, str(exc))
-            return {"CANCELLED"}
-        self.report(
-            {"INFO"},
-            f"Extracted MetaHuman for Maya dependencies: nls={result.nls_dir}, model={result.model_path}",
-        )
         return {"FINISHED"}
 
 

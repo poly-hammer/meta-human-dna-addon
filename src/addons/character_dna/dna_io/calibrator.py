@@ -426,6 +426,28 @@ class DNACalibrator(DNAExporter, DNAImporter):
 
                 logger.debug(f"Largest Shape Key delta count for mesh {real_mesh_name} is {largest_delta_count}")
 
+    def zero_blend_shape_deltas(self):
+        """Clear every blend shape target's deltas in the DNA while preserving the
+        blend shape channels and their rig wiring.
+
+        Used by the converter's ``zero_shape_deltas`` option: reconforming the
+        bone positions to new meshes invalidates the base DNA's blend shape
+        deltas, so they are reset to empty. Each target keeps its channel index
+        mapping but drives no vertex movement."""
+        if self._component_type != "head":
+            # Only the head component carries blend shapes.
+            return
+
+        logger.info("Zeroing blend shape deltas...")
+        for mesh_index in range(self._dna_reader.getMeshCount()):
+            for target_index in range(self._dna_reader.getBlendShapeTargetCount(mesh_index)):
+                self._dna_writer.setBlendShapeTargetVertexIndices(
+                    meshIndex=mesh_index, blendShapeTargetIndex=target_index, vertexIndices=[]
+                )
+                self._dna_writer.setBlendShapeTargetDeltas(
+                    meshIndex=mesh_index, blendShapeTargetIndex=target_index, deltas=[]
+                )
+
     def calibrate_vertex_groups(self):
         for lod_index in range(self._dna_reader.getLODCount()):
             logger.info(f"Calibrating vertex groups for {self._component_type} component LOD {lod_index}...")
@@ -572,6 +594,9 @@ class DNACalibrator(DNAExporter, DNAImporter):
         if self._include_shape_keys:
             self._report("Calibrating shape keys...")
             self.calibrate_shape_keys()
+        elif self._zero_shape_deltas:
+            self._report("Zeroing shape deltas...")
+            self.zero_blend_shape_deltas()
         if self._include_vertex_groups:
             self._report("Calibrating skin weights...")
             self.calibrate_vertex_groups()

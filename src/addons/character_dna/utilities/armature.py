@@ -12,6 +12,7 @@ from mathutils import Euler, Matrix, Quaternion, Vector
 from ..constants import (
     CUSTOM_BONE_SHAPE_NAME,
     CUSTOM_BONE_SHAPE_SCALE,
+    INTERNAL_BONE_COLLECTION,
     VOLUME_BONE_COLLECTION,
     BodyBoneCollection,
 )
@@ -231,6 +232,41 @@ def assign_volume_bone_collection(
             collection.assign(pose_bone)
 
 
+def assign_internal_bone_collection(
+    rig_object: bpy.types.Object,
+    skinned_joint_names: "set[str]",
+    surface_skinned_joint_names: "set[str]",
+):
+    """Author the ``Internal`` bone collection: the internal-skeleton joints.
+
+    A bone is internal when it has children, or it is a leaf joint that skins a
+    non-surface mesh (such as the teeth or eyes) rather than the surface
+    (``*_lod0_mesh``) mesh. This excludes both the volume bones (leaf joints that
+    skin no LOD0 mesh) and the surface-skinning leaf bones, while still keeping
+    internal anatomy such as the teeth joints. ``skinned_joint_names`` is the set
+    of joints that skin any LOD0 mesh and ``surface_skinned_joint_names`` the
+    subset that skins the surface mesh. Gathering them into their own collection
+    lets the user solo it to get a clear view of the internal skeleton. Skipped
+    when the rig has no armature data.
+    """
+    if (not rig_object.data or not rig_object.pose) or not isinstance(rig_object.data, bpy.types.Armature):
+        return
+
+    collection = rig_object.data.collections.get(INTERNAL_BONE_COLLECTION)
+    if not collection:
+        collection = rig_object.data.collections.new(name=INTERNAL_BONE_COLLECTION)
+
+    for bone in rig_object.data.bones:
+        is_internal = bool(bone.children) or (
+            bone.name in skinned_joint_names and bone.name not in surface_skinned_joint_names
+        )
+        if not is_internal:
+            continue
+        pose_bone = rig_object.pose.bones.get(bone.name)
+        if pose_bone:
+            collection.assign(pose_bone)
+
+
 def get_meshes_using_armature(armature_object: bpy.types.Object) -> list[bpy.types.Object]:
     # find the related mesh objects for the head rig
     mesh_objects = []
@@ -374,6 +410,9 @@ def constrain_head_to_body(instance: "RigInstance"):
             constraint.target_space = "WORLD"
             constraint.owner_space = "WORLD"
 
+    # Drop the cached constraint list so the influence setter rebuilds it
+    # from the freshly created constraints below (and on later edits).
+    instance.data.pop(instance.cache_key("head", "body_constraints"), None)
     instance.head_to_body_constraint_influence = 1.0
 
 

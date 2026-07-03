@@ -185,3 +185,35 @@ def test_update_head_shape_keys_refreshes_evaluated_mesh(head_shape_key_rig):
     assert max_displacement > 1e-4, (
         f"evaluated head mesh did not change after applying shape keys (max displacement {max_displacement})"
     )
+
+
+def test_zero_head_shape_keys_clears_driven_blocks(head_shape_key_rig):
+    """``zero_head_shape_keys`` must reset every RigLogic-driven block to 0.0.
+
+    The Raw Control Editor calls this on edit-mode entry so editing works on the
+    basis mesh (bone transforms only, no blend-shape contribution)."""
+    instance = head_shape_key_rig
+
+    # Drive a strong expression and push the values so blocks are non-zero.
+    _drive_head(instance, seed=404, amplitude=0.8)
+    instance.update_head_shape_keys()
+
+    outputs = np.asarray(instance.head_instance.getBlendShapeOutputs(), dtype=np.float32)
+    blocks_map = instance.head_shape_key_blocks
+    assert blocks_map, "expected cached shape-key blocks after import"
+    driven_channels = [
+        channel for channel in blocks_map if channel < len(outputs) and abs(float(outputs[channel])) > 1e-4
+    ]
+    assert driven_channels, "seeded drive produced no non-zero blend-shape outputs"
+    # Guard against a vacuous pass: blocks really are non-zero before zeroing.
+    assert any(abs(float(block.value)) > 1e-4 for channel in driven_channels for block in blocks_map[channel])
+
+    instance.zero_head_shape_keys()
+
+    nonzero = [
+        (block.name, float(block.value))
+        for blocks in blocks_map.values()
+        for block in blocks
+        if abs(float(block.value)) > 1e-6
+    ]
+    assert not nonzero, f"expected all driven shape-key blocks zeroed, got (first 10): {nonzero[:10]}"

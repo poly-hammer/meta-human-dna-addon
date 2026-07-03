@@ -17,7 +17,7 @@ logger = logging.getLogger(constants.ToolInfo.NAME)
 bl_info = {
     "name": "Character DNA",
     "author": "Poly Hammer",
-    "version": (0, 8, 7),
+    "version": (0, 9, 1),
     "blender": (4, 5, 0),
     "location": "File > Import > MetaHuman DNA",
     "description": (
@@ -49,6 +49,7 @@ classes = [
     operators.MigrateLegacyData,
     operators.MetricsCollectionConsent,
     operators.ForceEvaluate,
+    operators.RefreshOutputItems,
     operators.MapRawToGuiControls,
     operators.SendToMetaHumanCreator,
     operators.ExportSelectedComponent,
@@ -69,8 +70,6 @@ classes = [
     importer.CHARACTER_DNA_FILE_INFO_PT_panel,
     view_3d.CHARACTER_DNA_PT_face_pose_tags,
     view_3d.CHARACTER_DNA_PT_face_board,
-    view_3d.CHARACTER_DNA_UL_psd_correctives,
-    view_3d.CHARACTER_DNA_PT_psd_correctives,
     view_3d.CHARACTER_DNA_PT_face_board_footer,
     view_3d.CHARACTER_DNA_PT_view_options,
     view_3d.CHARACTER_DNA_PT_rig_instance,
@@ -152,8 +151,7 @@ def unregister():
 
     editors = utilities.get_editors()
 
-    # Stop the optional Pro editor runtime services (ML matchers, NLS workers,
-    # Docker containers, toast overlay).
+    # Stop the optional Pro editor runtime services (solver workers, toast overlay).
     if editors is not None:
         editors.unregister_runtime()
 

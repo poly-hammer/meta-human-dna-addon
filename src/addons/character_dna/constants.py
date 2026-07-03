@@ -30,7 +30,9 @@ class PanelOrder(IntEnum):
     RIG_INSTANCES = 30
     ANIMATION = 40
     CONVERTER = 50
+    MESH_EDITOR = 55
     RAW_CONTROL_EDITOR = 60
+    CORRECTIVES_VIEWER = 65
     SHAPE_KEY_EDITOR = 70
     RBF_EDITOR = 80
     BACKUP_MANAGER = 90
@@ -46,15 +48,17 @@ FACE_BOARD_NAME = "face_gui"
 HEAD_MATERIAL_NAME = "head_shader"
 BODY_MATERIAL_NAME = "body_shader"
 MASKS_TEXTURE = "combined_masks.tga"
-HEAD_TOPOLOGY_TEXTURE = "head_topology.png"
-BODY_TOPOLOGY_TEXTURE = "body_topology.png"
+# material-color preview enum items
+MATERIAL_PREVIEW_ITEMS_BASE = (
+    ("combined", "Combined", "Displays all combined textures maps", "NONE", 0),
+    ("masks", "Masks", "Displays only the color of the mask texture maps", "NONE", 1),
+    ("normals", "Normals", "Displays only the color of the normal texture maps", "NONE", 2),
+)
 NUMBER_OF_HEAD_LODS = 8
 SENTRY_DSN = "https://38575ef4609265865b46dcc274249962@sentry.poly-hammer.com/13"
 
 INVALID_NAME_CHARACTERS_REGEX = r"[^-+\w]+"
 LOD_REGEX = r"(?i)(_LOD\d).*"
-
-TOPO_GROUP_PREFIX = "TOPO_GROUP_"
 
 # Prefix of every MetaHuman face expression raw control in the DNA
 # (e.g. ``CTRL_expressions.jawOpen``). Lives at the top level so both the
@@ -106,8 +110,7 @@ def get_user_data_folder() -> Path:
     location that requires no admin rights and, unlike the system temp
     folder, is never swept by the OS (Windows Storage Sense, Linux
     ``/tmp`` clearing on reboot, macOS ``/var/folders`` pruning). Use it
-    for expensive-to-regenerate caches (the extracted NLS module + ML
-    model) that must survive across sessions.
+    for expensive-to-regenerate caches that must survive across sessions.
 
     Falls back to ``TEMP_FOLDER`` when the add-on is loaded as a legacy
     add-on rather than an installed extension (e.g. the test harness),
@@ -137,10 +140,6 @@ HEAD_TO_BODY_EDGE_LOOP_FILE_PATH = MAPPINGS_FOLDER / "head_to_body_edge_loop.jso
 MESH_VERTEX_COLORS_FILE_PATH = MAPPINGS_FOLDER / MESH_VERTEX_COLORS_FILE_NAME
 
 MASKS_TEXTURE_FILE_PATH = IMAGES_FOLDER / MASKS_TEXTURE
-
-HEAD_TOPOLOGY_TEXTURE_FILE_PATH = IMAGES_FOLDER / HEAD_TOPOLOGY_TEXTURE
-
-BODY_TOPOLOGY_TEXTURE_FILE_PATH = IMAGES_FOLDER / BODY_TOPOLOGY_TEXTURE
 
 MATERIALS_FILE_PATH = BLENDS_FOLDER / "materials.blend"
 
@@ -298,6 +297,13 @@ class BodyBoneCollection:
 # and kept out of the per-joint-group collections.
 VOLUME_BONE_COLLECTION = "Volume"
 
+# Bone collection that holds the internal bones, so the user can solo it to
+# quickly hide the surface-skinning and volume leaf bones and get a clear view
+# of the internal skeleton on the head rig. A bone is internal when it has
+# children, or it is a leaf joint that skins a non-surface mesh (such as the
+# teeth or eyes) rather than the surface (``head_lod0_mesh``) mesh.
+INTERNAL_BONE_COLLECTION = "Internal"
+
 
 # Prefix used for the vertex groups that store the rig-definition mesh regions.
 REGION_VERTEX_GROUP_PREFIX = "REGION_"
@@ -323,9 +329,10 @@ LEGACY_DATA_KEYS = ["rig_logic_instance_list"]
 MIGRATABLE_DATA_KEYS = ["rig_instance_list", "rig_logic_instance_list"]
 
 PRO_EDITORS = (
-    ("Raw Control Editor", "DECORATE_DRIVER"),
+    ("Converter", "RNA"),
+    ("Mesh Editor", "MESH_DATA"),
+    ("Raw Editor", "DECORATE_DRIVER"),
     ("RBF Editor", "DRIVER_ROTATIONAL_DIFFERENCE"),
     ("Shape Key Editor", "SHAPEKEY_DATA"),
-    ("DNA Converter", "RNA"),
     ("Backup Manager", "FILE_BACKUP"),
 )

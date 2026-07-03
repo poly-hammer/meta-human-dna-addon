@@ -15,10 +15,17 @@ from mathutils import Matrix, Vector
 # local imports
 from .. import utilities
 from ..bindings import dna  # pyright: ignore[reportAttributeAccessIssue]
-from ..constants import EXTRA_BONES, SCALE_FACTOR, TOPO_GROUP_PREFIX, VERTEX_COLOR_ATTRIBUTE_NAME, ComponentType
+from ..constants import (
+    EXTRA_BONES,
+    SCALE_FACTOR,
+    SHAPE_KEY_BASIS_NAME,
+    SHAPE_KEY_DELTA_THRESHOLD,
+    SHAPE_KEY_NAME_MAX_LENGTH,
+    VERTEX_COLOR_ATTRIBUTE_NAME,
+    ComponentType,
+)
 from ..exceptions import InvalidComponentTypeError
 from ..typing import *  # noqa: F403  # noqa: F403
-from ..utilities import preserve_context
 from .misc import get_dna_reader, get_dna_writer
 
 
@@ -42,6 +49,7 @@ class DNAExporter:
         progress_callback: "Callable[[str, float | None], None] | None" = None,
         seam_follower: ComponentType | None = "head",
         seam_reference_dna_path: "str | Path | None" = None,
+        zero_shape_deltas: bool = False,
     ):
         self._instance = instance
         self._linear_modifier = linear_modifier
@@ -53,6 +61,7 @@ class DNAExporter:
         self._include_bones = bones
         self._include_textures = textures
         self._include_vertex_colors = vertex_colors
+        self._zero_shape_deltas = zero_shape_deltas
         self._progress_callback = progress_callback
         # Seam alignment between the head and body neck edge loop. ``seam_follower``
         # names which component is snapped onto the other ("head" -> head conforms
@@ -105,6 +114,13 @@ class DNAExporter:
         self._images = []
         self._bone_index_lookup = {}
         self._vertex_color_data = []
+        # (export_mesh_index, blend_shape_channel_index) pairs collected during shape
+        # key export so the mesh -> blend-shape channel mapping can be rebuilt.
+        self._mesh_blend_shape_channel_pairs: list[tuple[int, int]] = []
+        # Guards ``initialize_scene_data`` so it can be safely called by both the
+        # pre-flight validation pass (``validate_scene``) and ``run`` without
+        # doubling the collected mesh/image lists.
+        self._scene_initialized = False
 
     def _report(self, message: str, fraction: float | None = None) -> None:
         """Forward a status update to the optional progress callback.
@@ -121,6 +137,12 @@ class DNAExporter:
             logger.exception("Progress callback failed; continuing export.")
 
     def initialize_scene_data(self):
+        # Idempotent: the collected lists (``_mesh_indices``, ``_images``, ...) are
+        # appended to below, so re-running would duplicate their contents.
+        if self._scene_initialized:
+            return
+        self._scene_initialized = True
+
         mesh_objects = []
         output_items = []
         main_mesh_object = None
@@ -164,13 +186,13 @@ class DNAExporter:
         if main_mesh_object and utilities.get_lod_index(main_mesh_object.name) == -1:
             self._non_lod_mesh_objects.append(main_mesh_object)
 
-        # Initialize the vertex color data array
-        self._vertex_color_data = [
-            {
-                "indices": [],
-                "values": [],
-            }
-        ] * len(self._mesh_indices)
+        # Initialize the vertex color data array. A fresh dict is created per entry
+        # (a ``[ {...} ] * n`` expression would alias a single dict across every
+        # mesh, so each per-mesh write would clobber the others). The array is
+        # indexed by DNA mesh index; ``self._mesh_indices`` is seeded with the main
+        # mesh (index 0) in ``__init__`` and the secondary meshes (1..K) are added
+        # above, so its length already equals the total mesh count.
+        self._vertex_color_data = [{"indices": [], "values": []} for _ in range(len(self._mesh_indices))]
 
     def validate(self) -> tuple[bool, str, str, Callable | None]:
         if not self._rig_object:
@@ -221,6 +243,17 @@ class DNAExporter:
         # TODO: Add more validations
         return (True, "Success", "All validations passed.", None)
 
+    def validate_scene(self) -> tuple[bool, str, str, Callable | None]:
+        """Initialize the scene data and run validations without writing any DNA.
+
+        This lets a caller run every component's validations up-front (before any
+        file is written), so a validation failure and its fix dialog surface before
+        the exporter has already exported another component."""
+        self.initialize_scene_data()
+        if self._instance.output.run_validations:
+            return self.validate()
+        return (True, "Success", "All validations passed.", None)
+
     @staticmethod
     def get_bmesh(mesh_object: bpy.types.Object, rotation: float = -90) -> bmesh.types.BMesh:
         # create an empty BMesh and fill it in from the mesh data
@@ -230,7 +263,7 @@ class DNAExporter:
         # Rotate the mesh so that it's Y-up before reading the vertex data
         bmesh.ops.rotate(
             bmesh_object,
-            cent=Vector((0, 0, 0)),
+            cent=Vector((0, 0, 0)),  # pyright: ignore[reportArgumentType]
             matrix=Matrix.Rotation(math.radians(rotation), 4, "X"),  # type: ignore[arg-type]
             verts=list(bmesh_object.verts),
         )
@@ -244,7 +277,6 @@ class DNAExporter:
         return [(face.index, [vert.index for vert in face.verts]) for face in bmesh_object.faces]
 
     @staticmethod
-    @preserve_context
     def get_bone_transforms(
         armature_object: bpy.types.Object,
         extra_bones: list[tuple[str, dict]] = EXTRA_BONES,
@@ -262,37 +294,32 @@ class DNAExporter:
         rotation_x = Matrix.Rotation(math.radians(-90), 4, "X")  # type: ignore[arg-type]
         global_matrix = rotation_x.to_4x4()
 
-        # Switch to edit mode so we can get edit bone data
-        armature_object.hide_set(False)
-        utilities.switch_to_bone_edit_mode(armature_object)
-        armature_object_evaluated = armature_object.evaluated_get(bpy.context.evaluated_depsgraph_get())
-
-        # Remove the extra bones from the list of bones
+        # Read the rest pose directly
         ignored_bone_names = [i for i, _ in extra_bones]
-        edit_bones = [i for i in armature_object_evaluated.data.edit_bones if i.name not in ignored_bone_names]  # type: ignore[attr-defined]
-        for index, edit_bone in enumerate(edit_bones):
+        bones = [i for i in armature_object.data.bones if i.name not in ignored_bone_names]  # type: ignore[attr-defined]
+        for index, bone in enumerate(bones):
             if index == 0:
                 # get translation and rotation of the bone globally
-                translation, rotation, _ = (global_matrix @ edit_bone.matrix).decompose()
-            elif edit_bone.parent:
-                # get translation and rotation of relative to it's parent
+                translation, rotation, _ = (global_matrix @ bone.matrix_local).decompose()
+            elif bone.parent:
+                # get translation and rotation relative to its parent
                 # Use inverted_safe() to handle singular matrices gracefully
-                local_matrix = edit_bone.parent.matrix.inverted_safe() @ edit_bone.matrix
+                local_matrix = bone.parent.matrix_local.inverted_safe() @ bone.matrix_local
                 translation, rotation, _ = local_matrix.decompose()
 
             indices.append(index)
-            bone_names.append(edit_bone.name)
-            is_leaf.append(not edit_bone.children)
+            bone_names.append(bone.name)
+            is_leaf.append(not bone.children)
 
             hierarchy_index = index
             # If the bone has a parent, get the index of the parent bone.
             # We don't want to include the extra bones as parents.
-            if edit_bone.parent and edit_bone.parent.name not in ignored_bone_names:
-                hierarchy_index = hierarchy_lookup[edit_bone.parent.name]
+            if bone.parent and bone.parent.name not in ignored_bone_names:
+                hierarchy_index = hierarchy_lookup[bone.parent.name]
 
             hierarchy.append(hierarchy_index)
             # Store the index of the bone in the hierarchy lookup so we can find parent indices later
-            hierarchy_lookup[edit_bone.name] = index
+            hierarchy_lookup[bone.name] = index
 
             # Convert translation from blender meters to centimeters
             translations.append(
@@ -348,10 +375,6 @@ class DNAExporter:
         for vertex in mesh_object.data.vertices:
             vertex_group_names = [vertex_group_lookup.get(group.group, "") for group in vertex.groups]
             for vertex_group_name in vertex_group_names:
-                # Skip the topology vertex groups
-                if vertex_group_name.startswith(TOPO_GROUP_PREFIX):
-                    continue
-
                 vertex_group = mesh_object.vertex_groups.get(vertex_group_name)
                 if vertex_group:
                     weight = vertex_group.weight(vertex.index)
@@ -428,7 +451,10 @@ class DNAExporter:
             for vertex_group_name in vertex_group_names:
                 bone_index = self._bone_index_lookup.get(vertex_group_name)
                 vertex_group = mesh_object.vertex_groups.get(vertex_group_name)
-                if bone_index and vertex_group:
+                # ``bone_index`` can be 0 (the root joint), so test against ``None``
+                # explicitly -- ``if bone_index`` would silently drop every weight
+                # painted onto joint index 0.
+                if bone_index is not None and vertex_group:
                     weight = vertex_group.weight(vertex.index)
                     if weight > 0:
                         bone_indices.append(bone_index)
@@ -492,13 +518,13 @@ class DNAExporter:
                 json.dump(self._vertex_color_data, f)
                 logger.info(f'Vertex colors exported successfully to: "{vertex_colors_file}"')
 
-    def run(self) -> tuple[bool, str, str, Callable | None]:
-        self.initialize_scene_data()
-        if self._instance.output.run_validations:
-            valid, title, message, fix = self.validate()
-            if not valid:
-                return False, title, message, fix
+    def _reset_dna_geometry(self):
+        """Clear the mesh and joint tables so they can be rewritten from the scene.
 
+        The behavior layer (raw controls, PSDs, RBFs, GUI controls, joint groups,
+        blend-shape channel wiring) is left untouched -- it was copied verbatim from
+        the source DNA by ``setFrom`` in ``__init__`` and the overwrite path only
+        rewrites geometry, joint transforms, skin weights, and blend-shape targets."""
         # Clear the mesh data
         self._dna_writer.clearMeshNames()
         self._dna_writer.clearMeshIndices()
@@ -510,11 +536,10 @@ class DNAExporter:
         self._dna_writer.clearJointIndices()
         self._dna_writer.clearLODJointMappings()
 
-        # init the lod indices
-        # TODO: Currently can't change this without messing up the joint behavior.
-        # Default dna has 8 lods
-        # self._dna_writer.setLODCount(len(self._export_lods.keys()))  # noqa: ERA001
+    def export_bones(self) -> list[int]:
+        """Read the armature's neutral bone transforms and write them into the DNA.
 
+        Returns the list of joint indices so the per-LOD joint mapping can reuse it."""
         bone_indices, bone_names, hierarchy, _is_leaf, translations, rotations = self.get_bone_transforms(
             armature_object=self._rig_object, extra_bones=self._extra_bones
         )
@@ -527,7 +552,11 @@ class DNAExporter:
             translations=translations,
             rotations=rotations,
         )
+        return bone_indices
 
+    def export_meshes(self, bone_indices: list[int]):
+        """Rewrite every included LOD mesh (geometry, layouts, skin weights, vertex
+        colors) and the per-LOD joint/mesh index mappings from the scene."""
         for lod_index, mesh_objects in self._export_lods.items():
             # Set the joint indices
             self._dna_writer.setJointIndices(index=lod_index, jointIndices=bone_indices)
@@ -548,45 +577,291 @@ class DNAExporter:
             self._dna_writer.setLODMeshMapping(lod=lod_index, index=lod_index)
 
             for mesh_object, mesh_index in mesh_objects:
+                self._export_mesh(mesh_object=mesh_object, mesh_index=mesh_index)
+
+    def _export_mesh(self, mesh_object: bpy.types.Object, mesh_index: int):
+        """Write a single mesh's geometry (positions, faces, normals, uvs, vertex
+        layouts), skin weights, and vertex colors into the DNA at ``mesh_index``."""
+        real_name = mesh_object.name.replace(f"{self._prefix}_", "")
+
+        logger.info(f'Exporting mesh: "{mesh_object.name}" to DNA as "{real_name}"...')
+        self._dna_writer.clearFaceVertexLayoutIndices(meshIndex=mesh_index)
+        self._dna_writer.clearSkinWeights(meshIndex=mesh_index)
+        # Blend shape targets are (re)written by ``export_shape_keys`` -- either
+        # recomputed from the scene's shape keys or copied from the source DNA -- so
+        # they are intentionally not cleared here.
+
+        # Set the mesh name
+        self._dna_writer.setMeshName(index=mesh_index, name=real_name)
+        bmesh_object = self.get_bmesh(mesh_object)
+        # Split the mesh along UV islands so that we have all the UV loop indices needed for each vertex index
+        split_to_original_vert_lookup = utilities.split_mesh_along_uv_islands(bmesh_object=bmesh_object)
+
+        vertex_indices, vertex_positions = self.get_mesh_vertex_positions(
+            bmesh_object=bmesh_object, duplicate_lookup=split_to_original_vert_lookup
+        )
+        normal_indices, normals = self.get_mesh_vertex_normals(bmesh_object=bmesh_object)
+        uv_indices, uvs = self.get_mesh_vertex_uvs(bmesh_object=bmesh_object)
+        faces = self.get_mesh_faces(bmesh_object=bmesh_object)
+
+        # Set the vertex color data so it can be saved to JSON later
+        if self._include_vertex_colors:
+            self.set_dna_vertex_colors(mesh_index=mesh_index, bmesh_object=bmesh_object)
+
+        # Set the vertex layout so DNA knows how to read the vertex,
+        # normal, and uv data from their respective arrays
+        self._dna_writer.setVertexLayouts(
+            meshIndex=mesh_index,
+            layouts=[list(item) for item in zip(vertex_indices, uv_indices, normal_indices, strict=False)],
+        )
+
+        self.set_dna_vertex_positions(mesh_index, vertex_positions)
+        self.set_dna_faces(mesh_index, faces)
+        self.set_dna_normals(mesh_index, normals)
+        self.set_dna_uvs(mesh_index, uvs)
+        self.set_dna_vertex_groups(mesh_index, mesh_object)
+
+        # Now free the BMesh from memory without applying the changes back to the mesh
+        bmesh_object.free()
+
+    def _source_mesh_index_by_name(self) -> dict[str, int]:
+        """Map every source DNA mesh name to its source mesh index. Used to look up
+        the blend-shape channels/targets that belong to a mesh being rewritten under
+        a possibly different export mesh index."""
+        return {self._dna_reader.getMeshName(index): index for index in range(self._dna_reader.getMeshCount())}
+
+    def export_shape_keys(self):
+        """Rewrite the blend-shape (shape key) targets and the mesh -> blend-shape
+        channel mapping for every exported mesh.
+
+        ``clearMeshes`` in :meth:`_reset_dna_geometry` wipes all per-mesh geometry
+        (including the ``setFrom``-copied blend-shape targets), so every mesh's
+        targets are re-established here: recomputed from the scene's shape keys when
+        the mesh carries them, or copied verbatim from the source DNA otherwise (this
+        preserves the original blend shapes when the artist never imported shape keys
+        and correctly remaps them when meshes are deleted/reordered).
+
+        Only channels that already exist in the source DNA are written (matched by
+        name); creating brand-new channels would require wiring blend-shape behavior
+        inputs/outputs, which is out of scope for the overwrite path. The blend-shape
+        behavior (which control drives which channel output) is preserved verbatim
+        from the source DNA."""
+        # (export_mesh_index, channel_index) pairs collected across every mesh so the
+        # definition-layer mesh -> blend-shape channel mapping can be rebuilt for the
+        # (possibly renumbered) export mesh indices.
+        self._mesh_blend_shape_channel_pairs = []
+
+        if self._component_type != "head":
+            # Only the head component carries blend shapes (mirrors the calibrator).
+            return
+
+        source_mesh_index_by_name = self._source_mesh_index_by_name()
+
+        for mesh_objects in self._export_lods.values():
+            for mesh_object, export_mesh_index in mesh_objects:
                 real_name = mesh_object.name.replace(f"{self._prefix}_", "")
+                source_mesh_index = source_mesh_index_by_name.get(real_name)
+                if source_mesh_index is None:
+                    # A brand new mesh (e.g. custom teeth under a name not in the
+                    # source DNA) has no channels to reuse, so it carries no blend
+                    # shapes.
+                    logger.info(
+                        f'Mesh "{real_name}" has no matching mesh in the source DNA; skipping shape key export.'
+                    )
+                    continue
 
-                logger.info(f'Exporting mesh: "{mesh_object.name}" to DNA as "{real_name}"...')
-                self._dna_writer.clearFaceVertexLayoutIndices(meshIndex=mesh_index)
-                self._dna_writer.clearSkinWeights(meshIndex=mesh_index)
-                self._dna_writer.clearBlendShapeTargets(meshIndex=mesh_index)
+                self._dna_writer.clearBlendShapeTargets(meshIndex=export_mesh_index)
+                if self._mesh_has_shape_keys(mesh_object):
+                    self._write_mesh_shape_keys_from_scene(
+                        export_mesh_index=export_mesh_index,
+                        source_mesh_index=source_mesh_index,
+                        mesh_object=mesh_object,
+                        real_name=real_name,
+                    )
+                else:
+                    self._copy_mesh_shape_keys_from_source(
+                        export_mesh_index=export_mesh_index,
+                        source_mesh_index=source_mesh_index,
+                        mesh_object=mesh_object,
+                        real_name=real_name,
+                    )
 
-                # Set the mesh name
-                self._dna_writer.setMeshName(index=mesh_index, name=real_name)
-                bmesh_object = self.get_bmesh(mesh_object)
-                # Split the mesh along UV islands so that we have all the UV loop indices needed for each vertex index
-                split_to_original_vert_lookup = utilities.split_mesh_along_uv_islands(bmesh_object=bmesh_object)
+        self._rebuild_mesh_blend_shape_channel_mapping()
 
-                vertex_indices, vertex_positions = self.get_mesh_vertex_positions(
-                    bmesh_object=bmesh_object, duplicate_lookup=split_to_original_vert_lookup
+    @staticmethod
+    def _mesh_has_shape_keys(mesh_object: bpy.types.Object) -> bool:
+        """Whether the scene mesh carries usable shape key blocks (a ``Basis`` plus
+        at least the shape-key datablock)."""
+        return bool(
+            mesh_object.data
+            and isinstance(mesh_object.data, bpy.types.Mesh)
+            and mesh_object.data.shape_keys
+            and mesh_object.data.shape_keys.key_blocks.get(SHAPE_KEY_BASIS_NAME)
+        )
+
+    def _write_mesh_shape_keys_from_scene(
+        self,
+        export_mesh_index: int,
+        source_mesh_index: int,
+        mesh_object: bpy.types.Object,
+        real_name: str,
+    ):
+        """Recompute one mesh's blend-shape targets from its scene shape keys. Each
+        source target is preserved at its original target index (so the
+        channel/target relationship stays 1:1 with the source), computing deltas from
+        the matching scene shape key block when it exists and writing an empty target
+        otherwise."""
+        shape_key_basis = mesh_object.data.shape_keys.key_blocks.get(SHAPE_KEY_BASIS_NAME)  # type: ignore[union-attr]
+
+        # The DNA blend-shape target vertex indices are position indices, which for an
+        # exported mesh are the original Blender vertex indices (0..M-1) -- the UV
+        # island split only appends duplicate vertices at higher indices, so no split
+        # remapping is needed here.
+        bmesh_object = self.get_bmesh(mesh_object)
+        vertex_indices, _ = self.get_mesh_vertex_positions(bmesh_object=bmesh_object)
+        bmesh_object.free()
+
+        # DNA is Y-up, Blender is Z-up, so we need to rotate the deltas.
+        rotation_matrix = Matrix.Rotation(math.radians(-90), 4, "X")  # type: ignore[arg-type]
+
+        for target_index in range(self._dna_reader.getBlendShapeTargetCount(source_mesh_index)):
+            channel_index = self._dna_reader.getBlendShapeChannelIndex(source_mesh_index, target_index)
+            channel_name = self._dna_reader.getBlendShapeChannelName(channel_index)
+            block_name = f"{real_name}__{channel_name}"
+
+            dna_delta_vertex_indices: list[int] = []
+            dna_delta_values: list[list[float]] = []
+
+            # Blender caps shape key names at 63 characters, so channels whose block
+            # name would exceed that limit are never imported into the scene; write
+            # an empty target for them (they keep their channel wiring but no deltas).
+            shape_key_block = None
+            if len(block_name) <= SHAPE_KEY_NAME_MAX_LENGTH:
+                shape_key_block = mesh_object.data.shape_keys.key_blocks.get(block_name)  # type: ignore[union-attr]
+
+            if shape_key_block:
+                for vertex_index in vertex_indices:
+                    new_delta = rotation_matrix @ (
+                        shape_key_block.data[vertex_index].co.copy() - shape_key_basis.data[vertex_index].co  # type: ignore[union-attr]
+                    )
+                    # Only store vertices that actually moved to avoid floating point drift.
+                    if new_delta.length > SHAPE_KEY_DELTA_THRESHOLD:
+                        converted_delta = new_delta / self._linear_modifier
+                        dna_delta_vertex_indices.append(vertex_index)
+                        # The writer's typemap requires a list of [x, y, z] lists of plain floats.
+                        dna_delta_values.append(
+                            [float(converted_delta.x), float(converted_delta.y), float(converted_delta.z)]
+                        )
+            else:
+                logger.debug(
+                    f"Shape key block '{block_name}' not found for mesh '{real_name}'. "
+                    "Writing an empty blend shape target..."
                 )
-                normal_indices, normals = self.get_mesh_vertex_normals(bmesh_object=bmesh_object)
-                uv_indices, uvs = self.get_mesh_vertex_uvs(bmesh_object=bmesh_object)
-                faces = self.get_mesh_faces(bmesh_object=bmesh_object)
 
-                # Set the vertex color data so it can be saved to JSON later
-                if self._include_vertex_colors:
-                    self.set_dna_vertex_colors(mesh_index=mesh_index, bmesh_object=bmesh_object)
+            self._dna_writer.setBlendShapeChannelIndex(
+                meshIndex=export_mesh_index,
+                blendShapeTargetIndex=target_index,
+                blendShapeChannelIndex=channel_index,
+            )
+            self._dna_writer.setBlendShapeTargetVertexIndices(
+                meshIndex=export_mesh_index,
+                blendShapeTargetIndex=target_index,
+                vertexIndices=dna_delta_vertex_indices,
+            )
+            self._dna_writer.setBlendShapeTargetDeltas(
+                meshIndex=export_mesh_index,
+                blendShapeTargetIndex=target_index,
+                deltas=dna_delta_values,
+            )
+            self._mesh_blend_shape_channel_pairs.append((export_mesh_index, channel_index))
 
-                # Set the vertex layout so DNA knows how to read the vertex,
-                # normal, and uv data from their respective arrays
-                self._dna_writer.setVertexLayouts(
-                    meshIndex=mesh_index,
-                    layouts=[list(item) for item in zip(vertex_indices, uv_indices, normal_indices, strict=False)],
-                )
+    def _copy_mesh_shape_keys_from_source(
+        self,
+        export_mesh_index: int,
+        source_mesh_index: int,
+        mesh_object: bpy.types.Object,
+        real_name: str,
+    ):
+        """Copy a mesh's blend-shape targets verbatim from the source DNA to the
+        (possibly renumbered) export mesh index. Used when the scene mesh has no
+        shape keys, so the original blend shapes are preserved rather than dropped.
 
-                self.set_dna_vertex_positions(mesh_index, vertex_positions)
-                self.set_dna_faces(mesh_index, faces)
-                self.set_dna_normals(mesh_index, normals)
-                self.set_dna_uvs(mesh_index, uvs)
-                self.set_dna_vertex_groups(mesh_index, mesh_object)
+        Blend-shape target vertex indices are position indices into the mesh, so this
+        is only safe when the vertex count is unchanged; if the artist swapped in a
+        custom-topology mesh without shape keys, the source targets can't be reused
+        and are dropped with a warning."""
+        source_vertex_count = self._dna_reader.getVertexPositionCount(source_mesh_index)
+        scene_vertex_count = len(mesh_object.data.vertices) if isinstance(mesh_object.data, bpy.types.Mesh) else 0
+        if source_vertex_count != scene_vertex_count:
+            logger.warning(
+                f'Mesh "{real_name}" has no shape keys in the scene and its vertex count '
+                f"({scene_vertex_count}) differs from the source DNA ({source_vertex_count}); "
+                "the source blend shape targets cannot be safely reused and will be dropped."
+            )
+            return
 
-                # Now free the BMesh from memory without applying the changes back to the mesh
-                bmesh_object.free()
+        for target_index in range(self._dna_reader.getBlendShapeTargetCount(source_mesh_index)):
+            channel_index = self._dna_reader.getBlendShapeChannelIndex(source_mesh_index, target_index)
+            vertex_indices = [
+                int(i) for i in self._dna_reader.getBlendShapeTargetVertexIndices(source_mesh_index, target_index)
+            ]
+            delta_xs = self._dna_reader.getBlendShapeTargetDeltaXs(source_mesh_index, target_index)
+            delta_ys = self._dna_reader.getBlendShapeTargetDeltaYs(source_mesh_index, target_index)
+            delta_zs = self._dna_reader.getBlendShapeTargetDeltaZs(source_mesh_index, target_index)
+            deltas = [[float(x), float(y), float(z)] for x, y, z in zip(delta_xs, delta_ys, delta_zs, strict=False)]
+
+            self._dna_writer.setBlendShapeChannelIndex(
+                meshIndex=export_mesh_index,
+                blendShapeTargetIndex=target_index,
+                blendShapeChannelIndex=channel_index,
+            )
+            self._dna_writer.setBlendShapeTargetVertexIndices(
+                meshIndex=export_mesh_index,
+                blendShapeTargetIndex=target_index,
+                vertexIndices=vertex_indices,
+            )
+            self._dna_writer.setBlendShapeTargetDeltas(
+                meshIndex=export_mesh_index,
+                blendShapeTargetIndex=target_index,
+                deltas=deltas,
+            )
+            self._mesh_blend_shape_channel_pairs.append((export_mesh_index, channel_index))
+
+    def _rebuild_mesh_blend_shape_channel_mapping(self):
+        """Rebuild the definition-layer mesh -> blend-shape channel mapping from the
+        pairs collected during shape key export. This must be rewritten from scratch
+        because the export mesh indices can differ from the source DNA's, which would
+        leave the ``setFrom``-copied mapping pointing at the wrong meshes. The
+        per-LOD mapping ranges are derived by the writer from this flat list plus the
+        already-written ``LODMeshMapping``, so no separate LOD setter is needed."""
+        self._dna_writer.clearMeshBlendShapeChannelMappings()
+        for mapping_index, (mesh_index, channel_index) in enumerate(self._mesh_blend_shape_channel_pairs):
+            self._dna_writer.setMeshBlendShapeChannelMapping(
+                index=mapping_index,
+                meshIndex=mesh_index,
+                blendShapeChannelIndex=channel_index,
+            )
+
+    def run(self) -> tuple[bool, str, str, Callable | None]:
+        self.initialize_scene_data()
+        if self._instance.output.run_validations:
+            valid, title, message, fix = self.validate()
+            if not valid:
+                return False, title, message, fix
+
+        self._reset_dna_geometry()
+
+        # init the lod indices
+        # TODO: Currently can't change this without messing up the joint behavior.
+        # Default dna has 8 lods
+        # self._dna_writer.setLODCount(len(self._export_lods.keys()))  # noqa: ERA001
+
+        bone_indices = self.export_bones()
+        self.export_meshes(bone_indices=bone_indices)
+
+        if self._include_shape_keys:
+            self._report("Exporting shape keys...")
+            self.export_shape_keys()
 
         self._dna_writer.write()
         if not dna.Status.isOk():

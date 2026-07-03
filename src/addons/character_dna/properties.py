@@ -177,10 +177,10 @@ class CharacterOutputProperties(bpy.types.PropertyGroup):
                 "overwrite",
                 "Overwrite",
                 (
-                    "(Experimental, and not fully functional yet) Uses the original dna file and overwrites the"
-                    " dna data based on the current mesh and armature data in the scene. Use this method if your "
-                    "vert indices and bone names are different from the original DNA. Only use this method when "
-                    "calibration method is not possible"
+                    "(Experimental) Uses the original dna file and rewrites the mesh and armature data from scratch "
+                    "based on the current scene, while preserving the underlying rig behavior controls, and "
+                    "blend-shape channel wiring. Use this method if your vert indices, mesh set, or bones differ "
+                    "from the original DNA. Only use this method when the calibration method is not possible"
                 ),
                 "ERROR",
                 1,
@@ -262,14 +262,8 @@ class CharacterViewOptionsProperties(bpy.types.PropertyGroup):
     )  # pyright: ignore[reportInvalidTypeForm]
     active_material_preview: bpy.props.EnumProperty(
         name="Material Color",
-        items=[
-            ("combined", "Combined", "Displays all combined textures maps"),
-            ("masks", "Masks", "Displays only the color of the mask texture maps"),
-            ("normals", "Normals", "Displays only the color of the normal texture maps"),
-            ("topology", "Topology", "Displays only the mesh topology colors"),
-        ],
+        items=callbacks.get_active_material_preview_items,  # type: ignore[arg-type]
         description="Choose what color should be shown by the material",
-        default="combined",
         set=callbacks.set_active_material_preview,
         get=callbacks.get_active_material_preview,
     )  # pyright: ignore[reportInvalidTypeForm]
@@ -307,6 +301,16 @@ class CharacterViewOptionsProperties(bpy.types.PropertyGroup):
         description=("Hide the volume bones (the non-skinned leaf bones) by hiding the Volume bone collection"),
         set=callbacks.set_hide_volume_bones,
         get=callbacks.get_hide_volume_bones,
+    )  # pyright: ignore[reportInvalidTypeForm]
+    solo_internal_bones: bpy.props.BoolProperty(
+        name="Solo Internal Bones",
+        default=False,
+        description=(
+            "Solo the internal bones (every non-leaf joint) by soloing the Internal bone collection on the head "
+            "rig, hiding the volume and skinned surface leaf bones for a clear view of the internal skeleton"
+        ),
+        set=callbacks.set_solo_internal_bones,
+        get=callbacks.get_solo_internal_bones,
     )  # pyright: ignore[reportInvalidTypeForm]
 
 
@@ -443,14 +447,6 @@ class CharacterSceneProperties(bpy.types.PropertyGroup):
         default=False,
         set=callbacks.set_highlight_matching_active_bone,
         get=callbacks.get_highlight_matching_active_bone,
-    )  # pyright: ignore[reportInvalidTypeForm]
-    push_along_normal_distance: bpy.props.FloatProperty(
-        name="Distance Along Normal",
-        description="The distance to push the selected bone along the head mesh vertex normals",
-        default=0.001,
-        min=0.0,
-        step=1,
-        precision=5,
     )  # pyright: ignore[reportInvalidTypeForm]
     # --------------------- riglogic properties ------------------
     rig_instance_list: bpy.props.CollectionProperty(type=RigInstance)  # pyright: ignore[reportInvalidTypeForm]
