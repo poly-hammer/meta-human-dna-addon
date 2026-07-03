@@ -3,6 +3,7 @@
     "name": "character-dna-addon",
     "language": "en",
     "ignorePaths": [
+        "cspell.json",
         ".gitignore",
         ".venv",
         ".stubs-venv",
@@ -193,7 +194,28 @@
                 "ccx",
                 "ccy",
                 "wxyz",
-                "intp"
+                "intp",
+                "tri",
+                "bary",
+                "bitangent",
+                "neighbour",
+                "undeformed",
+                "unrotated",
+                "smi",
+                "ver",
+                "ish",
+                "nkij",
+                "nki",
+                "nkc",
+                "jki",
+                "jkl",
+                "jil",
+                "matmuls",
+                "wsum",
+                "svd",
+                "vmask",
+                "vidx",
+                "regularizers"
             ]
         },
         {
@@ -214,7 +236,8 @@
             "filename": ".github/**",
             "description": "GitHub configuration - technical terms and misspelling flags",
             "words": [
-                "cov"
+                "cov",
+                "lfs"
             ],
             "flagWords": []
         },
