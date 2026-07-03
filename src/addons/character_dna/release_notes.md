@@ -1,6 +1,6 @@
 ## Minor Changes
 
-* Switched Bone Matching Operator to use PyTorch solver (Now works on MacOS)
+* New Bone Matching Operator to uses PyTorch solver
 * Relative mesh fitting option for extra meshes added to Convertor
 * `Overwrite` output method supports copying DNA blend shape wiring to meshes of the same name. (Experimental)
 
