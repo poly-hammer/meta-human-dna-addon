@@ -113,21 +113,33 @@ def solver_venv():
     only the first run pays the torch-download cost. Left on disk for reuse;
     every solver worker is shut down on teardown so nothing keeps files locked.
     """
+    from character_dna.editors.raw_control_editor import dependency_extraction
     from character_dna.editors.raw_control_editor.solver_worker import (
         SolverEnvError,
         env_is_ready,
-        env_python_path,
         provision,
-        resolve_env_dir,
         stop_all_solver_workers,
         validate_env,
     )
+    from character_dna.utilities import get_addon_preferences
 
     version_tag = f"py{sys.version_info.major}{sys.version_info.minor}"
     root = Path(tempfile.gettempdir()) / f"character_dna_solver_env_e2e_{version_tag}"
     device = "cpu"
-    venv_dir = resolve_env_dir(root, device)
-    venv_python = env_python_path(venv_dir)
+
+    # Point the addon preferences at this root + device so the venv is
+    # provisioned into the exact (Python-version-scoped) directory the operator's
+    # availability check will later resolve to. Using the production resolvers
+    # keeps the fixture and the app in lockstep with the on-disk layout instead
+    # of duplicating the ``<root>/python-<ver>/<device>`` path structure here.
+    preferences = get_addon_preferences()
+    assert preferences is not None, "addon preferences unavailable"
+    rce = preferences.raw_control_editor
+    rce.solver_env_root = str(root)
+    rce.solver_device = device
+
+    venv_dir = dependency_extraction.resolve_solver_env_dir(device)
+    venv_python = dependency_extraction.resolve_solver_env_python(device)
 
     reuse = env_is_ready(venv_dir)
     if reuse:
