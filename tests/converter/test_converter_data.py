@@ -226,5 +226,121 @@ def test_joints_mapped_by_meshes_selects_head_only_shared_bones() -> None:
     assert "spine_04" not in head_authoritative
 
 
+# ---------------------------------------------------------------------------
+# relative fit (surface-frame binding)
+# ---------------------------------------------------------------------------
+
+
+def _unit_quad():
+    """A flat 2x2 quad in the XY plane (two triangles) as (positions, triangles)."""
+    import numpy as np
+
+    positions = np.array(
+        [(0.0, 0.0, 0.0), (2.0, 0.0, 0.0), (2.0, 2.0, 0.0), (0.0, 2.0, 0.0)],
+        dtype=np.float64,
+    )
+    triangles = np.array([(0, 1, 2), (0, 2, 3)], dtype=np.int64)
+    return positions, triangles
+
+
+def test_surface_frame_binding_identity_returns_input() -> None:
+    """Reconstructing against the unchanged reference reproduces the dependent's
+    bind positions exactly (including its off-surface offset)."""
+    import numpy as np
+
+    from character_dna.editors.converter import core
+
+    positions, triangles = _unit_quad()
+    # Two dependent points hovering 0.5 above the quad.
+    dependent = np.array([(0.5, 0.5, 0.5), (1.5, 1.0, 0.5)], dtype=np.float64)
+
+    binding = core.build_surface_frame_binding(positions, triangles, dependent)
+    result = core.apply_surface_frame_binding(binding, positions)
+
+    assert result == pytest.approx(dependent, abs=1e-9)
+    assert not binding.missed.any()
+
+
+def test_surface_frame_binding_follows_translation() -> None:
+    """Translating the whole reference translates the dependent by the same
+    amount while preserving its offset."""
+    import numpy as np
+
+    from character_dna.editors.converter import core
+
+    positions, triangles = _unit_quad()
+    dependent = np.array([(0.5, 0.5, 0.5), (1.5, 1.0, 0.5)], dtype=np.float64)
+    binding = core.build_surface_frame_binding(positions, triangles, dependent)
+
+    translation = np.array([3.0, -1.0, 2.0])
+    result = core.apply_surface_frame_binding(binding, positions + translation)
+
+    assert result == pytest.approx(dependent + translation, abs=1e-9)
+
+
+def test_surface_frame_binding_follows_rotation() -> None:
+    """Rotating the reference 90 degrees about X rotates the dependent (offset
+    and all) with the surface frame."""
+    import numpy as np
+
+    from character_dna.editors.converter import core
+
+    positions, triangles = _unit_quad()
+    dependent = np.array([(0.5, 0.5, 0.5), (1.5, 1.0, 0.5)], dtype=np.float64)
+    binding = core.build_surface_frame_binding(positions, triangles, dependent)
+
+    # +90 deg about X: (x, y, z) -> (x, -z, y).
+    rotation = np.array([[1.0, 0.0, 0.0], [0.0, 0.0, -1.0], [0.0, 1.0, 0.0]])
+    result = core.apply_surface_frame_binding(binding, positions @ rotation.T)
+
+    assert result == pytest.approx(dependent @ rotation.T, abs=1e-9)
+
+
+def test_surface_frame_binding_flags_far_vertices() -> None:
+    """A dependent vertex beyond ``max_distance`` is flagged missed and keeps its
+    bind position on reconstruction."""
+    import numpy as np
+
+    from character_dna.editors.converter import core
+
+    positions, triangles = _unit_quad()
+    dependent = np.array([(0.5, 0.5, 0.1), (0.5, 0.5, 5.0)], dtype=np.float64)
+    binding = core.build_surface_frame_binding(positions, triangles, dependent, max_distance=1.0)
+
+    assert not binding.missed[0]
+    assert binding.missed[1]
+    # Move the reference; the missed vertex stays put, the bound one follows.
+    result = core.apply_surface_frame_binding(binding, positions + np.array([10.0, 0.0, 0.0]))
+    assert result[1] == pytest.approx(dependent[1], abs=1e-9)
+    assert result[0][0] == pytest.approx(dependent[0][0] + 10.0, abs=1e-9)
+
+
+def test_surface_frame_binding_merges_multiple_references() -> None:
+    """Two reference meshes merged into one surface bind each dependent vertex to
+    its nearest reference; moving one reference moves only the vertices bound to
+    it (e.g. an eyelash spanning both eyes following each eye independently)."""
+    import numpy as np
+
+    from character_dna.editors.converter import core
+
+    # Two quads far apart in X, concatenated into one reference soup (as the
+    # converter does for multiple reference meshes).
+    quad, tris = _unit_quad()
+    positions = np.concatenate([quad, quad + np.array([10.0, 0.0, 0.0])], axis=0)
+    triangles = np.concatenate([tris, tris + len(quad)], axis=0)
+    # One dependent vertex over each quad.
+    dependent = np.array([(0.5, 0.5, 0.5), (10.5, 0.5, 0.5)], dtype=np.float64)
+
+    binding = core.build_surface_frame_binding(positions, triangles, dependent)
+
+    # Move only the second quad (+Y); the first dependent stays, the second follows.
+    moved = positions.copy()
+    moved[len(quad) :] += np.array([0.0, 3.0, 0.0])
+    result = core.apply_surface_frame_binding(binding, moved)
+
+    assert result[0] == pytest.approx(dependent[0], abs=1e-9)
+    assert result[1] == pytest.approx(dependent[1] + np.array([0.0, 3.0, 0.0]), abs=1e-9)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

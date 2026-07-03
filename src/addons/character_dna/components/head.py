@@ -17,6 +17,7 @@ from ..constants import (
     FACE_BOARD_SWITCHES,
     REGION_VERTEX_GROUP_PREFIX,
 )
+from ..rig_definition import HeadRigDefinition
 from ..utilities import exclude_rig_instance_evaluation
 from .base import CharacterComponentBase
 
@@ -181,7 +182,7 @@ class CharacterComponentHead(CharacterComponentBase):
         the rig definition is unavailable.
         """
         rig_definition = self._get_rig_definition()
-        if not rig_definition or not getattr(rig_definition, "regions", ()):
+        if not isinstance(rig_definition, HeadRigDefinition) or not rig_definition.regions:
             return
 
         # map each joint name to the regions it belongs to

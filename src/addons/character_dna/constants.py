@@ -331,7 +331,7 @@ MIGRATABLE_DATA_KEYS = ["rig_instance_list", "rig_logic_instance_list"]
 PRO_EDITORS = (
     ("Converter", "RNA"),
     ("Mesh Editor", "MESH_DATA"),
-    ("Raw Control Editor", "DECORATE_DRIVER"),
+    ("Raw Editor", "DECORATE_DRIVER"),
     ("RBF Editor", "DRIVER_ROTATIONAL_DIFFERENCE"),
     ("Shape Key Editor", "SHAPEKEY_DATA"),
     ("Backup Manager", "FILE_BACKUP"),

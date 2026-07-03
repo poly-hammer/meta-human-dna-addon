@@ -50,6 +50,7 @@ class DNAExporter:
         progress_callback: "Callable[[str, float | None], None] | None" = None,
         seam_follower: ComponentType | None = "head",
         seam_reference_dna_path: "str | Path | None" = None,
+        zero_shape_deltas: bool = False,
     ):
         self._instance = instance
         self._linear_modifier = linear_modifier
@@ -61,6 +62,7 @@ class DNAExporter:
         self._include_bones = bones
         self._include_textures = textures
         self._include_vertex_colors = vertex_colors
+        self._zero_shape_deltas = zero_shape_deltas
         self._progress_callback = progress_callback
         # Seam alignment between the head and body neck edge loop. ``seam_follower``
         # names which component is snapped onto the other ("head" -> head conforms
