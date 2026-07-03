@@ -621,8 +621,9 @@ class CHARACTER_DNA_PT_output_panel(RigInstanceDependentPanel):
             row.prop(instance.output, "method", text="")
 
             row = self.layout.row()
+            column = None
             if instance.output.component == "head":
-                draw_ui_list(
+                column = draw_ui_list(
                     row,
                     context,  # type: ignore[arg-type]
                     class_name="CHARACTER_DNA_UL_output_items",
@@ -633,7 +634,7 @@ class CHARACTER_DNA_PT_output_panel(RigInstanceDependentPanel):
                     insertion_operators=False,
                 )
             elif instance.output.component == "body":
-                draw_ui_list(
+                column = draw_ui_list(
                     row,
                     context,  # type: ignore[arg-type]
                     class_name="CHARACTER_DNA_UL_output_items",
@@ -643,6 +644,9 @@ class CHARACTER_DNA_PT_output_panel(RigInstanceDependentPanel):
                     move_operators=False,  # type: ignore[arg-type]
                     insertion_operators=False,
                 )
+            # Refresh button aligned in the list's side column
+            if column is not None:
+                column.operator(f"{ToolInfo.NAME}.refresh_output_items", text="", icon="FILE_REFRESH")
             row = self.layout.row()
             row.label(text="Output Folder:")
             row = self.layout.row()

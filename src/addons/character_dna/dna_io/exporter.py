@@ -26,7 +26,6 @@ from ..constants import (
 )
 from ..exceptions import InvalidComponentTypeError
 from ..typing import *  # noqa: F403  # noqa: F403
-from ..utilities import preserve_context
 from .misc import get_dna_reader, get_dna_writer
 
 
@@ -278,7 +277,6 @@ class DNAExporter:
         return [(face.index, [vert.index for vert in face.verts]) for face in bmesh_object.faces]
 
     @staticmethod
-    @preserve_context
     def get_bone_transforms(
         armature_object: bpy.types.Object,
         extra_bones: list[tuple[str, dict]] = EXTRA_BONES,
@@ -296,37 +294,32 @@ class DNAExporter:
         rotation_x = Matrix.Rotation(math.radians(-90), 4, "X")  # type: ignore[arg-type]
         global_matrix = rotation_x.to_4x4()
 
-        # Switch to edit mode so we can get edit bone data
-        armature_object.hide_set(False)
-        utilities.switch_to_bone_edit_mode(armature_object)
-        armature_object_evaluated = armature_object.evaluated_get(bpy.context.evaluated_depsgraph_get())
-
-        # Remove the extra bones from the list of bones
+        # Read the rest pose directly
         ignored_bone_names = [i for i, _ in extra_bones]
-        edit_bones = [i for i in armature_object_evaluated.data.edit_bones if i.name not in ignored_bone_names]  # type: ignore[attr-defined]
-        for index, edit_bone in enumerate(edit_bones):
+        bones = [i for i in armature_object.data.bones if i.name not in ignored_bone_names]  # type: ignore[attr-defined]
+        for index, bone in enumerate(bones):
             if index == 0:
                 # get translation and rotation of the bone globally
-                translation, rotation, _ = (global_matrix @ edit_bone.matrix).decompose()
-            elif edit_bone.parent:
-                # get translation and rotation of relative to it's parent
+                translation, rotation, _ = (global_matrix @ bone.matrix_local).decompose()
+            elif bone.parent:
+                # get translation and rotation relative to its parent
                 # Use inverted_safe() to handle singular matrices gracefully
-                local_matrix = edit_bone.parent.matrix.inverted_safe() @ edit_bone.matrix
+                local_matrix = bone.parent.matrix_local.inverted_safe() @ bone.matrix_local
                 translation, rotation, _ = local_matrix.decompose()
 
             indices.append(index)
-            bone_names.append(edit_bone.name)
-            is_leaf.append(not edit_bone.children)
+            bone_names.append(bone.name)
+            is_leaf.append(not bone.children)
 
             hierarchy_index = index
             # If the bone has a parent, get the index of the parent bone.
             # We don't want to include the extra bones as parents.
-            if edit_bone.parent and edit_bone.parent.name not in ignored_bone_names:
-                hierarchy_index = hierarchy_lookup[edit_bone.parent.name]
+            if bone.parent and bone.parent.name not in ignored_bone_names:
+                hierarchy_index = hierarchy_lookup[bone.parent.name]
 
             hierarchy.append(hierarchy_index)
             # Store the index of the bone in the hierarchy lookup so we can find parent indices later
-            hierarchy_lookup[edit_bone.name] = index
+            hierarchy_lookup[bone.name] = index
 
             # Convert translation from blender meters to centimeters
             translations.append(

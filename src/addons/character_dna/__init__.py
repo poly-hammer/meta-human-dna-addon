@@ -17,7 +17,7 @@ logger = logging.getLogger(constants.ToolInfo.NAME)
 bl_info = {
     "name": "Character DNA",
     "author": "Poly Hammer",
-    "version": (0, 8, 18),
+    "version": (0, 9, 1),
     "blender": (4, 5, 0),
     "location": "File > Import > MetaHuman DNA",
     "description": (
@@ -49,6 +49,7 @@ classes = [
     operators.MigrateLegacyData,
     operators.MetricsCollectionConsent,
     operators.ForceEvaluate,
+    operators.RefreshOutputItems,
     operators.MapRawToGuiControls,
     operators.SendToMetaHumanCreator,
     operators.ExportSelectedComponent,

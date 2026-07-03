@@ -859,6 +859,23 @@ class ForceEvaluate(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class RefreshOutputItems(bpy.types.Operator):
+    """Refresh the Output items list so it reflects the current scene meshes,
+    textures, and rig for the active rig instance"""
+
+    bl_idname = f"{ToolInfo.NAME}.refresh_output_items"
+    bl_label = "Refresh Output Items"
+
+    @classmethod
+    def poll(cls, _: "Context") -> bool:
+        return callbacks.get_active_rig_instance() is not None
+
+    def execute(self, context: "Context") -> set[str]:
+        callbacks.update_head_output_items(None, context)  # type: ignore[arg-type]
+        callbacks.update_body_output_items(None, context)  # type: ignore[arg-type]
+        return {"FINISHED"}
+
+
 class MapRawToGuiControls(bpy.types.Operator):
     """Backward-solve the face board from the head rig's raw controls. Maps the
     current raw control values to GUI controls via rig logic and applies the result
