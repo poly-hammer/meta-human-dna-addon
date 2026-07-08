@@ -16,7 +16,7 @@ Import facial performance curves — for example from **MetaHuman Animator** —
 
 ## Body Animation
 
-Import body performances — from MetaHuman Animator or any retargeted animation — onto the body rig.
+Import body performances — from MetaHuman Animator or any re-targeted animation — onto the body rig.
 
 <video autoplay loop muted playsinline class="rounded-image" style="width:100%" poster="../../images/animation/metahuman_animator_body_support.png">
   <source src="../../images/animation/metahuman_animator_body_support.webm" type="video/webm">
