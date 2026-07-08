@@ -116,6 +116,11 @@ def get_dna_writer(file_path: Path, file_format: FileFormat = "binary") -> "dna.
 def get_dna_component_type(file_path: Path) -> ComponentType | None:
     """
     Determine the DNA component type based on the mesh names in the DNA file.
+
+    Mesh names are the strongest signal, but some DNA files (for example clothing
+    or custom body assets) do not include "head" or "body" in their mesh names. In
+    that case we fall back to the joint names: head DNA files contain facial joints
+    (``FACIAL_*``) while body DNA files are skinned to the body skeleton only.
     """
     component_type = None
     dna_reader = get_dna_reader(file_path=file_path, file_format="binary", data_layer="Definition")
@@ -126,6 +131,13 @@ def get_dna_component_type(file_path: Path) -> ComponentType | None:
                 component_type = "head"
             elif "body" in mesh_name.lower():
                 component_type = "body"
+
+        # Fall back to joint names when the mesh names are inconclusive.
+        if component_type is None and dna_reader.getJointCount() > 0:
+            has_facial_joint = any(
+                "facial" in dna_reader.getJointName(index).lower() for index in range(dna_reader.getJointCount())
+            )
+            component_type = "head" if has_facial_joint else "body"
     return component_type
 
 

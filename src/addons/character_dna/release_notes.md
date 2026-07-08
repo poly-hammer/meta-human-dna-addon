@@ -1,14 +1,7 @@
-## Minor Changes
-
-* New Bone Matching Operator to uses PyTorch solver
-* Relative mesh fitting option for extra meshes added to Convertor
-* `Overwrite` output method supports copying DNA blend shape wiring to meshes of the same name. (Experimental)
-
 ## Patch Changes
 
-* Fixed Raw Editor leaf bone rotation commit values
-* Fixed Raw Editor Mesh operators vertex selection mask
-* Fixed Raw Editor bone selection mask and added locking for bones outside the DNA joint group
+* Made DNA component type detection more robust [#337](https://github.com/poly-hammer/character-dna-addon/issues/337)
+* Fixed body animation pose mode switching bug
 
 ## Tests Passing On
 

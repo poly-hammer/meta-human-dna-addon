@@ -1,58 +1,80 @@
 # Terminology
 
+We use MetaHuman-specific lingo throughout these docs. This page defines the core concepts you need to know to use our addon. However, please always consult the official [MetaHuman Documentation](https://dev.epicgames.com/documentation/metahuman/metahuman-documentation) by Epic Games.
+
 ## DNA
 
-Rig Logic relies on a universal set of rules for defining the muscular system of a human face, and on a proprietary file format from 3Lateral called MetaHuman DNA, which is designed to store the complete description of a 3D object's rig and geometry.
+MetaHuman DNA is a proprietary file format from Epic Games that stores the **complete description of a character's rig and geometry** — meshes, joints, blend shapes, skin weights, texture masks, and the RigLogic rules that tie them together. RigLogic reads a `.dna` file to evaluate a face or body.
 
 ## Rig Logic
 
-This is the runtime evaluation system that powers Metahuman face rigs. The source for this ships as a Unreal Engine plugin. For the curious, here is the [white paper](https://cdn2.unrealengine.com/rig-logic-whitepaper-v2-5c9f23f7e210.pdf){: target="blank"} where you can read further.
+The runtime that powers MetaHuman face rigs. [OpenRigLogic](https://github.com/EpicGames/OpenRigLogic) is open-sourced by Epic Games and is what this addon uses as the **evaluation module**, so results match Unreal Engine 1-to-1. Epic's [white paper](https://cdn2.unrealengine.com/rig-logic-whitepaper-v2-5c9f23f7e210.pdf){: target="blank"} gives a deep dive into the design of RigLogic.
 
-![1](./images/terminology/1.png){: class="rounded-image"}
+![Rig Logic outputs](./images/terminology/1.png){: class="rounded-image center-image"}
 
-However for the purposes of this addon, the most important thing to understand is that RigLogic ties together the relationships between 4 things. 1 input that drives 3 outputs.
+The key idea: RigLogic converts a small set of high-level **inputs** into a large set of low-level **outputs**. One input layer drives many output layers.
 
-* Face Board GUI Controls (Ultimately these are the "Expressions" or "[Control Curves](https://dev.epicgames.com/documentation/en-us/metahuman/control-curves-driven-by-metahuman-animator)")
+**Inputs (face board GUI controls).** These GUI controls map to [Raw Control](https://dev.epicgames.com/documentation/en-us/metahuman/control-curves-driven-by-metahuman-animator) values when you pose the face board.
 
-The Face board drives the following:
+**Outputs (driven by the inputs):**
 
-* Bone Transforms (It calls these joints, but Blender calls them bones.)
-* Shape Key Values (It calls these Blend Shapes, but Blender calls these Shape Keys.)
-* Wrinkle Map Masks (These are drive by the addon's "[Texture Logic](#texture-logic)" Node)
+* **Bone Transforms** — RigLogic calls these *joints*; Blender calls them *bones*.
+* **Shape Key Values** — RigLogic calls these *blend shapes*; Blender calls them *shape keys*.
+* **Wrinkle Map Masks** — driven through the addon's [Texture Logic](#texture-logic) node.
 
-The best way is to see this in action is by toggling each of these booleans on your [Rig Instance](#rig-instance). These will enable/disable those particular outputs from the Rig Logic evaluation. This becomes apparent when an animation is playing or you move the Face Board controls.
+Toggle each of these outputs on your [Rig Instance](#rig-instance) to see its individual contribution while an animation plays or when you move a control.
 
-![2](./images/terminology/2.png){: class="rounded-image center-image"}
+![Rig Logic outputs](./images/terminology/2.png){: class="rounded-image center-image"}
+
+### How an expression is evaluated
+
+Under the hood, RigLogic runs each pose through a few stages. You don't need to know the math to use the addon, but understanding the vocabulary helps:
+
+* **PSDs (Pose Space Deformations)** — corrective combinations. When several expressions are active at once, PSDs turn on additional "combined" expressions so overlapping poses blend correctly instead of stacking. This is why editing one shape can be affected by others (see the [Shape Key Editor](./pro-features/shape-key-editor.md)).
+* **Linear outputs** — most joints and blend shapes are driven linearly by the active raw control values.
+* **Conditionals** — a small share of outputs (mostly the wrinkle mask multipliers) ramp on across ranges of an input value.
+
+### LODs
+
+A DNA stores multiple [Levels of Detail](https://en.wikipedia.org/wiki/Level_of_detail_(computer_graphics)) (LOD0–LOD7). LOD0 is the source of truth as far as the Blender addon is concerned. The addon calibrates lower LODs from your LOD0 edits.
+
+!!! note
+    *Update LODs* is a Pro feature.
 
 ## Rig Instance
 
-This is a data block that we use in the Blender Addon to ultimately tie together which data belongs to which RigLogic evaluation. This is important, since the addon actually allows you to have multiple "Rig Instances" in your scene at a time, and each Rig Logic Instance reads from a separate DNA file. There can be several Rig Logic instances per "Rig Instance" (head and body for example). Also the side bar GUI in the viewport is context sensitive to which "Rig Instance" is actively selected in the list view under the `Rig Instance` panel. Only the active instance will have its properties modified.
+A Rig Instance is the data block the addon uses to tie together which scene data belongs to which RigLogic evaluation. You can have **multiple Rig Instances** in one scene, each reading from its own DNA file, and a single Rig Instance can hold more than one RigLogic evaluation (a head and a body, for example).
 
-![3](./images/terminology/3.gif){: class="rounded-image"}
+The `Character DNA` sidebar is **context-sensitive to the active Rig Instance** selected in the [Rig Instances](./free-features/rig-instances.md) panel — only the active instance's properties are shown and modified.
 
 ## Texture Logic
 
-This a special node that you can add to your materials that blends the output of 3 color map's and 3 normal map's variants based on the current Rig Logic evaluation.
+A special material node that blends 3 color-map and 3 normal-map variants based on the current RigLogic evaluation, producing animated wrinkle maps. The masks decide where each variant shows through:
 
-**Black** -  Base Map
+**Black** — Base Map
 
-**Red**{: class="red"} - Wrinkle Map 1
+**Red**{: class="red"} — Wrinkle Map 1
 
-**Green**{: class="green"} - Wrinkle Map 2
+**Green**{: class="green"} — Wrinkle Map 2
 
-**Blue**{: class="blue"} - Wrinkle Map 3
+**Blue**{: class="blue"} — Wrinkle Map 3
 
-![4](./images/terminology/4.gif){: class="rounded-image"}
-![5](./images/terminology/5.gif){: class="rounded-image"}
+<div style="display:flex; gap:0; justify-content:center; align-items:flex-start;">
+  <img src="../images/terminology/material-masks-evaluating.gif" alt="Material Masks Evaluating" class="rounded-image" style="height:350px; width:auto;">
+  <img src="../images/terminology/texture-logic-node.gif" alt="Texture Logic Node" class="rounded-image" style="height:350px; width:auto;">
+</div>
+
+See [Customizing Materials](./workflows/customizing-materials.md) for setup and naming conventions.
 
 ## GUI Controls
 
-These are the high-level controls. The pose bones on the face board object.
+The yellow pose bones on the face board object. These are the high-level **inputs** to RigLogic.
 
 ## Raw Controls
 
-These are the low-level controls on the head rig and head mesh:
+These are ultimately the true **inputs** to RigLogic but are conventionally driven by GUI Controls via a mapping defined in the DNA. All these **outputs** below are calculated based on the Raw Control values:
 
-* Pose Bones
+* Pose Bone Transforms
 * Shape Keys
 * Wrinkle Map Masks
+* PSD Correctives (Which affect the combinations of the 3 things above)
