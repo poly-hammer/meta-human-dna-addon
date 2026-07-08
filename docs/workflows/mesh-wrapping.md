@@ -16,7 +16,7 @@ The [DNA auto-fitting](../pro-features/converter.md) algorithm is **UV based**. 
   <img src="../../images/mesh-wrapping/body_uv_layout.png" alt="MetaHuman body UV layout wireframe" class="rounded-image" style="height:360px; width:auto;">
 </div>
 
-Wrapping preserves that layout because you start from the base MetaHuman head and only move its vertices — you never change its topology or UVs.
+Wrapping preserves that layout because you start from the base MetaHuman head and body meshes and only move their vertices — you never change their topology or UVs.
 
 ## Methods
 
@@ -24,7 +24,7 @@ There are several ways to produce a wrapped, topology-matched head and body. Pic
 
 ### 1. Face Form Wrap
 
-A dedicated wrapping tool that projects the base MetaHuman head onto your target scan or sculpt while preserving topology and UVs.
+A dedicated wrapping tool that is a fast and accurate way to conform the base MetaHuman head and body meshes onto your target scan or sculpt while preserving topology and UVs.
 
 <div style="max-width:100%; margin:0 auto;">
   <iframe width="100%" style="aspect-ratio:16/9; border:0;" src="https://www.youtube.com/embed/813BCbIwGiE" title="Face Form Wrap tutorial" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
@@ -38,7 +38,7 @@ Epic's built-in **Mesh to MetaHuman** tool fits a MetaHuman topology onto your c
 
 ### 3. Blender (Proportional Editing, Sculpt, Shrinkwrap)
 
-Wrap entirely in Blender by reshaping a copy of the base MetaHuman head:
+Wrap entirely in Blender by reshaping a copy of the base MetaHuman head and body:
 
 1. Use **Proportional Editing** to block in the overall shape toward your target.
 2. Refine with **Sculpt** brushes for finer detail.
