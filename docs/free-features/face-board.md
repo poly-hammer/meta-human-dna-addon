@@ -1,0 +1,32 @@
+# Face Board
+
+The face board is another Blender armature object, but more importantly, its pose bones are the [GUI Controls](../terminology.md#gui-controls) that RigLogic evaluates into a facial expression. This panel drives it with ready-made poses and options for eye and head behavior.
+
+To pose the board by hand, select the face board armature, enter **Pose Mode**, and grab the yellow controls.
+
+<video autoplay loop muted playsinline class="rounded-image" style="width:100%" poster="../../images/face-board/face_board_poses.png">
+  <source src="../../images/face-board/face_board_poses.webm" type="video/webm">
+</video>
+
+## Pose Library
+
+Pick a pose from the thumbnail preview or the dropdown to set the face board controls to that expression. Poses cover **visemes, emotions, wrinkle map bases, and scan reference** shapes. These are a fast way to understand what a MetaHuman's rig can do, and what data you need to extract from your scans.
+
+- **Category** filters the list (All, Visemes, Emotions, Wrinkle Maps, Scan Reference).
+- The **filter** popover (funnel icon) narrows poses by tag, matching **All** or **Any** of the selected tags.
+- The **search** button (magnifier) opens a searchable pose picker.
+
+!!! tip
+    The wrinkle map poses (`wrinkle_map_01`–`03`) make good base shapes for high-poly sculpts or scans that you later bake down to the texture maps in your material.
+
+## Eye & Head Options
+
+| Option | Effect |
+| ------ | ------ |
+| Use Eye Aim | Drive the eyes with an aim target instead of the GUI eye controls |
+| Eyes Follow Head | Make the eye aim follow head movement |
+| Face Board Follow Head | Make the GUI controls follow head movement |
+
+## Importing Animation
+
+Importing face board animation from MetaHuman Animator is done under the [Animation](./animation.md) panel.

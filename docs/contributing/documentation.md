@@ -1,22 +1,15 @@
 # Documentation
 
-All documentation is referenced in and deployed to our docs mono repo via git submodules:
+These docs are written in Markdown and built into a static site with [MkDocs](https://www.mkdocs.org/). The published build lives at [docs.polyhammer.com](https://docs.polyhammer.com), aggregated from the docs mono repo:
 
-[https://github.com/poly-hammer/poly-hammer-docs](https://github.com/poly-hammer/poly-hammer-docs)
+[github.com/poly-hammer/poly-hammer-docs](https://github.com/poly-hammer/poly-hammer-docs)
 
-The finally docs build can be seen here:
+## Preview Locally
 
-[https://docs.polyhammer.com](https://docs.polyhammer.com)
+Use the **Mkdocs: Serve** VS Code task, or run:
 
-## Testing Locally
-
-The documentation sites are static html sites that are generated using [mkdocs](https://www.mkdocs.org/). To get the docs working locally run these commands:
-
-``` shell
-pip install -r requirements.txt
-mkdocs serve
+```shell
+uv run mkdocs serve --dev-addr localhost:8080 --livereload --open
 ```
 
-The site should now be available to preview at:
-
-[http://localhost:8080](http://localhost:8000)
+The site is then available at [http://localhost:8080](http://localhost:8080).

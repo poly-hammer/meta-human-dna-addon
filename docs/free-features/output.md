@@ -1,0 +1,46 @@
+# Output
+
+Export your changes back to the `.dna` file format so you can update your MetaHuman in Unreal Engine.
+
+<video autoplay loop muted playsinline class="rounded-image" style="width:100%" poster="../../images/output/export_dna.png">
+  <source src="../../images/output/export_dna.webm" type="video/webm">
+</video>
+
+## Component
+
+Choose which component to export — **Head** or **Body**. The asset list and options update to match.
+
+## Method
+
+| Method                         | When to use                                                                                                      |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| **Calibrate** *(recommended)*  | Your vertex indices and bone names match the original DNA. Calibrates your bone and mesh changes into a new DNA. |
+| **Overwrite** *(experimental)* | Your vertex indices or bone names differ from the original DNA. Only use when calibration isn't possible.        |
+
+!!! warning
+    **Overwrite** is new and experimental — it doesn't work in every case yet.
+
+## Asset List
+
+Lists the meshes, armatures, and images that will be exported. Uncheck any asset to exclude it, and edit the name on the left inline.
+
+!!! note
+    Mesh names must follow the MetaHuman **LOD naming convention** so the exporter knows which LOD each mesh belongs to.
+
+## Options
+
+- **Run Validations** — check the data before writing the DNA.
+- **Update LODs** *(Pro)* — recalibrate lower LODs from your LOD0 changes.
+- **Align Head and Body** *(Calibrate)* — align overlapping head/body bones to avoid a seam.
+
+## Output Folder
+
+A single folder where everything is written. The `.dna` components go here, and textures export to a `Maps` subfolder.
+
+!!! note
+    If your `.blend` is saved, you can use Blender's relative path syntax to help standardize your export folder. For example, setting `//Ada` will output your `head.dna`, `body.dna`, and `Maps` folder into a folder named `Ada` next to your `.blend` file.
+
+## Export Buttons
+
+- **Only Component** — export just the selected component (head or body) to a single DNA file, with no textures or supporting files. Fast when you only need to update one component's DNA.
+- **MetaHuman Creator** — export the head and body DNA plus textures in a format MetaHuman Creator accepts. This is the best way to output all the data for your MetaHuman.

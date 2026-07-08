@@ -44,7 +44,7 @@
         },
         {
             "label": "Mkdocs: Serve",
-            "command": "uv run mkdocs serve --dev-addr localhost:8080",
+            "command": "uv run mkdocs serve --dev-addr localhost:8080 --livereload --open",
             "type": "shell",
             "group": {
                 "kind": "build"

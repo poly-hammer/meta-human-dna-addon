@@ -1,20 +1,25 @@
 site_name: Character DNA Addon
 nav:
-  - Quick Start: "index.md"
+  - Getting Started: "index.md"
   - Terminology: "terminology.md"
-  - Helpful Resources: "helpful-resources.md"
-  - Unreal Configuration: "unreal-configuration.md"
-  - Textures: "textures.md"
-  - User Interface:
-    - Import: "user-interface/import.md"
-    - Face Board: "user-interface/face-board.md"
-    - Utilities: "user-interface/utilities.md"
-    - View Options: "user-interface/view-options.md"
-    - Rig Logic: "user-interface/rig-logic.md"
-    - Shape Keys: "user-interface/shape-keys.md"
-    - Output: "user-interface/output.md"
+  - FAQ: "faq.md"
+  - Free Features:
+    - Rig Instances: "free-features/rig-instances.md"
+    - View Options: "free-features/view-options.md"
+    - Face Board: "free-features/face-board.md"
+    - Animation: "free-features/animation.md"
+    - Output: "free-features/output.md"
+  - Pro Features:
+    - Converter: "pro-features/converter.md"
+    # - Mesh Editor: "pro-features/mesh-editor.md"
+    - Raw Editor: "pro-features/raw-editor.md"
+    - Shape Key Editor: "pro-features/shape-key-editor.md"
+    - RBF Editor: "pro-features/rbf-editor.md"
+    - Backup Manager: "pro-features/backup-manager.md"
   - Workflows:
-    - Face Form Wrap: "workflows/face-form-wrap.md"
+    - Append & Link: "workflows/append-link.md"
+    - Mesh Wrapping: "workflows/mesh-wrapping.md"
+    - Customizing Materials: "workflows/customizing-materials.md"
   - Contributing:
     - Development: "contributing/development.md"
     - Documentation: "contributing/documentation.md"
@@ -23,3 +28,4 @@ nav:
 markdown_extensions:
   - attr_list
   - admonition
+  - md_in_html

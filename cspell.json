@@ -28,6 +28,7 @@
         "releases",
         "*.blend*",
         "*.dna",
+        "README.md",
         "src/addons/character_dna/resources/**",
         "src/addons/character_dna/editors/shared/resources/**",
         "src/addons/character_dna/editors/**/template.html"
@@ -38,6 +39,8 @@
         "cytoscape",
         "dagre",
         "dba",
+        "CUDA",
+        "MPS",
         "pyi",
         "directml",
         "cpython",
@@ -225,10 +228,13 @@
             "words": [
                 "LFS",
                 "DCC",
+                "MCornerDepress_NSwrinkle_Jopen_R",
                 "lod",
                 "tga",
                 "ons",
                 "WSL",
+                "laggy",
+                "cov",
                 "usr"
             ],
             "flagWords": []

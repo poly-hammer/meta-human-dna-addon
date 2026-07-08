@@ -7,6 +7,7 @@ venv
 *.pyc
 *.blend*
 *.code-workspace
+.vscode/mcp.json
 .env
 releases
 tests/extra_test_files

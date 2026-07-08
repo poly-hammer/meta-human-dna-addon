@@ -1,25 +1,41 @@
 # Character DNA Addon
 
-## Install the Addon in Blender
+Bring MetaHuman characters into Blender and evaluate their face rigs in real time, exactly like Unreal Engine. The addon reads Epic Games' `.dna` files and drives them using the [OpenRigLogic](https://github.com/EpicGames/OpenRigLogic) runtime.
 
-To install you will need to create an account on the [Poly Hammer Portal](https://dashboard.portal.polyhammer.com/), and then link the extensions server. Follow these [instructions](https://docs.polyhammer.com/poly-hammer-portal/blender-extension-repo).
+<video autoplay loop muted playsinline class="rounded-image" style="width:100%" poster="./images/getting-started/riglogic_merged_compare.png">
+  <source src="./images/getting-started/riglogic_merged_compare.webm" type="video/webm">
+</video>
 
-You will now see a tab on the right-side of the 3D Viewport bar called `Character DNA` (Hide/Show with `N` key.). You will notice that the panels are grayed out and have warning messages. These panels become active when there is an active [RigLogic Instance](./terminology.md/#rig-instance).
+The addon comes in two editions:
 
-## Import a DNA File
+- **Free** — Import, animate, bake data, and export your scene data to your MetaHuman's DNA.
+- **Pro** — Everything in Free, plus advanced editors for users who need full control over the data structures that define DNA behavior.
 
-The easiest way to get started, is to just drag and drop a `head.dna` file into the blender scene.
+Because of this, the documentation has been organized by Free or Pro features.
 
-![3](./images/quick-start/1.gif){: class="rounded-image"}
+## Install the Addon
 
-If a `Maps` folder exists alongside the `.dna` file, the importer will link any textures that follow the same naming conventions as the MetaHuman source assets exported from MetaHuman Creator.
+Create an account on the [Poly Hammer Portal](https://dashboard.portal.polyhammer.com/signup), then link the extensions server by following these [instructions](https://docs.polyhammer.com/poly-hammer-portal/blender-extension-repo).
+
+Once installed, a `Character DNA` tab appears on the right side of the 3D Viewport (toggle with the `N` key). Most panels start hidden and become visible once a [Rig Instance](./terminology.md#rig-instance) exists in the scene.
+
+## Import Your DNA
+
+The fastest way to start is to drag and drop a `head.dna` file into the Blender viewport. You can also do this via `File > Import > MetaHuman DNA (.dna)` from Blender's header menu.
+
+<video autoplay loop muted playsinline class="rounded-image" style="width:100%" poster="./images/getting-started/metahuman_creator_support.png">
+  <source src="./images/getting-started/metahuman_creator_support.webm" type="video/webm">
+</video>
+
+If a `Maps` folder sits alongside the `.dna` file, the importer automatically links matching textures.
 
 !!! note
-    If you didn't already know, `.dna` files are a proprietary file format created by Epic Games. DNA is an integral part of the MetaHuman identity. DNA files encode all the details of the shape and rig for MetaHuman heads. You can obtain a `.dna` file for your Metahuman by doing a DCC export from [MetaHuman Creator](https://dev.epicgames.com/documentation/metahuman/metahuman-creator){: target="blank"}.
+    `.dna` files are a proprietary format from Epic Games and are core to the MetaHuman identity — they encode the complete shape and rig of a MetaHuman. You can obtain them by exporting them from [MetaHuman Creator](https://dev.epicgames.com/documentation/metahuman/metahuman-creator-export-tool-in-unreal-engine#dccexport){: target="blank"} via its DCC export.
 
-## Congratulations
+## Next Steps
 
-You now have your first MetaHuman in Blender that is evaluating in real-time just like in Unreal Engine! Your ready to start diving deeper into facial customization!
+You now have a MetaHuman evaluating in real time in Blender.
 
-!!! tip
-    Check out our [terminology overview](terminology.md) since we use some pretty Metahuman specific lingo in our docs.
+- New to MetaHuman terms? Read the [Terminology](terminology.md) overview.
+- Ready to learn the addon's features? Explore the [Free Features](./free-features/rig-instances.md) and [Pro Features](./pro-features/converter.md).
+- Hitting a snag? Check the [FAQ](faq.md).
