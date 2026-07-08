@@ -13,7 +13,7 @@ The Character DNA Addon allows you to import DNA files into Blender with a seaml
 Now, you can work in Blender and effortlessly push changes back to your Unreal project through your MetaHuman's DNA. [Get Now](https://polyhammer.com/character-dna-addon).
 
 <div align="center">
-    <img src="https://www.polyhammer.com/images/png/character-dna-addon/riglogic_compare.gif" alt="Example Custom MetaHuman" height="250px" style="margin-right: 10px;">
+    <img src="docs/images/getting-started/riglogic_compare.gif" alt="Example Custom MetaHuman" height="250px" style="margin-right: 10px;">
 
 </div>
 
