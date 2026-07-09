@@ -1,6 +1,6 @@
 # Mesh Wrapping
 
-To convert a custom head into a MetaHuman DNA with the [Converter](../pro-features/converter.md), your mesh must share the MetaHuman topology and UV layout. **Wrapping** is how you get there: you deform a copy of the base MetaHuman head and body meshes so they conform to your scan, sculpt, or alternative topology — keeping the MetaHuman topology while taking on your character's shape.
+To convert a custom head into a MetaHuman DNA with the [Converter](../pro-features/converter.md), your mesh must share the MetaHuman topology and UV layout. **Wrapping** is how you get there: you deform a copy of the base MetaHuman head and body meshes so they conform to your scan, sculpt, or alternative topology.
 
 ## Why Wrap?
 
@@ -16,7 +16,7 @@ The [DNA auto-fitting](../pro-features/converter.md) algorithm is **UV based**. 
   <img src="../../images/mesh-wrapping/body_uv_layout.png" alt="MetaHuman body UV layout wireframe" class="rounded-image" style="height:360px; width:auto;">
 </div>
 
-Wrapping preserves that layout because you start from the base MetaHuman head and body meshes and only move their vertices — you never change their topology or UVs.
+Wrapping preserves that layout because you start from the base MetaHuman head and body meshes and only move their vertices. Never change their vertex count or UVs.
 
 ## Methods
 

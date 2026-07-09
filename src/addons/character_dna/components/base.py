@@ -8,7 +8,6 @@ import sys
 from abc import ABCMeta, abstractmethod
 from datetime import UTC, datetime
 from pathlib import Path
-from types import ModuleType
 from typing import Any
 
 # third party imports
@@ -30,7 +29,6 @@ from ..constants import (
     INVALID_NAME_CHARACTERS_REGEX,
     LEGACY_ALTERNATE_HEAD_TEXTURE_FILE_NAMES,
     MASKS_TEXTURE,
-    MASKS_TEXTURE_FILE_PATH,
     MATERIALS_FILE_PATH,
     NUMBER_OF_HEAD_LODS,
     SCALE_FACTOR,
@@ -44,14 +42,6 @@ from ..utilities import preserve_context
 
 
 logger = logging.getLogger(__name__)
-
-
-def _get_topology_texture_constants() -> ModuleType | None:
-    if not utilities.editors_available():
-        return None
-    from ..editors.shared import constants as shared_constants
-
-    return shared_constants
 
 
 class CharacterComponentBase(metaclass=ABCMeta):
@@ -141,7 +131,7 @@ class CharacterComponentBase(metaclass=ABCMeta):
     def linear_modifier(self) -> float:
         from ..bindings import enums  # type: ignore[reportAttributeAccessIssue]
 
-        unit = enums.TranslationUnit(self.dna_reader.getTranslationUnit())
+        unit = enums.TranslationUnit(self.dna_reader.getTranslationUnit())  # pyright: ignore[reportCallIssue]
         # is centimeter
         if unit.name.lower() == "cm":
             return 1 / SCALE_FACTOR
@@ -154,7 +144,7 @@ class CharacterComponentBase(metaclass=ABCMeta):
     def angle_modifier(self) -> float:
         from ..bindings import enums  # type: ignore[reportAttributeAccessIssue]
 
-        unit = enums.RotationUnit(self.dna_reader.getRotationUnit())
+        unit = enums.RotationUnit(self.dna_reader.getRotationUnit())  # pyright: ignore[reportCallIssue]
         # is degree
         if unit.name.lower() == "degrees":
             return 180 / math.pi
@@ -378,21 +368,7 @@ class CharacterComponentBase(metaclass=ABCMeta):
                         return alternate_image_path
         return image_file
 
-    def _set_image_textures(self, materials: list[bpy.types.Material]):  # noqa: PLR0912
-        shared_constants = _get_topology_texture_constants()
-        # set the combined mask image and topology image
-        if self.component_type == "head":
-            bpy.data.images[MASKS_TEXTURE].filepath = str(MASKS_TEXTURE_FILE_PATH)
-            if shared_constants:
-                bpy.data.images[shared_constants.HEAD_TOPOLOGY_TEXTURE].filepath = str(
-                    shared_constants.HEAD_TOPOLOGY_TEXTURE_FILE_PATH
-                )
-        elif self.component_type == "body":
-            if shared_constants:
-                bpy.data.images[shared_constants.BODY_TOPOLOGY_TEXTURE].filepath = str(
-                    shared_constants.BODY_TOPOLOGY_TEXTURE_FILE_PATH
-                )
-
+    def _set_image_textures(self, materials: list[bpy.types.Material]):
         for material in materials:
             if not material.node_tree:
                 continue
@@ -438,33 +414,8 @@ class CharacterComponentBase(metaclass=ABCMeta):
                     except Exception as error:
                         logger.error(f"Failed to set colorspace for {node.image.name}: {error}")  # type: ignore[attr-defined]
 
-        # remove any extra masks and topology images
-        for image in bpy.data.images:
-            if self.component_type == "head":
-                image_names = [MASKS_TEXTURE]
-                if shared_constants:
-                    image_names.append(shared_constants.HEAD_TOPOLOGY_TEXTURE)
-            if self.component_type == "body":
-                image_names = [shared_constants.BODY_TOPOLOGY_TEXTURE] if shared_constants else []
-
-            if image.name in image_names:
-                continue
-            if any(i in image.name for i in image_names if i != image.name):
-                bpy.data.images.remove(image)
-
-        # set the masks and topology textures for all node groups
-        for node_group in bpy.data.node_groups:
-            for node in node_group.nodes:
-                if node.type == "TEX_IMAGE":
-                    # set the masks and topology textures
-                    if self.component_type == "head":
-                        if node.label == MASKS_TEXTURE:
-                            node.image = bpy.data.images[MASKS_TEXTURE]  # type: ignore[attr-defined]
-                        if shared_constants and node.label == shared_constants.HEAD_TOPOLOGY_TEXTURE:
-                            node.image = bpy.data.images[shared_constants.HEAD_TOPOLOGY_TEXTURE]  # type: ignore[attr-defined]
-                    elif self.component_type == "body":
-                        if shared_constants and node.label == shared_constants.BODY_TOPOLOGY_TEXTURE:
-                            node.image = bpy.data.images[shared_constants.BODY_TOPOLOGY_TEXTURE]  # type: ignore[attr-defined]
+        # load the placeholder mask/topology textures and fix up the texture logic node groups
+        utilities.setup_texture_logic_node_groups(self.component_type)  # pyright: ignore[reportArgumentType]
 
     def _purge_existing_materials(self):
         shader_mapping = HEAD_MESH_SHADER_MAPPING if self.component_type == "head" else BODY_MESH_SHADER_MAPPING
@@ -473,7 +424,7 @@ class CharacterComponentBase(metaclass=ABCMeta):
             if material:
                 bpy.data.materials.remove(material)
 
-        shared_constants = _get_topology_texture_constants()
+        shared_constants = utilities.get_topology_texture_constants()
         if self.component_type == "head":
             masks_image = bpy.data.images.get(MASKS_TEXTURE)
             if masks_image:
@@ -571,15 +522,6 @@ class CharacterComponentBase(metaclass=ABCMeta):
                     for node in material.node_tree.nodes:
                         if node.type == "UVMAP":
                             node.uv_map = UV_MAP_NAME  # type: ignore[attr-defined]
-                for node_group in bpy.data.node_groups:
-                    if node_group.name.startswith("Mask"):
-                        for node in node_group.nodes:
-                            if node.type == "UVMAP":
-                                node.uv_map = UV_MAP_NAME  # type: ignore[attr-defined]
-                    if node_group.name.lower().rsplit(".", 1)[0].endswith("_texture_logic"):
-                        for node in node_group.nodes:
-                            if node.type == "NORMAL_MAP":
-                                node.uv_map = UV_MAP_NAME  # type: ignore[attr-defined]
                 for mesh_object in bpy.data.objects:
                     if mesh_object.name.startswith(f"{self.name}_{key}"):
                         if mesh_object.data.materials:  # type: ignore[attr-defined]

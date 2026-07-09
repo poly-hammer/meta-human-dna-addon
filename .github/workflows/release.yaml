@@ -27,18 +27,17 @@ jobs:
       python-version: "3.13"
 
   # Test with Blender 4.5
-  # TODO: Figure out why hangs. Might be out of memory on the CI runners.
-  # test-blender-4-5-ubuntu-latest:
-  #   needs: [lint]
-  #   name: Blender 4.5 Tests
-  #   uses: poly-hammer/poly-hammer-workflows/.github/workflows/re-use-blender-tests.yaml@main
-  #   secrets: inherit
-  #   with:
-  #     python-version: "3.11"
-  #     blender-version: "4.5"
-  #     runner-os: "ubuntu-latest"
-  #     addon-id: "character_dna"
-  #     base: "character-dna"
+  test-blender-4-5-ubuntu-latest:
+    needs: [lint]
+    name: Blender 4.5 Tests
+    uses: poly-hammer/poly-hammer-workflows/.github/workflows/re-use-blender-tests.yaml@main
+    secrets: inherit
+    with:
+      python-version: "3.11"
+      blender-version: "4.5"
+      runner-os: "ubuntu-internal"
+      addon-id: "character_dna"
+      base: "character-dna"
 
   test-blender-4-5-windows-latest:
     needs: [lint]
@@ -73,7 +72,7 @@ jobs:
     with:
       python-version: "3.13"
       blender-version: "5.1"
-      runner-os: "ubuntu-latest"
+      runner-os: "ubuntu-internal"
       addon-id: "character_dna"
       base: "character-dna"
 

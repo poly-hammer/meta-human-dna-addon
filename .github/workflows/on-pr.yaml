@@ -1,4 +1,4 @@
-name: Dev Checks
+name: PR Checks
 on:
   pull_request:
     branches:
@@ -29,7 +29,7 @@ jobs:
     with:
       python-version: "3.11"
       blender-version: "4.5"
-      runner-os: "ubuntu-latest"
+      runner-os: "ubuntu-internal"
       addon-id: "character_dna"
       base: "character-dna"
       base-branch: ${{ github.head_ref }}
@@ -69,7 +69,7 @@ jobs:
     with:
       python-version: "3.13"
       blender-version: "5.1"
-      runner-os: "ubuntu-latest"
+      runner-os: "ubuntu-internal"
       addon-id: "character_dna"
       base: "character-dna"
       base-branch: ${{ github.head_ref }}
@@ -108,7 +108,7 @@ jobs:
     with:
       python-version: "3.11"
       blender-version: "4.5"
-      runner-os: "ubuntu-latest"
+      runner-os: "ubuntu-internal"
       iterations: 50
       warmup: 10
       threshold: 15
@@ -123,7 +123,7 @@ jobs:
     with:
       python-version: "3.13"
       blender-version: "5.1"
-      runner-os: "ubuntu-latest"
+      runner-os: "ubuntu-internal"
       iterations: 50
       warmup: 10
       threshold: 15

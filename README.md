@@ -4,13 +4,13 @@
 </div>
 
 ![GitHub Release](https://img.shields.io/github/v/release/poly-hammer/character-dna-addon)
-[![Release](https://github.com/poly-hammer/character-dna-addon/actions/workflows/release.yaml/badge.svg)](https://github.com/poly-hammer/character-dna-addon/actions/workflows/release.yaml)
-[![Dev](https://github.com/poly-hammer/character-dna-addon/actions/workflows/on-pr.yaml/badge.svg?branch=dev)](https://github.com/poly-hammer/character-dna-addon/actions/workflows/on-pr.yaml) [![Docs](https://github.com/poly-hammer/character-dna-addon/actions/workflows/docs.yaml/badge.svg)](https://github.com/poly-hammer/character-dna-addon/actions/workflows/docs.yaml)
+[![Release Checks](https://github.com/poly-hammer/character-dna-addon/actions/workflows/release.yaml/badge.svg)](https://github.com/poly-hammer/character-dna-addon/actions/workflows/release.yaml)
+[![PR Checks](https://github.com/poly-hammer/character-dna-addon/actions/workflows/on-pr.yaml/badge.svg)](https://github.com/poly-hammer/character-dna-addon/actions/workflows/on-pr.yaml) [![Docs](https://github.com/poly-hammer/character-dna-addon/actions/workflows/docs.yaml/badge.svg)](https://github.com/poly-hammer/character-dna-addon/actions/workflows/docs.yaml)
 [![codecov](https://codecov.io/gh/poly-hammer/character-dna-addon/graph/badge.svg?token=322E36CVR4)](https://codecov.io/gh/poly-hammer/character-dna-addon)
 
 The Character DNA Addon allows you to import DNA files into Blender with a seamless 1-to-1 integration of the MetaHuman face board and body correctives via [OpenRigLogic](https://github.com/EpicGames/OpenRigLogic).
 
-Now, you can work in Blender and effortlessly push changes back to your Unreal project through your MetaHuman's DNA. [Get Now](https://polyhammer.com/character-dna-addon).
+Now, you can work in Blender and push changes back to your Unreal project through your MetaHuman's DNA. [Get Now](https://polyhammer.com/character-dna-addon).
 
 <div align="center">
     <img src="docs/images/getting-started/riglogic_compare.gif" alt="Example Custom MetaHuman" width="99%">

@@ -471,18 +471,16 @@ def _get_view_options_owner(self: "CharacterViewOptionsProperties") -> "RigInsta
     """Resolve the ``RigInstance`` that owns this ``view_options`` property group.
 
     The view-options get/set callbacks need the owning rig instance to read its
-    linked objects (face board, rigs, materials) and its name. We resolve it from
-    the RNA data path so the correct instance is targeted even when it is not the
-    active one, falling back to the active rig instance if the path can't be resolved.
+    linked objects (face board, rigs, materials) and its name.
     """
-    try:
-        owner_path = self.path_from_id().rsplit(".view_options", 1)[0]
-        owner = self.id_data.path_resolve(owner_path)
-    except (ValueError, AttributeError):
-        owner = None
-    if owner is None:
-        return get_active_rig_instance()
-    return owner  # pyright: ignore[reportReturnType]
+    self_pointer = self.as_pointer()
+    scene_properties = getattr(self.id_data, ToolInfo.NAME, None)
+    if scene_properties is not None:
+        for instance in scene_properties.rig_instance_list:
+            view_options = instance.view_options
+            if view_options is not None and view_options.as_pointer() == self_pointer:
+                return instance  # pyright: ignore[reportReturnType]
+    return get_active_rig_instance()
 
 
 def get_active_lod(self: "CharacterViewOptionsProperties") -> int:
@@ -1031,7 +1029,7 @@ def update_output_component(self: "RigInstance", context: "Context"):
 # requirement for callback-based EnumProperty items) and avoids re-allocating the
 # item strings on every N-panel redraw, which is what made the View Options panel lag.
 _LOD_ITEMS_DEFAULT: list[tuple[str, str, str]] = [("lod0", "LOD 0", "Displays only LOD 0")]
-_lod_items_cache: dict[str, tuple[tuple[int, ...], list[tuple[str, str, str]]]] = {}
+_lod_items_cache: dict[str, tuple[int, list[tuple[str, str, str]]]] = {}
 
 
 def get_head_mesh_lod_items(self: "CharacterViewOptionsProperties", context: "Context") -> list[tuple[str, str, str]]:  # noqa: ARG001
@@ -1044,19 +1042,24 @@ def get_head_mesh_lod_items(self: "CharacterViewOptionsProperties", context: "Co
         return _LOD_ITEMS_DEFAULT
 
     name = instance.name
-    available = tuple(i for i in range(NUMBER_OF_HEAD_LODS) if bpy.data.objects.get(f"{name}_head_lod{i}_mesh"))
-
+    # This items callback runs on every panel redraw. Probing each LOD mesh with
+    # ``bpy.data.objects.get`` is comparatively expensive, so guard the cache with
+    # the object count instead: LOD-mesh availability only changes when meshes are
+    # imported or removed, which always changes ``len(bpy.data.objects)``. This
+    # keeps the common redraw path down to a single O(1) length read.
+    guard = len(bpy.data.objects)
     cached = _lod_items_cache.get(name)
-    if cached is not None and cached[0] == available:
+    if cached is not None and cached[0] == guard:
         # Nothing changed since the last redraw, return the same list object.
         return cached[1]
 
+    available = tuple(i for i in range(NUMBER_OF_HEAD_LODS) if bpy.data.objects.get(f"{name}_head_lod{i}_mesh"))
     if available:
         items = [(f"lod{i}", f"LOD {i}", f"Displays only LOD {i}") for i in available]
     else:
         items = _LOD_ITEMS_DEFAULT
 
-    _lod_items_cache[name] = (available, items)
+    _lod_items_cache[name] = (guard, items)
     return items
 
 
