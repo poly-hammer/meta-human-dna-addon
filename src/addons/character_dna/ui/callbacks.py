@@ -935,6 +935,13 @@ def update_body_output_items(self: "RigInstance", context: "Context"):  # noqa: 
     addon_scene_properties = get_addon_scene_properties(context)
 
     for instance in addon_scene_properties.rig_instance_list:
+        # Recover a cleared body_mesh pointer from the canonically-named mesh that is
+        # still skinned to the body rig. A lost pointer otherwise blocks this sync.
+        if instance and instance.body_rig and not instance.body_mesh:
+            candidate = bpy.data.objects.get(f"{instance.name}_body_lod0_mesh")
+            if candidate and candidate in get_body_mesh_output_items(instance):
+                instance.body_mesh = candidate
+
         if instance and instance.body_mesh and instance.body_rig:
             # update the output items for the scene objects
             for scene_object in [*get_body_mesh_output_items(instance), instance.body_rig]:
@@ -965,10 +972,27 @@ def update_body_output_items(self: "RigInstance", context: "Context"):  # noqa: 
                     new_item.name = file_name
                     new_item.editable_name = False
 
-            # remove any output items that do not have a scene object or image object
-            for item in instance.output.body_item_list:
-                if not item.scene_object and not item.image_object:
-                    index = instance.output.body_item_list.find(item.name)
+            # Remove stale output items. Iterate by index in reverse and remove by
+            # index (never by name) so duplicate-named items are handled correctly.
+            # An item is dropped when it has neither a scene object nor an image
+            # object, when its scene object is no longer skinned to the rig, or when
+            # it duplicates a scene/image object already kept.
+            valid_scene_objects = {*get_body_mesh_output_items(instance), instance.body_rig}
+            seen_scene_objects: set[bpy.types.Object] = set()
+            seen_image_objects: set[bpy.types.Image] = set()
+            for index in reversed(range(len(instance.output.body_item_list))):
+                item = instance.output.body_item_list[index]
+                if item.image_object:
+                    if item.image_object in seen_image_objects:
+                        instance.output.body_item_list.remove(index)
+                    else:
+                        seen_image_objects.add(item.image_object)
+                elif item.scene_object:
+                    if item.scene_object not in valid_scene_objects or item.scene_object in seen_scene_objects:
+                        instance.output.body_item_list.remove(index)
+                    else:
+                        seen_scene_objects.add(item.scene_object)
+                else:
                     instance.output.body_item_list.remove(index)
 
 
@@ -981,6 +1005,13 @@ def update_head_output_items(self: "RigInstance | None", context: "Context"):  #
     addon_scene_properties = get_addon_scene_properties(context)
 
     for instance in addon_scene_properties.rig_instance_list:
+        # Recover a cleared head_mesh pointer from the canonically-named mesh that is
+        # still skinned to the head rig. A lost pointer otherwise blocks this sync.
+        if instance and instance.head_rig and not instance.head_mesh:
+            candidate = bpy.data.objects.get(f"{instance.name}_head_lod0_mesh")
+            if candidate and candidate in get_head_mesh_output_items(instance):
+                instance.head_mesh = candidate
+
         if instance and instance.head_mesh and instance.head_rig:
             # update the output items for the scene objects
             for scene_object in [*get_head_mesh_output_items(instance), instance.head_rig]:
@@ -1011,10 +1042,27 @@ def update_head_output_items(self: "RigInstance | None", context: "Context"):  #
                     new_item.name = file_name
                     new_item.editable_name = False
 
-            # remove any output items that do not have a scene object or image object
-            for item in instance.output.head_item_list:
-                if not item.scene_object and not item.image_object:
-                    index = instance.output.head_item_list.find(item.name)
+            # Remove stale output items. Iterate by index in reverse and remove by
+            # index (never by name) so duplicate-named items are handled correctly.
+            # An item is dropped when it has neither a scene object nor an image
+            # object, when its scene object is no longer skinned to the rig, or when
+            # it duplicates a scene/image object already kept.
+            valid_scene_objects = {*get_head_mesh_output_items(instance), instance.head_rig}
+            seen_scene_objects: set[bpy.types.Object] = set()
+            seen_image_objects: set[bpy.types.Image] = set()
+            for index in reversed(range(len(instance.output.head_item_list))):
+                item = instance.output.head_item_list[index]
+                if item.image_object:
+                    if item.image_object in seen_image_objects:
+                        instance.output.head_item_list.remove(index)
+                    else:
+                        seen_image_objects.add(item.image_object)
+                elif item.scene_object:
+                    if item.scene_object not in valid_scene_objects or item.scene_object in seen_scene_objects:
+                        instance.output.head_item_list.remove(index)
+                    else:
+                        seen_scene_objects.add(item.scene_object)
+                else:
                     instance.output.head_item_list.remove(index)
 
 

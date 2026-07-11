@@ -103,7 +103,6 @@ class CHARACTER_DNA_UL_output_items(bpy.types.UIList):
             layout.label(text=item.name, icon=item_icon)
 
         row = layout.row()
-        row.enabled = False
         row.prop(item, prop_name, text="", emboss=False)
 
 
