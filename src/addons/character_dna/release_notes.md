@@ -1,3 +1,7 @@
+## Minor Changes
+
+* Added transfer to shape key operator in Raw Editor
+
 ## Patch Changes
 
 * Made DNA component type detection more robust [#337](https://github.com/poly-hammer/character-dna-addon/issues/337)
