@@ -9,7 +9,7 @@ Textures feed the [Texture Logic](../terminology.md#texture-logic) node, which b
 
 ## Custom Materials
 
-You can build a fully custom material node tree. Just add one [Texture Logic](../terminology.md#texture-logic) node to the graph and link your material in the [Rig Instance](../free-features/rig-instances.md) outputs.
+You can build a fully custom material node tree. Just add one [Texture Logic](../terminology.md#texture-logic) node to the graph (`Add > Rig Logic > Head Texture Logic` in Blender's Shader Editor) and link your material in the [Rig Instance](../free-features/rig-instances.md) outputs.
 
 ![Custom material with Texture Logic node](../images/customizing-materials/add-texure-logic-node.gif){: class="rounded-image center-image"}
 

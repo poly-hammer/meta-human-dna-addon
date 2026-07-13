@@ -1524,10 +1524,10 @@ class DuplicateRigInstance(bpy.types.Operator):
         self.layout.prop(self, "copy_face_board")
 
 
-class AddRigLogicTextureNode(bpy.types.Operator):
+class AddHeadTextureLogicNode(bpy.types.Operator):
     """Add a new Rig Logic Texture Node to the active material. This is used to control the wrinkle map blending on Metahuman faces"""  # noqa: E501
 
-    bl_idname = f"{ToolInfo.NAME}.add_rig_logic_texture_node"
+    bl_idname = f"{ToolInfo.NAME}.add_head_texture_logic_node"
     bl_label = "Add Rig Logic Texture Node"
 
     @classmethod
@@ -1572,6 +1572,10 @@ class AddRigLogicTextureNode(bpy.types.Operator):
         node.label = f"{active_material.name} {HEAD_TEXTURE_LOGIC_NODE_LABEL}"
         node.node_tree = texture_logic_node
         node.location = cursor_location
+
+        # apply the same masks, placeholder textures, and node settings corrections
+        # that a material import performs so the manually added node evaluates correctly
+        utilities.setup_texture_logic_node_groups("head")
         return {"FINISHED"}
 
 

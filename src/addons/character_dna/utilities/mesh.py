@@ -382,6 +382,12 @@ def split_mesh_along_uv_islands(bmesh_object: bmesh.types.BMesh) -> dict[int, in
     if not uv_layer:
         return {}
 
+    # ``split_edges`` below only ever appends the newly created duplicate vertices,
+    # so every vertex with an index < ``original_vert_count`` is an original vertex
+    # that still carries the mesh's skin weights (weights are exported by iterating
+    # ``mesh_object.data.vertices``).
+    original_vert_count = len(bmesh_object.verts)
+
     # get each uv island and it's loops
     for island_faces in bmesh_linked_uv_islands(bmesh_object, uv_layer):
         island_loops = [loop for face in island_faces for loop in face.loops]  # type: ignore[attr-defined]
@@ -396,29 +402,38 @@ def split_mesh_along_uv_islands(bmesh_object: bmesh.types.BMesh) -> dict[int, in
             ):
                 _uv_border_verts.append(loop.vert)
 
-    uv_border_edges = []
-    uv_border_verts = []
-    for edge in bmesh_object.edges:
-        if not edge.is_boundary and all(vert in _uv_border_verts for vert in edge.verts):
-            uv_border_edges.append(edge)
-            uv_border_verts.extend(list(edge.verts))
+    uv_border_edges = [
+        edge
+        for edge in bmesh_object.edges
+        if not edge.is_boundary and all(vert in _uv_border_verts for vert in edge.verts)
+    ]
 
     # Split those edges
-    split = bmesh.ops.split_edges(bmesh_object, edges=uv_border_edges)
+    bmesh.ops.split_edges(bmesh_object, edges=uv_border_edges)
 
     bmesh_object.verts.index_update()
     bmesh_object.faces.index_update()
     bmesh_object.verts.ensure_lookup_table()
     bmesh_object.faces.ensure_lookup_table()
 
-    # Create a lookup table so we can map the new verts to the original verts
-    # sharing the same position.
+    # Map every duplicate vertex that ``split_edges`` appended (index >=
+    # ``original_vert_count``) back to a coincident original vertex so they share a
+    # single DNA position index -- and therefore the original's skin weights. An
+    # un-mapped duplicate would otherwise get its own position index with NO skin
+    # weights, tearing the mesh open along UV seams under deformation. Grouping by
+    # exact coordinate is safe because ``split_edges`` does not move any vertex, so
+    # a duplicate's position is bit-identical to the original it was split from.
+    original_index_by_coord: dict[tuple[float, float, float], int] = {}
+    for vert in bmesh_object.verts:
+        if vert.index < original_vert_count:
+            original_index_by_coord.setdefault(vert.co.to_tuple(), vert.index)  # pyright: ignore[reportArgumentType]
+
     split_to_original_vert_lookup = {}
-    for edge in split["edges"]:
-        for vert in edge.verts:
-            for _vert in uv_border_verts:
-                if vert.co == _vert.co:
-                    split_to_original_vert_lookup[vert.index] = _vert.index
+    for vert in bmesh_object.verts:
+        if vert.index >= original_vert_count:
+            canonical = original_index_by_coord.get(vert.co.to_tuple())  # pyright: ignore[reportArgumentType]
+            if canonical is not None:
+                split_to_original_vert_lookup[vert.index] = canonical
 
     return split_to_original_vert_lookup
 
@@ -438,15 +453,15 @@ def save_head_to_body_edge_loop():
         body_lod_index = HEAD_TO_BODY_LOD_MAPPING[head_lod_index]
         body_lod_name = f"body_lod{body_lod_index}_mesh"
 
-        if len(bpy.context.selected_objects) != 2:
+        if len(bpy.context.selected_objects or []) != 2:
             return
 
-        if not all(o.name.endswith((head_lod_name, body_lod_name)) for o in bpy.context.selected_objects):
+        if not all(o.name.endswith((head_lod_name, body_lod_name)) for o in bpy.context.selected_objects or []):
             continue
 
         head_selected_verts = []
         body_selected_verts = []
-        for selected_object in bpy.context.selected_objects:
+        for selected_object in bpy.context.selected_objects or []:
             if not isinstance(selected_object.data, bpy.types.Mesh):
                 continue
             if selected_object.name.endswith(head_lod_name):

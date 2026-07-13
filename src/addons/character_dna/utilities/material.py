@@ -3,15 +3,26 @@ import logging
 import shutil
 
 from pathlib import Path
+from types import ModuleType
 
 # third party imports
 import bpy
 
+from ..constants import MASKS_TEXTURE, MASKS_TEXTURE_FILE_PATH, UV_MAP_NAME, ComponentType
+
 # local imports
-from .misc import exclude_rig_instance_evaluation
+from .misc import editors_available, exclude_rig_instance_evaluation
 
 
 logger = logging.getLogger(__name__)
+
+
+def get_topology_texture_constants() -> ModuleType | None:
+    if not editors_available():
+        return None
+    from ..editors.shared import constants as shared_constants
+
+    return shared_constants
 
 
 @exclude_rig_instance_evaluation
@@ -76,3 +87,72 @@ def create_new_material(
             if alpha is not None:
                 node.inputs["Alpha"].default_value = alpha  # type: ignore[attr-defined]
     return material
+
+
+def setup_texture_logic_node_groups(component_type: ComponentType):  # noqa: PLR0912
+    """Load the placeholder mask/topology textures, assign them to every texture logic
+    node group's image nodes, correct the UV map on the group's UVMAP and NORMAL_MAP
+    nodes, and purge any duplicate placeholder images.
+    """
+    shared_constants = get_topology_texture_constants()
+
+    # point the placeholder mask/topology images at the addon resources
+    if component_type == "head":
+        masks_image = bpy.data.images.get(MASKS_TEXTURE)
+        if masks_image:
+            masks_image.filepath = str(MASKS_TEXTURE_FILE_PATH)
+        if shared_constants:
+            head_topology_image = bpy.data.images.get(shared_constants.HEAD_TOPOLOGY_TEXTURE)
+            if head_topology_image:
+                head_topology_image.filepath = str(shared_constants.HEAD_TOPOLOGY_TEXTURE_FILE_PATH)
+    elif component_type == "body":
+        if shared_constants:
+            body_topology_image = bpy.data.images.get(shared_constants.BODY_TOPOLOGY_TEXTURE)
+            if body_topology_image:
+                body_topology_image.filepath = str(shared_constants.BODY_TOPOLOGY_TEXTURE_FILE_PATH)
+
+    # the canonical placeholder image names for this component type
+    if component_type == "head":
+        image_names = [MASKS_TEXTURE]
+        if shared_constants:
+            image_names.append(shared_constants.HEAD_TOPOLOGY_TEXTURE)
+    else:
+        image_names = [shared_constants.BODY_TOPOLOGY_TEXTURE] if shared_constants else []
+
+    # remove any duplicate mask/topology placeholder images (e.g. combined_masks.tga.001)
+    for image in list(bpy.data.images):
+        if image.name in image_names:
+            continue
+        if any(i in image.name for i in image_names if i != image.name):
+            bpy.data.images.remove(image)
+
+    # assign the placeholder textures and correct the UV maps on every texture logic node group
+    for node_group in bpy.data.node_groups:
+        for node in node_group.nodes:
+            if node.type == "TEX_IMAGE":
+                if component_type == "head":
+                    if node.label == MASKS_TEXTURE and MASKS_TEXTURE in bpy.data.images:
+                        node.image = bpy.data.images[MASKS_TEXTURE]  # type: ignore[attr-defined]
+                    if (
+                        shared_constants
+                        and node.label == shared_constants.HEAD_TOPOLOGY_TEXTURE
+                        and shared_constants.HEAD_TOPOLOGY_TEXTURE in bpy.data.images
+                    ):
+                        node.image = bpy.data.images[shared_constants.HEAD_TOPOLOGY_TEXTURE]  # type: ignore[attr-defined]
+                elif component_type == "body":
+                    if (
+                        shared_constants
+                        and node.label == shared_constants.BODY_TOPOLOGY_TEXTURE
+                        and shared_constants.BODY_TOPOLOGY_TEXTURE in bpy.data.images
+                    ):
+                        node.image = bpy.data.images[shared_constants.BODY_TOPOLOGY_TEXTURE]  # type: ignore[attr-defined]
+
+        # correct the UV map on the mask and texture logic node groups
+        if node_group.name.startswith("Mask"):
+            for node in node_group.nodes:
+                if node.type == "UVMAP":
+                    node.uv_map = UV_MAP_NAME  # type: ignore[attr-defined]
+        if node_group.name.lower().rsplit(".", 1)[0].endswith("_texture_logic"):
+            for node in node_group.nodes:
+                if node.type == "NORMAL_MAP":
+                    node.uv_map = UV_MAP_NAME  # type: ignore[attr-defined]

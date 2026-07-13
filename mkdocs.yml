@@ -2,7 +2,6 @@ site_name: Character DNA Addon
 nav:
   - Getting Started: "index.md"
   - Terminology: "terminology.md"
-  - FAQ: "faq.md"
   - Free Features:
     - Rig Instances: "free-features/rig-instances.md"
     - View Options: "free-features/view-options.md"
@@ -24,6 +23,7 @@ nav:
     - Development: "contributing/development.md"
     - Documentation: "contributing/documentation.md"
     - Testing: "contributing/testing.md"
+  - FAQ: "faq.md"
 
 markdown_extensions:
   - attr_list

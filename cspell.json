@@ -84,6 +84,8 @@
             "description": "Source code - Blender API and addon technical terms",
             "words": [
                 "AVX",
+                "nij",
+                "psds",
                 "PYTHONNOUSERSITE",
                 "MPS",
                 "UMD",

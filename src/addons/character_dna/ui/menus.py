@@ -1,3 +1,5 @@
+import contextlib
+
 # third party imports
 import bpy
 
@@ -24,18 +26,32 @@ def remove_dna_import_menu():
     bpy.types.TOPBAR_MT_file_import.remove(dna_import_operator_menu_item)
 
 
-def rig_logic_texture_node_menu_item(self: bpy.types.Menu, _: "Context"):
+class CHARACTER_DNA_MT_rig_logic_add(bpy.types.Menu):
+    bl_idname = "CHARACTER_DNA_MT_rig_logic_add"
+    bl_label = "Rig Logic"
+
+    def draw(self, _: "Context"):
+        if not self.layout:
+            return
+        self.layout.operator(f"{ToolInfo.NAME}.add_head_texture_logic_node", text="Head Texture Logic")
+
+
+def rig_logic_add_menu_item(self: bpy.types.Menu, _: "Context"):
     if not self.layout:
         return
-    self.layout.operator(f"{ToolInfo.NAME}.add_rig_logic_texture_node", text="Add Rig Logic Texture Node")
+    self.layout.menu(CHARACTER_DNA_MT_rig_logic_add.bl_idname)
 
 
 def add_rig_logic_texture_node_menu():
+    with contextlib.suppress(ValueError):
+        bpy.utils.register_class(CHARACTER_DNA_MT_rig_logic_add)
     try:
-        bpy.types.NODE_MT_node.remove(rig_logic_texture_node_menu_item)
+        bpy.types.NODE_MT_add.remove(rig_logic_add_menu_item)
     finally:
-        bpy.types.NODE_MT_node.append(rig_logic_texture_node_menu_item)
+        bpy.types.NODE_MT_add.append(rig_logic_add_menu_item)
 
 
 def remove_rig_logic_texture_node_menu():
-    bpy.types.NODE_MT_node.remove(rig_logic_texture_node_menu_item)
+    bpy.types.NODE_MT_add.remove(rig_logic_add_menu_item)
+    with contextlib.suppress(RuntimeError):
+        bpy.utils.unregister_class(CHARACTER_DNA_MT_rig_logic_add)

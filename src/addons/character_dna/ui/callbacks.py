@@ -471,18 +471,16 @@ def _get_view_options_owner(self: "CharacterViewOptionsProperties") -> "RigInsta
     """Resolve the ``RigInstance`` that owns this ``view_options`` property group.
 
     The view-options get/set callbacks need the owning rig instance to read its
-    linked objects (face board, rigs, materials) and its name. We resolve it from
-    the RNA data path so the correct instance is targeted even when it is not the
-    active one, falling back to the active rig instance if the path can't be resolved.
+    linked objects (face board, rigs, materials) and its name.
     """
-    try:
-        owner_path = self.path_from_id().rsplit(".view_options", 1)[0]
-        owner = self.id_data.path_resolve(owner_path)
-    except (ValueError, AttributeError):
-        owner = None
-    if owner is None:
-        return get_active_rig_instance()
-    return owner  # pyright: ignore[reportReturnType]
+    self_pointer = self.as_pointer()
+    scene_properties = getattr(self.id_data, ToolInfo.NAME, None)
+    if scene_properties is not None:
+        for instance in scene_properties.rig_instance_list:
+            view_options = instance.view_options
+            if view_options is not None and view_options.as_pointer() == self_pointer:
+                return instance  # pyright: ignore[reportReturnType]
+    return get_active_rig_instance()
 
 
 def get_active_lod(self: "CharacterViewOptionsProperties") -> int:
@@ -937,6 +935,13 @@ def update_body_output_items(self: "RigInstance", context: "Context"):  # noqa: 
     addon_scene_properties = get_addon_scene_properties(context)
 
     for instance in addon_scene_properties.rig_instance_list:
+        # Recover a cleared body_mesh pointer from the canonically-named mesh that is
+        # still skinned to the body rig. A lost pointer otherwise blocks this sync.
+        if instance and instance.body_rig and not instance.body_mesh:
+            candidate = bpy.data.objects.get(f"{instance.name}_body_lod0_mesh")
+            if candidate and candidate in get_body_mesh_output_items(instance):
+                instance.body_mesh = candidate
+
         if instance and instance.body_mesh and instance.body_rig:
             # update the output items for the scene objects
             for scene_object in [*get_body_mesh_output_items(instance), instance.body_rig]:
@@ -967,10 +972,27 @@ def update_body_output_items(self: "RigInstance", context: "Context"):  # noqa: 
                     new_item.name = file_name
                     new_item.editable_name = False
 
-            # remove any output items that do not have a scene object or image object
-            for item in instance.output.body_item_list:
-                if not item.scene_object and not item.image_object:
-                    index = instance.output.body_item_list.find(item.name)
+            # Remove stale output items. Iterate by index in reverse and remove by
+            # index (never by name) so duplicate-named items are handled correctly.
+            # An item is dropped when it has neither a scene object nor an image
+            # object, when its scene object is no longer skinned to the rig, or when
+            # it duplicates a scene/image object already kept.
+            valid_scene_objects = {*get_body_mesh_output_items(instance), instance.body_rig}
+            seen_scene_objects: set[bpy.types.Object] = set()
+            seen_image_objects: set[bpy.types.Image] = set()
+            for index in reversed(range(len(instance.output.body_item_list))):
+                item = instance.output.body_item_list[index]
+                if item.image_object:
+                    if item.image_object in seen_image_objects:
+                        instance.output.body_item_list.remove(index)
+                    else:
+                        seen_image_objects.add(item.image_object)
+                elif item.scene_object:
+                    if item.scene_object not in valid_scene_objects or item.scene_object in seen_scene_objects:
+                        instance.output.body_item_list.remove(index)
+                    else:
+                        seen_scene_objects.add(item.scene_object)
+                else:
                     instance.output.body_item_list.remove(index)
 
 
@@ -983,6 +1005,13 @@ def update_head_output_items(self: "RigInstance | None", context: "Context"):  #
     addon_scene_properties = get_addon_scene_properties(context)
 
     for instance in addon_scene_properties.rig_instance_list:
+        # Recover a cleared head_mesh pointer from the canonically-named mesh that is
+        # still skinned to the head rig. A lost pointer otherwise blocks this sync.
+        if instance and instance.head_rig and not instance.head_mesh:
+            candidate = bpy.data.objects.get(f"{instance.name}_head_lod0_mesh")
+            if candidate and candidate in get_head_mesh_output_items(instance):
+                instance.head_mesh = candidate
+
         if instance and instance.head_mesh and instance.head_rig:
             # update the output items for the scene objects
             for scene_object in [*get_head_mesh_output_items(instance), instance.head_rig]:
@@ -1013,10 +1042,27 @@ def update_head_output_items(self: "RigInstance | None", context: "Context"):  #
                     new_item.name = file_name
                     new_item.editable_name = False
 
-            # remove any output items that do not have a scene object or image object
-            for item in instance.output.head_item_list:
-                if not item.scene_object and not item.image_object:
-                    index = instance.output.head_item_list.find(item.name)
+            # Remove stale output items. Iterate by index in reverse and remove by
+            # index (never by name) so duplicate-named items are handled correctly.
+            # An item is dropped when it has neither a scene object nor an image
+            # object, when its scene object is no longer skinned to the rig, or when
+            # it duplicates a scene/image object already kept.
+            valid_scene_objects = {*get_head_mesh_output_items(instance), instance.head_rig}
+            seen_scene_objects: set[bpy.types.Object] = set()
+            seen_image_objects: set[bpy.types.Image] = set()
+            for index in reversed(range(len(instance.output.head_item_list))):
+                item = instance.output.head_item_list[index]
+                if item.image_object:
+                    if item.image_object in seen_image_objects:
+                        instance.output.head_item_list.remove(index)
+                    else:
+                        seen_image_objects.add(item.image_object)
+                elif item.scene_object:
+                    if item.scene_object not in valid_scene_objects or item.scene_object in seen_scene_objects:
+                        instance.output.head_item_list.remove(index)
+                    else:
+                        seen_scene_objects.add(item.scene_object)
+                else:
                     instance.output.head_item_list.remove(index)
 
 
@@ -1031,7 +1077,7 @@ def update_output_component(self: "RigInstance", context: "Context"):
 # requirement for callback-based EnumProperty items) and avoids re-allocating the
 # item strings on every N-panel redraw, which is what made the View Options panel lag.
 _LOD_ITEMS_DEFAULT: list[tuple[str, str, str]] = [("lod0", "LOD 0", "Displays only LOD 0")]
-_lod_items_cache: dict[str, tuple[tuple[int, ...], list[tuple[str, str, str]]]] = {}
+_lod_items_cache: dict[str, tuple[int, list[tuple[str, str, str]]]] = {}
 
 
 def get_head_mesh_lod_items(self: "CharacterViewOptionsProperties", context: "Context") -> list[tuple[str, str, str]]:  # noqa: ARG001
@@ -1044,19 +1090,24 @@ def get_head_mesh_lod_items(self: "CharacterViewOptionsProperties", context: "Co
         return _LOD_ITEMS_DEFAULT
 
     name = instance.name
-    available = tuple(i for i in range(NUMBER_OF_HEAD_LODS) if bpy.data.objects.get(f"{name}_head_lod{i}_mesh"))
-
+    # This items callback runs on every panel redraw. Probing each LOD mesh with
+    # ``bpy.data.objects.get`` is comparatively expensive, so guard the cache with
+    # the object count instead: LOD-mesh availability only changes when meshes are
+    # imported or removed, which always changes ``len(bpy.data.objects)``. This
+    # keeps the common redraw path down to a single O(1) length read.
+    guard = len(bpy.data.objects)
     cached = _lod_items_cache.get(name)
-    if cached is not None and cached[0] == available:
+    if cached is not None and cached[0] == guard:
         # Nothing changed since the last redraw, return the same list object.
         return cached[1]
 
+    available = tuple(i for i in range(NUMBER_OF_HEAD_LODS) if bpy.data.objects.get(f"{name}_head_lod{i}_mesh"))
     if available:
         items = [(f"lod{i}", f"LOD {i}", f"Displays only LOD {i}") for i in available]
     else:
         items = _LOD_ITEMS_DEFAULT
 
-    _lod_items_cache[name] = (available, items)
+    _lod_items_cache[name] = (guard, items)
     return items
 
 
