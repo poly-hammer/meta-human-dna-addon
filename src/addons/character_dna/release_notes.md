@@ -4,6 +4,7 @@
 
 ## Patch Changes
 
+* Fixed Body Baking issue when animating with control rig [#342](https://github.com/poly-hammer/character-dna-addon/issues/342)
 * Made DNA component type detection more robust [#337](https://github.com/poly-hammer/character-dna-addon/issues/337)
 * Fixed body animation pose mode switching bug
 * Fixed view options panel lagging draw calls

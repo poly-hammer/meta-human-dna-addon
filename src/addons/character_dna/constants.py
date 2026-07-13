@@ -17,7 +17,8 @@ IS_BLENDER_5 = bpy.app.version >= (5, 0, 0)
 class ToolInfo:
     NAME: str = "character_dna"
     EXTENSION_ID: str | None = None
-    HOW_TO_INSTALL: str = "https://dashboard.portal.polyhammer.com"
+    HOW_TO_INSTALL: str = "https://youtu.be/WvJCRUxT5c0"
+    INSTALL_TUTORIAL_VIDEO: str = "https://youtu.be/WvJCRUxT5c0"
     GET_PRO: str = "https://polyhammer.com/character-dna-addon"
     METRICS_COLLECTION_AGREEMENT: str = "https://www.polyhammer.com/dpa"
 
