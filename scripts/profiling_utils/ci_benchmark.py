@@ -509,4 +509,12 @@ def main() -> int:
 
 if __name__ == "__main__":
     exit_code = main()
-    sys.exit(exit_code)
+    # When bpy runs as a Python module, Blender registers an atexit handler that
+    # runs its memory leak detector during interpreter shutdown. Unfreed blocks
+    # held by the C++ RigLogic bindings' static state make it print
+    # "Error: Not freed memory blocks" and force a non-zero process exit, which
+    # fails the CI step even though the benchmark itself succeeded. Flush our
+    # output and hard-exit to bypass Blender's leak detector.
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(exit_code)

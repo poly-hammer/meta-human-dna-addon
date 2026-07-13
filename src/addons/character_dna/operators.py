@@ -708,11 +708,13 @@ class BakeComponentAnimation(BakeAnimationBase):
             return False
         if not instance.body_rig:
             return False
-        if not instance.body_rig.animation_data:
-            return False
-        return instance.body_rig.animation_data.action
-
-        return False
+        # the animation may live on the body rig directly, or on a control rig (e.g. a Rigify
+        # rig) that drives the body rig's bones through constraints
+        has_body_action = bool(instance.body_rig.animation_data and instance.body_rig.animation_data.action)
+        has_control_action = bool(
+            instance.control_rig and instance.control_rig.animation_data and instance.control_rig.animation_data.action
+        )
+        return has_body_action or has_control_action
 
 
 class ImportCharacterDna(bpy.types.Operator, importer.ImportAsset, CharacterImportProperties):

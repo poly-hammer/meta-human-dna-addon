@@ -684,11 +684,12 @@ def import_head_texture_logic_node() -> bpy.types.NodeTree | None:
 
 
 def dependencies_are_valid() -> bool:
-    for module_name in ["riglogic"]:
-        module = next((module for key, module in sys.modules.items() if key.endswith(module_name)), None)
-        if module and getattr(module, "__is_fake__", False):
-            return False
-    return True
+    """Return True when the compiled RigLogic/DNA bindings are loaded."""
+    try:
+        from ..bindings import dna, riglogic
+    except Exception:
+        return False
+    return not (getattr(dna, "__is_fake__", False) or getattr(riglogic, "__is_fake__", False))
 
 
 def reduce_close_floats(float_list: list[float], tolerance: float = DEFAULT_UV_TOLERANCE) -> list[float]:

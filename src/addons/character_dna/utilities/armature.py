@@ -511,3 +511,35 @@ def get_pose_bone_local_quaternion(pose_bone: bpy.types.PoseBone) -> Quaternion:
 
     # Extract and return the quaternion
     return matrix_basis.to_quaternion().normalized()
+
+
+def get_pose_bone_local_transform(pose_bone: bpy.types.PoseBone) -> tuple[Vector, Quaternion, Vector]:
+    """
+    Calculate the local (parent space) location, rotation, and scale of a pose bone using
+    world space matrices.
+
+    Like :func:`get_pose_bone_local_quaternion`, this works even when the bone is constrained
+    (e.g. driven by a control rig) because it derives the local transform from the bone's
+    evaluated world space matrix rather than its ``matrix_basis``. The pose bone must come from
+    an already evaluated armature object (i.e. ``armature.evaluated_get(dependency_graph)``).
+
+    Args:
+        pose_bone: The evaluated pose bone to read the local transform from.
+
+    Returns:
+        A tuple of (location, rotation_quaternion, scale) in the bone's parent space.
+    """
+    if pose_bone.parent:
+        matrix_basis = (
+            pose_bone.bone.matrix_local.inverted_safe()
+            @ pose_bone.parent.bone.matrix_local
+            @ pose_bone.parent.matrix.inverted_safe()
+            @ pose_bone.matrix
+        )
+    else:
+        matrix_basis = (
+            pose_bone.bone.matrix_local.inverted_safe() @ pose_bone.id_data.matrix_world.inverted() @ pose_bone.matrix  # type: ignore[attr-defined]
+        )
+
+    location, rotation, scale = matrix_basis.decompose()
+    return location, rotation.normalized(), scale
