@@ -289,9 +289,24 @@ def get_addon_version() -> str:
     return addon_version
 
 
-def setup_scene(*_: Any) -> None:
+def notify_rig_instances_changed(instance: "RigInstance | None" = None) -> None:
+    """Fire the registered post-setup callbacks after the rig instance list changes.
+
+    Call this whenever a rig instance is added or removed at runtime (import, duplicate,
+    delete) so external integrations -- e.g. the Character Control Rig addon -- can resync
+    their own state. ``instance`` is the affected rig instance for additions, or ``None`` for
+    removals (where the callback should simply re-derive its state from the current list).
+    """
     from .. import post_setup_scene_callbacks
 
+    for callback in post_setup_scene_callbacks:
+        try:
+            callback(instance)
+        except Exception as error:
+            logger.exception(f"Error in post_setup_scene_callbacks: {error}")
+
+
+def setup_scene(*_: Any) -> None:
     # Auto-migrate rig-instance data saved by a different addon edition (Free vs
     # Pro) or an older version before initializing, so reopening a .blend always
     # yields a correctly populated rig-instance list. Guard against failures so a
@@ -310,11 +325,7 @@ def setup_scene(*_: Any) -> None:
 
         # notify any registered callbacks that a rig instance has been set up in the scene, so they can perform
         # any necessary actions
-        for callback in post_setup_scene_callbacks:
-            try:
-                callback(instance)
-            except Exception as error:
-                logger.exception(f"Error in post_setup_scene_callbacks: {error}")
+        notify_rig_instances_changed(instance)
 
     start_listening()
 

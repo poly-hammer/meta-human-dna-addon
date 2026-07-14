@@ -98,6 +98,8 @@ class CharacterComponentBase(metaclass=ABCMeta):
                 self.rig_instance.name = name
                 # set the active rig instance
                 self.scene_properties.rig_instance_list_active_index = len(self.scene_properties.rig_instance_list) - 1
+                # notify registered callbacks that a rig instance was added to the list
+                utilities.notify_rig_instances_changed(self.rig_instance)
 
             if component_type == "head":
                 self.rig_instance.head_dna_file_path = str(dna_file_path)
@@ -453,6 +455,8 @@ class CharacterComponentBase(metaclass=ABCMeta):
             my_list.remove(active_index)
             to_index = min(active_index, len(my_list) - 1)
             self.scene_properties.rig_instance_list_active_index = to_index
+            # notify registered callbacks that a rig instance was removed from the list
+            utilities.notify_rig_instances_changed()
 
     def import_materials(self) -> list[bpy.types.Material] | None:  # noqa: PLR0912
         if self.dna_import_properties and not self.dna_import_properties.import_materials:

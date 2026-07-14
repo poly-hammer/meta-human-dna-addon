@@ -531,7 +531,7 @@ def bake_control_curve_values_for_frame(  # noqa: PLR0912
     if not channel_bag:
         return
 
-    for fcurve in channel_bag.fcurves:
+    for fcurve in channel_bag.fcurves:  # pyright: ignore[reportAttributeAccessIssue]
         control_curve_name, transform = fcurve.data_path.split('"].')
         if transform == "location" and fcurve.array_index != 2:
             control_curve_name = control_curve_name.replace('pose.bones["', "")
@@ -539,6 +539,16 @@ def bake_control_curve_values_for_frame(  # noqa: PLR0912
 
             control_curve_values[control_curve_name] = control_curve_values.get(control_curve_name, {})
             control_curve_values[control_curve_name].update({axis: fcurve.evaluate(frame)})
+
+    # When the eye aim is active the eye control values are derived from the posed aim target
+    # geometry (aim target and eye bone positions), so step the scene to this frame first so
+    # those reads reflect the frame being baked. This is gated on the head component and the eye
+    # aim actually being active to avoid a scene update on every baked frame.
+    if component == "head" and instance.face_board and bpy.context.scene:
+        look_at_value = control_curve_values.get("CTRL_lookAtSwitch", {}).get("y")
+        eye_aim_active = look_at_value >= 0.99 if look_at_value is not None else instance.head_use_eye_aim
+        if eye_aim_active:
+            bpy.context.scene.frame_set(frame)
 
     # set and update the control curve values based on the fcurve values
     instance.update_head_gui_control_values(override_values=control_curve_values)
@@ -872,6 +882,7 @@ def bake_face_board_to_action(
                 bpy.context.window_manager, ToolInfo.NAME
             )
             window_manager_properties.evaluate_dependency_graph = False
+            original_frame = bpy.context.scene.frame_current if bpy.context.scene else None
 
             # create or replace the target action for bone keyframes
             if replace_action:
@@ -930,6 +941,10 @@ def bake_face_board_to_action(
                     action_name=f"{action_name}_shader",
                     clean_curves=clean_curves,
                 )
+
+            # restore the original frame if the eye aim baking stepped the scene
+            if original_frame is not None and bpy.context.scene and bpy.context.scene.frame_current != original_frame:
+                bpy.context.scene.frame_set(original_frame)
 
             window_manager_properties.evaluate_dependency_graph = True
 

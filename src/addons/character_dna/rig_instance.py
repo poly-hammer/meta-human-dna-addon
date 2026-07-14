@@ -1421,58 +1421,80 @@ class RigInstance(bpy.types.PropertyGroup):
 
     def get_head_gui_control_values_from_eye_aim(self) -> dict[str, dict[str, float]]:
         values = {}
-        if not self.face_board:
+        if not self.face_board or not self.head_rig:
+            return values
+
+        # Read the *evaluated* objects so the posed bone matrices reflect the current head-bone
+        # rotation and the eye aim follow-head constraint. This is taken fresh from the current
+        # dependency graph (rather than the cached evaluated rig) so it is also correct per-frame
+        # during baking, where the scene frame is stepped just before this is called.
+        depsgraph = bpy.context.evaluated_depsgraph_get()
+        head_rig = self.head_rig.evaluated_get(depsgraph)
+        face_board = self.face_board.evaluated_get(depsgraph)
+        if not head_rig.pose or not face_board.pose:
             return values
 
         for target_name, eye_bone_name, control_name in [
             ("CTRL_L_eyeAim", "FACIAL_L_Eye", "CTRL_L_eye"),
             ("CTRL_R_eyeAim", "FACIAL_R_Eye", "CTRL_R_eye"),
         ]:
-            target = self.face_board.pose.bones.get(target_name)
-            eye = self.head_rig.pose.bones.get(eye_bone_name)
-            if target and eye:
-                eye_rest_matrix = self.face_board.matrix_world @ eye.bone.matrix_local
+            target = face_board.pose.bones.get(target_name)
+            eye = head_rig.pose.bones.get(eye_bone_name)
+            if not (target and eye):
+                continue
 
-                # Current eye-to-target direction in world space
-                eye_pos = self.face_board.matrix_world @ eye.head
-                target_pos = self.face_board.matrix_world @ target.head
-                look_direction = target_pos - eye_pos
+            # The eye control values are expressed relative to the eye's neutral (control = 0)
+            # orientation. That neutral orientation is posed by the eye's parent chain, so it
+            # rotates with the head. Building the reference frame from the parent's *current* pose
+            # matrix (instead of the static rest matrix) is what lets the eyes keep aiming at a
+            # world-fixed target when the head bone is turned (the eyes-follow-head-off case).
+            eye_parent = eye.parent
+            if eye_parent:
+                rest_relative_to_parent = eye_parent.bone.matrix_local.inverted_safe() @ eye.bone.matrix_local
+                eye_reference_matrix = head_rig.matrix_world @ eye_parent.matrix @ rest_relative_to_parent
+            else:
+                eye_reference_matrix = head_rig.matrix_world @ eye.bone.matrix_local
 
-                if look_direction.length < FLOATING_POINT_PRECISION:
-                    continue
+            # The eye and the aim target live on different objects, so map each into true world
+            # space with its own object matrix (head rig for the eye, face board for the target).
+            eye_pos = head_rig.matrix_world @ eye.head
+            target_pos = face_board.matrix_world @ target.head
+            look_direction = target_pos - eye_pos
 
-                look_direction.normalize()
+            if look_direction.length < FLOATING_POINT_PRECISION:
+                continue
 
-                # Convert look direction to eye's local space
-                eye_matrix_inv = eye_rest_matrix.inverted()
-                local_look_direction = (eye_matrix_inv.to_3x3() @ look_direction).normalized()
+            look_direction.normalize()
 
-                # Calculate horizontal distance (projection onto XZ plane)
-                horizontal_dist = math.sqrt(local_look_direction.x**2 + local_look_direction.z**2)
+            # Convert the world look direction into the eye's reference (local) space.
+            local_look_direction = (eye_reference_matrix.to_3x3().inverted_safe() @ look_direction).normalized()
 
-                if horizontal_dist > FLOATING_POINT_PRECISION:
-                    # Remap yaw to continuous range centered on forward direction (-Z)
-                    # Instead of atan2(x, -z), we use the normalized x component directly
-                    # This gives us a smooth -1 to 1 range for horizontal movement
-                    x_normalized = local_look_direction.x / horizontal_dist
+            # Calculate horizontal distance (projection onto XZ plane, forward is local -Z)
+            horizontal_dist = math.sqrt(local_look_direction.x**2 + local_look_direction.z**2)
 
-                    # For better control, we can use asin which gives -90° to 90° range
-                    yaw = math.asin(max(-1.0, min(1.0, x_normalized)))
-                else:
-                    # Looking straight up/down, yaw is undefined
-                    yaw = 0.0
+            if horizontal_dist > FLOATING_POINT_PRECISION:
+                # Remap yaw to continuous range centered on forward direction (-Z)
+                # Instead of atan2(x, -z), we use the normalized x component directly
+                # This gives us a smooth -1 to 1 range for horizontal movement
+                x_normalized = local_look_direction.x / horizontal_dist
 
-                # Pitch is the angle from the horizontal plane
-                pitch = math.atan2(local_look_direction.y, horizontal_dist)
+                # For better control, we can use asin which gives -90° to 90° range
+                yaw = math.asin(max(-1.0, min(1.0, x_normalized)))
+            else:
+                # Looking straight up/down, yaw is undefined
+                yaw = 0.0
 
-                # Map angles to -1..1 range based on max rotation
-                x_max_rad = math.radians(60.0)
-                y_max_rad = math.radians(30.0)
+            # Pitch is the angle from the horizontal plane
+            pitch = math.atan2(local_look_direction.y, horizontal_dist)
 
-                x_control = max(-1.0, min(1.0, yaw / x_max_rad))
-                y_control = max(-1.0, min(1.0, pitch / y_max_rad))
+            # Map angles to -1..1 range based on max rotation
+            x_max_rad = math.radians(60.0)
+            y_max_rad = math.radians(30.0)
 
-                values[control_name] = {"x": x_control, "y": y_control}
+            x_control = max(-1.0, min(1.0, yaw / x_max_rad))
+            y_control = max(-1.0, min(1.0, pitch / y_max_rad))
+
+            values[control_name] = {"x": x_control, "y": y_control}
 
         return values
 
@@ -1528,6 +1550,33 @@ class RigInstance(bpy.types.PropertyGroup):
             )
             self.data[self.cache_key("head", "logged_missing_raw_controls")] = True
 
+    def _resolve_eye_control_value(
+        self,
+        value: float | None,
+        control_name: str,
+        axis: str,
+        eye_aim_override_values: dict[str, dict[str, float]],
+        center_value: float | None,
+    ) -> float | None:
+        """Apply the eye aim / master center eye override to an individual L/R eye control value.
+
+        The eye aim (when active) takes priority; otherwise the master ``CTRL_C_eye`` value
+        (``center_value``, read from either the live face board bone or the baked override
+        values) overrides the individual ``CTRL_L_eye`` / ``CTRL_R_eye`` value. Any control that
+        is not an eye control is returned unchanged. This is shared by the live and bake paths.
+        """
+        if control_name not in ("CTRL_L_eye", "CTRL_R_eye"):
+            return value
+
+        eye_aim_value = eye_aim_override_values.get(control_name, {}).get(axis)
+        if eye_aim_value is not None:
+            if abs(eye_aim_value) > FLOATING_POINT_PRECISION:
+                return eye_aim_value
+        elif center_value is not None and abs(center_value) > FLOATING_POINT_PRECISION:
+            return center_value
+
+        return value
+
     def update_head_gui_control_values(self, override_values: dict[str, dict[str, float]] | None = None):
         # skip if the face board is not set
         if not self.face_board or not self.head_dna_reader:
@@ -1548,24 +1597,23 @@ class RigInstance(bpy.types.PropertyGroup):
             # bone locations. This can be used for baking the values to an action.
             if override_values:
                 value = override_values.get(control_name, {}).get(axis)
+                # Mirror the live path's eye handling so baking respects the eye aim and the
+                # master center eye control (read from the baked CTRL_C_eye override values).
+                value = self._resolve_eye_control_value(
+                    value, control_name, axis, eye_aim_override_values, override_values.get("CTRL_C_eye", {}).get(axis)
+                )
                 if value is not None:
                     head_instance.setGUIControl(index, value)
             else:
                 pose_bone = face_pose_bones.get(control_name)
                 if pose_bone:
                     value = getattr(pose_bone.location, axis)
-                    # special case for the eye controls, if the center eye control is above 0,
-                    # use that value instead
-                    if control_name in ("CTRL_L_eye", "CTRL_R_eye"):
-                        center_value = eye_aim_override_values.get(control_name, {}).get(axis)
-                        if center_value is not None:
-                            if abs(center_value) > FLOATING_POINT_PRECISION:
-                                value = center_value
-                        elif center_eye_control:
-                            center_value = getattr(center_eye_control.location, axis)
-                            if abs(center_value) > FLOATING_POINT_PRECISION:
-                                value = center_value
-
+                    # special case for the eye controls: the eye aim and the master center eye
+                    # control override the individual L/R eye controls.
+                    center_value = getattr(center_eye_control.location, axis) if center_eye_control else None
+                    value = self._resolve_eye_control_value(
+                        value, control_name, axis, eye_aim_override_values, center_value
+                    )
                     head_instance.setGUIControl(index, value)
                 else:
                     missing_gui_controls.append(control_name)

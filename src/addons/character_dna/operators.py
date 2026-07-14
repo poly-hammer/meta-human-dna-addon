@@ -1678,6 +1678,8 @@ class UILIST_RIG_INSTANCE_OT_entry_remove(GenericUIListOperator, bpy.types.Opera
         my_list.remove(self.active_index)
         to_index = min(self.active_index, len(my_list) - 1)
         addon_scene_properties.rig_instance_list_active_index = to_index
+        # notify registered callbacks that a rig instance was removed from the list
+        utilities.notify_rig_instances_changed()
         return {"FINISHED"}
 
     def invoke(self, context: "Context", event: bpy.types.Event) -> set[str] | None:
