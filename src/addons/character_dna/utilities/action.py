@@ -736,17 +736,25 @@ def _bulk_write_scalar_keyframes(
             fcurve.update()
 
 
-def flush_shape_key_keyframes_to_action(
+def flush_shape_key_keyframes_to_action(  # noqa: PLR0912
     buffer: dict[bpy.types.ShapeKey, list[tuple[float, float]]],
+    action_name: str,
+    instance_name: str = "",
     clean_curves: bool = True,
 ) -> None:
     """Bulk-write accumulated shape key keyframes using foreach_set for performance.
 
     Groups shape keys by their owning Key data-block and writes all fcurves
-    in batch rather than using per-frame keyframe_insert calls.
+    in batch rather than using per-frame keyframe_insert calls. Each mesh's Key
+    data-block gets its own action named ``<action_name>_<mesh name>_shape_keys``,
+    where the mesh name is the Key data-block's name (which the importer sets to the
+    mesh object name) with the ``<instance_name>_`` prefix stripped so the instance
+    name is not duplicated.
 
     Args:
         buffer: Maps ShapeKey references to their accumulated (frame, value) keyframes.
+        action_name: The base baked action name used as the shape-key action name prefix.
+        instance_name: The rig instance name, stripped from the mesh name prefix when present.
         clean_curves: Whether to clean redundant keyframes from curves after writing.
     """
     if not buffer:
@@ -769,10 +777,20 @@ def flush_shape_key_keyframes_to_action(
         if not key_data.animation_data:
             continue
 
+        # the Key data-block is named after its mesh object (see DNAImporter.set_shape_key);
+        # strip the instance prefix so the action name isn't "<instance>_..._<instance>_mesh...".
+        mesh_name = key_data.name
+        if instance_name and mesh_name.startswith(f"{instance_name}_"):
+            mesh_name = mesh_name[len(instance_name) + 1 :]
+        shape_key_action_name = f"{action_name}_{mesh_name}_shape_keys"
+
         action = key_data.animation_data.action
         if not action:
-            action = bpy.data.actions.new(name=f"{key_data.name}Action")
+            action = bpy.data.actions.new(name=shape_key_action_name)
             key_data.animation_data.action = action
+            if not anim_utils:
+                # blender 4.5: animation_data.action assignment does not set id_root
+                action.id_root = "KEY"
 
         if anim_utils:
             if len(action.slots) == 0:
@@ -789,6 +807,9 @@ def flush_shape_key_keyframes_to_action(
         for shape_key, keyframes in shape_key_entries:
             data_path = shape_key.path_from_id("value")
             _bulk_write_scalar_keyframes(channel_bag, data_path, keyframes, clean_curves)
+
+        # ensure the name follows the convention even when reusing an existing action
+        action.name = shape_key_action_name
 
 
 def flush_texture_mask_keyframes_to_action(
@@ -826,7 +847,7 @@ def flush_texture_mask_keyframes_to_action(
         node_tree.animation_data.action = action
         if not anim_utils:
             # blender 4.5: animation_data.action assignment does not set id_root
-            action.id_root = "NODETREE"
+            action.id_root = "NODETREE"  # pyright: ignore[reportAttributeAccessIssue]
 
     if anim_utils:
         if len(action.slots) == 0:
@@ -896,7 +917,7 @@ def bake_face_board_to_action(
             elif not anim_utils:
                 # blender 4.5: animation_data.action assignment does not set id_root,
                 # so set it explicitly so downstream code/tests can filter by it.
-                target_action.id_root = "OBJECT"
+                target_action.id_root = "OBJECT"  # pyright: ignore[reportAttributeAccessIssue]
 
             # assign the new action to the armature
             if not armature_object.animation_data:
@@ -932,13 +953,18 @@ def bake_face_board_to_action(
             flush_bone_keyframes_to_action(target_action, bone_keyframe_buffer, clean_curves=clean_curves)
 
             if shape_keys:
-                flush_shape_key_keyframes_to_action(shape_key_buffer, clean_curves=clean_curves)
+                flush_shape_key_keyframes_to_action(
+                    shape_key_buffer,
+                    action_name=action_name,
+                    instance_name=instance.name,
+                    clean_curves=clean_curves,
+                )
 
             if texture_logic_node and masks:
                 flush_texture_mask_keyframes_to_action(
                     texture_logic_node,
                     mask_buffer,
-                    action_name=f"{action_name}_shader",
+                    action_name=f"{action_name}_texture_logic_node",
                     clean_curves=clean_curves,
                 )
 

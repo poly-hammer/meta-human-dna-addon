@@ -87,9 +87,9 @@ def test_bake_component_animation(
 
     if not replace_action:
         assert len(new_object_actions) == 1, "A new action should be created when not replacing an existing action."
-        assert (
-            new_object_actions.pop() == f"{instance.name}_{component}_{action_name}"
-        ), "The baked action name is not as expected."
+        assert new_object_actions.pop() == f"{instance.name}_{component}_{action_name}", (
+            "The baked action name is not as expected."
+        )
 
 
 @pytest.mark.parametrize(
@@ -117,7 +117,8 @@ def test_bake_face_board_animation(
         previous_node_tree_action_names = [
             a.name
             for a in bpy.data.actions
-            if a.slots[0].target_id_type == "NODETREE" and a.name != f"{instance.name}_head_{action_name}_shader"
+            if a.slots[0].target_id_type == "NODETREE"
+            and a.name != f"{instance.name}_head_{action_name}_texture_logic_node"
         ]
     else:
         previous_object_action_names = [
@@ -128,7 +129,7 @@ def test_bake_face_board_animation(
         previous_node_tree_action_names = [
             a.name
             for a in bpy.data.actions
-            if a.id_root == "NODETREE" and a.name != f"{instance.name}_head_{action_name}_shader"
+            if a.id_root == "NODETREE" and a.name != f"{instance.name}_head_{action_name}_texture_logic_node"
         ]
 
     bpy.ops.character_dna.bake_face_board_animation(
@@ -153,13 +154,13 @@ def test_bake_face_board_animation(
     if not replace_action:
         assert len(new_object_actions) == 1, "A new action should be created when not replacing an existing action."
 
-        assert (
-            new_object_actions.pop() == f"{instance.name}_head_{action_name}"
-        ), "The baked action name is not as expected."
+        assert new_object_actions.pop() == f"{instance.name}_head_{action_name}", (
+            "The baked action name is not as expected."
+        )
 
-    assert (
-        len(new_node_tree_action_names) == 1
-    ), "A new node tree action should always be created for face board baking."
+    assert len(new_node_tree_action_names) == 1, (
+        "A new node tree action should always be created for face board baking."
+    )
     assert any(
-        name == f"{instance.name}_head_{action_name}_shader" for name in expected_node_tree_action_names
+        name == f"{instance.name}_head_{action_name}_texture_logic_node" for name in expected_node_tree_action_names
     ), "The baked node tree action name is not as expected."

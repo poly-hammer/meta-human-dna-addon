@@ -332,10 +332,8 @@ class CharacterAddonProperties:
         name="Batched Evaluations",
         default=True,
         description=(
-            "Batch all rig evaluations onto a the next draw call so all updates from a single scene change are "
-            "applied together. This is optimized for viewport better performance (FPS) and stability. Disable this to "
-            "evaluate the rig immediately when the scene updates, this can remove jittering when rendering but can "
-            "cause instability and crashes."
+            "Batch all rig evaluations onto the next draw call so all updates from a single scene change are "
+            "applied together. Disable this to evaluate each rig immediately when the scene's dependency graph updates"
         ),
     )  # pyright: ignore[reportInvalidTypeForm]
     show_pro_features: bpy.props.BoolProperty(

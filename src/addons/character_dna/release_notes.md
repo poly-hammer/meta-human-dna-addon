@@ -1,3 +1,7 @@
+## Minor Changes
+
+* It is now possible to optionally disable `Batched Evaluations` in the addon preferences. This is currently experimental. This removes the need to bake before rendering. Please report any issues with evaluation in the scene or while rendering with this option on.
+
 ## Patch Changes
 
 * Added experimental option to turn off batched evaluations
