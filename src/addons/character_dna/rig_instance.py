@@ -274,6 +274,24 @@ def rig_instance_listener(_: "Scene", dependency_graph: bpy.types.Depsgraph, is_
         else:
             final_instance_updates.add((instance, component))
 
+    if not final_instance_updates:
+        return
+
+    # When batched evaluations are disabled, apply the evaluations directly here instead of
+    # deferring them to the timer. This reduces latency (no batching jitter/lag) at the cost of
+    # potential instability while rendering, since handlers can run in a restricted context.
+    addon_preferences = utilities.get_addon_preferences()
+    if addon_preferences and not addon_preferences.batched_evaluations:
+        for instance, component in final_instance_updates:
+            try:
+                instance.evaluate(component=component)
+            except ReferenceError:
+                # The underlying data was freed out from under us; skip it.
+                continue
+            except Exception as error:
+                logger.exception(f"Error evaluating rig instance '{instance.name}': {error}")
+        return
+
     # Defer evaluation to a timer callback where Blender allows writing to ID data.
     # Queue instances by name so an undo that reallocates the collection can't leave us
     # holding a dangling PropertyGroup wrapper.

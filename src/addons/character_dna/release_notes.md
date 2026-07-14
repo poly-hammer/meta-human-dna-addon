@@ -1,14 +1,7 @@
-## Minor Changes
-
-* Added transfer to shape key operator in Raw Editor
-
 ## Patch Changes
 
-* Fixed Body Baking issue when animating with control rig [#342](https://github.com/poly-hammer/character-dna-addon/issues/342)
-* Made DNA component type detection more robust [#337](https://github.com/poly-hammer/character-dna-addon/issues/337)
-* Fixed body animation pose mode switching bug
-* Fixed view options panel lagging draw calls
-* Fixed operator for adding [Texture Logic Node](https://docs.polyhammer.com/character-dna-addon/terminology/#texture-logic) now under `Add > Rig Logic > Head Texture Logic` in material graph
+* Added experimental option to turn off batched evaluations
+* Fixed center eye control baking bug [#308](https://github.com/poly-hammer/character-dna-addon/issues/308)
 
 ## Tests Passing On
 
