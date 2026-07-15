@@ -1,16 +1,16 @@
 ## Minor Changes
 
-* Added transfer to shape key operator in Raw Editor
+* Added Blender `5.2` support
+
+* It is now possible to optionally disable `Batched Evaluations` in the addon preferences. This is currently experimental. This removes the need to bake before rendering. Please report any issues with evaluation in the scene or while rendering with this option on.
 
 ## Patch Changes
 
-* Fixed Body Baking issue when animating with control rig [#342](https://github.com/poly-hammer/character-dna-addon/issues/342)
-* Made DNA component type detection more robust [#337](https://github.com/poly-hammer/character-dna-addon/issues/337)
-* Fixed body animation pose mode switching bug
-* Fixed view options panel lagging draw calls
-* Fixed operator for adding [Texture Logic Node](https://docs.polyhammer.com/character-dna-addon/terminology/#texture-logic) now under `Add > Rig Logic > Head Texture Logic` in material graph
+* Added experimental option to turn off batched evaluations
+* Fixed center eye control baking bug [#308](https://github.com/poly-hammer/character-dna-addon/issues/308)
+* Fixed bug with eye aim control when eyes follow head is false [#309](https://github.com/poly-hammer/character-dna-addon/issues/309)
 
 ## Tests Passing On
 
-* Blender `4.5`, `5.1` (installed from blender.org)
+* Blender `4.5`, `5.1`, `5.2` (installed from blender.org)
 * Unreal `5.6`, `5.7`, `5.8`

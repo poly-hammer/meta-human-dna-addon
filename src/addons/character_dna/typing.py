@@ -123,6 +123,7 @@ if TYPE_CHECKING:
 
         bl_idname: str
         metrics_collection: bool
+        batched_evaluations: bool
         rbf_editor: RBFEditorPreferences
         raw_control_editor: RawControlEditorPreferences
         shape_key_editor: ShapeKeyEditorPreferences

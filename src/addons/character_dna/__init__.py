@@ -17,7 +17,7 @@ logger = logging.getLogger(constants.ToolInfo.NAME)
 bl_info = {
     "name": "Character DNA",
     "author": "Poly Hammer",
-    "version": (0, 9, 8),
+    "version": (0, 10, 3),
     "blender": (4, 5, 0),
     "location": "File > Import > MetaHuman DNA",
     "description": (
@@ -29,9 +29,10 @@ bl_info = {
     "category": "Poly Hammer",
 }
 
-# Callbacks that other addons can register to be notified when a rig instance is set up
-# in the scene.
-post_setup_scene_callbacks: list[Callable[[rig_instance.RigInstance], None]] = []
+# Callbacks that other addons can register to be notified when the rig instance list changes
+# (a rig instance is set up on load, added, or removed). The argument is the affected rig
+# instance for additions/setup, or ``None`` for removals.
+post_setup_scene_callbacks: list[Callable[[rig_instance.RigInstance | None], None]] = []
 
 # Main Addon. Editor operators/panels are registered separately via the optional
 # ``editors`` submodule registry (see ``utilities.get_editors``), so this list

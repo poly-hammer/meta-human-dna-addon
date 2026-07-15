@@ -328,6 +328,14 @@ class CharacterAddonProperties:
     next_metrics_consent_timestamp: bpy.props.FloatProperty(default=0.0)  # pyright: ignore[reportInvalidTypeForm]
     extra_dna_folder_list: bpy.props.CollectionProperty(type=ExtraDnaFolder)  # pyright: ignore[reportInvalidTypeForm]
     extra_dna_folder_list_active_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
+    batched_evaluations: bpy.props.BoolProperty(
+        name="Batched Evaluations",
+        default=True,
+        description=(
+            "Batch all rig evaluations onto the next draw call so all updates from a single scene change are "
+            "applied together. Disable this to evaluate each rig immediately when the scene's dependency graph updates"
+        ),
+    )  # pyright: ignore[reportInvalidTypeForm]
     show_pro_features: bpy.props.BoolProperty(
         name="Show Pro Features",
         default=True,

@@ -157,21 +157,23 @@
         {
             "id": "blender-version",
             "type": "pickString",
-            "default": "4.5",
+            "default": "5.2",
             "options": [
                 "4.5",
                 "5.0",
-                "5.1"
+                "5.1",
+                "5.2"
             ],
             "description": "What blender version to launch"
         },
         {
             "id": "unreal-version",
             "type": "pickString",
-            "default": "5.6",
+            "default": "5.8",
             "options": [
                 "5.6",
-                "5.7"
+                "5.7",
+                "5.8"
             ],
             "description": "What unreal version to launch"
         },

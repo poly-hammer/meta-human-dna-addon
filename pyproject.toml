@@ -24,12 +24,13 @@ keywords = ["blender", "metahuman", "dna", "riglogic", "animation", "3d"]
 name = "character-dna-addon"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
-version = "0.9.8"
+version = "0.10.3"
 
 [project.optional-dependencies]
 dev = [
   "debugpy>=1.8.13",
-  "bpy>=4.5.1",
+  "bpy>=4.5.1,<5.2; python_version < '3.13'",
+  "bpy>=5.2; python_version >= '3.13'",
   "pytest>=8.3.3",
   "pytest-dotenv>=0.5.2",
   "pytest-cov>=6.0.0",
@@ -399,7 +400,8 @@ max-statements = 60
 [dependency-groups]
 dev = [
   "debugpy>=1.8.13",
-  "bpy>=4.5.1",
+  "bpy>=4.5.1,<5.2; python_version < '3.13'",
+  "bpy>=5.2; python_version >= '3.13'",
   "pytest>=8.3.3",
   "pytest-dotenv>=0.5.2",
   "pytest-cov>=6.0.0",
