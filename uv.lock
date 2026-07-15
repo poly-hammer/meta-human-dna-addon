@@ -28,6 +28,15 @@ wheels = [
 ]
 
 [[package]]
+name = "attrs"
+version = "26.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/9a/8e/82a0fe20a541c03148528be8cac2408564a6c9a0cc7e9171802bc1d26985/attrs-26.1.0.tar.gz", hash = "sha256:d03ceb89cb322a8fd706d4fb91940737b6642aa36998fe130a9bc96c985eff32", size = 952055, upload-time = "2026-03-19T14:22:25.026Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/64/b4/17d4b0b2a2dc85a6df63d1157e028ed19f90d4cd97c36717afef2bc2f395/attrs-26.1.0-py3-none-any.whl", hash = "sha256:c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309", size = 67548, upload-time = "2026-03-19T14:22:23.645Z" },
+]
+
+[[package]]
 name = "boto3"
 version = "1.42.81"
 source = { registry = "https://pypi.org/simple" }
@@ -78,23 +87,24 @@ wheels = [
 
 [[package]]
 name = "bpy"
-version = "5.1.0"
+version = "5.2.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.13' and platform_machine != 's390x'",
     "python_full_version >= '3.13' and platform_machine == 's390x'",
 ]
 dependencies = [
+    { name = "cattrs", marker = "python_full_version >= '3.13'" },
     { name = "cython", marker = "python_full_version >= '3.13'" },
     { name = "numpy", version = "2.3.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13'" },
     { name = "requests", marker = "python_full_version >= '3.13'" },
     { name = "zstandard", marker = "python_full_version >= '3.13'" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9e/58/e311ab21cd4347685035cb43def43e9aff32e870f65da791bb8ed666b8d7/bpy-5.1.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:79cb379d32432031b31aaa740b2af1cbd6fab14ba3aa25db1500b19ea332bf8a", size = 238523944, upload-time = "2026-03-17T14:44:24.527Z" },
-    { url = "https://files.pythonhosted.org/packages/a5/b9/bcd380708380baf759bd9c422f370294ab750535c869f809b447e7836917/bpy-5.1.0-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:5b557f65902e4c84caf8b413d9bc6aceb660a5ca934e65f6c16e4ee91dc4cd4f", size = 390716200, upload-time = "2026-03-17T14:45:55.547Z" },
-    { url = "https://files.pythonhosted.org/packages/f3/65/a75513cbdc117238bd2dcf1fe655e05fca379577087e03144cca6b6718a5/bpy-5.1.0-cp313-cp313-win_amd64.whl", hash = "sha256:6ee14d8b28989b911b2e921b4592d1801738d550fedbcc57f773dae589f41bb2", size = 350105048, upload-time = "2026-03-17T14:45:25.828Z" },
-    { url = "https://files.pythonhosted.org/packages/76/55/970c78b4046b3020bee271f17e1cd769f4edfcd9c29d8ab307e908eeddf3/bpy-5.1.0-cp313-cp313-win_arm64.whl", hash = "sha256:7dbd29e684dd6fa6acdc11c96bdbfb43ca95576a6b00ece413d3f80b8717fc08", size = 205493452, upload-time = "2026-03-17T14:44:51.573Z" },
+    { url = "https://files.pythonhosted.org/packages/85/3a/ebdfeedbefe18641ac541c44bbe433fa363d377fedbabf4fbabb571faf5e/bpy-5.2.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:6b5f9d4e02de90be7100494807a021b60c194c5d5315daef089213b2cdc8cd9d", size = 245126219, upload-time = "2026-07-14T12:14:33.631Z" },
+    { url = "https://files.pythonhosted.org/packages/53/74/827c0930eec8d1b74b8c67d4066bf922f1e15a3d80f0f50ed4a48a2692b1/bpy-5.2.0-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:daae68954f1ab33996aa582861323eff815210e5c56641ac62f855a8365201c2", size = 401306561, upload-time = "2026-07-14T12:13:25.07Z" },
+    { url = "https://files.pythonhosted.org/packages/6f/d5/dd33167ec5540244b170a9f6ee1436e453ee89f0914401831268f69ea0bd/bpy-5.2.0-cp313-cp313-win_amd64.whl", hash = "sha256:d657ee262bb01217343d19156c869819441b2ec436a24b302de8f1fa3a0ef1eb", size = 338722862, upload-time = "2026-07-14T12:14:14.093Z" },
+    { url = "https://files.pythonhosted.org/packages/82/cb/a8d985a59e8e31cf55f6b62144305379a4c3d795633186933059bc91c16a/bpy-5.2.0-cp313-cp313-win_arm64.whl", hash = "sha256:925ae162a1bcde29a514804a5ef3afc5516fccc5ce568e7c8dee95d66a06215a", size = 210627206, upload-time = "2026-07-14T12:13:44.824Z" },
 ]
 
 [[package]]
@@ -123,6 +133,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/38/07/e8412a13019b3f737972dea23a2c61ca42becafc16c9338f4ca7a0caa993/cairosvg-2.9.0.tar.gz", hash = "sha256:1debb00cd2da11350d8b6f5ceb739f1b539196d71d5cf5eb7363dbd1bfbc8dc5", size = 40877, upload-time = "2026-03-13T15:42:00.564Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bf/e0/5011747466414c12cac8a8df77aa235068669a6a5a5df301a96209db6054/cairosvg-2.9.0-py3-none-any.whl", hash = "sha256:4b82d07d145377dffdfc19d9791bd5fb65539bb4da0adecf0bdbd9cd4ffd7c68", size = 45962, upload-time = "2026-03-14T13:56:33.512Z" },
+]
+
+[[package]]
+name = "cattrs"
+version = "26.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "attrs", marker = "python_full_version >= '3.13'" },
+    { name = "typing-extensions", marker = "python_full_version >= '3.13'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a0/ec/ba18945e7d6e55a58364d9fb2e46049c1c2998b3d805f19b703f14e81057/cattrs-26.1.0.tar.gz", hash = "sha256:fa239e0f0ec0715ba34852ce813986dfed1e12117e209b816ab87401271cdd40", size = 495672, upload-time = "2026-02-18T22:15:19.406Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/80/56/60547f7801b97c67e97491dc3d9ade9fbccbd0325058fd3dfcb2f5d98d90/cattrs-26.1.0-py3-none-any.whl", hash = "sha256:d1e0804c42639494d469d08d4f26d6b9de9b8ab26b446db7b5f8c2e97f7c3096", size = 73054, upload-time = "2026-02-18T22:15:17.958Z" },
 ]
 
 [[package]]
@@ -193,7 +216,7 @@ wheels = [
 
 [[package]]
 name = "character-dna-addon"
-version = "0.10.1"
+version = "0.10.3"
 source = { editable = "." }
 dependencies = [
     { name = "sentry-sdk" },
@@ -202,7 +225,7 @@ dependencies = [
 [package.optional-dependencies]
 dev = [
     { name = "bpy", version = "5.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.13'" },
-    { name = "bpy", version = "5.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13'" },
+    { name = "bpy", version = "5.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13'" },
     { name = "debugpy" },
     { name = "genbadge", extra = ["all"] },
     { name = "mkdocs" },
@@ -221,7 +244,7 @@ stubs = [
 [package.dev-dependencies]
 dev = [
     { name = "bpy", version = "5.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.13'" },
-    { name = "bpy", version = "5.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13'" },
+    { name = "bpy", version = "5.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13'" },
     { name = "cairosvg" },
     { name = "debugpy" },
     { name = "genbadge", extra = ["all"] },
@@ -238,7 +261,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "bpy", marker = "extra == 'dev'", specifier = ">=4.5.1" },
+    { name = "bpy", marker = "python_full_version >= '3.13' and extra == 'dev'", specifier = ">=5.2" },
+    { name = "bpy", marker = "python_full_version < '3.13' and extra == 'dev'", specifier = ">=4.5.1,<5.2" },
     { name = "debugpy", marker = "extra == 'dev'", specifier = ">=1.8.13" },
     { name = "fake-bpy-module-latest", marker = "extra == 'stubs'" },
     { name = "genbadge", extras = ["all"], marker = "extra == 'dev'", specifier = ">=1.1.2" },
@@ -256,7 +280,8 @@ provides-extras = ["dev", "stubs"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "bpy", specifier = ">=4.5.1" },
+    { name = "bpy", marker = "python_full_version < '3.13'", specifier = ">=4.5.1,<5.2" },
+    { name = "bpy", marker = "python_full_version >= '3.13'", specifier = ">=5.2" },
     { name = "cairosvg", specifier = ">=2.9.0" },
     { name = "debugpy", specifier = ">=1.8.13" },
     { name = "genbadge", extras = ["all"], specifier = ">=1.1.2" },

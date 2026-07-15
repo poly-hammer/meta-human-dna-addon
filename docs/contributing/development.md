@@ -18,7 +18,7 @@ Contributions are welcome! Please create an issue to discuss significant work be
 - [Python 3.13](https://www.python.org/downloads/release/python-31314/)
 - [uv](https://docs.astral.sh/uv/getting-started/installation/) (Python package manager)
 - [Git](https://git-scm.com/download/win) with Git LFS
-- [Blender 5.1+](https://www.blender.org/download/)
+- [Blender 5.2+](https://www.blender.org/download/)
 
 ## Setup
 

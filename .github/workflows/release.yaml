@@ -64,39 +64,39 @@ jobs:
       addon-id: "character_dna"
       base: "character-dna"
 
-  # Test with Blender 5.1
-  test-blender-5-1-ubuntu-latest:
+  # Test with Blender 5.2
+  test-blender-5-2-ubuntu-latest:
     needs: [lint]
-    name: Blender 5.1 Tests
+    name: Blender 5.2 Tests
     uses: poly-hammer/poly-hammer-workflows/.github/workflows/re-use-blender-tests.yaml@main
     secrets: inherit
     with:
       python-version: "3.13"
-      blender-version: "5.1"
+      blender-version: "5.2"
       runner-os: "ubuntu-internal"
       addon-id: "character_dna"
       base: "character-dna"
 
-  test-blender-5-1-windows-latest:
+  test-blender-5-2-windows-latest:
     needs: [lint]
-    name: Blender 5.1 Tests
+    name: Blender 5.2 Tests
     uses: poly-hammer/poly-hammer-workflows/.github/workflows/re-use-blender-tests.yaml@main
     secrets: inherit
     with:
       python-version: "3.13"
-      blender-version: "5.1"
+      blender-version: "5.2"
       runner-os: "windows-latest"
       addon-id: "character_dna"
       base: "character-dna"
 
-  test-blender-5-1-macos-latest:
+  test-blender-5-2-macos-latest:
     needs: [lint]
-    name: Blender 5.1 Tests
+    name: Blender 5.2 Tests
     uses: poly-hammer/poly-hammer-workflows/.github/workflows/re-use-blender-tests.yaml@main
     secrets: inherit
     with:
       python-version: "3.13"
-      blender-version: "5.1"
+      blender-version: "5.2"
       runner-os: "macos-latest"
       addon-id: "character_dna"
       base: "character-dna"
@@ -104,9 +104,9 @@ jobs:
   release:
     needs:
       [
-        test-blender-5-1-ubuntu-latest,
-        test-blender-5-1-windows-latest,
-        test-blender-5-1-macos-latest,
+        test-blender-5-2-ubuntu-latest,
+        test-blender-5-2-windows-latest,
+        test-blender-5-2-macos-latest,
         # test-blender-4-5-ubuntu-latest,
         test-blender-4-5-windows-latest,
         test-blender-4-5-macos-latest,

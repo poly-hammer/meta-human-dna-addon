@@ -221,3 +221,31 @@ def test_resolve_donor_errors_when_several_and_none_active() -> None:
 
     with pytest.raises(RawControlEditorError, match="select only one"):
         resolve_donor_mesh(instance, editor)
+
+
+def test_resolve_donor_allows_deformed_head_mesh() -> None:
+    """The rig's live head mesh is re-allowed as a donor so its deformed
+    shape can be copied onto the target, even though it is also listed as
+    the ``head_lod0_mesh`` output item."""
+    head_mesh = _flat_quad("head_lod0_mesh")
+    target_mesh = _flat_quad("target_quad")
+    # The head mesh is registered both as ``head_mesh`` and as its output item.
+    instance = _FakeInstance(head=[_Row(head_mesh)], body=[], head_mesh=head_mesh)
+    editor = _FakeEditor(target_rows=[_Row(target_mesh)])
+    _select_only(head_mesh, active=head_mesh)
+
+    assert selected_donor_mesh_candidates(instance, editor) == [head_mesh]
+    assert resolve_donor_mesh(instance, editor) is head_mesh
+
+
+def test_head_mesh_excluded_when_it_is_also_the_target() -> None:
+    """If the head mesh is itself the active target row it stays excluded
+    -- a mesh cannot be its own donor."""
+    head_mesh = _flat_quad("head_lod0_mesh")
+    instance = _FakeInstance(head=[_Row(head_mesh)], body=[], head_mesh=head_mesh)
+    editor = _FakeEditor(target_rows=[_Row(head_mesh)])
+    _select_only(head_mesh, active=head_mesh)
+
+    assert selected_donor_mesh_candidates(instance, editor) == []
+    with pytest.raises(RawControlEditorError, match="Select one donor mesh"):
+        resolve_donor_mesh(instance, editor)

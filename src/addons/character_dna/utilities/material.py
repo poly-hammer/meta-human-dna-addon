@@ -73,8 +73,9 @@ def create_new_material(
     name: str, color: tuple[float, float, float, float] | None = None, alpha: float | None = None
 ) -> bpy.types.Material:
     material = bpy.data.materials.new(name=name)
-    if hasattr(material, "use_nodes"):
-        material.use_nodes = True
+    # `Material.use_nodes` is deprecated (removed in Blender 6.0); every material
+    # already has a node tree by default on the addon's supported Blender range
+    # (4.5+), so no explicit opt-in is needed.
     if not material.node_tree:
         logger.error(f"Material {name} has no node tree.")
         return material

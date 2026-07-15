@@ -1,5 +1,7 @@
 ## Minor Changes
 
+* Added Blender `5.2` support
+
 * It is now possible to optionally disable `Batched Evaluations` in the addon preferences. This is currently experimental. This removes the need to bake before rendering. Please report any issues with evaluation in the scene or while rendering with this option on.
 
 ## Patch Changes
@@ -10,5 +12,5 @@
 
 ## Tests Passing On
 
-* Blender `4.5`, `5.1` (installed from blender.org)
+* Blender `4.5`, `5.1`, `5.2` (installed from blender.org)
 * Unreal `5.6`, `5.7`, `5.8`
