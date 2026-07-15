@@ -2,11 +2,9 @@
 
 * Added Blender `5.2` support
 
-* It is now possible to optionally disable `Batched Evaluations` in the addon preferences. This is currently experimental. This removes the need to bake before rendering. Please report any issues with evaluation in the scene or while rendering with this option on.
-
 ## Patch Changes
 
-* Added experimental option to turn off batched evaluations
+* Added experimental option to turn off batched evaluations in addon preferences
 * Fixed center eye control baking bug [#308](https://github.com/poly-hammer/character-dna-addon/issues/308)
 * Fixed bug with eye aim control when eyes follow head is false [#309](https://github.com/poly-hammer/character-dna-addon/issues/309)
 
