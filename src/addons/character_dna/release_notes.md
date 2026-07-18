@@ -1,12 +1,11 @@
 ## Minor Changes
 
-* Added Blender `5.2` support
+* Added Freeze option to Raw Editor and Shape Key Editor list filter
+* Added Ghost indicator for shape keys that do not contain deltas. Also added toggle to filter them from the view.
 
 ## Patch Changes
 
-* Added experimental option to turn off batched evaluations in addon preferences
-* Fixed center eye control baking bug [#308](https://github.com/poly-hammer/character-dna-addon/issues/308)
-* Fixed bug with eye aim control when eyes follow head is false [#309](https://github.com/poly-hammer/character-dna-addon/issues/309)
+* Fixed incomplete/opaque eye and saliva materials on Blender 4.x [#346](https://github.com/poly-hammer/character-dna-addon/issues/346)
 
 ## Tests Passing On
 
