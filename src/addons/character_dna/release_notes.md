@@ -2,6 +2,7 @@
 
 * Added Freeze option to Raw Editor and Shape Key Editor list filter
 * Added Ghost indicator for shape keys that do not contain deltas. Also added toggle to filter them from the view.
+* Added option to turn off dependency chain isolation
 
 ## Patch Changes
 
