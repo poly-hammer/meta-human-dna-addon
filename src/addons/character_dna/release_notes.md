@@ -1,8 +1,12 @@
+## Major Changes
+
+* Initial implementation of the Behavior Viewer
+
 ## Minor Changes
 
 * Added Freeze option to Raw Editor and Shape Key Editor list filter
 * Added Ghost indicator for shape keys that do not contain deltas. Also added toggle to filter them from the view.
-* Added option to turn off dependency chain isolation
+* Added option to turn off dependency chain isolation in Shape Key Editor
 
 ## Patch Changes
 

@@ -17,11 +17,11 @@ if TYPE_CHECKING:
         BackupManagerProperties,
         DnaBackupEntry,
     )
+    from .editors.behavior_viewer.properties import BehaviorViewerProperties, PsdCorrectiveListItem  # noqa: TC004
     from .editors.converter.properties import (  # noqa: TC004
         ConverterExtraMeshItem,
         ConverterProperties,
     )
-    from .editors.correctives_viewer.properties import CorrectivesViewerProperties, PsdCorrectiveListItem  # noqa: TC004
     from .editors.mesh_editor.properties import (  # noqa: TC004
         MeshDataTransferItem,
         MeshEditorProperties,
@@ -100,7 +100,7 @@ if TYPE_CHECKING:
         backup_manager: BackupManagerProperties
         rbf_editor: RBFEditorProperties
         raw_control_editor: RawControlEditorProperties
-        correctives_viewer: CorrectivesViewerProperties
+        behavior_viewer: BehaviorViewerProperties
         shape_key_editor: ShapeKeyEditorProperties
         output: CharacterOutputProperties
         view_options: CharacterViewOptionsProperties
@@ -181,6 +181,7 @@ if TYPE_CHECKING:
     __all__ = [
         "BakeAnimationBase",
         "BakeAnimationBase",
+        "BehaviorViewerProperties",
         "BinaryStreamReader",
         "BinaryStreamWriter",
         "CharacterAddonPreferences",
@@ -198,7 +199,6 @@ if TYPE_CHECKING:
         "Context",
         "ConverterExtraMeshItem",
         "ConverterProperties",
-        "CorrectivesViewerProperties",
         "DnaBackupEntry",
         "DuplicateRigInstance",
         "MeshDataTransferItem",

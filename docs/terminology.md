@@ -30,9 +30,7 @@ Toggle each of these outputs on your [Rig Instance](#rig-instance) to see its in
 
 Under the hood, RigLogic runs each pose through a few stages. You don't need to know the math to use the addon, but understanding the vocabulary helps:
 
-* **PSDs (Pose Space Deformations)** — corrective combinations. When several expressions are active at once, PSDs turn on additional "combined" expressions so overlapping poses blend correctly instead of stacking. This is why editing one shape can be affected by others (see the [Shape Key Editor](./pro-features/shape-key-editor.md)).
-* **Linear outputs** — most joints and blend shapes are driven linearly by the active raw control values.
-* **Conditionals** — a small share of outputs (mostly the wrinkle mask multipliers) ramp on across ranges of an input value.
+* **PSDs (Pose Space Deformations)** — are expressions that represent complex poses and how they are corrected. They define how multiple different expressions should be combined together. This is why editing one shape can affect the final result of others (see the [Shape Key Editor](./pro-features/shape-key-editor.md)).
 
 ### LODs
 
