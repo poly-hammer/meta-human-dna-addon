@@ -12,18 +12,29 @@ from pathlib import Path
 
 import pytest
 
-from character_dna.editors.correctives_viewer import html_report
-from character_dna.editors.correctives_viewer.graph import GraphData
+from character_dna.editors.behavior_viewer import html_report
+from character_dna.editors.behavior_viewer.graph import GraphData
 
 
 @pytest.fixture
 def _graph() -> GraphData:
     return GraphData(
         nodes=[
-            {"data": {"id": "raw:0", "label": "jawOpen", "kind": "raw"}},
-            {"data": {"id": "psd:3", "label": "Mstretch_Jopen", "kind": "corrective", "layer": 2}},
+            {"data": {"id": "active_pose", "label": "jawOpen", "kind": "active_pose", "layer": 0, "count": 1}},
+            {"data": {"id": "raw:0", "label": "jawOpen", "kind": "raw", "layer": 1, "value": 0.75}},
+            {"data": {"id": "bone:raw:0", "label": "jawOpen", "kind": "bone", "layer": 2, "bones": ["FACIAL_C_Jaw"]}},
+            {
+                "data": {
+                    "id": "shape:3",
+                    "label": "jaw_open",
+                    "kind": "shape",
+                    "layer": 2,
+                    "value": 0.75,
+                    "definition": {"layer": 0, "channels": [], "net": []},
+                }
+            },
         ],
-        edges=[{"data": {"id": "raw:0__psd:3", "source": "raw:0", "target": "psd:3"}}],
+        edges=[{"data": {"id": "raw:0__shape:3", "source": "raw:0", "target": "shape:3"}}],
     )
 
 
@@ -58,7 +69,7 @@ def test_report_is_self_contained(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     )
     end = document.index("</script>", start)
     payload = json.loads(document[start:end].replace("<\\/", "</"))
-    assert {n["data"]["id"] for n in payload["nodes"]} == {"raw:0", "psd:3"}
+    assert {n["data"]["id"] for n in payload["nodes"]} == {"active_pose", "raw:0", "bone:raw:0", "shape:3"}
 
 
 def test_report_escapes_script_breakout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

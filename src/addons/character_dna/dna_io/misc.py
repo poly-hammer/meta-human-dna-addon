@@ -57,22 +57,33 @@ def get_dna_reader(
     stream = dna.FileStream.create(
         path=str(file_path), accessMode=dna.AccessMode_Read, openMode=mode, memRes=memory_resource
     )
+
+    # Explicitly enforce the coordinate frame our importer assumes (Maya Y-up:
+    # x=left, y=up, z=front) instead of trusting whatever system the incoming DNA
+    # was authored in. With the Transform policy the reader converts any source
+    # system to this frame at load time (a no-op when the data is already Maya
+    # Y-up), so the downstream manual +90deg X rotation and scale handling stay
+    # valid even for DNAs exported with a different coordinate system. Units are
+    # not touched here (the Configuration transform does not convert cm<->m or
+    # degrees<->radians); those are still adapted from getTranslationUnit /
+    # getRotationUnit by the importer.
+    coordinate_system = dna.CoordinateSystem()
+    coordinate_system.x = dna.Direction_left
+    coordinate_system.y = dna.Direction_up
+    coordinate_system.z = dna.Direction_front
+
+    config = dna.Configuration()
+    config.layer = getattr(dna, f"DataLayer_{data_layer}")
+    config.unknownLayerPolicy = dna.UnknownLayerPolicy_Preserve
+    config.coordinateSystemTransformPolicy = dna.CoordinateSystemTransformPolicy_Transform
+    config.coordinateSystem = coordinate_system
+
     if file_format.lower() == "json":
-        reader = dna.JSONStreamReader.create(
-            stream,
-            getattr(dna, f"DataLayer_{data_layer}"),
-            dna.UnknownLayerPolicy_Preserve,
-            0,  # Provide appropriate int value
-            None,  # Assuming MemoryResource is None
-        )
+        # The JSON reader has no Configuration overload, so it cannot enforce the
+        # coordinate system on load; JSON DNAs are expected to already be Maya Y-up.
+        reader = dna.JSONStreamReader.create(stream, memory_resource)
     elif file_format.lower() == "binary":
-        reader = dna.BinaryStreamReader.create(
-            stream,
-            getattr(dna, f"DataLayer_{data_layer}"),
-            dna.UnknownLayerPolicy_Preserve,
-            0,  # Provide appropriate int value
-            None,  # Assuming MemoryResource is None
-        )
+        reader = dna.BinaryStreamReader.create(stream, config, memory_resource)
     else:
         raise ValueError(f"Invalid file format '{file_format}'. Must be 'binary' or 'json'.")
 

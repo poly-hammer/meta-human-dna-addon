@@ -854,6 +854,10 @@ class RigInstance(bpy.types.PropertyGroup):
         self.head_shape_key_blocks  # noqa: B018
         shape_key_block_names = self.data.get(self.cache_key("head", "shape_key_block_names"), [])
 
+        # The has-deltas map is derived from the live block coords; drop it so it
+        # recomputes lazily against the freshly synced blocks.
+        self.data.pop(self.cache_key("head", "shape_key_has_deltas"), None)
+
         shape_key_editor.shape_key_list.clear()
         for shape_key_block_name in shape_key_block_names:
             shape_key_item = shape_key_editor.shape_key_list.add()
@@ -1359,6 +1363,7 @@ class RigInstance(bpy.types.PropertyGroup):
             ("head", "shape_key"),
             ("head", "shape_key_blocks"),
             ("head", "shape_key_apply_plan"),
+            ("head", "shape_key_has_deltas"),
             ("head", "body_constraints"),
             ("head", "rig_evaluated"),
             ("body", "rig_evaluated"),

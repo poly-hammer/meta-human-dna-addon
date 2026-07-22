@@ -73,9 +73,14 @@ def create_new_material(
     name: str, color: tuple[float, float, float, float] | None = None, alpha: float | None = None
 ) -> bpy.types.Material:
     material = bpy.data.materials.new(name=name)
-    # `Material.use_nodes` is deprecated (removed in Blender 6.0); every material
-    # already has a node tree by default on the addon's supported Blender range
-    # (4.5+), so no explicit opt-in is needed.
+    # Blender 4.x does not build the node tree for a freshly created material
+    # until node usage is enabled, so the material renders as incomplete. The
+    # `use_nodes` property is deprecated in Blender 5.0+ (removed in 6.0), where
+    # materials always use their node tree, so only set it on older versions to
+    # avoid emitting a deprecation warning.
+    if bpy.app.version < (5, 0, 0) and hasattr(material, "use_nodes"):
+        material.use_nodes = True
+
     if not material.node_tree:
         logger.error(f"Material {name} has no node tree.")
         return material

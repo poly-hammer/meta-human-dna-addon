@@ -18,6 +18,7 @@ The list shows every raw control, plus a **Rest Pose** row at the top called `de
 - **Non-Zero** — hide-zero-value controls. (This can be useful to find which controls are activated.)
 - **Value Sort** — sort by value so you can see which controls have the highest values.
 - **Side** — a side filter (Left / Right / Center). Helpful if you only want to work on one side of the face.
+- **Freeze** — the snowflake button locks the current list order and filtering in place so rows do not reshuffle while you scrub the raw control values.
 
 Select a control and click **Edit** to open an editing session for that expression's pose.
 

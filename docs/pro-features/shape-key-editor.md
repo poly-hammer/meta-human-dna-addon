@@ -26,6 +26,8 @@ The list shows every shape key channel. Filter by:
 - **Non-Zero** — hide-zero-value shape keys. (This can be useful to find which shape keys are activated.)
 - **Value Sort** — sort by value so you can see which shape keys have the highest values.
 - **Side** — a side filter (Left / Right / Center). Helpful if you only want to work on one side of the face.
+- **Deltas** — the ghost button is a filter to hide shape keys that do not actually contain vertex changes (a sculpted offset different from the basis). This so you can quickly spot which shape keys hold edits. This is handy when sculpting a custom character where most shape keys have been zeroed out from the beginning.
+- **Freeze** — the snowflake button locks the current list order and filtering in place so rows do not reshuffle while you scrub shape key values.
 
 ## Editing with Dependencies
 
