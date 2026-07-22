@@ -106,12 +106,7 @@ def get_body_texture_logic_node(material: bpy.types.Material) -> bpy.types.Shade
     for node in material.node_tree.nodes:
         # Check if this is the right group node by checking one input name
         # We don't check all to avoid performance issues
-        if (
-            node.type == "GROUP"
-            and node.inputs.get("Color_MAIN")
-            and node.inputs.get("Normal_MAIN")
-            and node.inputs.get("Cavity_MAIN")
-        ):
+        if node.type == "GROUP" and node.inputs.get("Color_MAIN") and node.inputs.get("Normal_MAIN"):
             return node  # type: ignore[return-value]
     return None
 
@@ -697,7 +692,7 @@ def set_active_material_preview(self: "CharacterViewOptionsProperties", value: i
 
     for node_group in [head_node_group, body_node_group]:
         if not node_group or not node_group.node_tree:
-            return
+            continue
 
         # combined
         if value == 0:

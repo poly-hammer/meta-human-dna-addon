@@ -11,6 +11,7 @@
 ## Patch Changes
 
 * Fixed incomplete/opaque eye and saliva materials on Blender 4.x [#346](https://github.com/poly-hammer/character-dna-addon/issues/346)
+* New Coordinate System policy is enforced on the DNA Reader to properly convert DNA's saved in other coordinate systems.
 
 ## Tests Passing On
 
