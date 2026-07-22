@@ -18,6 +18,7 @@
         "*.pyc",
         "*.pyd",
         "*.so",
+        "*.svg",
         ".vscode/*.json",
         "**/__pycache__/**",
         ".git",
