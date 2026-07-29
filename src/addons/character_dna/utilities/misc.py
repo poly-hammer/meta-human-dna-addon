@@ -477,6 +477,23 @@ def focus_on_selected():
                                 bpy.ops.view3d.view_selected()
 
 
+def remove_instance_prefix(name: str, instance_name: str) -> str:
+    """Remove one leading rig-instance namespace from a scene data-block name."""
+    if not instance_name:
+        return name
+    return name.removeprefix(f"{instance_name}_")
+
+
+def replace_instance_prefix(name: str, old_instance_name: str, new_instance_name: str) -> str:
+    """Replace an exact or leading rig-instance namespace in a data-block name."""
+    if name == old_instance_name:
+        return new_instance_name
+    prefix = f"{old_instance_name}_"
+    if name.startswith(prefix):
+        return f"{new_instance_name}_{name.removeprefix(prefix)}"
+    return name
+
+
 def get_head(name: str) -> "CharacterComponentHead | None":
     # avoid circular import
     from ..components.head import CharacterComponentHead
@@ -568,27 +585,27 @@ def set_objects_origins(scene_objects: list[bpy.types.Object], location: Vector)
 
 def rename_rig_instance(instance: "RigInstance", old_name: str, new_name: str):
     if instance.face_board:
-        instance.face_board.name = instance.face_board.name.replace(old_name, new_name)
-        instance.face_board.data.name = instance.face_board.data.name.replace(old_name, new_name)
+        instance.face_board.name = replace_instance_prefix(instance.face_board.name, old_name, new_name)
+        instance.face_board.data.name = replace_instance_prefix(instance.face_board.data.name, old_name, new_name)
     if instance.head_mesh:
-        instance.head_mesh.name = instance.head_mesh.name.replace(old_name, new_name)
-        instance.head_mesh.data.name = instance.head_mesh.data.name.replace(old_name, new_name)
+        instance.head_mesh.name = replace_instance_prefix(instance.head_mesh.name, old_name, new_name)
+        instance.head_mesh.data.name = replace_instance_prefix(instance.head_mesh.data.name, old_name, new_name)
     if instance.head_rig:
-        instance.head_rig.name = instance.head_rig.name.replace(old_name, new_name)
-        instance.head_rig.data.name = instance.head_rig.data.name.replace(old_name, new_name)
+        instance.head_rig.name = replace_instance_prefix(instance.head_rig.name, old_name, new_name)
+        instance.head_rig.data.name = replace_instance_prefix(instance.head_rig.data.name, old_name, new_name)
     if instance.head_material:
-        instance.head_material.name = instance.head_material.name.replace(old_name, new_name)
+        instance.head_material.name = replace_instance_prefix(instance.head_material.name, old_name, new_name)
     if instance.body_mesh:
-        instance.body_mesh.name = instance.body_mesh.name.replace(old_name, new_name)
-        instance.body_mesh.data.name = instance.body_mesh.data.name.replace(old_name, new_name)
+        instance.body_mesh.name = replace_instance_prefix(instance.body_mesh.name, old_name, new_name)
+        instance.body_mesh.data.name = replace_instance_prefix(instance.body_mesh.data.name, old_name, new_name)
     if instance.body_rig:
-        instance.body_rig.name = instance.body_rig.name.replace(old_name, new_name)
-        instance.body_rig.data.name = instance.body_rig.data.name.replace(old_name, new_name)
+        instance.body_rig.name = replace_instance_prefix(instance.body_rig.name, old_name, new_name)
+        instance.body_rig.data.name = replace_instance_prefix(instance.body_rig.data.name, old_name, new_name)
     if instance.control_rig:
-        instance.control_rig.name = instance.control_rig.name.replace(old_name, new_name)
-        instance.control_rig.data.name = instance.control_rig.data.name.replace(old_name, new_name)
+        instance.control_rig.name = replace_instance_prefix(instance.control_rig.name, old_name, new_name)
+        instance.control_rig.data.name = replace_instance_prefix(instance.control_rig.data.name, old_name, new_name)
     if instance.body_material:
-        instance.body_material.name = instance.body_material.name.replace(old_name, new_name)
+        instance.body_material.name = replace_instance_prefix(instance.body_material.name, old_name, new_name)
 
     for item in instance.output.head_item_list.values() + instance.output.body_item_list.values():
         # don't rename these again
@@ -603,10 +620,10 @@ def rename_rig_instance(instance: "RigInstance", old_name: str, new_name: str):
             continue
 
         if item.scene_object:
-            item.scene_object.name = item.scene_object.name.replace(old_name, new_name)
-            item.scene_object.data.name = item.scene_object.data.name.replace(old_name, new_name)
+            item.scene_object.name = replace_instance_prefix(item.scene_object.name, old_name, new_name)
+            item.scene_object.data.name = replace_instance_prefix(item.scene_object.data.name, old_name, new_name)
         if item.image_object:
-            item.image_object.name = item.image_object.name.replace(old_name, new_name)
+            item.image_object.name = replace_instance_prefix(item.image_object.name, old_name, new_name)
 
     # rename the main collection
     main_collection = bpy.data.collections.get(old_name)
@@ -617,7 +634,7 @@ def rename_rig_instance(instance: "RigInstance", old_name: str, new_name: str):
     for index in range(NUMBER_OF_HEAD_LODS):
         collection = bpy.data.collections.get(f"{old_name}_lod{index}")
         if collection:
-            collection.name = collection.name.replace(old_name, new_name)
+            collection.name = replace_instance_prefix(collection.name, old_name, new_name)
 
     # this frees up the instance data under the old name, since all data is
     # namespaced under the instance name

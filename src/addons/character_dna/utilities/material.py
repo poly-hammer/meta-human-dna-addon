@@ -11,7 +11,7 @@ import bpy
 from ..constants import MASKS_TEXTURE, MASKS_TEXTURE_FILE_PATH, UV_MAP_NAME, ComponentType
 
 # local imports
-from .misc import editors_available, exclude_rig_instance_evaluation
+from .misc import editors_available, exclude_rig_instance_evaluation, remove_instance_prefix, replace_instance_prefix
 
 
 logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ def copy_materials(
         material = slot.material
         if material:
             new_material = material.copy()
-            new_material.name = material.name.replace(old_prefix, new_prefix)
+            new_material.name = replace_instance_prefix(material.name, old_prefix, new_prefix)
             slot.material = new_material
             if not first_new_mesh_material:
                 first_new_mesh_material = new_material
@@ -46,7 +46,7 @@ def copy_materials(
                     if node.type == "TEX_IMAGE":
                         image = node.image  # type: ignore[attr-defined]
                         new_image = image.copy()
-                        new_image.name = f"{new_prefix}_{image.name}".replace(f"{old_prefix}_", "")
+                        new_image.name = f"{new_prefix}_{remove_instance_prefix(image.name, old_prefix)}"
                         # copy the image files to the new folder
                         if new_image.filepath and not new_image.packed_file:
                             image_file_path = Path(bpy.path.abspath(new_image.filepath))

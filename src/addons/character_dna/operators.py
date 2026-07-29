@@ -1305,13 +1305,15 @@ class DuplicateRigInstance(bpy.types.Operator):
                         break
                     new_mesh_object = utilities.copy_mesh(
                         mesh_object=mesh_object,
-                        new_mesh_name=mesh_object.name.replace(instance.name, self.new_name),
+                        new_mesh_name=utilities.replace_instance_prefix(mesh_object.name, instance.name, self.new_name),
                         modifiers=False,
                         materials=True,
                     )
                     new_rig_object = utilities.copy_armature(
                         armature_object=rig_object,
-                        new_armature_name=rig_object.name.replace(instance.name, self.new_name),
+                        new_armature_name=utilities.replace_instance_prefix(
+                            rig_object.name, instance.name, self.new_name
+                        ),
                     )
                     # move the new rig to the right collection
                     utilities.move_to_collection(
@@ -1359,7 +1361,9 @@ class DuplicateRigInstance(bpy.types.Operator):
 
                             new_extra_mesh_object = utilities.copy_mesh(
                                 mesh_object=item.scene_object,
-                                new_mesh_name=item.scene_object.name.replace(instance.name, self.new_name),
+                                new_mesh_name=utilities.replace_instance_prefix(
+                                    item.scene_object.name, instance.name, self.new_name
+                                ),
                                 modifiers=False,
                                 materials=True,
                             )

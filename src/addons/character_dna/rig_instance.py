@@ -744,7 +744,7 @@ class RigInstance(bpy.types.PropertyGroup):
                 for target_index in range(self.head_dna_reader.getBlendShapeTargetCount(mesh_index)):
                     channel_index = self.head_dna_reader.getBlendShapeChannelIndex(mesh_index, target_index)
                     name = self.head_dna_reader.getBlendShapeChannelName(channel_index)
-                    dna_mesh_name = mesh_object.name.replace(f"{self.name}_", "")
+                    dna_mesh_name = utilities.remove_instance_prefix(mesh_object.name, self.name)
                     shape_key_block_name = f"{dna_mesh_name}__{name}"
                     shape_key_block = self.get_shape_key_block(mesh_index=mesh_index, name=shape_key_block_name)
                     if shape_key_block:
@@ -807,7 +807,7 @@ class RigInstance(bpy.types.PropertyGroup):
                 key_blocks = mesh_object.data.shape_keys.key_blocks
                 # Resolve each namespaced block name to its collection index once.
                 name_to_position = {block.name: position for position, block in enumerate(key_blocks)}
-                dna_mesh_name = mesh_object.name.replace(f"{self.name}_", "")
+                dna_mesh_name = utilities.remove_instance_prefix(mesh_object.name, self.name)
 
                 positions: list[int] = []
                 channels: list[int] = []

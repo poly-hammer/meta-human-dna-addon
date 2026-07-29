@@ -925,7 +925,7 @@ def update_body_output_items(self: "RigInstance", context: "Context"):  # noqa: 
     if not hasattr(context.scene, ToolInfo.NAME):
         return
 
-    from ..utilities import get_addon_scene_properties
+    from ..utilities import get_addon_scene_properties, remove_instance_prefix
 
     addon_scene_properties = get_addon_scene_properties(context)
 
@@ -953,7 +953,7 @@ def update_body_output_items(self: "RigInstance", context: "Context"):  # noqa: 
                         new_item.name = "rig"
                         new_item.editable_name = False
                     else:
-                        new_item.name = scene_object.name.replace(f"{instance.name}_", "")
+                        new_item.name = remove_instance_prefix(scene_object.name, instance.name)
                         new_item.editable_name = True
 
             # update the output items for the image textures
@@ -995,7 +995,7 @@ def update_head_output_items(self: "RigInstance | None", context: "Context"):  #
     if not hasattr(context.scene, ToolInfo.NAME):
         return
 
-    from ..utilities import get_addon_scene_properties
+    from ..utilities import get_addon_scene_properties, remove_instance_prefix
 
     addon_scene_properties = get_addon_scene_properties(context)
 
@@ -1023,7 +1023,7 @@ def update_head_output_items(self: "RigInstance | None", context: "Context"):  #
                         new_item.name = "rig"
                         new_item.editable_name = False
                     else:
-                        new_item.name = scene_object.name.replace(f"{instance.name}_", "")
+                        new_item.name = remove_instance_prefix(scene_object.name, instance.name)
                         new_item.editable_name = True
 
             # update the output items for the image textures
