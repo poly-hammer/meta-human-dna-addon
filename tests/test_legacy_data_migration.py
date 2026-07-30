@@ -78,3 +78,23 @@ def test_cross_edition_migration_skips_existing_names(empty_scene: bpy.types.Sce
     # The existing instance is not duplicated.
     names = [instance.name for instance in empty_scene.character_dna.rig_instance_list]
     assert names.count("Ada") == 1
+
+
+def test_detection_survives_group_without_rig_instance_list(empty_scene: bpy.types.Scene):
+    """A registered group from another addon may not define ``rig_instance_list``.
+
+    The old ``meta_human_dna`` prototype's scene group exposes ``bl_rna`` but stores its
+    instances under a different name, so reading the attribute unguarded raised
+    AttributeError on every panel redraw. See issue #341's sibling report and
+    CHARACTER-DNA-ADDON-MHQ.
+    """
+    from character_dna.utilities.misc import _rig_instance_sources
+
+    class ForeignGroup:
+        bl_rna = object()
+
+        def get(self, _key, default=None):
+            return default
+
+    assert _rig_instance_sources(ForeignGroup(), "rig_instance_list") == []
+    assert detect_legacy_data(empty_scene) is None

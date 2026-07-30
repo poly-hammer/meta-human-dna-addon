@@ -11,7 +11,7 @@ schema_version = "1.0.0"
 id = "character_dna"
 name = "Character DNA"
 tagline = "Customize MetaHuman DNA files with RigLogic evaluation support"
-version = "0.11.3"
+version = "0.12.2"
 type = "add-on"
 
 # =============================================================================
@@ -32,12 +32,14 @@ blender_version_max = "5.3.0"
 # License Information
 # =============================================================================
 # The add-on's own code is licensed under GPL-3.0. It also bundles and
-# redistributes the OpenRigLogic DNA/RigLogic Python bindings and the Sentry SDK.
+# redistributes the OpenRigLogic DNA/RigLogic Python bindings, the ufbx Python
+# bindings, and the Sentry SDK.
 license = ["GPL-3.0 license", "MIT license"]
 copyright = [
     "2026 Poly Hammer",
     "2026 Epic Games, Inc. (OpenRigLogic DNA and RigLogic libraries, MIT License)",
     "2018 Functional Software, Inc. dba Sentry (sentry-sdk, MIT License)",
+    "2020 Samuli Raivio (ufbx, MIT License)",
 ]
 
 # =============================================================================
@@ -95,8 +97,20 @@ permissions = { files = "Import and export DNA files", network = "Error reportin
 # Wheels (Python Dependencies)
 # =============================================================================
 # Python packages required by this extension
-# These will be installed automatically when the extension is enabled
-wheels = ["./wheels/sentry_sdk-2.52.0-py2.py3-none-any.whl"]
+# These will be installed automatically when the extension is enabled.
+# The pyufbx wheels are native and therefore per-platform and per-Python-ABI: the
+# packager keeps only the wheels matching each platform in that platform's zip, and
+# Blender then installs the cp311 (Blender 4.5) or cp313 (Blender 5.x) wheel that
+# matches its own interpreter.
+wheels = [
+    "./wheels/sentry_sdk-2.52.0-py2.py3-none-any.whl",
+    "./wheels/pyufbx-0.0.0-cp311-cp311-win_amd64.whl",
+    "./wheels/pyufbx-0.0.0-cp311-cp311-macosx_11_0_arm64.whl",
+    "./wheels/pyufbx-0.0.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_28_x86_64.whl",
+    "./wheels/pyufbx-0.0.0-cp313-cp313-win_amd64.whl",
+    "./wheels/pyufbx-0.0.0-cp313-cp313-macosx_11_0_arm64.whl",
+    "./wheels/pyufbx-0.0.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_28_x86_64.whl",
+]
 
 # =============================================================================
 # Build Settings

@@ -17,6 +17,7 @@ from ..constants import (
     FACE_BOARD_SWITCHES,
     REGION_VERTEX_GROUP_PREFIX,
 )
+from ..fbx.reader import FbxAnimationClip
 from ..rig_definition import HeadRigDefinition
 from ..utilities import exclude_rig_instance_evaluation
 from .base import CharacterComponentBase
@@ -35,6 +36,7 @@ class CharacterComponentHead(CharacterComponentBase):
         match_frame_rate: bool = True,
         prefix_instance_name: bool = True,
         prefix_component_name: bool = True,
+        clip: "FbxAnimationClip | None" = None,
     ):
         file_path = Path(file_path)
 
@@ -50,6 +52,7 @@ class CharacterComponentHead(CharacterComponentBase):
                     match_frame_rate=match_frame_rate,
                     prefix_instance_name=prefix_instance_name,
                     prefix_component_name=prefix_component_name,
+                    clip=clip,
                 )
         elif self.head_rig_object:
             utilities.import_action_from_fbx(
@@ -61,6 +64,7 @@ class CharacterComponentHead(CharacterComponentBase):
                 match_frame_rate=match_frame_rate,
                 prefix_instance_name=prefix_instance_name,
                 prefix_component_name=prefix_component_name,
+                clip=clip,
             )
 
     def ingest(self, align: bool = True, constrain: bool = True) -> tuple[bool, str]:

@@ -54,3 +54,17 @@ def test_reference_blend_file(
         assert instance.head_rig is not None, f"Head rig should be created for {name}"
         assert instance.head_mesh is not None, f"Head mesh should be created for {name}"
         assert instance.head_dna_file_path is not None, f"Head DNA file path should be set for {name}"
+
+    # The face board must be grouped in the instance's collection for both operations, not
+    # left loose in the scene root. See issue #341.
+    for name in metahuman_names:
+        instance = bpy.context.scene.character_dna.rig_instance_list.get(name)  # type: ignore
+        assert instance and instance.face_board, f"Face board should be created for {name}"
+        face_board_collections = [c.name for c in instance.face_board.users_collection]
+        assert face_board_collections == [name], (
+            f"Face board for {name} should only be in the {name} collection, got {face_board_collections}"
+        )
+        root_objects = [o.name for o in bpy.context.scene.collection.objects]
+        assert instance.face_board.name not in root_objects, (
+            f"Face board for {name} should not be loose in the scene root collection"
+        )

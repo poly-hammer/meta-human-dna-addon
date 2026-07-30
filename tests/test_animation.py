@@ -40,6 +40,42 @@ def test_import_face_board_animation(load_full_dna_for_animation, file_name: str
     assert instance.face_board.animation_data.action.name == f"{instance.name}_face_board_{file_path.stem}"
 
 
+def test_body_animation_onto_face_board_is_rejected(load_full_dna_for_animation):
+    instance = get_active_rig_instance()
+    file_path = TEST_ANIMATION_FOLDER / "body" / "MHC_BodyROM.fbx"
+    action_before = instance.face_board.animation_data.action if instance.face_board.animation_data else None
+
+    # Headless runs have nobody to answer the confirmation dialog, so the import
+    # refuses instead of guessing.
+    with pytest.raises(RuntimeError, match="face board"):
+        bpy.ops.character_dna.import_face_board_animation(filepath=str(file_path))
+
+    action_after = instance.face_board.animation_data.action if instance.face_board.animation_data else None
+    assert action_after == action_before
+
+
+def test_face_board_animation_onto_body_is_rejected(load_full_dna_for_animation):
+    instance = get_active_rig_instance()
+    file_path = TEST_ANIMATION_FOLDER / "head" / "MHC_FaceBoardROM.fbx"
+    action_before = instance.body_rig.animation_data.action if instance.body_rig.animation_data else None
+
+    with pytest.raises(RuntimeError, match="body"):
+        bpy.ops.character_dna.import_component_animation(component_type="body", filepath=str(file_path))
+
+    action_after = instance.body_rig.animation_data.action if instance.body_rig.animation_data else None
+    assert action_after == action_before
+
+
+def test_validation_can_be_overridden(load_full_dna_for_animation):
+    instance = get_active_rig_instance()
+    file_path = TEST_ANIMATION_FOLDER / "body" / "MHC_BodyROM.fbx"
+
+    result = bpy.ops.character_dna.import_face_board_animation(filepath=str(file_path), ignore_validation=True)
+
+    assert result == {"FINISHED"}
+    assert instance.face_board.animation_data.action.name == f"{instance.name}_face_board_{file_path.stem}"
+
+
 @pytest.mark.parametrize(
     ("component", "action_name", "prefix_instance_name", "prefix_component_name", "replace_action"),
     [

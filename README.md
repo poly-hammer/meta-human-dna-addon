@@ -67,6 +67,7 @@ This add-on bundles and redistributes the following third-party components.
 
 * **OpenRigLogic** (DNA and RigLogic libraries) — © Epic Games, Inc., licensed under the [MIT License](https://github.com/EpicGames/OpenRigLogic/blob/main/LICENSE).
 * **Sentry SDK for Python** — © Functional Software, Inc. dba Sentry, licensed under the MIT License.
+* **ufbx for Python** — MIT License.
 
 Epic Games, Unreal Engine, Fab, MetaHuman, RigLogic, and OpenRigLogic, and their associated design logos,
 are trademarks or registered trademarks of Epic Games, Inc. All other trademarks are the property of

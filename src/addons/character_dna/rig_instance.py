@@ -13,7 +13,7 @@ from mathutils import Euler, Matrix, Quaternion, Vector
 
 # local imports
 from . import utilities
-from .constants import FLOATING_POINT_PRECISION, IS_BLENDER_5, SCALE_FACTOR, SHAPE_KEY_NAME_MAX_LENGTH, ToolInfo
+from .constants import FLOATING_POINT_PRECISION, IS_BLENDER_5, SCALE_FACTOR, SHAPE_KEY_NAME_MAX_LENGTH
 from .ui import callbacks
 from .typing import *  # noqa: F403
 
@@ -24,59 +24,6 @@ ATTR_COUNT_PER_QUATERNION_JOINT = 10
 ATTR_COUNT_PER_EULER_JOINT = 9
 
 logger = logging.getLogger(__name__)
-
-# Deferred evaluation state: Handlers can run in a restricted context that blocks writes to
-# content ID classes (pose bones,shape keys, materials). We collect pending evaluations in the
-# handler and apply them via a zero-delay timer callback which runs in the main event loop with full write access.
-#
-# We store the rig instance *name* (its unique identifier) rather than the RigInstance
-# PropertyGroup wrapper itself. An undo can free and reallocate the rig_instance_list
-# collection items between the time the handler queues an evaluation and the time the timer
-# fires, which would leave a dangling wrapper and crash when its RNA data is accessed.
-_pending_evaluations: list[tuple[str, "ComponentType"]] = []
-
-
-def cancel_pending_evaluations() -> None:
-    """Cancel any queued deferred evaluation and unregister the timer.
-
-    Called before operations that can invalidate the queued rig instances (e.g. undo or
-    loading a new file) so the timer never dereferences freed data.
-    """
-    if bpy.app.timers.is_registered(_apply_deferred_evaluation):
-        bpy.app.timers.unregister(_apply_deferred_evaluation)
-    _pending_evaluations.clear()
-
-
-def _apply_deferred_evaluation() -> None:
-    """Timer callback that applies pending rig evaluations in a writable context."""
-    pending = list(_pending_evaluations)
-    _pending_evaluations.clear()
-
-    addon_window_manager: "CharacterWindowManagerProperties | None" = getattr(  # noqa: UP037
-        bpy.context.window_manager, ToolInfo.NAME, None
-    )
-    # Bail if the addon state is gone, an undo is in progress, or evaluation is disabled.
-    if not addon_window_manager or addon_window_manager.is_undoing:
-        return
-    if not addon_window_manager.evaluate_dependency_graph:
-        return
-
-    scene_properties = getattr(bpy.context.scene, ToolInfo.NAME, None)
-    if not scene_properties:
-        return
-
-    for name, component in pending:
-        # Re-resolve the instance by name; it may have been removed by an undo or edit.
-        instance = scene_properties.rig_instance_list.get(name)
-        if not instance:
-            continue
-        try:
-            instance.evaluate(component=component)
-        except ReferenceError:
-            # The underlying data was freed out from under us; skip it.
-            continue
-        except Exception as error:
-            logger.exception(f"Error evaluating rig instance '{name}': {error}")
 
 
 def _compute_body_input_signature(
@@ -277,30 +224,14 @@ def rig_instance_listener(_: "Scene", dependency_graph: bpy.types.Depsgraph, is_
     if not final_instance_updates:
         return
 
-    # When batched evaluations are disabled, apply the evaluations directly here instead of
-    # deferring them to the timer. This reduces latency (no batching jitter/lag) at the cost of
-    # potential instability while rendering, since handlers can run in a restricted context.
-    addon_preferences = utilities.get_addon_preferences()
-    if addon_preferences and not addon_preferences.batched_evaluations:
-        for instance, component in final_instance_updates:
-            try:
-                instance.evaluate(component=component)
-            except ReferenceError:
-                # The underlying data was freed out from under us; skip it.
-                continue
-            except Exception as error:
-                logger.exception(f"Error evaluating rig instance '{instance.name}': {error}")
-        return
-
-    # Defer evaluation to a timer callback where Blender allows writing to ID data.
-    # Queue instances by name so an undo that reallocates the collection can't leave us
-    # holding a dangling PropertyGroup wrapper.
-    _pending_evaluations.clear()
     for instance, component in final_instance_updates:
-        _pending_evaluations.append((instance.name, component))
-
-    if _pending_evaluations and not bpy.app.timers.is_registered(_apply_deferred_evaluation):
-        bpy.app.timers.register(_apply_deferred_evaluation, first_interval=0)
+        try:
+            instance.evaluate(component=component)
+        except ReferenceError:
+            # The underlying data was freed out from under us; skip it.
+            continue
+        except Exception as error:
+            logger.exception(f"Error evaluating rig instance '{instance.name}': {error}")
 
 
 def frame_change_handler(scene: "Scene", dependency_graph: bpy.types.Depsgraph):
@@ -308,16 +239,13 @@ def frame_change_handler(scene: "Scene", dependency_graph: bpy.types.Depsgraph):
 
 
 def stop_listening():
-    # Cancel any pending deferred evaluation
-    cancel_pending_evaluations()
-
     for handler in bpy.app.handlers.depsgraph_update_post:
         if handler.__name__ == rig_instance_listener.__name__:
             bpy.app.handlers.depsgraph_update_post.remove(handler)
 
     for handler in bpy.app.handlers.frame_change_post:
         if handler.__name__ == frame_change_handler.__name__:
-            bpy.app.handlers.frame_change_post.remove(handler)
+            bpy.app.handlers.frame_change_post.remove(handler)  # pyright: ignore[reportArgumentType]
 
 
 def start_listening():
@@ -744,7 +672,7 @@ class RigInstance(bpy.types.PropertyGroup):
                 for target_index in range(self.head_dna_reader.getBlendShapeTargetCount(mesh_index)):
                     channel_index = self.head_dna_reader.getBlendShapeChannelIndex(mesh_index, target_index)
                     name = self.head_dna_reader.getBlendShapeChannelName(channel_index)
-                    dna_mesh_name = mesh_object.name.replace(f"{self.name}_", "")
+                    dna_mesh_name = utilities.remove_instance_prefix(mesh_object.name, self.name)
                     shape_key_block_name = f"{dna_mesh_name}__{name}"
                     shape_key_block = self.get_shape_key_block(mesh_index=mesh_index, name=shape_key_block_name)
                     if shape_key_block:
@@ -807,7 +735,7 @@ class RigInstance(bpy.types.PropertyGroup):
                 key_blocks = mesh_object.data.shape_keys.key_blocks
                 # Resolve each namespaced block name to its collection index once.
                 name_to_position = {block.name: position for position, block in enumerate(key_blocks)}
-                dna_mesh_name = mesh_object.name.replace(f"{self.name}_", "")
+                dna_mesh_name = utilities.remove_instance_prefix(mesh_object.name, self.name)
 
                 positions: list[int] = []
                 channels: list[int] = []
@@ -834,6 +762,11 @@ class RigInstance(bpy.types.PropertyGroup):
                         np.empty(len(key_blocks), dtype=np.float32),
                     )
                 )
+
+        # An empty plan means no mesh resolved yet (e.g. a renamed or merged head mesh).
+        # Caching it would shadow a later correction for the rest of the session.
+        if not plan:
+            return plan
 
         self.data[self.cache_key("head", "shape_key_apply_plan")] = plan
         return plan

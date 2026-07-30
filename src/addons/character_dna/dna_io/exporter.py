@@ -168,7 +168,7 @@ class DNAExporter:
                     self._images.append((output_item.image_object, output_item.name))
 
         # Sort the meshes by the order in the ORDER dictionary
-        mesh_objects.sort(key=lambda x: x.name.replace(f"{self._prefix}_", ""))
+        mesh_objects.sort(key=lambda x: utilities.remove_instance_prefix(x.name, self._prefix))
 
         # Populate the LODs with the mesh objects and their indices
         mesh_index = 1
@@ -582,7 +582,7 @@ class DNAExporter:
     def _export_mesh(self, mesh_object: bpy.types.Object, mesh_index: int):
         """Write a single mesh's geometry (positions, faces, normals, uvs, vertex
         layouts), skin weights, and vertex colors into the DNA at ``mesh_index``."""
-        real_name = mesh_object.name.replace(f"{self._prefix}_", "")
+        real_name = utilities.remove_instance_prefix(mesh_object.name, self._prefix)
 
         logger.info(f'Exporting mesh: "{mesh_object.name}" to DNA as "{real_name}"...')
         self._dna_writer.clearFaceVertexLayoutIndices(meshIndex=mesh_index)
@@ -659,7 +659,7 @@ class DNAExporter:
 
         for mesh_objects in self._export_lods.values():
             for mesh_object, export_mesh_index in mesh_objects:
-                real_name = mesh_object.name.replace(f"{self._prefix}_", "")
+                real_name = utilities.remove_instance_prefix(mesh_object.name, self._prefix)
                 source_mesh_index = source_mesh_index_by_name.get(real_name)
                 if source_mesh_index is None:
                     # A brand new mesh (e.g. custom teeth under a name not in the

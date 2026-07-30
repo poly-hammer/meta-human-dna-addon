@@ -11,10 +11,12 @@ from bpy.types import Action  # pyright: ignore[reportUnusedImport]
 from mathutils import Euler, Quaternion, Vector
 
 # local imports
-from ..constants import EYE_AIM_BONES, FACE_BOARD_SWITCHES, IS_BLENDER_5, SCALE_FACTOR, Axis, ComponentType, ToolInfo
+from ..constants import EYE_AIM_BONES, FACE_BOARD_SWITCHES, IS_BLENDER_5, Axis, ComponentType, ToolInfo
+from ..fbx.reader import FbxAnimationClip, load_fbx_animation
+from ..fbx.writer import assign_action, ensure_action, write_face_board_animation, write_skeleton_animation
 from ..typing import *  # noqa: F403
+from ..validators import ValidationReport, validate_face_board_animation, validate_skeleton_animation
 from .armature import get_pose_bone_local_transform
-from .misc import apply_transforms
 
 
 # blender 4.5 and 5.0 support
@@ -75,137 +77,85 @@ def set_keys_on_bone(
             keyframe_point.co[1] = value * scale_factor
 
 
-def remove_object_scale_keyframes(actions: list[bpy.types.Action]):
-    for action in actions:
-        if anim_utils:
-            channel_bag = anim_utils.action_ensure_channelbag_for_slot(action, action.slots[0])
-        else:
-            channel_bag = action
-
-        if channel_bag:
-            # Collect fcurves to remove first to avoid modifying collection while iterating
-            fcurves_to_remove = [fcurve for fcurve in channel_bag.fcurves if fcurve and fcurve.data_path == "scale"]
-            for fcurve in fcurves_to_remove:
-                channel_bag.fcurves.remove(fcurve)
+FACE_BOARD_EXCLUDED_CONTROLS = frozenset(EYE_AIM_BONES) | frozenset(FACE_BOARD_SWITCHES)
 
 
-def scale_object_actions(
-    unordered_objects: list[bpy.types.Object], actions: list[bpy.types.Action], scale_factor: float
-):
-    # get the list of objects that do not have parents
-    no_parents = [unordered_object for unordered_object in unordered_objects if not unordered_object.parent]
-
-    # get the list of objects that have parents
-    parents = [unordered_object for unordered_object in unordered_objects if unordered_object.parent]
-
-    # re-order the imported objects to have the top of the hierarchies iterated first
-    ordered_objects = no_parents + parents
-
-    for ordered_object in ordered_objects:
-        # run the export iteration but with "scale" set to the scale of the object as it was imported
-        scale = ordered_object.scale[:]
-
-        # if the imported object is an armature
-        if ordered_object.type == "ARMATURE":
-            # iterate over any imported actions first this time...
-            for action in actions:
-                if anim_utils:
-                    channel_bag = anim_utils.action_ensure_channelbag_for_slot(action, action.slots[0])
-                else:
-                    channel_bag = action
-
-                if not channel_bag:
-                    continue
-
-                # iterate through the location curves
-                for fcurve in [fcurve for fcurve in channel_bag.fcurves if fcurve.data_path.endswith("location")]:
-                    # the location fcurve of the object
-                    if fcurve.data_path == "location":
-                        for keyframe_point in fcurve.keyframe_points:
-                            # just the location to preserve root motion
-                            keyframe_point.co[1] = keyframe_point.co[1] * scale[fcurve.array_index] * scale_factor
-                        # don't scale the objects location handles
-                        continue
-
-                    # and iterate through the keyframe values
-                    for keyframe_point in fcurve.keyframe_points:
-                        # multiply the location keyframes by the scale per channel
-                        keyframe_point.co[1] = keyframe_point.co[1] * scale[fcurve.array_index]
-                        keyframe_point.handle_left[1] = keyframe_point.handle_left[1] * scale[fcurve.array_index]
-                        keyframe_point.handle_right[1] = keyframe_point.handle_right[1] * scale[fcurve.array_index]
-
-            # apply the scale on the object
-            apply_transforms(ordered_object, scale=True)
+def get_scene_frame_rate() -> float:
+    """Return the current scene's frame rate in frames per second."""
+    scene = bpy.context.scene
+    if not scene:
+        return 30.0
+    return float(scene.render.fps) / float(scene.render.fps_base or 1.0)
 
 
-def convert_action_rotation_from_quaternion_to_euler(action: bpy.types.Action, bone_names: list[str] | None = None):
-    rotation_curves_by_bone = {}
-    if bone_names is None:
-        bone_names = []
+def load_animation_clip(file_path: Path, match_frame_rate: bool = True) -> FbxAnimationClip:
+    """Read an FBX file into a resampled animation clip.
 
-    if anim_utils:
-        channel_bag = anim_utils.action_ensure_channelbag_for_slot(action, action.slots[0])
-    else:
-        channel_bag = action
+    Args:
+        file_path: Path to the FBX file.
+        match_frame_rate: Resample at the scene's frame rate. When ``False`` the
+            file's own frame rate is used instead.
 
-    if not channel_bag:
-        return
-
-    for fcurve in channel_bag.fcurves:
-        # save the quaternion rotation curves by bone for later conversion
-        if "rotation_quaternion" in fcurve.data_path:
-            bone_name = fcurve.data_path.split('"')[1]
-            # if we have a list of bone names to filter by, skip any that are not in the list
-            if bone_name not in bone_names:
-                continue
-
-            rotation_curves_by_bone[bone_name] = rotation_curves_by_bone.get(bone_name, {})
-            rotation_curves_by_bone[bone_name][fcurve.array_index] = fcurve
-
-    # convert quaternion curves to euler curves
-    for bone_name, quat_curves in rotation_curves_by_bone.items():
-        # collect all frames from all quaternion curves
-        frames = set()
-        for fcurve in quat_curves.values():
-            for keyframe in fcurve.keyframe_points:
-                frames.add(int(keyframe.co[0]))
-
-        # create euler fcurves
-        euler_fcurves = {}
-        for i in range(3):  # x, y, z
-            euler_fcurves[i] = channel_bag.fcurves.new(data_path=f'pose.bones["{bone_name}"].rotation_euler', index=i)
-            euler_fcurves[i].keyframe_points.add(len(frames))
-
-        # convert quaternion values to euler for each frame
-        for frame_index, frame in enumerate(sorted(frames)):
-            quat_values = [1.0, 0.0, 0.0, 0.0]  # w, x, y, z
-            for axis, fcurve in quat_curves.items():
-                quat_values[axis] = fcurve.evaluate(frame)
-
-            # convert quaternion to euler
-            quat = Quaternion(quat_values)
-            euler = quat.to_euler("XYZ")
-
-            # set euler keyframe values
-            for i, value in enumerate([euler.x, euler.y, euler.z]):
-                euler_fcurves[i].keyframe_points[frame_index].co = (frame, value)
-
-        # remove original quaternion curves
-        for fcurve in quat_curves.values():
-            channel_bag.fcurves.remove(fcurve)
+    Returns:
+        The loaded clip, already sampled onto whole frames.
+    """
+    frame_rate = get_scene_frame_rate() if match_frame_rate else None
+    return load_fbx_animation(file_path, frame_rate=frame_rate)
 
 
-def import_action_from_fbx(  # noqa: PLR0912, PLR0915
+def validate_animation_clip(
+    clip: FbxAnimationClip,
+    armature: bpy.types.Object,
+    component: str,
+    is_face_board: bool = False,
+) -> ValidationReport:
+    """Check that a clip's nodes match the bones of the rig it will be written to.
+
+    Args:
+        clip: The loaded animation.
+        armature: The target armature object.
+        component: Label for the target used in messages.
+        is_face_board: Validate against face board controls rather than a skeleton.
+
+    Returns:
+        The validation report.
+    """
+    bone_names = [bone.name for bone in armature.pose.bones] if armature.pose else []
+    if is_face_board:
+        controls = [name for name in bone_names if name not in FACE_BOARD_EXCLUDED_CONTROLS]
+        return validate_face_board_animation(clip.node_names, controls)
+    return validate_skeleton_animation(clip.node_names, bone_names, component=component)
+
+
+def import_action_from_fbx(
     instance: "RigInstance",
     file_path: Path,
     component: ComponentType,
     armature: bpy.types.Object,
     include_only_bones: list[str] | None = None,
-    round_sub_frames: bool = True,
+    round_sub_frames: bool = True,  # noqa: ARG001
     match_frame_rate: bool = True,
     prefix_instance_name: bool = True,
     prefix_component_name: bool = True,
+    clip: FbxAnimationClip | None = None,
 ) -> bpy.types.Action:
+    """Import a skeletal animation from an FBX file onto a component's armature.
+
+    Args:
+        instance: The rig instance the armature belongs to.
+        file_path: Path to the FBX file.
+        component: Which component the animation is for.
+        armature: The target armature object.
+        include_only_bones: Only write these bones when given.
+        round_sub_frames: Unused; resampling always lands on whole frames.
+        match_frame_rate: Resample at the scene frame rate rather than the file's.
+        prefix_instance_name: Prefix the action name with the instance name.
+        prefix_component_name: Prefix the action name with the component name.
+        clip: An already loaded clip, to avoid reading the file twice.
+
+    Returns:
+        The created Action, assigned to the armature.
+    """
     file_path = Path(file_path)
 
     action_name = get_action_name(
@@ -216,137 +166,45 @@ def import_action_from_fbx(  # noqa: PLR0912, PLR0915
         component=component,
     )
 
-    # remove the action if it already exists
-    new_action = bpy.data.actions.get(action_name)
-    if new_action:
-        bpy.data.actions.remove(new_action)
-    new_action = bpy.data.actions.new(name=action_name)
+    include_bones = set(include_only_bones) if include_only_bones else None
+    if clip is None:
+        clip = load_animation_clip(file_path, match_frame_rate=match_frame_rate)
 
-    if anim_utils:
-        if len(new_action.slots) == 0:
-            new_action.slots.new("OBJECT", name=armature.name)
-        new_channel_bag = anim_utils.action_ensure_channelbag_for_slot(new_action, new_action.slots[0])
-    else:
-        new_channel_bag = new_action
+    action = ensure_action(action_name)
+    written = write_skeleton_animation(clip, armature, action, include_bones=include_bones)
+    if not written:
+        logger.warning(f"No bones in '{armature.name}' matched any node in {file_path.name}.")
 
-    if not new_channel_bag or not bpy.context.scene:
-        return new_action
-
-    # remember the current actions and objects
-    current_actions = list(bpy.data.actions)
-    current_objects = list(bpy.data.objects)
-    # remember the current frame rate
-    current_frame_rate = bpy.context.scene.render.fps
-    # then import the fbx
-    bpy.ops.import_scene.fbx(filepath=str(file_path))
-
-    # apply the scale fixes since this was exported from unreal at 100x scale
-    imported_objects = [obj for obj in bpy.data.objects if obj not in current_objects]
-    imported_actions = [action for action in bpy.data.actions if action not in current_actions]
-    scale_object_actions(unordered_objects=imported_objects, actions=imported_actions, scale_factor=SCALE_FACTOR)
-    remove_object_scale_keyframes(actions=imported_actions)
-
-    # get the frame rate of the imported fbx
-    imported_frame_rate = bpy.context.scene.render.fps
-    # calculate the frame scale factor
-    if match_frame_rate:
-        frame_scale_factor = current_frame_rate / imported_frame_rate
-    else:
-        frame_scale_factor = 1.0
-    # restore the original frame rate
-    bpy.context.scene.render.fps = current_frame_rate
-
-    # copy all the fcurves from the imported action to the new one
-    for action in bpy.data.actions:
-        if action in current_actions:
-            continue
-
-        if anim_utils:
-            channel_bag = anim_utils.action_ensure_channelbag_for_slot(action, action.slots[0])
-        else:
-            channel_bag = action
-
-        if not channel_bag:
-            continue
-
-        for source_fcurve in channel_bag.fcurves:
-            bone_name = None
-            curve_name = None
-
-            if len(source_fcurve.data_path.split('"')) > 1:
-                bone_name = source_fcurve.data_path.split('"')[1]
-                curve_name = source_fcurve.data_path.split(".")[-1]
-            # object level transforms are mapped to the root bone
-            elif source_fcurve.data_path in {"location", "rotation_euler", "rotation_quaternion", "scale"}:
-                bone_name = "root"
-                curve_name = source_fcurve.data_path
-
-            if bone_name and curve_name and armature.pose:
-                if not armature.pose.bones.get(bone_name):
-                    logger.warning(f"Skipping fcurve for unknown bone: {bone_name}")
-                    continue
-
-                if include_only_bones and bone_name not in include_only_bones:
-                    continue
-
-                target_fcurve = new_channel_bag.fcurves.new(
-                    data_path=f'pose.bones["{bone_name}"].{curve_name}', index=source_fcurve.array_index
-                )
-                # then add as many points as keyframes
-                target_fcurve.keyframe_points.add(len(source_fcurve.keyframe_points))
-                # then set all all their values
-                for index, keyframe in enumerate(source_fcurve.keyframe_points):
-                    # Adjust keyframe position based on frame rate scale factor
-                    frame = keyframe.co[0] * frame_scale_factor
-
-                    # optionally round sub frames to the nearest whole frame
-                    if round_sub_frames:
-                        frame = round(frame)
-
-                    target_fcurve.keyframe_points[index].co = (frame, keyframe.co[1])
-                    target_fcurve.keyframe_points[index].interpolation = keyframe.interpolation
-
-    # assign the new action to as the current action of the armature
-    if not armature.animation_data:
-        armature.animation_data_create()
-    if not armature.animation_data:
-        raise RuntimeError("Failed to create animation data for armature.")
-
-    armature.animation_data.action = new_action
-    # assign the first action slot if there are any
-    if new_action.slots:
-        armature.animation_data.action_slot = new_action.slots[0]
-
-    # remove the imported actions
-    for action in bpy.data.actions:
-        if action not in current_actions:
-            bpy.data.actions.remove(action, do_unlink=True)
-
-    # remove the imported objects
-    for scene_object in bpy.data.objects:
-        if scene_object not in current_objects:
-            bpy.data.objects.remove(scene_object, do_unlink=True)
-
-    if armature.pose:
-        # match the keyframe rotation modes to the armature bones (all rotation is imported as quaternion)
-        euler_bone_names = [b.name for b in armature.pose.bones if b.rotation_mode == "XYZ"]
-        convert_action_rotation_from_quaternion_to_euler(action=new_action, bone_names=euler_bone_names)
-
-    return new_action
+    assign_action(armature, action)
+    return action
 
 
-def import_face_board_action_from_fbx(  # noqa: PLR0912
+def import_face_board_action_from_fbx(
     instance: "RigInstance",
     file_path: Path,
     armature: bpy.types.Object,
-    round_sub_frames: bool = True,
+    round_sub_frames: bool = True,  # noqa: ARG001
     match_frame_rate: bool = True,
     prefix_instance_name: bool = True,
     prefix_component_name: bool = True,
-):
+    clip: FbxAnimationClip | None = None,
+) -> bpy.types.Action:
+    """Import a face board animation from an FBX file onto the face board armature.
+
+    Args:
+        instance: The rig instance the face board belongs to.
+        file_path: Path to the FBX file.
+        armature: The face board armature object.
+        round_sub_frames: Unused; resampling always lands on whole frames.
+        match_frame_rate: Resample at the scene frame rate rather than the file's.
+        prefix_instance_name: Prefix the action name with the instance name.
+        prefix_component_name: Prefix the action name with the component name.
+        clip: An already loaded clip, to avoid reading the file twice.
+
+    Returns:
+        The created Action, assigned to the face board.
+    """
     file_path = Path(file_path)
-    if not bpy.context.scene:
-        return
 
     action_name = get_action_name(
         instance=instance,
@@ -356,98 +214,16 @@ def import_face_board_action_from_fbx(  # noqa: PLR0912
         component="face_board",  # type: ignore[arg-type]
     )
 
-    # remove the action if it already exists
-    face_board_action = bpy.data.actions.get(action_name)
-    if face_board_action:
-        bpy.data.actions.remove(face_board_action)
-    face_board_action = bpy.data.actions.new(name=action_name)
+    if clip is None:
+        clip = load_animation_clip(file_path, match_frame_rate=match_frame_rate)
 
-    if anim_utils:
-        if len(face_board_action.slots) == 0:
-            face_board_action.slots.new("OBJECT", name=armature.name)
-        face_board_channel_bag = anim_utils.action_ensure_channelbag_for_slot(
-            face_board_action, face_board_action.slots[0]
-        )
-    else:
-        face_board_channel_bag = face_board_action
+    action = ensure_action(action_name)
+    written = write_face_board_animation(clip, armature, action, exclude_bones=FACE_BOARD_EXCLUDED_CONTROLS)
+    if not written:
+        logger.warning(f"No face board controls matched any node in {file_path.name}.")
 
-    # remember the current actions and objects
-    current_actions = list(bpy.data.actions)
-    current_objects = list(bpy.data.objects)
-    # remember the current frame rate
-    current_frame_rate = bpy.context.scene.render.fps
-    # then import the fbx
-    bpy.ops.import_scene.fbx(filepath=str(file_path))
-    # get the frame rate of the imported fbx
-    imported_frame_rate = bpy.context.scene.render.fps
-    # calculate the frame scale factor
-    if match_frame_rate:
-        frame_scale_factor = current_frame_rate / imported_frame_rate
-    else:
-        frame_scale_factor = 1.0
-    # restore the original frame rate
-    bpy.context.scene.render.fps = current_frame_rate
-
-    # copy all the fcurves from the imported action to the new one
-    for action in bpy.data.actions:
-        if action in current_actions:
-            continue
-
-        curve_name = action.name.split(".")[0]
-        # skip the face board action, only import controls
-        if curve_name == action.name:
-            continue
-
-        # TODO: Change this to actually support these?
-        # skip any eye aim controls
-        if curve_name in EYE_AIM_BONES + FACE_BOARD_SWITCHES:
-            continue
-
-        if anim_utils:
-            channel_bag = anim_utils.action_ensure_channelbag_for_slot(action, action.slots[0])
-        else:
-            channel_bag = action
-
-        if not channel_bag or not face_board_channel_bag:
-            continue
-
-        for source_fcurve in channel_bag.fcurves:
-            target_fcurve = face_board_channel_bag.fcurves.new(
-                data_path=f'pose.bones["{curve_name}"].{source_fcurve.data_path}', index=source_fcurve.array_index
-            )
-            # then add as many points as keyframes
-            target_fcurve.keyframe_points.add(len(source_fcurve.keyframe_points))
-            # then set all all their values
-            for index, keyframe in enumerate(source_fcurve.keyframe_points):
-                # Adjust keyframe position based on frame rate scale factor
-                frame = keyframe.co[0] * frame_scale_factor
-
-                # optionally round sub frames to the nearest whole frame
-                if round_sub_frames:
-                    frame = round(frame)
-
-                target_fcurve.keyframe_points[index].co = (frame, keyframe.co[1])
-                target_fcurve.keyframe_points[index].interpolation = keyframe.interpolation
-
-    # remove the imported objects
-    for scene_object in bpy.data.objects:
-        if scene_object not in current_objects:
-            bpy.data.objects.remove(scene_object)
-    # remove the imported actions
-    for action in bpy.data.actions:
-        if action not in current_actions:
-            bpy.data.actions.remove(action)
-
-    # assign the new action to the face board
-    if not armature.animation_data:
-        armature.animation_data_create()
-    if not armature.animation_data:
-        raise RuntimeError("Failed to create animation data for armature.")
-
-    armature.animation_data.action = face_board_action
-    # assign the first action slot if there are any
-    if face_board_action.slots:
-        armature.animation_data.action_slot = face_board_action.slots[0]
+    assign_action(armature, action)
+    return action
 
 
 def import_face_board_action_from_json(file_path: Path, armature: bpy.types.Object):  # noqa: PLR0912

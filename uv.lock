@@ -2,10 +2,22 @@ version = 1
 revision = 3
 requires-python = ">=3.11, <3.14"
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.13' and platform_machine != 's390x' and sys_platform == 'win32'",
+    "python_full_version >= '3.13' and platform_machine != 's390x' and sys_platform == 'darwin'",
+    "python_full_version >= '3.13' and platform_machine != 's390x' and sys_platform == 'linux'",
+    "python_full_version >= '3.13' and platform_machine != 's390x' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32'",
+    "python_full_version >= '3.13' and platform_machine == 's390x' and sys_platform == 'win32'",
+    "python_full_version >= '3.13' and platform_machine == 's390x' and sys_platform == 'darwin'",
+    "python_full_version >= '3.13' and platform_machine == 's390x' and sys_platform == 'linux'",
+    "python_full_version >= '3.13' and platform_machine == 's390x' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32'",
+    "python_full_version < '3.12' and platform_machine != 's390x' and sys_platform == 'win32'",
+    "python_full_version < '3.12' and platform_machine != 's390x' and sys_platform == 'darwin'",
+    "python_full_version < '3.12' and platform_machine != 's390x' and sys_platform == 'linux'",
+    "(python_full_version == '3.12.*' and platform_machine != 's390x' and sys_platform == 'darwin') or (python_full_version == '3.12.*' and platform_machine != 's390x' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_machine != 's390x' and sys_platform == 'win32') or (python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')",
+    "python_full_version < '3.12' and platform_machine == 's390x' and sys_platform == 'win32'",
+    "python_full_version < '3.12' and platform_machine == 's390x' and sys_platform == 'darwin'",
+    "python_full_version < '3.12' and platform_machine == 's390x' and sys_platform == 'linux'",
+    "(python_full_version == '3.12.*' and platform_machine == 's390x' and sys_platform == 'darwin') or (python_full_version == '3.12.*' and platform_machine == 's390x' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_machine == 's390x' and sys_platform == 'win32') or (python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')",
 ]
 
 [manifest]
@@ -69,8 +81,14 @@ name = "bpy"
 version = "5.0.1"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version < '3.12' and platform_machine != 's390x' and sys_platform == 'win32'",
+    "python_full_version < '3.12' and platform_machine != 's390x' and sys_platform == 'darwin'",
+    "python_full_version < '3.12' and platform_machine != 's390x' and sys_platform == 'linux'",
+    "(python_full_version == '3.12.*' and platform_machine != 's390x' and sys_platform == 'darwin') or (python_full_version == '3.12.*' and platform_machine != 's390x' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_machine != 's390x' and sys_platform == 'win32') or (python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')",
+    "python_full_version < '3.12' and platform_machine == 's390x' and sys_platform == 'win32'",
+    "python_full_version < '3.12' and platform_machine == 's390x' and sys_platform == 'darwin'",
+    "python_full_version < '3.12' and platform_machine == 's390x' and sys_platform == 'linux'",
+    "(python_full_version == '3.12.*' and platform_machine == 's390x' and sys_platform == 'darwin') or (python_full_version == '3.12.*' and platform_machine == 's390x' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_machine == 's390x' and sys_platform == 'win32') or (python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')",
 ]
 dependencies = [
     { name = "cython", marker = "python_full_version < '3.13'" },
@@ -90,8 +108,14 @@ name = "bpy"
 version = "5.2.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.13' and platform_machine != 's390x' and sys_platform == 'win32'",
+    "python_full_version >= '3.13' and platform_machine != 's390x' and sys_platform == 'darwin'",
+    "python_full_version >= '3.13' and platform_machine != 's390x' and sys_platform == 'linux'",
+    "python_full_version >= '3.13' and platform_machine != 's390x' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32'",
+    "python_full_version >= '3.13' and platform_machine == 's390x' and sys_platform == 'win32'",
+    "python_full_version >= '3.13' and platform_machine == 's390x' and sys_platform == 'darwin'",
+    "python_full_version >= '3.13' and platform_machine == 's390x' and sys_platform == 'linux'",
+    "python_full_version >= '3.13' and platform_machine == 's390x' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32'",
 ]
 dependencies = [
     { name = "cattrs", marker = "python_full_version >= '3.13'" },
@@ -216,7 +240,7 @@ wheels = [
 
 [[package]]
 name = "character-dna-addon"
-version = "0.11.3"
+version = "0.12.2"
 source = { editable = "." }
 dependencies = [
     { name = "sentry-sdk" },
@@ -256,6 +280,13 @@ dev = [
     { name = "pytest-cov" },
     { name = "pytest-dotenv" },
     { name = "pytest-html" },
+    { name = "pyufbx", version = "0.0.0", source = { path = "src/addons/character_dna/wheels/pyufbx-0.0.0-cp311-cp311-macosx_11_0_arm64.whl" }, marker = "python_full_version < '3.12' and sys_platform == 'darwin'" },
+    { name = "pyufbx", version = "0.0.0", source = { path = "src/addons/character_dna/wheels/pyufbx-0.0.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_28_x86_64.whl" }, marker = "python_full_version < '3.12' and sys_platform == 'linux'" },
+    { name = "pyufbx", version = "0.0.0", source = { path = "src/addons/character_dna/wheels/pyufbx-0.0.0-cp311-cp311-win_amd64.whl" }, marker = "python_full_version < '3.12' and sys_platform == 'win32'" },
+    { name = "pyufbx", version = "0.0.0", source = { path = "src/addons/character_dna/wheels/pyufbx-0.0.0-cp313-cp313-macosx_11_0_arm64.whl" }, marker = "python_full_version >= '3.13' and sys_platform == 'darwin'" },
+    { name = "pyufbx", version = "0.0.0", source = { path = "src/addons/character_dna/wheels/pyufbx-0.0.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_28_x86_64.whl" }, marker = "python_full_version >= '3.13' and sys_platform == 'linux'" },
+    { name = "pyufbx", version = "0.0.0", source = { path = "src/addons/character_dna/wheels/pyufbx-0.0.0-cp313-cp313-win_amd64.whl" }, marker = "python_full_version >= '3.13' and sys_platform == 'win32'" },
+    { name = "pyufbx", version = "0.0.7", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version == '3.12.*' and sys_platform == 'darwin') or (python_full_version == '3.12.*' and sys_platform == 'linux') or (python_full_version == '3.12.*' and sys_platform == 'win32') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')" },
     { name = "ruff" },
 ]
 
@@ -293,6 +324,13 @@ dev = [
     { name = "pytest-cov", specifier = ">=6.0.0" },
     { name = "pytest-dotenv", specifier = ">=0.5.2" },
     { name = "pytest-html", specifier = ">=4.1.1" },
+    { name = "pyufbx", marker = "(python_full_version < '3.11' and sys_platform == 'darwin') or (python_full_version == '3.12.*' and sys_platform == 'darwin') or (python_full_version >= '3.14' and sys_platform == 'darwin') or (python_full_version < '3.11' and sys_platform == 'linux') or (python_full_version == '3.12.*' and sys_platform == 'linux') or (python_full_version >= '3.14' and sys_platform == 'linux') or (python_full_version < '3.11' and sys_platform == 'win32') or (python_full_version == '3.12.*' and sys_platform == 'win32') or (python_full_version >= '3.14' and sys_platform == 'win32') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')" },
+    { name = "pyufbx", marker = "python_full_version == '3.11.*' and sys_platform == 'darwin'", path = "src/addons/character_dna/wheels/pyufbx-0.0.0-cp311-cp311-macosx_11_0_arm64.whl" },
+    { name = "pyufbx", marker = "python_full_version == '3.13.*' and sys_platform == 'darwin'", path = "src/addons/character_dna/wheels/pyufbx-0.0.0-cp313-cp313-macosx_11_0_arm64.whl" },
+    { name = "pyufbx", marker = "python_full_version == '3.11.*' and sys_platform == 'linux'", path = "src/addons/character_dna/wheels/pyufbx-0.0.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_28_x86_64.whl" },
+    { name = "pyufbx", marker = "python_full_version == '3.13.*' and sys_platform == 'linux'", path = "src/addons/character_dna/wheels/pyufbx-0.0.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_28_x86_64.whl" },
+    { name = "pyufbx", marker = "python_full_version == '3.11.*' and sys_platform == 'win32'", path = "src/addons/character_dna/wheels/pyufbx-0.0.0-cp311-cp311-win_amd64.whl" },
+    { name = "pyufbx", marker = "python_full_version == '3.13.*' and sys_platform == 'win32'", path = "src/addons/character_dna/wheels/pyufbx-0.0.0-cp313-cp313-win_amd64.whl" },
     { name = "ruff", specifier = ">=0.8.0" },
 ]
 
@@ -882,8 +920,14 @@ name = "numpy"
 version = "1.26.4"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version < '3.13' and platform_machine != 's390x'",
-    "python_full_version < '3.13' and platform_machine == 's390x'",
+    "python_full_version < '3.12' and platform_machine != 's390x' and sys_platform == 'win32'",
+    "python_full_version < '3.12' and platform_machine != 's390x' and sys_platform == 'darwin'",
+    "python_full_version < '3.12' and platform_machine != 's390x' and sys_platform == 'linux'",
+    "(python_full_version == '3.12.*' and platform_machine != 's390x' and sys_platform == 'darwin') or (python_full_version == '3.12.*' and platform_machine != 's390x' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_machine != 's390x' and sys_platform == 'win32') or (python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')",
+    "python_full_version < '3.12' and platform_machine == 's390x' and sys_platform == 'win32'",
+    "python_full_version < '3.12' and platform_machine == 's390x' and sys_platform == 'darwin'",
+    "python_full_version < '3.12' and platform_machine == 's390x' and sys_platform == 'linux'",
+    "(python_full_version == '3.12.*' and platform_machine == 's390x' and sys_platform == 'darwin') or (python_full_version == '3.12.*' and platform_machine == 's390x' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_machine == 's390x' and sys_platform == 'win32') or (python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/65/6e/09db70a523a96d25e115e71cc56a6f9031e7b8cd166c1ac8438307c14058/numpy-1.26.4.tar.gz", hash = "sha256:2a02aba9ed12e4ac4eb3ea9421c420301a0c6460d9830d74a9df87efa4912010", size = 15786129, upload-time = "2024-02-06T00:26:44.495Z" }
 wheels = [
@@ -910,8 +954,14 @@ name = "numpy"
 version = "2.3.4"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13' and platform_machine != 's390x'",
-    "python_full_version >= '3.13' and platform_machine == 's390x'",
+    "python_full_version >= '3.13' and platform_machine != 's390x' and sys_platform == 'win32'",
+    "python_full_version >= '3.13' and platform_machine != 's390x' and sys_platform == 'darwin'",
+    "python_full_version >= '3.13' and platform_machine != 's390x' and sys_platform == 'linux'",
+    "python_full_version >= '3.13' and platform_machine != 's390x' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32'",
+    "python_full_version >= '3.13' and platform_machine == 's390x' and sys_platform == 'win32'",
+    "python_full_version >= '3.13' and platform_machine == 's390x' and sys_platform == 'darwin'",
+    "python_full_version >= '3.13' and platform_machine == 's390x' and sys_platform == 'linux'",
+    "python_full_version >= '3.13' and platform_machine == 's390x' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/b5/f4/098d2270d52b41f1bd7db9fc288aaa0400cb48c2a3e2af6fa365d9720947/numpy-2.3.4.tar.gz", hash = "sha256:a7d018bfedb375a8d979ac758b120ba846a7fe764911a64465fd87b8729f4a6a", size = 20582187, upload-time = "2025-10-15T16:18:11.77Z" }
 wheels = [
@@ -1300,6 +1350,130 @@ sdist = { url = "https://files.pythonhosted.org/packages/82/ed/0301aeeac3e5353ef
 wheels = [
     { url = "https://files.pythonhosted.org/packages/0b/d7/1959b9648791274998a9c3526f6d0ec8fd2233e4d4acce81bbae76b44b2a/python_dotenv-1.2.2-py3-none-any.whl", hash = "sha256:1d8214789a24de455a8b8bd8ae6fe3c6b69a5e3d64aa8a8e5d68e694bbcb285a", size = 22101, upload-time = "2026-03-01T16:00:25.09Z" },
 ]
+
+[[package]]
+name = "pyufbx"
+version = "0.0.0"
+source = { path = "src/addons/character_dna/wheels/pyufbx-0.0.0-cp311-cp311-macosx_11_0_arm64.whl" }
+resolution-markers = [
+    "python_full_version < '3.12' and platform_machine != 's390x' and sys_platform == 'darwin'",
+    "python_full_version < '3.12' and platform_machine == 's390x' and sys_platform == 'darwin'",
+]
+dependencies = [
+    { name = "numpy", version = "1.26.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' and sys_platform == 'darwin'" },
+]
+wheels = [
+    { filename = "pyufbx-0.0.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:42e8c292f77cca0e06ece266025f3ca50d3864242700f2622718b7c8511da002" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "numpy", specifier = ">=1.20.0" }]
+
+[[package]]
+name = "pyufbx"
+version = "0.0.0"
+source = { path = "src/addons/character_dna/wheels/pyufbx-0.0.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_28_x86_64.whl" }
+resolution-markers = [
+    "python_full_version < '3.12' and platform_machine != 's390x' and sys_platform == 'linux'",
+    "python_full_version < '3.12' and platform_machine == 's390x' and sys_platform == 'linux'",
+]
+dependencies = [
+    { name = "numpy", version = "1.26.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' and sys_platform == 'linux'" },
+]
+wheels = [
+    { filename = "pyufbx-0.0.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:b2b36e6561e9a658777751254e1a178704e90297dc61d706410d732e07cfa897" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "numpy", specifier = ">=1.20.0" }]
+
+[[package]]
+name = "pyufbx"
+version = "0.0.0"
+source = { path = "src/addons/character_dna/wheels/pyufbx-0.0.0-cp311-cp311-win_amd64.whl" }
+resolution-markers = [
+    "python_full_version < '3.12' and platform_machine != 's390x' and sys_platform == 'win32'",
+    "python_full_version < '3.12' and platform_machine == 's390x' and sys_platform == 'win32'",
+]
+dependencies = [
+    { name = "numpy", version = "1.26.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' and sys_platform == 'win32'" },
+]
+wheels = [
+    { filename = "pyufbx-0.0.0-cp311-cp311-win_amd64.whl", hash = "sha256:6ff9c5e80fe4633358144d51c4d8e0922b5afd684746c71f07e89bbad99ec7c4" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "numpy", specifier = ">=1.20.0" }]
+
+[[package]]
+name = "pyufbx"
+version = "0.0.0"
+source = { path = "src/addons/character_dna/wheels/pyufbx-0.0.0-cp313-cp313-macosx_11_0_arm64.whl" }
+resolution-markers = [
+    "python_full_version >= '3.13' and platform_machine != 's390x' and sys_platform == 'darwin'",
+    "python_full_version >= '3.13' and platform_machine == 's390x' and sys_platform == 'darwin'",
+]
+dependencies = [
+    { name = "numpy", version = "2.3.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13' and sys_platform == 'darwin'" },
+]
+wheels = [
+    { filename = "pyufbx-0.0.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:c9cb0fadc24e8eee673a3faf140aef0d5a4ac48044ef7d90f0c4a7a30f40e4c4" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "numpy", specifier = ">=1.20.0" }]
+
+[[package]]
+name = "pyufbx"
+version = "0.0.0"
+source = { path = "src/addons/character_dna/wheels/pyufbx-0.0.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_28_x86_64.whl" }
+resolution-markers = [
+    "python_full_version >= '3.13' and platform_machine != 's390x' and sys_platform == 'linux'",
+    "python_full_version >= '3.13' and platform_machine == 's390x' and sys_platform == 'linux'",
+]
+dependencies = [
+    { name = "numpy", version = "2.3.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13' and sys_platform == 'linux'" },
+]
+wheels = [
+    { filename = "pyufbx-0.0.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:af4d56f36826b26e3e6c426c58b368bf0185a738a896d506bc560c0bdef5ca01" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "numpy", specifier = ">=1.20.0" }]
+
+[[package]]
+name = "pyufbx"
+version = "0.0.0"
+source = { path = "src/addons/character_dna/wheels/pyufbx-0.0.0-cp313-cp313-win_amd64.whl" }
+resolution-markers = [
+    "python_full_version >= '3.13' and platform_machine != 's390x' and sys_platform == 'win32'",
+    "python_full_version >= '3.13' and platform_machine == 's390x' and sys_platform == 'win32'",
+]
+dependencies = [
+    { name = "numpy", version = "2.3.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13' and sys_platform == 'win32'" },
+]
+wheels = [
+    { filename = "pyufbx-0.0.0-cp313-cp313-win_amd64.whl", hash = "sha256:4c451af8f5b2468b735fc2e1ade94647e31c8965eebf1d52ba7f4876e574d409" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "numpy", specifier = ">=1.20.0" }]
+
+[[package]]
+name = "pyufbx"
+version = "0.0.7"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.13' and platform_machine != 's390x' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32'",
+    "python_full_version >= '3.13' and platform_machine == 's390x' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32'",
+    "(python_full_version == '3.12.*' and platform_machine != 's390x' and sys_platform == 'darwin') or (python_full_version == '3.12.*' and platform_machine != 's390x' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_machine != 's390x' and sys_platform == 'win32') or (python_full_version < '3.13' and platform_machine != 's390x' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')",
+    "(python_full_version == '3.12.*' and platform_machine == 's390x' and sys_platform == 'darwin') or (python_full_version == '3.12.*' and platform_machine == 's390x' and sys_platform == 'linux') or (python_full_version == '3.12.*' and platform_machine == 's390x' and sys_platform == 'win32') or (python_full_version < '3.13' and platform_machine == 's390x' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')",
+]
+dependencies = [
+    { name = "numpy", version = "1.26.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32'" },
+    { name = "numpy", version = "2.3.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4e/b2/288f8affd43ceb15d60f47a17e661671eeec297c8c21fb23db8eff54ed3e/pyufbx-0.0.7.tar.gz", hash = "sha256:aabe7cb568f538719c5b7d3efc19f0f578678f99c1e5b3d52689bfc9a15e0e4b", size = 677958, upload-time = "2026-01-26T15:34:30.921Z" }
 
 [[package]]
 name = "pyyaml"

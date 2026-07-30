@@ -97,7 +97,7 @@ class DNACalibrator(DNAExporter, DNAImporter):
                     head_to_body_edge_loop_mapping=head_to_body_edge_loop_mapping,
                 )
 
-                real_name = mesh_object.name.replace(f"{self._instance.name}_", "")
+                real_name = utilities.remove_instance_prefix(mesh_object.name, self._instance.name)
                 logger.info(f'Calibrating "{real_name}" vertex positions...')
                 mesh_index = mesh_index_lookup.get(real_name)
 

@@ -20,9 +20,11 @@ from .constants import (
     ToolInfo,
 )
 from .dna_io import DNACalibrator, DNAExporter
+from .fbx.reader import FbxAnimationClip
 from .properties import BlendFileCharacterCollection, CharacterImportProperties
 from .typing import *  # noqa: F403
 from .ui import callbacks, importer
+from .validators import ValidationReport
 
 
 logger = logging.getLogger(__name__)
@@ -35,6 +37,17 @@ class GenericUIListOperator:
     bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
     active_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
+
+    def _resolve_active_index(self, collection: "bpy.types.bpy_prop_collection") -> int | None:
+        """Clamp ``active_index`` into ``collection``, or ``None`` when it is empty.
+
+        The index is passed in as an operator property, so it can be stale or bogus when the
+        operator is run from a keymap, the search menu, or a script rather than the list's buttons.
+        """
+        count = len(collection)
+        if count == 0:
+            return None
+        return max(0, min(self.active_index, count - 1))
 
 
 class GenericProgressQueueOperator(bpy.types.Operator):
@@ -263,7 +276,14 @@ class AppendOrLinkCharacter(bpy.types.Operator, importer.LinkAppendCharacterImpo
                     head_rig_object=instance.head_rig,
                     face_board_object=instance.face_board,
                 )
-                if self.operation_type != "LINK":
+                if self.operation_type == "LINK":
+                    if collection:
+                        utilities.group_face_board_with_linked_collection(
+                            face_board=instance.face_board,
+                            linked_collection=collection,
+                            collection_name=collection_name,
+                        )
+                else:
                     utilities.move_to_collection(
                         scene_objects=[instance.face_board], collection_name=collection_name, exclusively=True
                     )
@@ -286,6 +306,11 @@ class AppendOrLinkCharacter(bpy.types.Operator, importer.LinkAppendCharacterImpo
 
 class ImportAnimationBase(bpy.types.Operator):
     filename_ext = ".fbx"
+
+    # Set by each subclass: the python operator name under ``bpy.ops.character_dna``.
+    # ``bl_idname`` cannot be used because Blender replaces it with the RNA
+    # identifier once the class is registered.
+    import_operator_id = ""
 
     filter_glob: bpy.props.StringProperty(
         default="*.fbx",
@@ -329,9 +354,119 @@ class ImportAnimationBase(bpy.types.Operator):
         ),
     )  # pyright: ignore[reportInvalidTypeForm]
 
+    ignore_validation: bpy.props.BoolProperty(
+        default=False,
+        options={"HIDDEN", "SKIP_SAVE"},
+        description="Import even when the file does not look like it belongs to this rig",
+    )  # pyright: ignore[reportInvalidTypeForm]
+
     @property
     def settings_title(self) -> str:
         return "Animation Import Settings:"
+
+    def load_clip(self, file_path: Path) -> FbxAnimationClip | None:
+        """Read the FBX file, reporting any failure to the user.
+
+        Args:
+            file_path: Path to the FBX file.
+
+        Returns:
+            The loaded clip, or ``None`` when the file could not be read.
+        """
+        try:
+            return utilities.load_animation_clip(file_path, match_frame_rate=self.match_frame_rate)
+        except (FileNotFoundError, ImportError, ValueError) as error:
+            self.report({"ERROR"}, str(error))
+            return None
+
+    def confirm_or_cancel(self, report: ValidationReport, file_path: Path, component_type: str) -> bool:
+        """Surface a validation report, asking the user whether to import anyway.
+
+        Args:
+            report: The validation report for the loaded clip.
+            file_path: Path to the FBX file.
+            component_type: Component the animation is being imported onto.
+
+        Returns:
+            ``True`` when the import should continue.
+        """
+        for warning in report.warnings:
+            logger.warning(warning.message)
+
+        if report.is_valid or self.ignore_validation:
+            return True
+
+        if bpy.app.background:
+            # There is nobody to answer a dialog, so refuse rather than silently
+            # importing the wrong file. Scripts can pass ignore_validation=True.
+            self.report({"ERROR"}, report.summary())
+            return False
+
+        getattr(bpy.ops, ToolInfo.NAME).confirm_animation_import(
+            "INVOKE_DEFAULT",
+            operator_name=self.import_operator_id,
+            filepath=str(file_path),
+            component_type=component_type,
+            message=report.summary(),
+            round_sub_frames=self.round_sub_frames,
+            match_frame_rate=self.match_frame_rate,
+            prefix_instance_name=self.prefix_instance_name,
+            prefix_component_name=self.prefix_component_name,
+        )
+        return False
+
+
+class ConfirmAnimationImport(bpy.types.Operator):
+    """Ask whether to import an animation file that does not appear to match the target rig"""
+
+    bl_idname = f"{ToolInfo.NAME}.confirm_animation_import"
+    bl_label = "This Might Be the Wrong Animation File"
+
+    operator_name: bpy.props.StringProperty(default="")  # pyright: ignore[reportInvalidTypeForm]
+    filepath: bpy.props.StringProperty(default="", subtype="FILE_PATH")  # pyright: ignore[reportInvalidTypeForm]
+    component_type: bpy.props.StringProperty(default="body")  # pyright: ignore[reportInvalidTypeForm]
+    message: bpy.props.StringProperty(default="")  # pyright: ignore[reportInvalidTypeForm]
+    round_sub_frames: bpy.props.BoolProperty(default=True)  # pyright: ignore[reportInvalidTypeForm]
+    match_frame_rate: bpy.props.BoolProperty(default=True)  # pyright: ignore[reportInvalidTypeForm]
+    prefix_instance_name: bpy.props.BoolProperty(default=True)  # pyright: ignore[reportInvalidTypeForm]
+    prefix_component_name: bpy.props.BoolProperty(default=True)  # pyright: ignore[reportInvalidTypeForm]
+
+    def execute(self, context: "Context") -> set[str]:
+        operator = getattr(getattr(bpy.ops, ToolInfo.NAME), self.operator_name, None)
+        if not operator:
+            self.report({"ERROR"}, f"Unknown import operator: {self.operator_name}")
+            return {"CANCELLED"}
+
+        keywords = {
+            "filepath": self.filepath,
+            "round_sub_frames": self.round_sub_frames,
+            "match_frame_rate": self.match_frame_rate,
+            "prefix_instance_name": self.prefix_instance_name,
+            "prefix_component_name": self.prefix_component_name,
+            "ignore_validation": True,
+        }
+        if self.operator_name == "import_component_animation":
+            keywords["component_type"] = self.component_type
+
+        return operator("EXEC_DEFAULT", **keywords)
+
+    def invoke(self, context: "Context", event: bpy.types.Event) -> set[str] | None:
+        wm = context.window_manager
+        if not wm:
+            return None
+        return wm.invoke_props_dialog(self, confirm_text="Import Anyway", cancel_default=True, width=500)  # type: ignore[return-value]
+
+    def draw(self, context: "Context"):
+        if not self.layout:
+            return
+
+        row = self.layout.row()
+        row.scale_y = 1.5
+        row.label(text=f"{Path(self.filepath).name} might not be {self.component_type} animation.")
+        for line in self.message.split("\n"):
+            row = self.layout.row()
+            row.alert = True
+            row.label(text=line)
 
 
 class ImportFaceBoardAnimation(ImportAnimationBase, importer.ImportAnimation):
@@ -339,31 +474,43 @@ class ImportFaceBoardAnimation(ImportAnimationBase, importer.ImportAnimation):
 
     bl_idname = f"{ToolInfo.NAME}.import_face_board_animation"
     bl_label = "Import"
+    import_operator_id = "import_face_board_animation"
 
     @property
     def settings_title(self) -> str:
         return "Face Board Animation Import Settings:"
 
     def execute(self, context: "Context") -> set[str]:
-        file_path = self.filepath  # type: ignore[attr-defined]
+        file_path = Path(bpy.path.abspath(self.filepath))  # type: ignore[attr-defined]
         logger.info(f"Importing animation {file_path}")
         head = utilities.get_active_head()
+        if not head:
+            self.report({"ERROR"}, "No active head found")
+            return {"CANCELLED"}
 
-        if head:
-            if not head.face_board_object:
-                self.report({"ERROR"}, "No face board object found for the active head")
-                return {"CANCELLED"}
+        if not head.face_board_object:
+            self.report({"ERROR"}, "No face board object found for the active head")
+            return {"CANCELLED"}
 
-            head.import_action(
-                Path(file_path),
-                is_face_board=True,
-                round_sub_frames=self.round_sub_frames,
-                match_frame_rate=self.match_frame_rate,
-                prefix_instance_name=self.prefix_instance_name,
-                prefix_component_name=self.prefix_component_name,
-            )
-            utilities.switch_to_pose_mode(head.face_board_object)
-            self.report({"INFO"}, f"Imported face board animation from {file_path}")
+        clip = self.load_clip(file_path)
+        if clip is None:
+            return {"CANCELLED"}
+
+        report = utilities.validate_animation_clip(clip, head.face_board_object, "face board", is_face_board=True)
+        if not self.confirm_or_cancel(report, file_path, "face board"):
+            return {"CANCELLED"}
+
+        head.import_action(
+            file_path,
+            is_face_board=True,
+            round_sub_frames=self.round_sub_frames,
+            match_frame_rate=self.match_frame_rate,
+            prefix_instance_name=self.prefix_instance_name,
+            prefix_component_name=self.prefix_component_name,
+            clip=clip,
+        )
+        utilities.switch_to_pose_mode(head.face_board_object)
+        self.report({"INFO"}, f"Imported face board animation from {file_path}")
         return {"FINISHED"}
 
 
@@ -372,6 +519,7 @@ class ImportComponentAnimation(ImportAnimationBase, importer.ImportAnimation):
 
     bl_idname = f"{ToolInfo.NAME}.import_component_animation"
     bl_label = "Import"
+    import_operator_id = "import_component_animation"
 
     component_type: bpy.props.StringProperty(default="body")  # pyright: ignore[reportInvalidTypeForm]
 
@@ -382,36 +530,73 @@ class ImportComponentAnimation(ImportAnimationBase, importer.ImportAnimation):
     def execute(self, context: "Context") -> set[str]:
         file_path = Path(bpy.path.abspath(self.filepath))  # type: ignore[attr-defined]
         logger.info(f"Importing animation {file_path}")
+
         if self.component_type == "head":
-            head = utilities.get_active_head()
-            if head:
-                head.import_action(
-                    file_path,
-                    is_face_board=False,
-                    round_sub_frames=self.round_sub_frames,
-                    match_frame_rate=self.match_frame_rate,
-                    prefix_instance_name=self.prefix_instance_name,
-                    prefix_component_name=self.prefix_component_name,
-                )
-
+            result = self._import_head(file_path)
         elif self.component_type == "body":
-            body = utilities.get_active_body()
-            if body:
-                if not body.body_rig_object:
-                    self.report({"ERROR"}, "No body rig object found for the active body")
-                    return {"CANCELLED"}
+            result = self._import_body(file_path)
+        else:
+            self.report({"ERROR"}, f"Unknown component type: {self.component_type}")
+            return {"CANCELLED"}
 
-                body.import_action(
-                    file_path,
-                    round_sub_frames=self.round_sub_frames,
-                    match_frame_rate=self.match_frame_rate,
-                    prefix_instance_name=self.prefix_instance_name,
-                    prefix_component_name=self.prefix_component_name,
-                )
-                utilities.switch_to_pose_mode(body.body_rig_object)
+        if result == {"FINISHED"}:
+            self.report({"INFO"}, f"Imported {self.component_type} animation from {file_path}")
+        return result
 
-        self.report({"INFO"}, f"Imported {self.component_type} animation from {file_path}")
+    def _import_head(self, file_path: Path) -> set[str]:
+        head = utilities.get_active_head()
+        if not head:
+            self.report({"ERROR"}, "No active head found")
+            return {"CANCELLED"}
+        if not head.head_rig_object:
+            self.report({"ERROR"}, "No head rig object found for the active head")
+            return {"CANCELLED"}
 
+        clip = self.load_clip(file_path)
+        if clip is None:
+            return {"CANCELLED"}
+
+        report = utilities.validate_animation_clip(clip, head.head_rig_object, "head")
+        if not self.confirm_or_cancel(report, file_path, "head"):
+            return {"CANCELLED"}
+
+        head.import_action(
+            file_path,
+            is_face_board=False,
+            round_sub_frames=self.round_sub_frames,
+            match_frame_rate=self.match_frame_rate,
+            prefix_instance_name=self.prefix_instance_name,
+            prefix_component_name=self.prefix_component_name,
+            clip=clip,
+        )
+        return {"FINISHED"}
+
+    def _import_body(self, file_path: Path) -> set[str]:
+        body = utilities.get_active_body()
+        if not body:
+            self.report({"ERROR"}, "No active body found")
+            return {"CANCELLED"}
+        if not body.body_rig_object:
+            self.report({"ERROR"}, "No body rig object found for the active body")
+            return {"CANCELLED"}
+
+        clip = self.load_clip(file_path)
+        if clip is None:
+            return {"CANCELLED"}
+
+        report = utilities.validate_animation_clip(clip, body.body_rig_object, "body")
+        if not self.confirm_or_cancel(report, file_path, "body"):
+            return {"CANCELLED"}
+
+        body.import_action(
+            file_path,
+            round_sub_frames=self.round_sub_frames,
+            match_frame_rate=self.match_frame_rate,
+            prefix_instance_name=self.prefix_instance_name,
+            prefix_component_name=self.prefix_component_name,
+            clip=clip,
+        )
+        utilities.switch_to_pose_mode(body.body_rig_object)
         return {"FINISHED"}
 
 
@@ -1305,13 +1490,15 @@ class DuplicateRigInstance(bpy.types.Operator):
                         break
                     new_mesh_object = utilities.copy_mesh(
                         mesh_object=mesh_object,
-                        new_mesh_name=mesh_object.name.replace(instance.name, self.new_name),
+                        new_mesh_name=utilities.replace_instance_prefix(mesh_object.name, instance.name, self.new_name),
                         modifiers=False,
                         materials=True,
                     )
                     new_rig_object = utilities.copy_armature(
                         armature_object=rig_object,
-                        new_armature_name=rig_object.name.replace(instance.name, self.new_name),
+                        new_armature_name=utilities.replace_instance_prefix(
+                            rig_object.name, instance.name, self.new_name
+                        ),
                     )
                     # move the new rig to the right collection
                     utilities.move_to_collection(
@@ -1359,7 +1546,9 @@ class DuplicateRigInstance(bpy.types.Operator):
 
                             new_extra_mesh_object = utilities.copy_mesh(
                                 mesh_object=item.scene_object,
-                                new_mesh_name=item.scene_object.name.replace(instance.name, self.new_name),
+                                new_mesh_name=utilities.replace_instance_prefix(
+                                    item.scene_object.name, instance.name, self.new_name
+                                ),
                                 modifiers=False,
                                 materials=True,
                             )
@@ -1657,9 +1846,13 @@ class UILIST_RIG_INSTANCE_OT_entry_remove(GenericUIListOperator, bpy.types.Opera
     def execute(self, context: "Context") -> set[str]:
         addon_scene_properties = utilities.get_addon_scene_properties(context)
         my_list = addon_scene_properties.rig_instance_list
+        active_index = self._resolve_active_index(my_list)
+        if active_index is None:
+            self.report({"WARNING"}, "There is no rig instance to remove")
+            return {"CANCELLED"}
 
         if self.delete_associated_data:
-            instance = addon_scene_properties.rig_instance_list[self.active_index]
+            instance = my_list[active_index]
             for component_type in ["body", "head"]:
                 for item in getattr(instance.output, f"{component_type}_item_list"):
                     if item.scene_object:
@@ -1675,8 +1868,8 @@ class UILIST_RIG_INSTANCE_OT_entry_remove(GenericUIListOperator, bpy.types.Opera
                     if collection:
                         bpy.data.collections.remove(collection, do_unlink=True)
 
-        my_list.remove(self.active_index)
-        to_index = min(self.active_index, len(my_list) - 1)
+        my_list.remove(active_index)
+        to_index = min(active_index, len(my_list) - 1)
         addon_scene_properties.rig_instance_list_active_index = to_index
         # notify registered callbacks that a rig instance was removed from the list
         utilities.notify_rig_instances_changed()
@@ -1684,8 +1877,13 @@ class UILIST_RIG_INSTANCE_OT_entry_remove(GenericUIListOperator, bpy.types.Opera
 
     def invoke(self, context: "Context", event: bpy.types.Event) -> set[str] | None:
         addon_scene_properties = utilities.get_addon_scene_properties(context)
-        instance = addon_scene_properties.rig_instance_list[self.active_index]
-        self.instance_name = instance.name if instance else "this instance"
+        my_list = addon_scene_properties.rig_instance_list
+        active_index = self._resolve_active_index(my_list)
+        if active_index is None:
+            self.report({"WARNING"}, "There is no rig instance to remove")
+            return {"CANCELLED"}
+
+        self.instance_name = my_list[active_index].name
         return context.window_manager.invoke_props_dialog(  # type: ignore[return-value]
             self, title=f"Remove: {self.instance_name}", confirm_text="Remove", width=400
         )
@@ -1733,15 +1931,20 @@ class UILIST_RIG_INSTANCE_OT_entry_move(GenericUIListOperator, bpy.types.Operato
     def execute(self, context: "Context") -> set[str]:
         addon_scene_properties = utilities.get_addon_scene_properties(context)
         my_list = addon_scene_properties.rig_instance_list
+        active_index = self._resolve_active_index(my_list)
+        if active_index is None:
+            self.report({"WARNING"}, "There is no rig instance to move")
+            return {"CANCELLED"}
+
         delta = {
             "DOWN": 1,
             "UP": -1,
         }[self.direction]
 
-        to_index = (self.active_index + delta) % len(my_list)
+        to_index = (active_index + delta) % len(my_list)
 
-        from_instance = addon_scene_properties.rig_instance_list[self.active_index]
-        to_instance = addon_scene_properties.rig_instance_list[to_index]
+        from_instance = my_list[active_index]
+        to_instance = my_list[to_index]
 
         if from_instance.body_rig and to_instance.body_rig:
             to_x = to_instance.body_rig.location.x
@@ -1768,6 +1971,6 @@ class UILIST_RIG_INSTANCE_OT_entry_move(GenericUIListOperator, bpy.types.Operato
             to_instance.face_board.location.x += from_x - to_x
             from_instance.face_board.location.x += to_x - from_x
 
-        my_list.move(self.active_index, to_index)
+        my_list.move(active_index, to_index)
         addon_scene_properties.rig_instance_list_active_index = to_index
         return {"FINISHED"}

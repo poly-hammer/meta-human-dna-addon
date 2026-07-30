@@ -1,72 +1,15 @@
 # standard library imports
 import logging
 
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any
-
 # local imports
 from ..rig_definition import RigDefinition, get_rig_definition
 from ..typing import *  # noqa: F403
+from .base import Severity, ValidationReport
 
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_COMPONENT = "head"
-
-
-# ----------------------------------------------------------------------------------------------
-# Validation result types
-# ----------------------------------------------------------------------------------------------
-class Severity(Enum):
-    """Severity level of a validation issue."""
-
-    ERROR = "error"
-    WARNING = "warning"
-
-
-@dataclass(frozen=True)
-class ValidationIssue:
-    """A single problem found while validating a DNA against a rig definition."""
-
-    code: str
-    severity: Severity
-    message: str
-    expected: Any = None
-    actual: Any = None
-
-
-@dataclass
-class ValidationReport:
-    """The collected result of validating a DNA against a rig definition."""
-
-    db_name: str
-    issues: list[ValidationIssue] = field(default_factory=list)
-
-    def add(
-        self,
-        code: str,
-        severity: Severity,
-        message: str,
-        expected: Any = None,
-        actual: Any = None,
-    ) -> None:
-        self.issues.append(
-            ValidationIssue(code=code, severity=severity, message=message, expected=expected, actual=actual)
-        )
-
-    @property
-    def errors(self) -> list[ValidationIssue]:
-        return [issue for issue in self.issues if issue.severity is Severity.ERROR]
-
-    @property
-    def warnings(self) -> list[ValidationIssue]:
-        return [issue for issue in self.issues if issue.severity is Severity.WARNING]
-
-    @property
-    def is_valid(self) -> bool:
-        """``True`` when there are no error-severity issues."""
-        return not self.errors
 
 
 # ----------------------------------------------------------------------------------------------

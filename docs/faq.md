@@ -19,9 +19,6 @@ Check these in order:
 
 Live RigLogic evaluation doesn't run before each frame when rendering. **Bake** the face board animation to keyframes first so the pose bones, shape keys, and mask values are stored on the timeline. See [Animation](./free-features/animation.md).
 
-!!! note
-    It is now possible to disable `Batched Evaluations` in the addon preferences. This is currently experimental. Please report any issues with evaluation in the scene or while rendering with this option on.
-
 ## Still stuck?
 
 Browse or search existing reports and open a new issue here:
