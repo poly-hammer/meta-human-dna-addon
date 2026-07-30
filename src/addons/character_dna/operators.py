@@ -276,7 +276,14 @@ class AppendOrLinkCharacter(bpy.types.Operator, importer.LinkAppendCharacterImpo
                     head_rig_object=instance.head_rig,
                     face_board_object=instance.face_board,
                 )
-                if self.operation_type != "LINK":
+                if self.operation_type == "LINK":
+                    if collection:
+                        utilities.group_face_board_with_linked_collection(
+                            face_board=instance.face_board,
+                            linked_collection=collection,
+                            collection_name=collection_name,
+                        )
+                else:
                     utilities.move_to_collection(
                         scene_objects=[instance.face_board], collection_name=collection_name, exclusively=True
                     )

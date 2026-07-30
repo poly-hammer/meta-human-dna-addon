@@ -552,6 +552,34 @@ def move_to_collection(scene_objects: list[bpy.types.Object], collection_name: s
             collection.objects.link(scene_object)
 
 
+def group_face_board_with_linked_collection(
+    face_board: bpy.types.Object,
+    linked_collection: bpy.types.Collection,
+    collection_name: str,
+) -> None:
+    """Group a local face board together with a library-linked character collection.
+
+    A local object cannot be linked into a library-linked collection, so a local wrapper
+    collection of the same name is created instead and the linked collection is nested
+    under it alongside the face board. Collection names are namespaced per library, so the
+    local wrapper keeps ``collection_name`` rather than gaining a ``.001`` suffix.
+    """
+    scene = bpy.context.scene
+    if not scene:
+        return
+
+    wrapper = bpy.data.collections.new(collection_name)
+    scene.collection.children.link(wrapper)
+
+    if any(child == linked_collection for child in scene.collection.children):
+        scene.collection.children.unlink(linked_collection)
+    wrapper.children.link(linked_collection)
+
+    for user_collection in face_board.users_collection:
+        user_collection.objects.unlink(face_board)
+    wrapper.objects.link(face_board)
+
+
 def set_origin_to_world_center(scene_object: bpy.types.Object):
     switch_to_object_mode()
     # set the active object
@@ -1085,11 +1113,13 @@ def _rig_instance_sources(group: Any, key: str) -> list:
     """Return the list of rig-instance sources held under ``key`` on ``group``."""
     if group is None:
         return []
-    # Registered editions expose the list through the RNA collection; the old
-    # prototype stored it as a plain custom property.
-    if hasattr(group, "bl_rna") and key == "rig_instance_list":
-        return list(group.rig_instance_list)
-    data = group.get(key) if hasattr(group, "get") else None
+    # Registered editions expose the list as an RNA collection, but only when that
+    # edition defines this key -- the old prototype's registered group has no
+    # `rig_instance_list`, so reading it unguarded raises AttributeError. Anything not
+    # exposed through RNA was stored as a plain custom property.
+    data = getattr(group, key, None) if hasattr(group, "bl_rna") else None
+    if data is None and hasattr(group, "get"):
+        data = group.get(key)
     return list(data) if data else []
 
 

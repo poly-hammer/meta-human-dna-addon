@@ -763,6 +763,11 @@ class RigInstance(bpy.types.PropertyGroup):
                     )
                 )
 
+        # An empty plan means no mesh resolved yet (e.g. a renamed or merged head mesh).
+        # Caching it would shadow a later correction for the rest of the session.
+        if not plan:
+            return plan
+
         self.data[self.cache_key("head", "shape_key_apply_plan")] = plan
         return plan
 
