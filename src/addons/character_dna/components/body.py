@@ -12,6 +12,7 @@ from mathutils import Euler, Vector
 
 # local imports
 from .. import utilities
+from ..fbx.reader import FbxAnimationClip
 from ..utilities import exclude_rig_instance_evaluation
 from .base import CharacterComponentBase
 
@@ -28,6 +29,7 @@ class CharacterComponentBody(CharacterComponentBase):
         match_frame_rate: bool = True,
         prefix_instance_name: bool = True,
         prefix_component_name: bool = True,
+        clip: "FbxAnimationClip | None" = None,
     ):
         file_path = Path(file_path)
 
@@ -39,6 +41,11 @@ class CharacterComponentBody(CharacterComponentBase):
                 file_path=file_path,
                 component="body",
                 armature=self.body_rig_object,
+                round_sub_frames=round_sub_frames,
+                match_frame_rate=match_frame_rate,
+                prefix_instance_name=prefix_instance_name,
+                prefix_component_name=prefix_component_name,
+                clip=clip,
                 # include animation only for body that are not driven by rig logic
                 include_only_bones=[
                     b.name

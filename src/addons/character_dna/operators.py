@@ -20,9 +20,11 @@ from .constants import (
     ToolInfo,
 )
 from .dna_io import DNACalibrator, DNAExporter
+from .fbx.reader import FbxAnimationClip
 from .properties import BlendFileCharacterCollection, CharacterImportProperties
 from .typing import *  # noqa: F403
 from .ui import callbacks, importer
+from .validators import ValidationReport
 
 
 logger = logging.getLogger(__name__)
@@ -287,6 +289,11 @@ class AppendOrLinkCharacter(bpy.types.Operator, importer.LinkAppendCharacterImpo
 class ImportAnimationBase(bpy.types.Operator):
     filename_ext = ".fbx"
 
+    # Set by each subclass: the python operator name under ``bpy.ops.character_dna``.
+    # ``bl_idname`` cannot be used because Blender replaces it with the RNA
+    # identifier once the class is registered.
+    import_operator_id = ""
+
     filter_glob: bpy.props.StringProperty(
         default="*.fbx",
         options={"HIDDEN"},
@@ -329,9 +336,119 @@ class ImportAnimationBase(bpy.types.Operator):
         ),
     )  # pyright: ignore[reportInvalidTypeForm]
 
+    ignore_validation: bpy.props.BoolProperty(
+        default=False,
+        options={"HIDDEN", "SKIP_SAVE"},
+        description="Import even when the file does not look like it belongs to this rig",
+    )  # pyright: ignore[reportInvalidTypeForm]
+
     @property
     def settings_title(self) -> str:
         return "Animation Import Settings:"
+
+    def load_clip(self, file_path: Path) -> FbxAnimationClip | None:
+        """Read the FBX file, reporting any failure to the user.
+
+        Args:
+            file_path: Path to the FBX file.
+
+        Returns:
+            The loaded clip, or ``None`` when the file could not be read.
+        """
+        try:
+            return utilities.load_animation_clip(file_path, match_frame_rate=self.match_frame_rate)
+        except (FileNotFoundError, ImportError, ValueError) as error:
+            self.report({"ERROR"}, str(error))
+            return None
+
+    def confirm_or_cancel(self, report: ValidationReport, file_path: Path, component_type: str) -> bool:
+        """Surface a validation report, asking the user whether to import anyway.
+
+        Args:
+            report: The validation report for the loaded clip.
+            file_path: Path to the FBX file.
+            component_type: Component the animation is being imported onto.
+
+        Returns:
+            ``True`` when the import should continue.
+        """
+        for warning in report.warnings:
+            logger.warning(warning.message)
+
+        if report.is_valid or self.ignore_validation:
+            return True
+
+        if bpy.app.background:
+            # There is nobody to answer a dialog, so refuse rather than silently
+            # importing the wrong file. Scripts can pass ignore_validation=True.
+            self.report({"ERROR"}, report.summary())
+            return False
+
+        getattr(bpy.ops, ToolInfo.NAME).confirm_animation_import(
+            "INVOKE_DEFAULT",
+            operator_name=self.import_operator_id,
+            filepath=str(file_path),
+            component_type=component_type,
+            message=report.summary(),
+            round_sub_frames=self.round_sub_frames,
+            match_frame_rate=self.match_frame_rate,
+            prefix_instance_name=self.prefix_instance_name,
+            prefix_component_name=self.prefix_component_name,
+        )
+        return False
+
+
+class ConfirmAnimationImport(bpy.types.Operator):
+    """Ask whether to import an animation file that does not appear to match the target rig"""
+
+    bl_idname = f"{ToolInfo.NAME}.confirm_animation_import"
+    bl_label = "This Might Be the Wrong Animation File"
+
+    operator_name: bpy.props.StringProperty(default="")  # pyright: ignore[reportInvalidTypeForm]
+    filepath: bpy.props.StringProperty(default="", subtype="FILE_PATH")  # pyright: ignore[reportInvalidTypeForm]
+    component_type: bpy.props.StringProperty(default="body")  # pyright: ignore[reportInvalidTypeForm]
+    message: bpy.props.StringProperty(default="")  # pyright: ignore[reportInvalidTypeForm]
+    round_sub_frames: bpy.props.BoolProperty(default=True)  # pyright: ignore[reportInvalidTypeForm]
+    match_frame_rate: bpy.props.BoolProperty(default=True)  # pyright: ignore[reportInvalidTypeForm]
+    prefix_instance_name: bpy.props.BoolProperty(default=True)  # pyright: ignore[reportInvalidTypeForm]
+    prefix_component_name: bpy.props.BoolProperty(default=True)  # pyright: ignore[reportInvalidTypeForm]
+
+    def execute(self, context: "Context") -> set[str]:
+        operator = getattr(getattr(bpy.ops, ToolInfo.NAME), self.operator_name, None)
+        if not operator:
+            self.report({"ERROR"}, f"Unknown import operator: {self.operator_name}")
+            return {"CANCELLED"}
+
+        keywords = {
+            "filepath": self.filepath,
+            "round_sub_frames": self.round_sub_frames,
+            "match_frame_rate": self.match_frame_rate,
+            "prefix_instance_name": self.prefix_instance_name,
+            "prefix_component_name": self.prefix_component_name,
+            "ignore_validation": True,
+        }
+        if self.operator_name == "import_component_animation":
+            keywords["component_type"] = self.component_type
+
+        return operator("EXEC_DEFAULT", **keywords)
+
+    def invoke(self, context: "Context", event: bpy.types.Event) -> set[str] | None:
+        wm = context.window_manager
+        if not wm:
+            return None
+        return wm.invoke_props_dialog(self, confirm_text="Import Anyway", cancel_default=True, width=500)  # type: ignore[return-value]
+
+    def draw(self, context: "Context"):
+        if not self.layout:
+            return
+
+        row = self.layout.row()
+        row.scale_y = 1.5
+        row.label(text=f"{Path(self.filepath).name} might not be {self.component_type} animation.")
+        for line in self.message.split("\n"):
+            row = self.layout.row()
+            row.alert = True
+            row.label(text=line)
 
 
 class ImportFaceBoardAnimation(ImportAnimationBase, importer.ImportAnimation):
@@ -339,31 +456,43 @@ class ImportFaceBoardAnimation(ImportAnimationBase, importer.ImportAnimation):
 
     bl_idname = f"{ToolInfo.NAME}.import_face_board_animation"
     bl_label = "Import"
+    import_operator_id = "import_face_board_animation"
 
     @property
     def settings_title(self) -> str:
         return "Face Board Animation Import Settings:"
 
     def execute(self, context: "Context") -> set[str]:
-        file_path = self.filepath  # type: ignore[attr-defined]
+        file_path = Path(bpy.path.abspath(self.filepath))  # type: ignore[attr-defined]
         logger.info(f"Importing animation {file_path}")
         head = utilities.get_active_head()
+        if not head:
+            self.report({"ERROR"}, "No active head found")
+            return {"CANCELLED"}
 
-        if head:
-            if not head.face_board_object:
-                self.report({"ERROR"}, "No face board object found for the active head")
-                return {"CANCELLED"}
+        if not head.face_board_object:
+            self.report({"ERROR"}, "No face board object found for the active head")
+            return {"CANCELLED"}
 
-            head.import_action(
-                Path(file_path),
-                is_face_board=True,
-                round_sub_frames=self.round_sub_frames,
-                match_frame_rate=self.match_frame_rate,
-                prefix_instance_name=self.prefix_instance_name,
-                prefix_component_name=self.prefix_component_name,
-            )
-            utilities.switch_to_pose_mode(head.face_board_object)
-            self.report({"INFO"}, f"Imported face board animation from {file_path}")
+        clip = self.load_clip(file_path)
+        if clip is None:
+            return {"CANCELLED"}
+
+        report = utilities.validate_animation_clip(clip, head.face_board_object, "face board", is_face_board=True)
+        if not self.confirm_or_cancel(report, file_path, "face board"):
+            return {"CANCELLED"}
+
+        head.import_action(
+            file_path,
+            is_face_board=True,
+            round_sub_frames=self.round_sub_frames,
+            match_frame_rate=self.match_frame_rate,
+            prefix_instance_name=self.prefix_instance_name,
+            prefix_component_name=self.prefix_component_name,
+            clip=clip,
+        )
+        utilities.switch_to_pose_mode(head.face_board_object)
+        self.report({"INFO"}, f"Imported face board animation from {file_path}")
         return {"FINISHED"}
 
 
@@ -372,6 +501,7 @@ class ImportComponentAnimation(ImportAnimationBase, importer.ImportAnimation):
 
     bl_idname = f"{ToolInfo.NAME}.import_component_animation"
     bl_label = "Import"
+    import_operator_id = "import_component_animation"
 
     component_type: bpy.props.StringProperty(default="body")  # pyright: ignore[reportInvalidTypeForm]
 
@@ -382,36 +512,73 @@ class ImportComponentAnimation(ImportAnimationBase, importer.ImportAnimation):
     def execute(self, context: "Context") -> set[str]:
         file_path = Path(bpy.path.abspath(self.filepath))  # type: ignore[attr-defined]
         logger.info(f"Importing animation {file_path}")
+
         if self.component_type == "head":
-            head = utilities.get_active_head()
-            if head:
-                head.import_action(
-                    file_path,
-                    is_face_board=False,
-                    round_sub_frames=self.round_sub_frames,
-                    match_frame_rate=self.match_frame_rate,
-                    prefix_instance_name=self.prefix_instance_name,
-                    prefix_component_name=self.prefix_component_name,
-                )
-
+            result = self._import_head(file_path)
         elif self.component_type == "body":
-            body = utilities.get_active_body()
-            if body:
-                if not body.body_rig_object:
-                    self.report({"ERROR"}, "No body rig object found for the active body")
-                    return {"CANCELLED"}
+            result = self._import_body(file_path)
+        else:
+            self.report({"ERROR"}, f"Unknown component type: {self.component_type}")
+            return {"CANCELLED"}
 
-                body.import_action(
-                    file_path,
-                    round_sub_frames=self.round_sub_frames,
-                    match_frame_rate=self.match_frame_rate,
-                    prefix_instance_name=self.prefix_instance_name,
-                    prefix_component_name=self.prefix_component_name,
-                )
-                utilities.switch_to_pose_mode(body.body_rig_object)
+        if result == {"FINISHED"}:
+            self.report({"INFO"}, f"Imported {self.component_type} animation from {file_path}")
+        return result
 
-        self.report({"INFO"}, f"Imported {self.component_type} animation from {file_path}")
+    def _import_head(self, file_path: Path) -> set[str]:
+        head = utilities.get_active_head()
+        if not head:
+            self.report({"ERROR"}, "No active head found")
+            return {"CANCELLED"}
+        if not head.head_rig_object:
+            self.report({"ERROR"}, "No head rig object found for the active head")
+            return {"CANCELLED"}
 
+        clip = self.load_clip(file_path)
+        if clip is None:
+            return {"CANCELLED"}
+
+        report = utilities.validate_animation_clip(clip, head.head_rig_object, "head")
+        if not self.confirm_or_cancel(report, file_path, "head"):
+            return {"CANCELLED"}
+
+        head.import_action(
+            file_path,
+            is_face_board=False,
+            round_sub_frames=self.round_sub_frames,
+            match_frame_rate=self.match_frame_rate,
+            prefix_instance_name=self.prefix_instance_name,
+            prefix_component_name=self.prefix_component_name,
+            clip=clip,
+        )
+        return {"FINISHED"}
+
+    def _import_body(self, file_path: Path) -> set[str]:
+        body = utilities.get_active_body()
+        if not body:
+            self.report({"ERROR"}, "No active body found")
+            return {"CANCELLED"}
+        if not body.body_rig_object:
+            self.report({"ERROR"}, "No body rig object found for the active body")
+            return {"CANCELLED"}
+
+        clip = self.load_clip(file_path)
+        if clip is None:
+            return {"CANCELLED"}
+
+        report = utilities.validate_animation_clip(clip, body.body_rig_object, "body")
+        if not self.confirm_or_cancel(report, file_path, "body"):
+            return {"CANCELLED"}
+
+        body.import_action(
+            file_path,
+            round_sub_frames=self.round_sub_frames,
+            match_frame_rate=self.match_frame_rate,
+            prefix_instance_name=self.prefix_instance_name,
+            prefix_component_name=self.prefix_component_name,
+            clip=clip,
+        )
+        utilities.switch_to_pose_mode(body.body_rig_object)
         return {"FINISHED"}
 
 
