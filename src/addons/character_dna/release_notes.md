@@ -1,9 +1,11 @@
 ## Minor Changes
 
 * Changed animation import operators to use ufbx bindings for cleaner and more optimized importing of large animations.
+* Removed batched dependency graph evaluations
 
 ## Patch Changes
 
+* Fixed rig instance index error
 *
 
 ## Tests Passing On

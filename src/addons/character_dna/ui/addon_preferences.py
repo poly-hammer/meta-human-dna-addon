@@ -40,16 +40,6 @@ class CharacterDnaPreferences(CharacterAddonProperties, bpy.types.AddonPreferenc
         row = layout.row()
         row.prop(self, "metrics_collection", text="Allow Metrics Collection")
 
-        row = layout.row()
-        row.prop(self, "batched_evaluations", text="Batched Evaluations")
-        if not self.batched_evaluations:
-            row = layout.row()
-            row.label(
-                text="(Experimental) Disabling Batched Evaluations can cause instability and crashes. Please report "
-                "any issues and provide your crash logs.",
-                icon="ERROR",
-            )
-
         # Editor Settings (Pro only). The ``show_pro_features`` toggle lets Pro
         # users preview what the free edition's UI looks like. When the editors
         # submodule is absent (free edition), show a note advertising Pro instead.

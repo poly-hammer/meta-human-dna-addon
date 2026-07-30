@@ -38,6 +38,17 @@ class GenericUIListOperator:
 
     active_index: bpy.props.IntProperty()  # pyright: ignore[reportInvalidTypeForm]
 
+    def _resolve_active_index(self, collection: "bpy.types.bpy_prop_collection") -> int | None:
+        """Clamp ``active_index`` into ``collection``, or ``None`` when it is empty.
+
+        The index is passed in as an operator property, so it can be stale or bogus when the
+        operator is run from a keymap, the search menu, or a script rather than the list's buttons.
+        """
+        count = len(collection)
+        if count == 0:
+            return None
+        return max(0, min(self.active_index, count - 1))
+
 
 class GenericProgressQueueOperator(bpy.types.Operator):
     """
@@ -1828,9 +1839,13 @@ class UILIST_RIG_INSTANCE_OT_entry_remove(GenericUIListOperator, bpy.types.Opera
     def execute(self, context: "Context") -> set[str]:
         addon_scene_properties = utilities.get_addon_scene_properties(context)
         my_list = addon_scene_properties.rig_instance_list
+        active_index = self._resolve_active_index(my_list)
+        if active_index is None:
+            self.report({"WARNING"}, "There is no rig instance to remove")
+            return {"CANCELLED"}
 
         if self.delete_associated_data:
-            instance = addon_scene_properties.rig_instance_list[self.active_index]
+            instance = my_list[active_index]
             for component_type in ["body", "head"]:
                 for item in getattr(instance.output, f"{component_type}_item_list"):
                     if item.scene_object:
@@ -1846,8 +1861,8 @@ class UILIST_RIG_INSTANCE_OT_entry_remove(GenericUIListOperator, bpy.types.Opera
                     if collection:
                         bpy.data.collections.remove(collection, do_unlink=True)
 
-        my_list.remove(self.active_index)
-        to_index = min(self.active_index, len(my_list) - 1)
+        my_list.remove(active_index)
+        to_index = min(active_index, len(my_list) - 1)
         addon_scene_properties.rig_instance_list_active_index = to_index
         # notify registered callbacks that a rig instance was removed from the list
         utilities.notify_rig_instances_changed()
@@ -1855,8 +1870,13 @@ class UILIST_RIG_INSTANCE_OT_entry_remove(GenericUIListOperator, bpy.types.Opera
 
     def invoke(self, context: "Context", event: bpy.types.Event) -> set[str] | None:
         addon_scene_properties = utilities.get_addon_scene_properties(context)
-        instance = addon_scene_properties.rig_instance_list[self.active_index]
-        self.instance_name = instance.name if instance else "this instance"
+        my_list = addon_scene_properties.rig_instance_list
+        active_index = self._resolve_active_index(my_list)
+        if active_index is None:
+            self.report({"WARNING"}, "There is no rig instance to remove")
+            return {"CANCELLED"}
+
+        self.instance_name = my_list[active_index].name
         return context.window_manager.invoke_props_dialog(  # type: ignore[return-value]
             self, title=f"Remove: {self.instance_name}", confirm_text="Remove", width=400
         )
@@ -1904,15 +1924,20 @@ class UILIST_RIG_INSTANCE_OT_entry_move(GenericUIListOperator, bpy.types.Operato
     def execute(self, context: "Context") -> set[str]:
         addon_scene_properties = utilities.get_addon_scene_properties(context)
         my_list = addon_scene_properties.rig_instance_list
+        active_index = self._resolve_active_index(my_list)
+        if active_index is None:
+            self.report({"WARNING"}, "There is no rig instance to move")
+            return {"CANCELLED"}
+
         delta = {
             "DOWN": 1,
             "UP": -1,
         }[self.direction]
 
-        to_index = (self.active_index + delta) % len(my_list)
+        to_index = (active_index + delta) % len(my_list)
 
-        from_instance = addon_scene_properties.rig_instance_list[self.active_index]
-        to_instance = addon_scene_properties.rig_instance_list[to_index]
+        from_instance = my_list[active_index]
+        to_instance = my_list[to_index]
 
         if from_instance.body_rig and to_instance.body_rig:
             to_x = to_instance.body_rig.location.x
@@ -1939,6 +1964,6 @@ class UILIST_RIG_INSTANCE_OT_entry_move(GenericUIListOperator, bpy.types.Operato
             to_instance.face_board.location.x += from_x - to_x
             from_instance.face_board.location.x += to_x - from_x
 
-        my_list.move(self.active_index, to_index)
+        my_list.move(active_index, to_index)
         addon_scene_properties.rig_instance_list_active_index = to_index
         return {"FINISHED"}
