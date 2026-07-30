@@ -189,7 +189,7 @@ def matrix_to_euler(m: np.ndarray, order: str = "XYZ") -> np.ndarray:
 
     Args:
         m: Rotation matrices with shape ``(..., 3, 3)``.
-        order: One of the six Tait-Bryan orders Blender supports.
+        order: One of the six orders Blender supports.
 
     Returns:
         Angles with shape ``(..., 3)`` ordered ``(x, y, z)``.

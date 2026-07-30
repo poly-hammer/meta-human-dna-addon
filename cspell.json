@@ -224,7 +224,18 @@
                 "svd",
                 "vmask",
                 "vidx",
-                "regularizers"
+                "regularizers",
+                "Samuli",
+                "Raivio",
+                "pyufbx",
+                "uuv",
+                "XZY",
+                "YXZ",
+                "YZX",
+                "ZXY",
+                "ZYX",
+                "quats",
+                "interp"
             ]
         },
         {
