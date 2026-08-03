@@ -14,7 +14,7 @@ import logging
 import bpy
 import numpy as np
 
-from ..constants import IS_BLENDER_5
+from ..constants import HAS_ACTION_SLOTS, IS_BLENDER_5
 from .maths import (
     ensure_continuity,
     quat_conjugate,
@@ -25,13 +25,12 @@ from .maths import (
 from .reader import FbxAnimationClip
 
 
-if IS_BLENDER_5:
+if HAS_ACTION_SLOTS:
     from bpy_extras import anim_utils
 else:
     anim_utils = None
 
 logger = logging.getLogger(__name__)
-
 # Blender scenes are 1 based, and Blender's own FBX importer starts takes on frame 1.
 FIRST_FRAME = 1
 
@@ -57,9 +56,54 @@ def ensure_action(name: str, replace: bool = True, id_root: str = "OBJECT") -> b
         bpy.data.actions.remove(existing)
 
     action = bpy.data.actions.new(name=name)
-    if not anim_utils:
+    if not IS_BLENDER_5:
         action.id_root = id_root  # pyright: ignore[reportAttributeAccessIssue]
     return action
+
+
+def ensure_action_channelbag(action: bpy.types.Action, slot: object) -> object:
+    """Return the channelbag for a slot, creating the layer and strip if needed.
+
+    Blender 5.x exposes ``action_ensure_channelbag_for_slot``; 4.5 ships only the
+    non-creating ``action_get_channelbag_for_slot``, so the layer, strip and
+    channelbag have to be built by hand there.
+
+    Args:
+        action: The action that owns the slot.
+        slot: The slot whose channelbag is needed.
+
+    Returns:
+        The slot's channelbag.
+    """
+    ensure = getattr(anim_utils, "action_ensure_channelbag_for_slot", None)
+    if ensure is not None:
+        return ensure(action, slot)
+
+    channelbag = anim_utils.action_get_channelbag_for_slot(action, slot)  # pyright: ignore[reportOptionalMemberAccess]
+    if channelbag is not None:
+        return channelbag
+
+    layer = action.layers[0] if action.layers else action.layers.new("Layer")
+    strip = layer.strips[0] if layer.strips else layer.strips.new(type="KEYFRAME")
+    return strip.channelbags.new(slot)  # pyright: ignore[reportAttributeAccessIssue]
+
+
+def ensure_action_slot(action: bpy.types.Action, name: str, slot_type: str = "OBJECT") -> object | None:
+    """Return the action's first slot, creating one when it has none.
+
+    Args:
+        action: The action to inspect.
+        name: Name for a newly created slot.
+        slot_type: Slot type identifier.
+
+    Returns:
+        The slot, or ``None`` on Blender versions without slotted actions.
+    """
+    if not HAS_ACTION_SLOTS:
+        return None
+    if len(action.slots) == 0:
+        action.slots.new(slot_type, name=name)
+    return action.slots[0]
 
 
 def get_channel_container(
@@ -81,12 +125,10 @@ def get_channel_container(
         The Action itself on Blender 4.5, its channel bag on Blender 5.x, or
         ``None`` if the channel bag could not be created.
     """
-    if not anim_utils:
+    slot = ensure_action_slot(action, id_owner.name, slot_type)
+    if slot is None:
         return action
-
-    if len(action.slots) == 0:
-        action.slots.new(slot_type, name=id_owner.name)
-    return anim_utils.action_ensure_channelbag_for_slot(action, action.slots[0])
+    return ensure_action_channelbag(action, slot)
 
 
 def assign_action(id_owner: bpy.types.Object, action: bpy.types.Action) -> None:
@@ -105,8 +147,10 @@ def assign_action(id_owner: bpy.types.Object, action: bpy.types.Action) -> None:
         raise RuntimeError(f"Failed to create animation data for {id_owner.name}.")
 
     id_owner.animation_data.action = action
-    if action.slots:
-        id_owner.animation_data.action_slot = action.slots[0]
+    slot = ensure_action_slot(action, id_owner.name)
+    # Re-assigning the slot Blender already picked crashes 5.2, so only set a new one.
+    if slot is not None and id_owner.animation_data.action_slot != slot:
+        id_owner.animation_data.action_slot = slot
 
 
 def write_bulk_fcurves(
