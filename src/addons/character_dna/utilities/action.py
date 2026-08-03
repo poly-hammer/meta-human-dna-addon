@@ -11,21 +11,38 @@ from bpy.types import Action  # pyright: ignore[reportUnusedImport]
 from mathutils import Euler, Quaternion, Vector
 
 # local imports
-from ..constants import EYE_AIM_BONES, FACE_BOARD_SWITCHES, IS_BLENDER_5, Axis, ComponentType, ToolInfo
+from ..constants import (
+    EYE_AIM_BONES,
+    FACE_BOARD_SWITCHES,
+    HAS_ACTION_SLOTS,
+    IS_BLENDER_5,
+    Axis,
+    ComponentType,
+    ToolInfo,
+)
 from ..fbx.reader import FbxAnimationClip, load_fbx_animation
-from ..fbx.writer import assign_action, ensure_action, write_face_board_animation, write_skeleton_animation
+from ..fbx.writer import (
+    assign_action,
+    ensure_action,
+    ensure_action_channelbag,
+    ensure_action_slot,
+    write_face_board_animation,
+    write_skeleton_animation,
+)
 from ..typing import *  # noqa: F403
 from ..validators import ValidationReport, validate_face_board_animation, validate_skeleton_animation
 from .armature import get_pose_bone_local_transform
 
 
-# blender 4.5 and 5.0 support
-if IS_BLENDER_5:
-    from bpy_extras import anim_utils
-else:
-    anim_utils = None
-
 logger = logging.getLogger(__name__)
+
+
+def get_channel_bag(action: bpy.types.Action, name: str, slot_type: str = "OBJECT") -> object:
+    """Return the container that owns an action's fcurves on any supported version."""
+    slot = ensure_action_slot(action, name, slot_type)
+    if slot is None:
+        return action
+    return ensure_action_channelbag(action, slot)
 
 
 def get_action_name(
@@ -62,10 +79,7 @@ def set_keys_on_bone(
     # create the fcurve
     index = index_lookup.get(axis.lower())
 
-    if anim_utils:
-        channel_bag = anim_utils.action_ensure_channelbag_for_slot(action, action.slots[0])
-    else:
-        channel_bag = action
+    channel_bag = get_channel_bag(action, action.name)
 
     if channel_bag:
         fcurve = channel_bag.fcurves.new(data_path=f'pose.bones["{bone_name}"].{data_path}', index=index)
@@ -226,7 +240,7 @@ def import_face_board_action_from_fbx(
     return action
 
 
-def import_face_board_action_from_json(file_path: Path, armature: bpy.types.Object):  # noqa: PLR0912
+def import_face_board_action_from_json(file_path: Path, armature: bpy.types.Object):
     if not armature.pose:
         return
 
@@ -242,18 +256,12 @@ def import_face_board_action_from_json(file_path: Path, armature: bpy.types.Obje
     if not action:
         action = bpy.data.actions.new(action_name)
 
-    if anim_utils:
-        if len(action.slots) == 0:
-            action.slots.new("OBJECT", name=armature.name)
-        channel_bag = anim_utils.action_ensure_channelbag_for_slot(action, action.slots[0])
-    else:
-        channel_bag = action
+    channel_bag = get_channel_bag(action, armature.name)
 
     if channel_bag:
         # delete all existing fcurves
         for fcurve in channel_bag.fcurves:
             channel_bag.fcurves.remove(fcurve)
-
     # ensure all bones are using euler xyz rotation
     for pose_bone in armature.pose.bones:
         pose_bone.rotation_mode = "XYZ"
@@ -279,7 +287,7 @@ def import_face_board_action_from_json(file_path: Path, armature: bpy.types.Obje
             else:
                 logger.error(f"failed to parse args from curve {curve_name}")
 
-    armature.animation_data.action = action
+    assign_action(armature, action)
 
 
 def bake_control_curve_values_for_frame(  # noqa: PLR0912
@@ -299,10 +307,7 @@ def bake_control_curve_values_for_frame(  # noqa: PLR0912
     index_lookup = {0: "x", 1: "y", 2: "z"}
     control_curve_values = {}
 
-    if anim_utils:
-        channel_bag = anim_utils.action_ensure_channelbag_for_slot(action, action.slots[0])
-    else:
-        channel_bag = action
+    channel_bag = get_channel_bag(action, action.name)
 
     if not channel_bag:
         return
@@ -436,10 +441,7 @@ def flush_bone_keyframes_to_action(
         buffer: The keyframe buffer dict populated by accumulate_bone_keyframes.
         clean_curves: Whether to clean redundant keyframes from curves after writing.
     """
-    if anim_utils:
-        channel_bag = anim_utils.action_ensure_channelbag_for_slot(action, action.slots[0])
-    else:
-        channel_bag = action
+    channel_bag = get_channel_bag(action, action.name)
 
     if not channel_bag:
         return
@@ -512,7 +514,7 @@ def _bulk_write_scalar_keyframes(
             fcurve.update()
 
 
-def flush_shape_key_keyframes_to_action(  # noqa: PLR0912
+def flush_shape_key_keyframes_to_action(
     buffer: dict[bpy.types.ShapeKey, list[tuple[float, float]]],
     action_name: str,
     instance_name: str = "",
@@ -564,18 +566,13 @@ def flush_shape_key_keyframes_to_action(  # noqa: PLR0912
         if not action:
             action = bpy.data.actions.new(name=shape_key_action_name)
             key_data.animation_data.action = action
-            if not anim_utils:
+            if not IS_BLENDER_5:
                 # blender 4.5: animation_data.action assignment does not set id_root
                 action.id_root = "KEY"
 
-        if anim_utils:
-            if len(action.slots) == 0:
-                action.slots.new("KEY", name=key_data.name)
-            channel_bag = anim_utils.action_ensure_channelbag_for_slot(action, action.slots[0])
-            if action.slots:
-                key_data.animation_data.action_slot = action.slots[0]
-        else:
-            channel_bag = action
+        channel_bag = get_channel_bag(action, key_data.name, "KEY")
+        if HAS_ACTION_SLOTS and action.slots:
+            key_data.animation_data.action_slot = action.slots[0]
 
         if not channel_bag:
             continue
@@ -621,18 +618,13 @@ def flush_texture_mask_keyframes_to_action(
     if not action:
         action = bpy.data.actions.new(name=action_name or f"{node_tree.name}Action")
         node_tree.animation_data.action = action
-        if not anim_utils:
+        if not IS_BLENDER_5:
             # blender 4.5: animation_data.action assignment does not set id_root
             action.id_root = "NODETREE"  # pyright: ignore[reportAttributeAccessIssue]
 
-    if anim_utils:
-        if len(action.slots) == 0:
-            action.slots.new("NODETREE", name=node_tree.name)
-        channel_bag = anim_utils.action_ensure_channelbag_for_slot(action, action.slots[0])
-        if action.slots:
-            node_tree.animation_data.action_slot = action.slots[0]
-    else:
-        channel_bag = action
+    channel_bag = get_channel_bag(action, node_tree.name, "NODETREE")
+    if HAS_ACTION_SLOTS and action.slots:
+        node_tree.animation_data.action_slot = action.slots[0]
 
     if not channel_bag:
         return None
@@ -688,9 +680,7 @@ def bake_face_board_to_action(
                     bpy.data.actions.remove(target_action)
             target_action = bpy.data.actions.new(name=action_name)
 
-            if anim_utils and len(target_action.slots) == 0:
-                target_action.slots.new("OBJECT", name=armature_object.name)
-            elif not anim_utils:
+            if not IS_BLENDER_5:
                 # blender 4.5: animation_data.action assignment does not set id_root,
                 # so set it explicitly so downstream code/tests can filter by it.
                 target_action.id_root = "OBJECT"  # pyright: ignore[reportAttributeAccessIssue]
@@ -698,9 +688,7 @@ def bake_face_board_to_action(
             # assign the new action to the armature
             if not armature_object.animation_data:
                 armature_object.animation_data_create()
-            armature_object.animation_data.action = target_action  # pyright: ignore[reportOptionalMemberAccess]
-            if anim_utils and target_action.slots:
-                armature_object.animation_data.action_slot = target_action.slots[0]  # pyright: ignore[reportOptionalMemberAccess]
+            assign_action(armature_object, target_action)
 
             texture_logic_node = get_head_texture_logic_node(instance.head_material)
             bone_keyframe_buffer: dict[str, dict[str, list[tuple[float, float]]]] = {}
@@ -772,10 +760,7 @@ def _snapshot_source_fcurves(
     """
     snapshot: dict[str, dict[str, dict[int, list[float]]]] = {}
 
-    if anim_utils:
-        channel_bag = anim_utils.action_ensure_channelbag_for_slot(source_action, source_action.slots[0])
-    else:
-        channel_bag = source_action
+    channel_bag = get_channel_bag(source_action, source_action.name)
 
     if not channel_bag:
         return snapshot
@@ -898,14 +883,8 @@ def bake_body_to_action(  # noqa: PLR0912, PLR0915
                             bpy.data.actions.remove(existing)
                     target_action.name = action_name
 
-                if anim_utils and len(target_action.slots) == 0:
-                    target_action.slots.new("OBJECT", name=armature_object.name)
-
                 # get the channel bag for fcurve manipulation
-                if anim_utils:
-                    channel_bag = anim_utils.action_ensure_channelbag_for_slot(target_action, target_action.slots[0])
-                else:
-                    channel_bag = target_action
+                channel_bag = get_channel_bag(target_action, armature_object.name)
 
                 # the fresh action used for the visual-transform path has no pre-existing fcurves
                 # to prune; everything is written from the keyframe buffer below.
@@ -1025,9 +1004,7 @@ def bake_body_to_action(  # noqa: PLR0912, PLR0915
                 # assign the baked action to the armature
                 if not armature_object.animation_data:
                     armature_object.animation_data_create()
-                armature_object.animation_data.action = target_action  # pyright: ignore[reportOptionalMemberAccess]
-                if anim_utils and target_action.slots:
-                    armature_object.animation_data.action_slot = target_action.slots[0]  # pyright: ignore[reportOptionalMemberAccess]
+                assign_action(armature_object, target_action)
             finally:
                 if use_visual_transforms:
                     bpy.context.scene.frame_set(original_frame)

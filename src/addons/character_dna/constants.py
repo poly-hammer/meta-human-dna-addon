@@ -13,6 +13,11 @@ from mathutils import Euler, Vector
 
 IS_BLENDER_5 = bpy.app.version >= (5, 0, 0)
 
+# Slotted actions landed in Blender 4.4. Writing to Action.fcurves on 4.4/4.5 goes through
+# the legacy layer, which creates a "Legacy Slot" but never assigns it to the animated ID,
+# so the action looks empty until the user picks the slot by hand.
+HAS_ACTION_SLOTS = bpy.app.version >= (4, 4, 0)
+
 
 class ToolInfo:
     NAME: str = "character_dna"

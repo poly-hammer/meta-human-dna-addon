@@ -14,7 +14,7 @@ The runtime that powers MetaHuman face rigs. [OpenRigLogic](https://github.com/E
 
 The key idea: RigLogic converts a small set of high-level **inputs** into a large set of low-level **outputs**. One input layer drives many output layers.
 
-**Inputs (face board GUI controls).** These GUI controls map to [Raw Control](https://dev.epicgames.com/documentation/en-us/metahuman/control-curves-driven-by-metahuman-animator) values when you pose the face board.
+**Inputs (face board GUI controls).** These GUI controls map to [Raw Control](https://dev.epicgames.com/documentation/metahuman/mh-standards-docs/mha_index) values when you pose the face board.
 
 **Outputs (driven by the inputs):**
 
