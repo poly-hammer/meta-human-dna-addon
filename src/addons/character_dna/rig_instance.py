@@ -139,27 +139,28 @@ def ensure_main_thread_timer() -> None:
         bpy.app.timers.register(run_main_thread_evaluations, first_interval=0.0, persistent=True)
 
 
-def _compute_body_input_signature(
-    instance: "RigInstance", dependency_graph: bpy.types.Depsgraph | None
+def _compute_input_signature(
+    instance: "RigInstance", component: str, dependency_graph: bpy.types.Depsgraph | None
 ) -> tuple | None:
-    """Build a comparable signature of the body's driver (input) bone rotations.
+    """Build a comparable signature of a component's driver (input) bone rotations.
 
-    The body rig's driver bones are the only inputs to RigLogic's body evaluation. The
-    driven/twist/swing bones it writes back are a disjoint set, so when ``evaluate`` writes
-    those outputs Blender re-tags the body armature's transform and the listener fires again
-    for an update it caused itself. Comparing this input signature lets the listener tell a
-    genuine user change from that self-induced echo and break the feedback loop.
+    A rig's driver bones are the only inputs to RigLogic's evaluation of that component. The
+    bones it writes back are a disjoint set (``head_bone_transform_plan`` skips driver bones
+    outright, and the body's driven/twist/swing bones are likewise separate), so when
+    ``evaluate`` writes those outputs Blender re-tags the armature's transform and the listener
+    fires again for an update it caused itself. Comparing this input signature lets the listener
+    tell a genuine user change from that self-induced echo and break the feedback loop.
 
     Returns ``None`` when the signature can't be determined yet (e.g. the instance has never
     been evaluated, so the driver bone names aren't cached), in which case the caller should
     evaluate rather than risk skipping a real update.
     """
-    driver_bone_names = instance.data.get(instance.cache_key("body", "driver_bone_names"))
-    body_rig = instance.body_rig
-    if not driver_bone_names or not body_rig:
+    driver_bone_names = instance.data.get(instance.cache_key(component, "driver_bone_names"))
+    rig = instance.head_rig if component == "head" else instance.body_rig
+    if not driver_bone_names or not rig:
         return None
 
-    evaluated = body_rig.evaluated_get(dependency_graph) if dependency_graph else body_rig
+    evaluated = rig.evaluated_get(dependency_graph) if dependency_graph else rig
     if not evaluated or not evaluated.pose:
         return None
 
@@ -173,6 +174,111 @@ def _compute_body_input_signature(
             (name, round(quaternion.w, 6), round(quaternion.x, 6), round(quaternion.y, 6), round(quaternion.z, 6))
         )
     return tuple(signature)
+
+
+def _uses_action(animated_object: bpy.types.Object | None, action_name: str) -> bool:
+    """Whether the object is driven by the named action, directly or through an NLA strip."""
+    animation_data = animated_object.animation_data if animated_object else None
+    if not animation_data:
+        return False
+    if animation_data.action and animation_data.action.name == action_name:
+        return True
+    return any(
+        strip.action and strip.action.name == action_name
+        for track in animation_data.nla_tracks
+        for strip in track.strips
+    )
+
+
+def _is_self_induced_echo(
+    instance: "RigInstance", component: str, dependency_graph: bpy.types.Depsgraph | None
+) -> bool:
+    """Whether an armature update is the echo of RigLogic's own write rather than a user change.
+
+    ``evaluate`` writes the driven bones, which re-tags the armature's transform and fires the
+    listener again. Driver bones are a disjoint set, so an unchanged input signature means
+    nothing the rig actually reads has moved. Records the signature when it does change, so the
+    next echo has something to compare against.
+    """
+    input_signature = _compute_input_signature(instance, component, dependency_graph)
+    # A None signature means we can't tell yet (never evaluated), so evaluate rather than risk
+    # skipping a real update.
+    if input_signature is None:
+        return False
+    if input_signature == instance.data.get(instance.cache_key(component, "input_signature")):
+        return True
+    instance.data[instance.cache_key(component, "input_signature")] = input_signature
+    return False
+
+
+def _get_action_update_component(instance: "RigInstance", action_name: str) -> "ComponentType | None":
+    """Which component of this instance the named action drives, if any."""
+    if not instance.auto_evaluate:
+        return None
+
+    if instance.auto_evaluate_head and _uses_action(instance.face_board, action_name):
+        return "head"
+
+    if instance.auto_evaluate_body and (
+        _uses_action(instance.body_rig, action_name) or _uses_action(instance.control_rig, action_name)
+    ):
+        # heads have rbf driven bones that move based on neck quaternions, so if head rig is present,
+        # evaluate all
+        if instance.head_rig and instance.auto_evaluate_head and instance.evaluate_rbfs:
+            return "all"
+        return "body"
+
+    # A head imported without a body is animated on the head rig itself; with a body it follows
+    # the body rig's action instead.
+    if instance.auto_evaluate_head and _uses_action(instance.head_rig, action_name):
+        return "head"
+
+    return None
+
+
+def _get_armature_update_component(
+    instance: "RigInstance", armature_name: str, dependency_graph: bpy.types.Depsgraph | None
+) -> "ComponentType | None":
+    """Which component of this instance the named armature datablock drives, if any."""
+    if not instance.auto_evaluate:
+        return None
+
+    if (
+        instance.auto_evaluate_head
+        and instance.face_board
+        and instance.face_board.data
+        and instance.face_board.data.name == armature_name
+    ):
+        return "head"
+
+    if instance.auto_evaluate_body and (
+        (instance.body_rig and instance.body_rig.data and instance.body_rig.data.name == armature_name)
+        or (instance.control_rig and instance.control_rig.data and instance.control_rig.data.name == armature_name)
+    ):
+        # The body armature is both driven and written by RigLogic, so filter out its own echo.
+        if _is_self_induced_echo(instance, "body", dependency_graph):
+            return None
+        # heads have rbf driven bones that move based on neck quaternions, so if head rig is present,
+        # evaluate all
+        if instance.head_rig and instance.auto_evaluate_head and instance.evaluate_rbfs:
+            return "all"
+        return "body"
+
+    # With a full character the head rig's neck bones are copy-transform driven by the body, so the
+    # body branch above already covers them. Imported on its own the head rig has no body to follow
+    # and is posed directly, and it is the only thing that feeds the neck quaternions to the head
+    # RBFs and re-solves the eye aim against the new head orientation.
+    if (
+        instance.auto_evaluate_head
+        and instance.head_rig
+        and instance.head_rig.data
+        and instance.head_rig.data.name == armature_name
+    ):
+        if _is_self_induced_echo(instance, "head", dependency_graph):
+            return None
+        return "head"
+
+    return None
 
 
 def rig_instance_listener(_: "Scene", dependency_graph: bpy.types.Depsgraph, is_frame_change: bool = False):  # noqa: PLR0912
@@ -217,120 +323,15 @@ def rig_instance_listener(_: "Scene", dependency_graph: bpy.types.Depsgraph, is_
             data_type = update.id.bl_rna.name  # type: ignore[attr-defined]
             if data_type == "Action":
                 for instance in scene_properties.rig_instance_list:
-                    # Check if the action is being used by the face board
-                    if (
-                        instance.auto_evaluate
-                        and instance.auto_evaluate_head
-                        and instance.face_board
-                        and instance.face_board.animation_data
-                        and instance.face_board.animation_data.action
-                        and instance.face_board.animation_data.action.name == update.id.name
-                    ) or (
-                        instance.auto_evaluate
-                        and instance.auto_evaluate_head
-                        and instance.face_board
-                        and instance.face_board.animation_data
-                        and any(
-                            strip.action and strip.action.name == update.id.name
-                            for track in instance.face_board.animation_data.nla_tracks
-                            for strip in track.strips
-                        )
-                    ):
-                        instance_updates.add((instance, "head"))
-                    # Check if the action is being used by the body rig
-                    elif (
-                        (
-                            instance.auto_evaluate
-                            and instance.auto_evaluate_body
-                            and instance.body_rig
-                            and instance.body_rig.animation_data
-                            and instance.body_rig.animation_data.action
-                            and instance.body_rig.animation_data.action.name == update.id.name
-                        )
-                        or (
-                            instance.auto_evaluate
-                            and instance.auto_evaluate_body
-                            and instance.control_rig
-                            and instance.control_rig.animation_data
-                            and instance.control_rig.animation_data.action
-                            and instance.control_rig.animation_data.action.name == update.id.name
-                        )
-                        or (
-                            instance.auto_evaluate
-                            and instance.auto_evaluate_body
-                            and instance.body_rig
-                            and instance.body_rig.animation_data
-                            and any(
-                                strip.action and strip.action.name == update.id.name
-                                for track in instance.body_rig.animation_data.nla_tracks
-                                for strip in track.strips
-                            )
-                        )
-                        or (
-                            instance.auto_evaluate
-                            and instance.auto_evaluate_body
-                            and instance.control_rig
-                            and instance.control_rig.animation_data
-                            and any(
-                                strip.action and strip.action.name == update.id.name
-                                for track in instance.control_rig.animation_data.nla_tracks
-                                for strip in track.strips
-                            )
-                        )
-                    ):
-                        # heads have rbf driven bones that move based on neck quaternions, so if head rig is present,
-                        # evaluate all
-                        if instance.head_rig and instance.auto_evaluate_head and instance.evaluate_rbfs:
-                            instance_updates.add((instance, "all"))
-                        else:
-                            instance_updates.add((instance, "body"))
+                    component = _get_action_update_component(instance, update.id.name)
+                    if component:
+                        instance_updates.add((instance, component))
 
             elif data_type == "Armature" and update.is_updated_transform:
                 for instance in scene_properties.rig_instance_list:
-                    armature_name = update.id.name
-
-                    # Check if the armature is the face board
-                    if (
-                        instance.auto_evaluate
-                        and instance.auto_evaluate_head
-                        and instance.face_board
-                        and instance.face_board.data
-                        and instance.face_board.data.name == armature_name
-                    ):
-                        instance_updates.add((instance, "head"))
-                    # Check if the armature is the body rig
-                    elif (
-                        instance.auto_evaluate
-                        and instance.auto_evaluate_body
-                        and instance.body_rig
-                        and instance.body_rig.data
-                        and instance.body_rig.data.name == armature_name
-                    ) or (
-                        instance.auto_evaluate
-                        and instance.auto_evaluate_body
-                        and instance.control_rig
-                        and instance.control_rig.data
-                        and instance.control_rig.data.name == armature_name
-                    ):
-                        # The body armature is both driven and written by RigLogic: evaluate()
-                        # writes the driven/twist/swing bones, which re-tags this armature's
-                        # transform and fires this listener again. Compare the driver (input)
-                        # bone rotations to the signature from the last queued evaluation; if the
-                        # inputs are unchanged this update is that self-induced echo, so skip it
-                        # to break the feedback loop. A None signature means we can't tell yet
-                        # (never evaluated), so fall through and evaluate.
-                        input_signature = _compute_body_input_signature(instance, dependency_graph)
-                        if input_signature is not None:
-                            if input_signature == instance.data.get(instance.cache_key("body", "input_signature")):
-                                continue
-                            instance.data[instance.cache_key("body", "input_signature")] = input_signature
-
-                        # heads have rbf driven bones that move based on neck quaternions, so if head rig
-                        # is present, evaluate all
-                        if instance.head_rig and instance.auto_evaluate_head and instance.evaluate_rbfs:
-                            instance_updates.add((instance, "all"))
-                        else:
-                            instance_updates.add((instance, "body"))
+                    component = _get_armature_update_component(instance, update.id.name, dependency_graph)
+                    if component:
+                        instance_updates.add((instance, component))
 
     # reduce redundant updates if 'all' components are being updated anyway, no need to
     # update head/body again separately
@@ -1735,8 +1736,10 @@ class RigInstance(bpy.types.PropertyGroup):
         override_values: dict[str, dict[str, float]] | None = None,
         dependency_graph: bpy.types.Depsgraph | None = None,
     ):
-        # skip if the face board is not set
-        if not self.face_board or not self.head_dna_reader:
+        # The face board only supplies the GUI control positions. Without one the head still has
+        # to solve its raw controls below, so a missing face board skips the loop, not the whole
+        # evaluation.
+        if not self.head_dna_reader:
             return
 
         missing_gui_controls = []

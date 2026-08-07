@@ -128,6 +128,7 @@ from fixtures.scene import (  # noqa: E402, F401
     load_dna_for_rig_instance_ops,  #  pyright: ignore[reportUnusedImport]
     load_full_dna_for_animation,  #  pyright: ignore[reportUnusedImport]
     load_head_dna,  #  pyright: ignore[reportUnusedImport]
+    load_head_only_dna,  #  pyright: ignore[reportUnusedImport]
     load_mhc_conformed_topology_meshes,  #  pyright: ignore[reportUnusedImport]
     modify_head_scene,  #  pyright: ignore[reportUnusedImport]
     setup_reference_blend_file,  #  pyright: ignore[reportUnusedImport]

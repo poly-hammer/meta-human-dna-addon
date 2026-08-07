@@ -27,9 +27,11 @@ from mathutils import Vector
 from ..constants import (
     ADDON_IDS,
     DEFAULT_UV_TOLERANCE,
+    EXCLUDED_FACE_BOARD_CONTROLS,
     EYE_AIM_BONES,
     FACE_BOARD_FILE_PATH,
     FACE_BOARD_NAME,
+    FACE_BOARD_SWITCHES,
     FACE_GUI_EMPTIES,
     HEAD_TEXTURE_LOGIC_NODE_LABEL,
     INVALID_NAME_CHARACTERS_REGEX,
@@ -893,6 +895,27 @@ def extract_rig_instance_data_from_blend_file(blend_file_path: Path) -> tuple[li
     return [], "Failed to extract rig instance data."
 
 
+def reset_face_board_controls(face_board_object: bpy.types.Object) -> None:
+    """Return a face board's expression controls to neutral.
+
+    Only leaf ``CTRL_`` bones are moved, so the panel's layout and switch bones keep the
+    positions that define the board itself.
+
+    Args:
+        face_board_object: The face board armature object.
+    """
+    if not face_board_object.pose:
+        return
+
+    for pose_bone in face_board_object.pose.bones:
+        if (
+            not pose_bone.bone.children
+            and pose_bone.name.startswith("CTRL_")
+            and pose_bone.name not in FACE_BOARD_SWITCHES + EXCLUDED_FACE_BOARD_CONTROLS
+        ):
+            pose_bone.location = Vector((0.0, 0.0, 0.0))
+
+
 def duplicate_face_board(name: str) -> bpy.types.Object | None:
     scene_properties = get_addon_scene_properties()
     for instance in scene_properties.rig_instance_list:
@@ -902,6 +925,10 @@ def duplicate_face_board(name: str) -> bpy.types.Object | None:
             face_board_duplicate.name = f"{name}_{FACE_BOARD_NAME}"
             face_board_duplicate.data = instance.face_board.data.copy()
             face_board_duplicate.data.name = f"{name}_{FACE_BOARD_NAME}"
+            # The copy carries the source character's animation and expression, which would
+            # otherwise drive the new character's face and skew where the board is placed.
+            face_board_duplicate.animation_data_clear()
+            reset_face_board_controls(face_board_duplicate)
             if bpy.context.collection:
                 bpy.context.collection.objects.link(face_board_duplicate)
             return face_board_duplicate
@@ -1129,6 +1156,12 @@ def position_face_board(
 
     if head_mesh_object and head_rig_object:
         un_constrain_face_board_to_head(face_board_object, bone_name="CTRL_faceGUI")
+        un_constrain_face_board_to_head(face_board_object, bone_name="CTRL_C_eyesAim")
+        # Bounding boxes are read from the evaluated pose, so the dropped constraints have to
+        # be flushed first. A duplicated board is otherwise still measured where it sat on the
+        # character it was copied from.
+        if bpy.context.view_layer:
+            bpy.context.view_layer.update()
 
         head_mesh_center = get_bounding_box_center(head_mesh_object)
         face_gui_center = get_bounding_box_center(face_board_object)
@@ -1140,8 +1173,7 @@ def position_face_board(
         face_board_object.location.z += translation_vector.z
 
         # offset the face gui object to the left of the head mesh
-        x_value = head_mesh_right_x - face_gui_left_x
-        face_board_object.location.x = x_value
+        face_board_object.location.x += head_mesh_right_x - face_gui_left_x
 
         # apply the translation to the face gui object
         apply_transforms(face_board_object, location=True)
