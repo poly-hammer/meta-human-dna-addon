@@ -1,6 +1,7 @@
 # standard library imports
 import logging  # noqa: I001
 import math
+import threading
 
 from pathlib import Path
 from pprint import pformat
@@ -24,6 +25,118 @@ ATTR_COUNT_PER_QUATERNION_JOINT = 10
 ATTR_COUNT_PER_EULER_JOINT = 9
 
 logger = logging.getLogger(__name__)
+
+# Blender runs an animation render as a job on its own thread and fires every app handler
+# (render_init, frame_change_post, render_write, render_complete) from that thread. Writing
+# pose bones, shape keys or materials from any thread but the main one races Blender's
+# notifier queue and crashes it, so off-thread evaluations are handed to the main thread and
+# waited on. Blocking is what keeps the rendered frame in step with the face board.
+_MAIN_THREAD_IDENT = threading.main_thread().ident
+MAIN_THREAD_TIMEOUT_SECONDS = 10.0
+# Short enough to be irrelevant next to a render frame, long enough that the main loop still sleeps.
+_RENDER_POLL_SECONDS = 0.001
+_IDLE_POLL_SECONDS = 0.25
+
+_main_thread_lock = threading.Lock()
+_main_thread_queue: list[tuple[str, "ComponentType", bpy.types.Depsgraph | None, threading.Event]] = []
+_rendering = False
+_post_render_pending = False
+_suppress_evaluation = False
+_logged_main_thread_timeout = False
+
+
+def is_main_thread() -> bool:
+    return threading.current_thread().ident == _MAIN_THREAD_IDENT
+
+
+def is_rendering() -> bool:
+    return _rendering
+
+
+def begin_render() -> None:
+    """Called from ``render_init``, which Blender fires on the render job thread."""
+    global _rendering
+    _rendering = True
+
+
+def end_render() -> None:
+    """Called from ``render_complete``/``render_cancel`` on the render job thread.
+
+    Only plain Python state is touched here; the Blender-side cleanup is queued for
+    :func:`run_main_thread_evaluations` to perform on the main thread.
+    """
+    global _post_render_pending, _suppress_evaluation
+    _suppress_evaluation = True
+    _post_render_pending = True
+
+
+def _apply_post_render_cleanup() -> None:
+    global _rendering, _post_render_pending, _suppress_evaluation
+
+    scene_properties = utilities.get_addon_scene_properties()
+    if scene_properties:
+        for instance in scene_properties.rig_instance_list:
+            try:
+                instance.clear_evaluated_references()
+            except ReferenceError:
+                continue
+
+    window_manager_properties = utilities.get_addon_window_manager_properties()
+    if window_manager_properties:
+        window_manager_properties.is_rendering = False
+        window_manager_properties.evaluate_dependency_graph = True
+
+    _rendering = False
+    _post_render_pending = False
+    _suppress_evaluation = False
+
+
+def run_main_thread_evaluations() -> float:
+    """Timer that performs queued rig evaluations on the main thread.
+
+    Registered by :func:`ensure_main_thread_timer` so nothing ever has to call into
+    ``bpy.app.timers`` from the render job thread.
+    """
+    try:
+        while True:
+            with _main_thread_lock:
+                if not _main_thread_queue:
+                    break
+                name, component, dependency_graph, done = _main_thread_queue.pop(0)
+
+            try:
+                scene_properties = utilities.get_addon_scene_properties()
+                # Re-resolve by name: the queued instance could have been freed by an undo.
+                instance = scene_properties.rig_instance_list.get(name) if scene_properties else None
+                if instance:
+                    instance.evaluate(component=component, dependency_graph=dependency_graph)
+            except ReferenceError:
+                pass
+            except Exception as error:
+                logger.exception(f"Error evaluating rig instance '{name}': {error}")
+            finally:
+                done.set()
+
+        if _post_render_pending:
+            _apply_post_render_cleanup()
+    except Exception as error:
+        # Blender drops a timer whose callback raises, and losing this one makes renders
+        # silently produce stale frames, so never let anything escape.
+        logger.exception(f"Error draining main thread evaluations: {error}")
+
+    # Poll hard while a render is waiting on us, otherwise stay out of the way.
+    return _RENDER_POLL_SECONDS if _rendering else _IDLE_POLL_SECONDS
+
+
+def ensure_main_thread_timer() -> None:
+    """Arm the drain timer if it is not already running.
+
+    Without it a render blocks on evaluations nothing ever performs, which renders the
+    character frozen at whatever the viewport last evaluated. Cheap enough to re-check
+    from the listener so the timer re-arms itself if it is ever lost.
+    """
+    if not bpy.app.timers.is_registered(run_main_thread_evaluations):
+        bpy.app.timers.register(run_main_thread_evaluations, first_interval=0.0, persistent=True)
 
 
 def _compute_body_input_signature(
@@ -67,13 +180,20 @@ def rig_instance_listener(_: "Scene", dependency_graph: bpy.types.Depsgraph, is_
     if not addon_window_manager:
         return
 
+    # Safety net for a post-render cleanup that the drain timer never got to run, which would
+    # otherwise leave evaluation suppressed for the rest of the session.
+    if is_main_thread():
+        ensure_main_thread_timer()
+        if _post_render_pending:
+            _apply_post_render_cleanup()
+
     # this condition prevents constant evaluation
-    if not addon_window_manager.evaluate_dependency_graph:
+    if not addon_window_manager.evaluate_dependency_graph or _suppress_evaluation:
         return
 
     # this condition prevents 2 evaluations per frame change, causes issues with
     # render threads accessing data while it's being updated, and causing a crash.
-    if addon_window_manager.is_rendering and not is_frame_change:
+    if is_rendering() and not is_frame_change:
         return
 
     # this condition prevents evaluation after an undo operation
@@ -226,7 +346,7 @@ def rig_instance_listener(_: "Scene", dependency_graph: bpy.types.Depsgraph, is_
 
     for instance, component in final_instance_updates:
         try:
-            instance.evaluate(component=component)
+            instance.evaluate(component=component, dependency_graph=dependency_graph)
         except ReferenceError:
             # The underlying data was freed out from under us; skip it.
             continue
@@ -239,6 +359,9 @@ def frame_change_handler(scene: "Scene", dependency_graph: bpy.types.Depsgraph):
 
 
 def stop_listening():
+    if bpy.app.timers.is_registered(run_main_thread_evaluations):
+        bpy.app.timers.unregister(run_main_thread_evaluations)
+
     for handler in bpy.app.handlers.depsgraph_update_post:
         if handler.__name__ == rig_instance_listener.__name__:
             bpy.app.handlers.depsgraph_update_post.remove(handler)
@@ -251,10 +374,17 @@ def stop_listening():
 def start_listening():
     stop_listening()
     logger.info("Listening for Rig Logic...")
-    context: "Context" = bpy.context  # pyright: ignore[reportAssignmentType]  # noqa: UP037
-    callbacks.update_head_output_items(None, context)
+    # Register before anything that can fail, so a bad scene cannot leave the session deaf.
     bpy.app.handlers.depsgraph_update_post.append(rig_instance_listener)  # type: ignore[call-arg]
     bpy.app.handlers.frame_change_post.append(frame_change_handler)  # type: ignore[call-arg]
+    ensure_main_thread_timer()
+
+    context: "Context" = bpy.context  # pyright: ignore[reportAssignmentType]  # noqa: UP037
+    try:
+        callbacks.update_head_output_items(None, context)
+        callbacks.update_body_output_items(None, context)
+    except Exception as error:
+        logger.exception(f"Failed to refresh the output items: {error}")
 
 
 class RigInstance(bpy.types.PropertyGroup):
@@ -430,6 +560,8 @@ class RigInstance(bpy.types.PropertyGroup):
             self.data[self.cache_key("head", "rig_evaluated")] = self.head_rig.evaluated_get(dependency_graph)
         if self.body_rig:
             self.data[self.cache_key("body", "rig_evaluated")] = self.body_rig.evaluated_get(dependency_graph)
+        if self.face_board:
+            self.data[self.cache_key("head", "face_board_evaluated")] = self.face_board.evaluated_get(dependency_graph)
 
     @property
     def head_rig_evaluated(self) -> bpy.types.Object | None:
@@ -466,6 +598,33 @@ class RigInstance(bpy.types.PropertyGroup):
                 window_manager_properties.evaluate_dependency_graph = False
             try:
                 result = self.body_rig.evaluated_get(bpy.context.evaluated_depsgraph_get())
+            finally:
+                if window_manager_properties:
+                    window_manager_properties.evaluate_dependency_graph = prev_flag
+        return result
+
+    @property
+    def face_board_evaluated(self) -> bpy.types.Object | None:
+        """The face board as the active dependency graph evaluated it.
+
+        Rig logic inputs must be read from here rather than ``self.face_board``. Blender
+        renders through a separate dependency graph and never flushes the animated pose back
+        to the original datablock, so during a render the original face board still holds the
+        frame the viewport last evaluated -- one frame behind what is being rendered.
+        """
+        result = self.data.get(self.cache_key("head", "face_board_evaluated"))
+        if result is not None:
+            return result
+        # Lazy fallback: only call evaluated_depsgraph_get() when the cached value is missing.
+        # Temporarily disable the dependency graph flag to prevent re-entrant handler execution,
+        # since evaluated_depsgraph_get() can trigger depsgraph_update_post handlers.
+        if self.face_board:
+            window_manager_properties = utilities.get_addon_window_manager_properties()
+            prev_flag = window_manager_properties.evaluate_dependency_graph if window_manager_properties else True
+            if window_manager_properties:
+                window_manager_properties.evaluate_dependency_graph = False
+            try:
+                result = self.face_board.evaluated_get(bpy.context.evaluated_depsgraph_get())
             finally:
                 if window_manager_properties:
                     window_manager_properties.evaluate_dependency_graph = prev_flag
@@ -564,8 +723,11 @@ class RigInstance(bpy.types.PropertyGroup):
 
     @property
     def head_use_eye_aim(self) -> bool:
-        look_at_switch = self.face_board.pose.bones.get("CTRL_lookAtSwitch")
-        return look_at_switch and look_at_switch.location.y >= 0.99
+        face_board = self.face_board_evaluated
+        if not face_board or not face_board.pose:
+            return False
+        look_at_switch = face_board.pose.bones.get("CTRL_lookAtSwitch")
+        return bool(look_at_switch and look_at_switch.location.y >= 0.99)
 
     @property
     def head_mesh_index_lookup(self) -> dict[int, bpy.types.Object]:
@@ -1161,11 +1323,19 @@ class RigInstance(bpy.types.PropertyGroup):
         if not self.head_valid:
             return
 
+        # Release any previous head state first: re-initializing without this leaks the old
+        # RigLogic/reader and leaves the derived caches pointing at the previous DNA.
+        self.destroy_head()
+
         # ---- Initialize the Head Rig Instance ---
         # set the dna reader
-        self.data[self.cache_key("head", "dna_reader")] = get_dna_reader(
+        dna_reader = get_dna_reader(
             file_path=Path(bpy.path.abspath(self.head_dna_file_path)).absolute(), memory_resource=None
         )
+        if not dna_reader:
+            logger.warning(f"Failed to read the head DNA for Rig Instance {self.name}.")
+            return
+        self.data[self.cache_key("head", "dna_reader")] = dna_reader
 
         # make sure the rig bones are using the correct rotation mode
         if self.head_rig and self.head_rig.pose:
@@ -1176,12 +1346,10 @@ class RigInstance(bpy.types.PropertyGroup):
                     pose_bone.rotation_mode = "QUATERNION"
 
         # set the rig logic manager and instance
-        self.data[self.cache_key("head", "manager")] = riglogic.RigLogic.create(
+        self.data[self.cache_key("head", "manager")] = riglogic.RigLogic(
             self.head_dna_reader, riglogic.Configuration(), None
         )
-        self.data[self.cache_key("head", "instance")] = riglogic.RigInstance.create(
-            rigLogic=self.head_manager, memRes=None
-        )
+        self.data[self.cache_key("head", "instance")] = riglogic.RigInstance(rigLogic=self.head_manager, memRes=None)
 
         # populate the body rbf solver list
         if update_raw_control_list:
@@ -1214,11 +1382,19 @@ class RigInstance(bpy.types.PropertyGroup):
         if not self.body_valid:
             return
 
+        # Release any previous body state first: re-initializing without this leaks the old
+        # RigLogic/reader and leaves the derived caches pointing at the previous DNA.
+        self.destroy_body()
+
         # ---- Initialize the Body Rig Instance ---
         # set the body dna reader
-        self.data[self.cache_key("body", "dna_reader")] = get_dna_reader(
+        dna_reader = get_dna_reader(
             file_path=Path(bpy.path.abspath(self.body_dna_file_path)).absolute(), memory_resource=None
         )
+        if not dna_reader:
+            logger.warning(f"Failed to read the body DNA for Rig Instance {self.name}.")
+            return
+        self.data[self.cache_key("body", "dna_reader")] = dna_reader
 
         # make sure the body bones are using the correct rotation mode
         if self.body_rig and self.body_rig.pose:
@@ -1240,10 +1416,8 @@ class RigInstance(bpy.types.PropertyGroup):
         body_config.translationType = riglogic.TranslationType_Vector
         body_config.rotationType = riglogic.RotationType_Quaternions
         body_config.scaleType = riglogic.ScaleType_Vector
-        self.data[self.cache_key("body", "manager")] = riglogic.RigLogic.create(self.body_dna_reader, body_config, None)
-        self.data[self.cache_key("body", "instance")] = riglogic.RigInstance.create(
-            rigLogic=self.body_manager, memRes=None
-        )
+        self.data[self.cache_key("body", "manager")] = riglogic.RigLogic(self.body_dna_reader, body_config, None)
+        self.data[self.cache_key("body", "instance")] = riglogic.RigInstance(rigLogic=self.body_manager, memRes=None)
 
         # populate the body rbf solver list
         if update_rbf_solver_list:
@@ -1269,7 +1443,20 @@ class RigInstance(bpy.types.PropertyGroup):
 
             _sync_backup_list_with_disk(instance=self)  # pyright: ignore[reportArgumentType]
 
+    def _release_rig_logic(self, component: str):
+        """Free a component's RigLogic handles in the order OpenRigLogic requires.
+
+        A RigInstance holds a raw pointer to its RigLogic, so it must be destroyed first;
+        the DNA reader (which owns its file stream) can go last. Relying on Python
+        garbage collection here would leave the destruction order undefined.
+        """
+        from .dna_io import release_dna_handle
+
+        for descriptor in ("instance", "manager", "dna_reader"):
+            release_dna_handle(self.data.get(self.cache_key(component, descriptor)))
+
     def destroy_head(self):
+        self._release_rig_logic("head")
         # clear the head rig logic data, this frees them up to be garbage collected
         for key in list(self.data.keys()):
             if key.startswith(f"{self.name}_head_"):
@@ -1277,6 +1464,7 @@ class RigInstance(bpy.types.PropertyGroup):
         self.data[self.cache_key("head", "initialized")] = False
 
     def destroy_body(self):
+        self._release_rig_logic("body")
         # clear the body rig logic data, this frees them up to be garbage collected
         for key in list(self.data.keys()):
             if key.startswith(f"{self.name}_body_"):
@@ -1299,9 +1487,23 @@ class RigInstance(bpy.types.PropertyGroup):
             ("head", "shape_key_has_deltas"),
             ("head", "body_constraints"),
             ("head", "rig_evaluated"),
+            ("head", "face_board_evaluated"),
             ("body", "rig_evaluated"),
         )
         for component, descriptor in reference_descriptors:
+            self.data.pop(self.cache_key(component, descriptor), None)
+
+    def clear_evaluated_references(self):
+        """Drop the cached evaluated objects without touching the rest of the cache.
+
+        A render caches wrappers into the render dependency graph, which Blender frees once
+        the render finishes. Clearing them makes the next read resolve against a live graph.
+        """
+        for component, descriptor in (
+            ("head", "rig_evaluated"),
+            ("head", "face_board_evaluated"),
+            ("body", "rig_evaluated"),
+        ):
             self.data.pop(self.cache_key(component, descriptor), None)
 
     def destroy(self):
@@ -1312,9 +1514,18 @@ class RigInstance(bpy.types.PropertyGroup):
         if not self.face_board:
             return
 
+        # Switch values are read from the evaluated face board (see `face_board_evaluated`),
+        # but the constraints and visibility they drive are written to the original datablock.
+        evaluated_face_board = self.face_board_evaluated
+        evaluated_pose_bones = (
+            evaluated_face_board.pose.bones if evaluated_face_board and evaluated_face_board.pose else None
+        )
+        if evaluated_pose_bones is None:
+            return
+
         # update the head follow body switch constraint influence
         face_gui_control = self.face_board.pose.bones.get("CTRL_faceGUI")
-        face_follow_head_switch = self.face_board.pose.bones.get("CTRL_faceGUIfollowHead")
+        face_follow_head_switch = evaluated_pose_bones.get("CTRL_faceGUIfollowHead")
         if face_follow_head_switch and face_gui_control:
             constraint = None
             for existing_constraint in face_gui_control.constraints:
@@ -1326,7 +1537,7 @@ class RigInstance(bpy.types.PropertyGroup):
 
         # update the eye aim follow head switch constraint influence
         eye_aim_control = self.face_board.pose.bones.get("CTRL_C_eyesAim")
-        eye_aim_follow_head_switch = self.face_board.pose.bones.get("CTRL_eyesAimFollowHead")
+        eye_aim_follow_head_switch = evaluated_pose_bones.get("CTRL_eyesAimFollowHead")
         if eye_aim_follow_head_switch and eye_aim_control:
             constraint = None
             for existing_constraint in eye_aim_control.constraints:
@@ -1357,18 +1568,22 @@ class RigInstance(bpy.types.PropertyGroup):
 
                 self.data[self.cache_key("head", "eye_aim_visibility")] = use_eye_aim
 
-    def get_head_gui_control_values_from_eye_aim(self) -> dict[str, dict[str, float]]:
+    def get_head_gui_control_values_from_eye_aim(
+        self, dependency_graph: bpy.types.Depsgraph | None = None
+    ) -> dict[str, dict[str, float]]:
         values = {}
         if not self.face_board or not self.head_rig:
             return values
 
         # Read the *evaluated* objects so the posed bone matrices reflect the current head-bone
-        # rotation and the eye aim follow-head constraint. This is taken fresh from the current
-        # dependency graph (rather than the cached evaluated rig) so it is also correct per-frame
-        # during baking, where the scene frame is stepped just before this is called.
-        depsgraph = bpy.context.evaluated_depsgraph_get()
-        head_rig = self.head_rig.evaluated_get(depsgraph)
-        face_board = self.face_board.evaluated_get(depsgraph)
+        # rotation and the eye aim follow-head constraint. The caller's graph is used when given
+        # (during a render that is the only graph holding this frame's pose); otherwise this is
+        # taken fresh from the current dependency graph so it is also correct per-frame during
+        # baking, where the scene frame is stepped just before this is called.
+        if dependency_graph is None:
+            dependency_graph = bpy.context.evaluated_depsgraph_get()
+        head_rig = self.head_rig.evaluated_get(dependency_graph)
+        face_board = self.face_board.evaluated_get(dependency_graph)
         if not head_rig.pose or not face_board.pose:
             return values
 
@@ -1515,21 +1730,30 @@ class RigInstance(bpy.types.PropertyGroup):
 
         return value
 
-    def update_head_gui_control_values(self, override_values: dict[str, dict[str, float]] | None = None):
+    def update_head_gui_control_values(
+        self,
+        override_values: dict[str, dict[str, float]] | None = None,
+        dependency_graph: bpy.types.Depsgraph | None = None,
+    ):
         # skip if the face board is not set
         if not self.face_board or not self.head_dna_reader:
             return
 
         missing_gui_controls = []
 
-        center_eye_control = self.face_board.pose.bones.get("CTRL_C_eye")
+        # Control positions are inputs, so they come from the evaluated face board rather than
+        # the original datablock, which is stale while rendering (see `face_board_evaluated`).
+        evaluated_face_board = self.face_board_evaluated
+        face_pose_bones = (
+            evaluated_face_board.pose.bones if evaluated_face_board and evaluated_face_board.pose else None
+        )
+        center_eye_control = face_pose_bones.get("CTRL_C_eye") if face_pose_bones else None
 
         eye_aim_override_values = {}
         if self.head_use_eye_aim:
-            eye_aim_override_values = self.get_head_gui_control_values_from_eye_aim()
+            eye_aim_override_values = self.get_head_gui_control_values_from_eye_aim(dependency_graph)
 
         head_instance = self.head_instance
-        face_pose_bones = self.face_board.pose.bones
         for index, control_name, axis in self.head_gui_control_plan:
             # Override values can be provided to update values based on them vs current face board
             # bone locations. This can be used for baking the values to an action.
@@ -1542,7 +1766,7 @@ class RigInstance(bpy.types.PropertyGroup):
                 )
                 if value is not None:
                     head_instance.setGUIControl(index, value)
-            else:
+            elif face_pose_bones is not None:
                 pose_bone = face_pose_bones.get(control_name)
                 if pose_bone:
                     value = getattr(pose_bone.location, axis)
@@ -2035,7 +2259,37 @@ class RigInstance(bpy.types.PropertyGroup):
         except ImportError:
             logger.debug("Could not import the raw control editor module to update the head raw control list.")
 
+    def _evaluate_on_main_thread(
+        self, component: "ComponentType", dependency_graph: bpy.types.Depsgraph | None
+    ) -> None:
+        """Queue an evaluation for the main thread and block until it has run.
+
+        Waiting is deliberate: the render job thread must not produce the frame until the pose
+        bones and shape keys for it have been written.
+        """
+        global _logged_main_thread_timeout
+
+        done = threading.Event()
+        with _main_thread_lock:
+            _main_thread_queue.append((self.name, component, dependency_graph, done))
+
+        if not done.wait(MAIN_THREAD_TIMEOUT_SECONDS) and not _logged_main_thread_timeout:
+            _logged_main_thread_timeout = True
+            logger.error(
+                f"Timed out waiting for the main thread to evaluate rig instance '{self.name}'. "
+                "Bake the animation before rendering to avoid relying on live evaluation."
+            )
+
     def evaluate(self, component: "ComponentType" = "all", dependency_graph: bpy.types.Depsgraph | None = None):
+        # Only a real render (F12 / Render Animation) hands its handlers to a job thread that the
+        # main thread is not servicing, so that is the only case worth blocking for. An OpenGL
+        # playblast also runs off the main thread but drives the viewport from it, so waiting
+        # there starves both threads; it never fires render_init, which is what is_rendering()
+        # keys off. Viewport and timeline evaluation stay on the main thread and go straight through.
+        if is_rendering() and not is_main_thread():
+            self._evaluate_on_main_thread(component, dependency_graph)
+            return
+
         window_manager_properties = utilities.get_addon_window_manager_properties()
         # this condition prevents constant evaluation
         if window_manager_properties.evaluate_dependency_graph:
@@ -2063,7 +2317,7 @@ class RigInstance(bpy.types.PropertyGroup):
                 if component in ("head", "all") and self.head_initialized:
                     # update the gui controls
                     self.update_head_switch_values()
-                    self.update_head_gui_control_values()
+                    self.update_head_gui_control_values(dependency_graph=dependency_graph)
 
                     # apply the changes
                     if self.evaluate_bones:
