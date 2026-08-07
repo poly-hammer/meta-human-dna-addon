@@ -3,7 +3,7 @@ import logging
 import math
 
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 # third party imports
 import bpy
@@ -38,6 +38,36 @@ DataLayer = Literal[
 ]
 
 
+def release_dna_handle(handle: Any) -> None:
+    """Destroy an OpenRigLogic handle now instead of waiting for garbage collection.
+
+    ``dna``/``riglogic`` factory objects are caller-owned C++ allocations. The Python
+    bindings only call ``destroy`` from the wrapper's ``__del__``, so dropping the last
+    reference eventually frees them -- but not deterministically, which matters on Windows
+    where a live reader/writer keeps the ``.dna`` file handle open.
+
+    Args:
+        handle: A wrapper returned by :func:`get_dna_reader` / :func:`get_dna_writer`, or
+            any other RAII-wrapped binding object. ``None`` and raw SWIG proxies are ignored.
+    """
+    if handle is None:
+        return
+
+    instance = getattr(handle, "_instance", None)
+    if instance is None:
+        return
+
+    try:
+        type(handle).destroy(instance)
+    except Exception as error:
+        logger.warning(f"Failed to destroy {type(handle).__name__}: {error}")
+    handle._instance = None  # noqa: SLF001
+    # The wrapper keeps its constructor arguments alive, which is what owns the stream a
+    # reader/writer was built on. Dropping them here releases those in child-before-parent order.
+    if getattr(handle, "_args", None):
+        handle._args = ()  # noqa: SLF001
+
+
 def get_dna_reader(
     file_path: Path,
     file_format: FileFormat = "binary",
@@ -54,9 +84,10 @@ def get_dna_reader(
     # if file_format.lower() == 'json':
     #     mode = dna.OpenMode_Text  # noqa: ERA001
 
-    stream = dna.FileStream.create(
-        path=str(file_path), accessMode=dna.AccessMode_Read, openMode=mode, memRes=memory_resource
-    )
+    # Construct via the class rather than `.create()`: the constructor returns the binding's
+    # owning wrapper, which destroys the C++ object on release and keeps the stream alive for
+    # exactly as long as the reader needs it. `.create()` returns a raw pointer that leaks.
+    stream = dna.FileStream(path=str(file_path), accessMode=dna.AccessMode_Read, openMode=mode, memRes=memory_resource)
 
     # Explicitly enforce the coordinate frame our importer assumes (Maya Y-up:
     # x=left, y=up, z=front) instead of trusting whatever system the incoming DNA
@@ -81,9 +112,9 @@ def get_dna_reader(
     if file_format.lower() == "json":
         # The JSON reader has no Configuration overload, so it cannot enforce the
         # coordinate system on load; JSON DNAs are expected to already be Maya Y-up.
-        reader = dna.JSONStreamReader.create(stream, memory_resource)
+        reader = dna.JSONStreamReader(stream, memory_resource)
     elif file_format.lower() == "binary":
-        reader = dna.BinaryStreamReader.create(stream, config, memory_resource)
+        reader = dna.BinaryStreamReader(stream, config, memory_resource)
     else:
         raise ValueError(f"Invalid file format '{file_format}'. Must be 'binary' or 'json'.")
 
@@ -91,10 +122,12 @@ def get_dna_reader(
         reader.read()
     except IndexError as error:
         logger.debug(f"Error reading DNA file '{file_path}': {error}")
-        return None
+        release_dna_handle(reader)
+        return None  # pyright: ignore[reportReturnType]
 
     if not dna.Status.isOk():
         status = dna.Status.get()
+        release_dna_handle(reader)
         raise RuntimeError(f'Error loading DNA: {status.message} from "{file_path}"')
     return reader
 
@@ -109,15 +142,17 @@ def get_dna_writer(file_path: Path, file_format: FileFormat = "binary") -> "dna.
     # if file_format.lower() == 'json':
     #     mode = dna.OpenMode_Text  # noqa: ERA001
 
-    stream = dna.FileStream.create(
+    # See get_dna_reader: the constructor form owns the C++ object and, critically for the
+    # writer, keeps the stream alive until `write()` is called and the writer is released.
+    stream = dna.FileStream(
         path=str(file_path),
         accessMode=dna.AccessMode_Write,
         openMode=mode,
     )
     if file_format.lower() == "json":
-        writer = dna.JSONStreamWriter.create(stream)
+        writer = dna.JSONStreamWriter(stream)
     elif file_format.lower() == "binary":
-        writer = dna.BinaryStreamWriter.create(stream)
+        writer = dna.BinaryStreamWriter(stream)
     else:
         raise ValueError(f"Invalid file format '{file_format}'. Must be 'binary' or 'json'.")
 
@@ -149,6 +184,8 @@ def get_dna_component_type(file_path: Path) -> ComponentType | None:
                 "facial" in dna_reader.getJointName(index).lower() for index in range(dna_reader.getJointCount())
             )
             component_type = "head" if has_facial_joint else "body"
+
+        release_dna_handle(dna_reader)
     return component_type
 
 

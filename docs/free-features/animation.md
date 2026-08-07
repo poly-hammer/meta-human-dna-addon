@@ -32,4 +32,4 @@ Import body performances — from MetaHuman Animator or any re-targeted animatio
   <source src="../../images/animation/bake_animation.webm" type="video/webm">
 </video>
 
-Live [RigLogic](../terminology.md#rig-logic) evaluation is queued to redraw with Blender's UI and doesn't run before every frame when rendering. This is why the face or body correctives can appear static or jittery when rendering. **Baking** stores the evaluated result directly on the timeline, so it renders reliably (with [Auto Evaluate](./rig-instances.md#rig-instances) off on the Rig Instance) and can be used for simulations or exporting a performance.
+This can be useful for simulations or exporting to other software.

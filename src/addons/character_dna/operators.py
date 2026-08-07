@@ -407,7 +407,7 @@ class ImportAnimationBase(bpy.types.Operator):
             operator_name=self.import_operator_id,
             filepath=str(file_path),
             component_type=component_type,
-            message=report.summary(),
+            message="Bone names do not match the target rig.",
             round_sub_frames=self.round_sub_frames,
             match_frame_rate=self.match_frame_rate,
             prefix_instance_name=self.prefix_instance_name,

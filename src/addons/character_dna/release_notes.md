@@ -1,14 +1,11 @@
-## Minor Changes
-
-* Changed animation import operators to use ufbx bindings for cleaner and more optimized importing of large animations.
-* Removed batched dependency graph evaluations
-
 ## Patch Changes
 
-* Fixed rig instance index error
-* Fixed the face board being left outside the character's collection when using Metahuman Append/Link > Link [#341](https://github.com/poly-hammer/character-dna-addon/issues/341)
-* Fixed shape keys staying un-driven for the rest of the session when the head mesh was renamed or merged [#333](https://github.com/poly-hammer/character-dna-addon/issues/333)
-* Fixed an error in the Migrate Legacy Data panel when an older Meta-Human DNA addon is still installed
+* Fixed Blender freezing or crashing part way through rendering an animation with rig logic evaluation turned on
+* Fixed the character's face lagging a frame behind the face board when rendering an animation
+* Fixed DNA files never being released and from memory
+* Fixed Face Board origin on second MetaHuman import
+* Fixed the eyes not aiming at the eyes aim control when the head bone is rotated and only the head DNA has been imported [#309](https://github.com/poly-hammer/character-dna-addon/issues/309)
+* Fixed the head RBFs not evaluating in real time when the head bone is rotated and only the head DNA has been imported [#359](https://github.com/poly-hammer/character-dna-addon/issues/359)
 
 ## Tests Passing On
 

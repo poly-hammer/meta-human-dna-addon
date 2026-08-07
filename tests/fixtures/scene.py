@@ -163,6 +163,18 @@ def load_dna_for_rig_instance_ops(addon):
     )
 
 
+@pytest.fixture
+def load_head_only_dna(addon):
+    """A head DNA imported with no body, so nothing constrains the head rig's neck bones."""
+    load_dna(
+        file_path=TEST_DNA_FOLDER / "ada" / "head.dna",
+        import_lods=["lod0"],
+        import_shape_keys=False,
+        import_face_board=True,
+        include_body=False,
+    )
+
+
 @pytest.fixture(scope="session")
 def load_mhc_conformed_topology_meshes(addon):
     # open default scene

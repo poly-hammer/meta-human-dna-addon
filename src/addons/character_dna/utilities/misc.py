@@ -27,9 +27,11 @@ from mathutils import Vector
 from ..constants import (
     ADDON_IDS,
     DEFAULT_UV_TOLERANCE,
+    EXCLUDED_FACE_BOARD_CONTROLS,
     EYE_AIM_BONES,
     FACE_BOARD_FILE_PATH,
     FACE_BOARD_NAME,
+    FACE_BOARD_SWITCHES,
     FACE_GUI_EMPTIES,
     HEAD_TEXTURE_LOGIC_NODE_LABEL,
     INVALID_NAME_CHARACTERS_REGEX,
@@ -41,12 +43,15 @@ from ..constants import (
     TEMP_FOLDER,
     ToolInfo,
 )
-from ..rig_instance import start_listening
+from ..rig_instance import begin_render, end_render, ensure_main_thread_timer, start_listening
 from ..typing import *  # noqa: F403
 from . import get_active_rig_instance
 
 
 logger = logging.getLogger(__name__)
+
+# Distance below which two object origins are treated as already coincident.
+_ORIGIN_TOLERANCE = 1e-6
 
 
 def exclude_rig_instance_evaluation(func: Callable) -> Callable:
@@ -307,6 +312,10 @@ def notify_rig_instances_changed(instance: "RigInstance | None" = None) -> None:
 
 
 def setup_scene(*_: Any) -> None:
+    # Arm the main thread evaluation drain before anything that can fail: without it a render
+    # blocks on evaluations nothing performs and every frame comes out frozen.
+    ensure_main_thread_timer()
+
     # Auto-migrate rig-instance data saved by a different addon edition (Free vs
     # Pro) or an older version before initializing, so reopening a .blend always
     # yields a correctly populated rig-instance list. Guard against failures so a
@@ -321,11 +330,16 @@ def setup_scene(*_: Any) -> None:
 
     # initialize the rig instances
     for instance in getattr(scene_properties, "rig_instance_list", []):
-        instance.initialize()
+        # One instance failing must not stop the others, and must never skip start_listening()
+        # below -- that would leave the whole session without rig logic evaluation.
+        try:
+            instance.initialize()
 
-        # notify any registered callbacks that a rig instance has been set up in the scene, so they can perform
-        # any necessary actions
-        notify_rig_instances_changed(instance)
+            # notify any registered callbacks that a rig instance has been set up in the scene, so they can perform
+            # any necessary actions
+            notify_rig_instances_changed(instance)
+        except Exception as error:
+            logger.exception(f"Failed to set up rig instance '{instance.name}': {error}")
 
     start_listening()
 
@@ -385,27 +399,16 @@ def post_redo(*args: Any) -> None:
 
 
 def pre_render(*_: Any) -> None:
-    addon_window_manager_properties = get_addon_window_manager_properties(bpy.context)
-    addon_window_manager_properties.is_rendering = True
-
-
-def _deferred_post_render():
-    addon_window_manager_properties = get_addon_window_manager_properties(bpy.context)
-    addon_window_manager_properties.is_rendering = False
-    addon_window_manager_properties.evaluate_dependency_graph = True
+    # render_init fires on Blender's render job thread, so only plain Python state is touched
+    # here; anything Blender-side is done by the main thread timer in rig_instance.
+    begin_render()
 
 
 def post_render(*_: Any) -> None:
-    # Immediately disable evaluation to prevent any depsgraph/frame_change handlers from running
-    # during post-render cleanup. The render thread may still fire depsgraph updates after
-    # render_complete, and those must not trigger rig evaluation.
-    addon_window_manager_properties = get_addon_window_manager_properties(bpy.context)
-    addon_window_manager_properties.evaluate_dependency_graph = False
-    # Turn off the rendering flag after a short delay to ensure that any render threads have completed
-    # and are no longer accessing rig data before we allow evaluation again.
-    if bpy.app.timers.is_registered(_deferred_post_render):
-        bpy.app.timers.unregister(_deferred_post_render)
-    bpy.app.timers.register(_deferred_post_render, first_interval=0)
+    # render_complete/render_cancel also fire on the render job thread. This suppresses further
+    # evaluation immediately and queues the Blender-side cleanup for the main thread, which
+    # clears the cached evaluated objects belonging to the now-freed render dependency graph.
+    end_render()
 
 
 def post_save(*_: Any) -> None:
@@ -892,6 +895,27 @@ def extract_rig_instance_data_from_blend_file(blend_file_path: Path) -> tuple[li
     return [], "Failed to extract rig instance data."
 
 
+def reset_face_board_controls(face_board_object: bpy.types.Object) -> None:
+    """Return a face board's expression controls to neutral.
+
+    Only leaf ``CTRL_`` bones are moved, so the panel's layout and switch bones keep the
+    positions that define the board itself.
+
+    Args:
+        face_board_object: The face board armature object.
+    """
+    if not face_board_object.pose:
+        return
+
+    for pose_bone in face_board_object.pose.bones:
+        if (
+            not pose_bone.bone.children
+            and pose_bone.name.startswith("CTRL_")
+            and pose_bone.name not in FACE_BOARD_SWITCHES + EXCLUDED_FACE_BOARD_CONTROLS
+        ):
+            pose_bone.location = Vector((0.0, 0.0, 0.0))
+
+
 def duplicate_face_board(name: str) -> bpy.types.Object | None:
     scene_properties = get_addon_scene_properties()
     for instance in scene_properties.rig_instance_list:
@@ -901,6 +925,10 @@ def duplicate_face_board(name: str) -> bpy.types.Object | None:
             face_board_duplicate.name = f"{name}_{FACE_BOARD_NAME}"
             face_board_duplicate.data = instance.face_board.data.copy()
             face_board_duplicate.data.name = f"{name}_{FACE_BOARD_NAME}"
+            # The copy carries the source character's animation and expression, which would
+            # otherwise drive the new character's face and skew where the board is placed.
+            face_board_duplicate.animation_data_clear()
+            reset_face_board_controls(face_board_duplicate)
             if bpy.context.collection:
                 bpy.context.collection.objects.link(face_board_duplicate)
             return face_board_duplicate
@@ -961,6 +989,98 @@ def import_face_board(name: str) -> bpy.types.Object | None:
     if isinstance(face_board_object.data, bpy.types.Armature):
         face_board_object.data.relation_line_position = "HEAD"
     return face_board_object
+
+
+def set_armature_object_origin(armature_object: bpy.types.Object, world_location: Vector) -> None:
+    """Move an armature object's origin to a world location without moving its bones.
+
+    Only the world translation changes, so bone rolls, pose transforms and the
+    resulting deformation are all preserved.
+
+    Args:
+        armature_object: The armature object to re-origin.
+        world_location: The new world-space location of the object origin.
+    """
+    if not isinstance(armature_object.data, bpy.types.Armature):
+        return
+
+    previous_matrix = armature_object.matrix_world.copy()
+    new_matrix = previous_matrix.copy()
+    new_matrix.translation = world_location
+    to_new_local = new_matrix.inverted()
+
+    switch_to_object_mode()
+    switch_to_bone_edit_mode(armature_object)
+    # Snapshot every bone in world space first. Writing a connected bone's head also moves
+    # its parent's tail, so reading and writing in the same pass would transform bones twice.
+    world_positions = {
+        edit_bone.name: (previous_matrix @ edit_bone.head.copy(), previous_matrix @ edit_bone.tail.copy())
+        for edit_bone in armature_object.data.edit_bones
+    }
+    for edit_bone in armature_object.data.edit_bones:
+        head, tail = world_positions[edit_bone.name]
+        edit_bone.head = to_new_local @ head
+        edit_bone.tail = to_new_local @ tail
+    switch_to_object_mode()
+
+    armature_object.matrix_world = new_matrix
+
+
+def reset_child_of_inverses(armature_object: bpy.types.Object) -> None:
+    """Clear and re-set the inverse matrix on every Child Of constraint of an armature.
+
+    The stored inverse is relative to the owner object's transform, so it becomes
+    stale whenever the owner's origin moves.
+
+    Args:
+        armature_object: The armature object whose pose bone constraints are refreshed.
+    """
+    if not armature_object.pose:
+        return
+
+    switch_to_pose_mode(armature_object)
+    for pose_bone in armature_object.pose.bones:
+        for constraint in pose_bone.constraints:
+            if constraint.type != "CHILD_OF":
+                continue
+            with bpy.context.temp_override(active_object=armature_object, active_pose_bone=pose_bone):  # type: ignore[arg-type]
+                bpy.ops.constraint.childof_clear_inverse(constraint=constraint.name, owner="BONE")
+                bpy.ops.constraint.childof_set_inverse(constraint=constraint.name, owner="BONE")
+
+
+@preserve_context
+def align_face_board_origin(face_board_object: bpy.types.Object, rig_object: bpy.types.Object) -> bool:
+    """Match a face board's origin to the origin of the rig it belongs to.
+
+    A duplicated face board inherits the origin of the instance it was copied from, so in a
+    multi-character scene its origin no longer sits on the new character's body rig. A face
+    board shared by more than one rig instance is left untouched.
+
+    Args:
+        face_board_object: The face board armature object.
+        rig_object: The rig instance's body rig (or head rig when there is no body).
+
+    Returns:
+        True when the origin was moved.
+    """
+    if not face_board_object or not rig_object:
+        return False
+
+    scene_properties = get_addon_scene_properties()
+    if scene_properties:
+        users = [i for i in scene_properties.rig_instance_list if i.face_board == face_board_object]
+        if len(users) > 1:
+            logger.debug(f'Face board "{face_board_object.name}" is shared by multiple rig instances. Skipping.')
+            return False
+
+    world_location = rig_object.matrix_world.translation.copy()
+    if (face_board_object.matrix_world.translation - world_location).length <= _ORIGIN_TOLERANCE:
+        return False
+
+    set_armature_object_origin(face_board_object, world_location)
+    reset_child_of_inverses(face_board_object)
+    logger.info(f'Moved face board "{face_board_object.name}" origin to match "{rig_object.name}".')
+    return True
 
 
 def un_constrain_face_board_to_head(face_board_object: bpy.types.Object, bone_name: str) -> None:
@@ -1036,6 +1156,12 @@ def position_face_board(
 
     if head_mesh_object and head_rig_object:
         un_constrain_face_board_to_head(face_board_object, bone_name="CTRL_faceGUI")
+        un_constrain_face_board_to_head(face_board_object, bone_name="CTRL_C_eyesAim")
+        # Bounding boxes are read from the evaluated pose, so the dropped constraints have to
+        # be flushed first. A duplicated board is otherwise still measured where it sat on the
+        # character it was copied from.
+        if bpy.context.view_layer:
+            bpy.context.view_layer.update()
 
         head_mesh_center = get_bounding_box_center(head_mesh_object)
         face_gui_center = get_bounding_box_center(face_board_object)
@@ -1047,8 +1173,7 @@ def position_face_board(
         face_board_object.location.z += translation_vector.z
 
         # offset the face gui object to the left of the head mesh
-        x_value = head_mesh_right_x - face_gui_left_x
-        face_board_object.location.x = x_value
+        face_board_object.location.x += head_mesh_right_x - face_gui_left_x
 
         # apply the translation to the face gui object
         apply_transforms(face_board_object, location=True)

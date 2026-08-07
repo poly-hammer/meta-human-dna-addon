@@ -921,7 +921,7 @@ def update_instance_name(self: "RigInstance", context: "Context"):
         self.old_name = self.name
 
 
-def update_body_output_items(self: "RigInstance", context: "Context"):  # noqa: ARG001, PLR0912
+def update_body_output_items(self: "RigInstance | None", context: "Context"):  # noqa: ARG001, PLR0912
     if not hasattr(context.scene, ToolInfo.NAME):
         return
 

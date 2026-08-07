@@ -17,7 +17,7 @@ logger = logging.getLogger(constants.ToolInfo.NAME)
 bl_info = {
     "name": "Character DNA",
     "author": "Poly Hammer",
-    "version": (0, 12, 4),
+    "version": (0, 12, 9),
     "blender": (4, 5, 0),
     "location": "File > Import > MetaHuman DNA",
     "description": (
@@ -137,6 +137,10 @@ def register():
         logger.error(error)
 
     utilities.init_sentry()
+
+    # Arm the main thread evaluation drain up front; load_post is not guaranteed to fire when
+    # the addon is enabled with a file already open.
+    rig_instance.ensure_main_thread_timer()
 
     # add event handlers
     for handler_name, handler_function in app_handlers.items():

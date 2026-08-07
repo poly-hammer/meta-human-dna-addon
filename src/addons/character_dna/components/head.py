@@ -146,6 +146,11 @@ class CharacterComponentHead(CharacterComponentBase):
                 head_rig_object=self.head_rig_object,
                 face_board_object=face_board_object,
             )
+            # a duplicated face board keeps the origin of the instance it was copied from
+            utilities.align_face_board_origin(
+                face_board_object=face_board_object,
+                rig_object=self.rig_instance.body_rig or self.rig_instance.head_rig,
+            )
             utilities.move_to_collection(scene_objects=[face_board_object], collection_name=self.name, exclusively=True)
             utilities.switch_to_pose_mode(face_board_object)
             # constrain the face board to the head rig if it was just created
