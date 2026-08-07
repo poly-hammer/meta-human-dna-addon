@@ -2,34 +2,55 @@ import bpy
 import pytest
 
 from character_dna.ui.callbacks import get_active_rig_instance
+from constants import TEST_DNA_FOLDER
 
 
 FRAMES = range(1, 5)
 
 
-def _key_face_board_control(face_board, control_name: str, axis: str) -> dict[int, float]:
-    """Key one face board control with a distinct value per frame."""
-    from bpy_extras import anim_utils
+@pytest.fixture
+def freshly_imported_character(addon):
+    """A scene holding only this character.
 
-    action = bpy.data.actions.new("render_sync_probe")
-    if not face_board.animation_data:
-        face_board.animation_data_create()
-    face_board.animation_data.action = action
-    slot = action.slots[0] if action.slots else action.slots.new("OBJECT", name="face_board")
-    face_board.animation_data.action_slot = slot
-    channel_bag = anim_utils.action_ensure_channelbag_for_slot(action, slot)
+    Rendering evaluates every rig instance present, so sharing the session scoped import would
+    mean rendering whatever the previous test left behind, linked library data included.
+    """
+    from fixtures.scene import load_dna
 
-    curve = channel_bag.fcurves.new(data_path=f'pose.bones["{control_name}"].location', index="xyz".index(axis))
+    load_dna(
+        file_path=TEST_DNA_FOLDER / "ada" / "head.dna",
+        import_lods=["lod0"],
+        import_shape_keys=False,
+        import_face_board=True,
+        include_body=True,
+    )
+
+
+def _key_face_board_control(face_board, control_name: str, axis: str) -> tuple[bpy.types.Action, dict[int, float]]:
+    """Key one face board control with a distinct value per frame.
+
+    Goes through ``keyframe_insert`` rather than building f-curves by hand, since the slotted
+    action API that would need is not the same on 4.5 as it is on 5.x. Every frame in the range
+    is keyed, so the asserted values do not depend on the interpolation mode either.
+    """
+    pose_bone = face_board.pose.bones[control_name]
+    index = "xyz".index(axis)
+
+    if face_board.animation_data:
+        face_board.animation_data.action = None
+
     values = {}
     for frame in FRAMES:
         values[frame] = round(0.1 * frame, 4)
-        curve.keyframe_points.insert(frame, values[frame])
-    for keyframe in curve.keyframe_points:
-        keyframe.interpolation = "LINEAR"
+        pose_bone.location[index] = values[frame]
+        pose_bone.keyframe_insert(data_path="location", index=index, frame=frame)
+
+    action = face_board.animation_data.action
+    action.name = "render_sync_probe"
     return action, values
 
 
-def test_rig_logic_reads_the_rendered_frame(load_full_dna_for_animation, tmp_path):
+def test_rig_logic_reads_the_rendered_frame(freshly_imported_character, tmp_path):
     """Rig logic must consume the face board pose of the frame being rendered.
 
     Blender renders through its own dependency graph and never flushes the animated pose back
@@ -46,6 +67,7 @@ def test_rig_logic_reads_the_rendered_frame(load_full_dna_for_animation, tmp_pat
     )
 
     previous_action = instance.face_board.animation_data.action if instance.face_board.animation_data else None
+    cycles = getattr(scene, "cycles", None)
     previous = {
         "engine": scene.render.engine,
         "resolution": (scene.render.resolution_x, scene.render.resolution_y),
@@ -53,6 +75,8 @@ def test_rig_logic_reads_the_rendered_frame(load_full_dna_for_animation, tmp_pat
         "range": (scene.frame_start, scene.frame_end),
         "camera": scene.camera,
         "frame": scene.frame_current,
+        "samples": getattr(cycles, "samples", None),
+        "device": getattr(cycles, "device", None),
     }
     probe_action, expected = _key_face_board_control(instance.face_board, control_name, axis)
     camera = bpy.data.objects.new("render_sync_camera", bpy.data.cameras.new("render_sync_camera"))
@@ -65,7 +89,12 @@ def test_rig_logic_reads_the_rendered_frame(load_full_dna_for_animation, tmp_pat
     try:
         scene.collection.objects.link(camera)
         scene.camera = camera
-        scene.render.engine = "BLENDER_WORKBENCH"
+        # Cycles on the CPU renders without a GPU draw context, which the headless CI runners do
+        # not have. Workbench aborts there.
+        scene.render.engine = "CYCLES"
+        if cycles:
+            cycles.device = "CPU"
+            cycles.samples = 1
         scene.render.resolution_x = 8
         scene.render.resolution_y = 8
         scene.render.filepath = str(tmp_path / "frame_")
@@ -83,6 +112,9 @@ def test_rig_logic_reads_the_rendered_frame(load_full_dna_for_animation, tmp_pat
             bpy.app.handlers.frame_change_post.remove(record)
         bpy.data.objects.remove(camera, do_unlink=True)
         scene.render.engine = previous["engine"]
+        if cycles:
+            cycles.samples = previous["samples"]
+            cycles.device = previous["device"]
         scene.render.resolution_x, scene.render.resolution_y = previous["resolution"]
         scene.render.filepath = previous["filepath"]
         scene.frame_start, scene.frame_end = previous["range"]
