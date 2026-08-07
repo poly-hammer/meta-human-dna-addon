@@ -87,6 +87,7 @@
             "description": "Source code - Blender API and addon technical terms",
             "words": [
                 "AVX",
+                "RAII-wrapped",
                 "nij",
                 "psds",
                 "PYTHONNOUSERSITE",
