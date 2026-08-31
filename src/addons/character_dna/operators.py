@@ -1204,6 +1204,7 @@ class SendToMetaHumanCreator(bpy.types.Operator):
                         linear_modifier=component.linear_modifier,
                         file_name=f"{component.component_type}.dna",
                         component_type=component.component_type,
+                        normals=instance.output.export_normals,
                         seam_reference_dna_path=seam_reference_dna_path,
                     )
                 elif instance.output.method == "overwrite":
@@ -1212,6 +1213,7 @@ class SendToMetaHumanCreator(bpy.types.Operator):
                         linear_modifier=component.linear_modifier,
                         file_name=f"{component.component_type}.dna",
                         component_type=component.component_type,
+                        normals=instance.output.export_normals,
                     )
                 component_exporters.append((component, dna_io_instance))
 
@@ -1291,6 +1293,7 @@ class ExportSelectedComponent(bpy.types.Operator):
                     file_name=f"{component.component_type}.dna",
                     component_type=component.component_type,
                     textures=False,
+                    normals=instance.output.export_normals,
                     seam_reference_dna_path=seam_reference_dna_path,
                 )
             elif instance.output.method == "overwrite":
@@ -1300,6 +1303,7 @@ class ExportSelectedComponent(bpy.types.Operator):
                     file_name=f"{component.component_type}.dna",
                     component_type=component.component_type,
                     textures=False,
+                    normals=instance.output.export_normals,
                 )
 
             valid, title, message, fix = dna_io_instance.run()

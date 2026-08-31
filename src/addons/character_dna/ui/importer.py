@@ -33,8 +33,10 @@ class CHARACTER_DNA_FILE_DATA_PT_panel(bpy.types.Panel):
         layout = self.layout
         row = layout.row()
         row.prop(operator, "import_mesh")
-        row = layout.row()
-        row.prop(operator, "import_normals")
+        # TODO: Support importing normals again, only when Blender supports normals on
+        # shape keys. Otherwise, we hit the closed eyelid artifact problem.
+        # row = layout.row()  # noqa: ERA001
+        # row.prop(operator, "import_normals")  # noqa: ERA001
         row = layout.row()
         row.prop(operator, "import_bones")
         row = layout.row()

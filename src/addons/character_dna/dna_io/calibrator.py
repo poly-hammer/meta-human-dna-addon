@@ -653,8 +653,9 @@ class DNACalibrator(DNAExporter, DNAImporter):
 
         if self._include_meshes:
             self.calibrate_vertex_positions()
-            self._report("Calibrating normals...")
-            self.calibrate_normals()
+            if self._include_normals:
+                self._report("Calibrating normals...")
+                self.calibrate_normals()
         if self._include_shape_keys:
             self._report("Calibrating shape keys...")
             self.calibrate_shape_keys()

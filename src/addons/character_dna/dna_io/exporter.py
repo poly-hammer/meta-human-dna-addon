@@ -44,6 +44,7 @@ class DNAExporter:
         textures: bool = True,
         vertex_colors: bool = True,
         vertex_groups: bool = True,
+        normals: bool = False,
         file_name: str | None = None,
         component_type: ComponentType | None = None,
         reader: "BinaryStreamReader | None" = None,
@@ -62,6 +63,7 @@ class DNAExporter:
         self._include_bones = bones
         self._include_textures = textures
         self._include_vertex_colors = vertex_colors
+        self._include_normals = normals
         self._zero_shape_deltas = zero_shape_deltas
         self._progress_callback = progress_callback
         # Seam alignment between the head and body neck edge loop. ``seam_follower``
@@ -638,8 +640,10 @@ class DNAExporter:
         real_name = utilities.remove_instance_prefix(mesh_object.name, self._prefix)
 
         logger.info(f'Exporting mesh: "{mesh_object.name}" to DNA as "{real_name}"...')
-        # Read before the UV split, which renumbers the loops these are addressed by.
-        split_normals = self.get_mesh_split_normals(mesh_object)
+        # Read before the UV split, which renumbers the loops these are addressed by. With
+        # normals excluded the layout still needs an array to point at, so
+        # ``get_mesh_vertex_normals`` falls back to the geometry's own normals.
+        split_normals = self.get_mesh_split_normals(mesh_object) if self._include_normals else {}
         self._dna_writer.clearFaceVertexLayoutIndices(meshIndex=mesh_index)
         self._dna_writer.clearSkinWeights(meshIndex=mesh_index)
         # Blend shape targets are (re)written by ``export_shape_keys`` -- either

@@ -1,7 +1,3 @@
-## Minor Changes
-
-* Added custom split normals support to DNA mesh importer, exporter, and calibrator
-
 ## Patch Changes
 
 * Fixed face board import to properly exclude bones not effecting DNA GUI controls
