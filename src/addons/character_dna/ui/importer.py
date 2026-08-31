@@ -34,8 +34,7 @@ class CHARACTER_DNA_FILE_DATA_PT_panel(bpy.types.Panel):
         row = layout.row()
         row.prop(operator, "import_mesh")
         row = layout.row()
-        # TODO: Fix implementation normals import
-        # row.prop(operator, "import_normals")  # noqa: ERA001
+        row.prop(operator, "import_normals")
         row = layout.row()
         row.prop(operator, "import_bones")
         row = layout.row()

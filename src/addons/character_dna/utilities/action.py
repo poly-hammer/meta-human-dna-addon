@@ -12,6 +12,7 @@ from mathutils import Euler, Quaternion, Vector
 
 # local imports
 from ..constants import (
+    EXCLUDED_FACE_BOARD_CONTROLS,
     EYE_AIM_BONES,
     FACE_BOARD_SWITCHES,
     HAS_ACTION_SLOTS,
@@ -91,7 +92,9 @@ def set_keys_on_bone(
             keyframe_point.co[1] = value * scale_factor
 
 
-FACE_BOARD_EXCLUDED_CONTROLS = frozenset(EYE_AIM_BONES) | frozenset(FACE_BOARD_SWITCHES)
+FACE_BOARD_EXCLUDED_CONTROLS = (
+    frozenset(EYE_AIM_BONES) | frozenset(FACE_BOARD_SWITCHES) | frozenset(EXCLUDED_FACE_BOARD_CONTROLS)
+)
 
 
 def get_scene_frame_rate() -> float:

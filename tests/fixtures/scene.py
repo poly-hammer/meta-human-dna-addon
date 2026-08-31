@@ -238,12 +238,19 @@ def modify_head_scene(
     changed_head_mesh_name: str,
     changed_head_vertex_index: int,
     changed_head_vertex_location: tuple[Vector, Vector, Vector],
+    changed_head_normal_index: int,
+    changed_head_normal_vector: tuple[Vector, Vector, Vector],
     changed_head_vertex_group_name: str,
     changed_head_vertex_group_vertex_index: int,
     changed_head_vertex_group_weight: float,
     temp_folder,
 ):
-    from utilities.modify import apply_bone_transform, apply_vertex_group_weight, apply_vertex_transform
+    from utilities.modify import (
+        apply_bone_transform,
+        apply_vertex_group_weight,
+        apply_vertex_normal,
+        apply_vertex_transform,
+    )
 
     # Make some changes
     apply_vertex_transform(
@@ -251,6 +258,12 @@ def modify_head_scene(
         mesh_name=changed_head_mesh_name,
         vertex_index=changed_head_vertex_index,
         location=changed_head_vertex_location[0],
+    )
+    apply_vertex_normal(
+        prefix=dna_folder_name,
+        mesh_name=changed_head_mesh_name,
+        vertex_index=changed_head_normal_index,
+        normal=changed_head_normal_vector[0],
     )
     apply_bone_transform(
         prefix=dna_folder_name,

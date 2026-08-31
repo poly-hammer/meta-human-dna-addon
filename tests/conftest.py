@@ -198,6 +198,40 @@ def changed_head_vertex_location() -> tuple[Vector, Vector, Vector]:
 
 
 @pytest.fixture(scope="session")
+def changed_head_normal_index() -> int:
+    """A different vertex than the moved one, so the two changes stay independent.
+
+    Ada's head DNA stores one normal per position and every layout's normal index equals its
+    position index, so this addresses DNA normal index 12000 as well as vertex 12000.
+    """
+    return 12000
+
+
+@pytest.fixture(scope="session")
+def changed_head_normal_vector() -> tuple[Vector, Vector, Vector]:
+    # change vertex normal (blender value, original dna value, new dna value)
+    # Tilts one corner's normal so all three axes move by well over the tolerance.
+    return (
+        Vector((0.5, 0.5, 0.7071067811865476)),  # new blender value Z-up, unit length
+        Vector((0.310416, 0.676806, -0.667514)),  # original dna value Y-up
+        Vector((0.5, 0.7071067811865476, -0.5)),  # new dna value Y-up
+    )
+
+
+@pytest.fixture(scope="session")
+def changed_head_normal_neighbours() -> list[int]:
+    """Normals that follow the moved vertex rather than the normal edit.
+
+    Blender encodes a custom normal against a space derived from the surrounding geometry, so
+    moving ``changed_head_vertex_index`` re-decodes the normals of its one ring as well. These
+    are the vertices sharing a face with vertex 11955 -- a superset of what actually crosses
+    ``NORMAL_DELTA_THRESHOLD`` -- captured from scratches/probe_normal_diag.py. They are
+    allowed to differ, so only the deliberate change is asserted to have moved.
+    """
+    return [3018, 5430, 5999, 10705, 10708, 11955, 18021, 23985, 23986]
+
+
+@pytest.fixture(scope="session")
 def changed_head_lower_lod_vertices() -> list[dict]:
     # Expected lower-LOD head vertex positions after `auto_update_lods` propagates
     # the calibrated LOD0 shape down through the UV-barycentric solver. Lower-LOD
