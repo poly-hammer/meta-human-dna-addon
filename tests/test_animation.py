@@ -4,6 +4,7 @@ import pytest
 from constants import TEST_ANIMATION_FOLDER
 from character_dna.constants import IS_BLENDER_5
 from character_dna.ui.callbacks import get_active_rig_instance
+from character_dna.utilities.action import get_channel_bag
 
 
 @pytest.mark.parametrize(
@@ -200,3 +201,22 @@ def test_bake_face_board_animation(
     assert any(
         name == f"{instance.name}_head_{action_name}_texture_logic_node" for name in expected_node_tree_action_names
     ), "The baked node tree action name is not as expected."
+
+
+def test_bake_face_board_animation_ignores_unrelated_channels(load_full_dna_for_animation):
+    instance = get_active_rig_instance()
+    action = instance.face_board.animation_data.action
+    channel_bag = get_channel_bag(action, action.name)
+    # The face board can carry channels that are not pose bone transforms at all.
+    channel_bag.fcurves.new(data_path="hide_viewport")
+
+    result = bpy.ops.character_dna.bake_face_board_animation(
+        start_frame=1,
+        end_frame=3,
+        action_name="stray_channel_test",
+        prefix_instance_name=True,
+        prefix_component_name=True,
+        replace_action=False,
+    )
+
+    assert result == {"FINISHED"}

@@ -316,7 +316,12 @@ def bake_control_curve_values_for_frame(  # noqa: PLR0912
         return
 
     for fcurve in channel_bag.fcurves:  # pyright: ignore[reportAttributeAccessIssue]
-        control_curve_name, transform = fcurve.data_path.split('"].')
+        # The action can hold channels that are not pose bone transforms at all, so anything that
+        # is not a 'pose.bones["name"].transform' path is skipped rather than failing the bake.
+        parts = fcurve.data_path.split('"].', 1)
+        if len(parts) != 2:
+            continue
+        control_curve_name, transform = parts
         if transform == "location" and fcurve.array_index != 2:
             control_curve_name = control_curve_name.replace('pose.bones["', "")
             axis = index_lookup[fcurve.array_index]

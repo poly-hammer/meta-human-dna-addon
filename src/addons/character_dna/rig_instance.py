@@ -3,6 +3,7 @@ import logging  # noqa: I001
 import math
 import threading
 
+from collections.abc import Callable
 from pathlib import Path
 from pprint import pformat
 
@@ -47,6 +48,27 @@ _logged_main_thread_timeout = False
 
 def is_main_thread() -> bool:
     return threading.current_thread().ident == _MAIN_THREAD_IDENT
+
+
+def is_id_write_locked(error: BaseException) -> bool:
+    """Whether the error is Blender refusing a write to ID data rather than a real coding fault.
+
+    Depsgraph and render contexts reject the write attempt itself, and raise an ``AttributeError``
+    that is indistinguishable from a typo except by its message.
+    """
+    return isinstance(error, AttributeError) and "Writing to ID classes" in str(error)
+
+
+def apply_id_writes(description: str, apply: Callable[[], None]) -> bool:
+    """Run writes to ID data, reporting rather than raising when Blender has them locked."""
+    try:
+        apply()
+    except AttributeError as error:
+        if not is_id_write_locked(error):
+            raise
+        logger.debug(f"Deferred {description}, Blender is not accepting writes to ID data: {error}")
+        return False
+    return True
 
 
 def is_rendering() -> bool:
@@ -113,7 +135,11 @@ def run_main_thread_evaluations() -> float:
             except ReferenceError:
                 pass
             except Exception as error:
-                logger.exception(f"Error evaluating rig instance '{name}': {error}")
+                if is_id_write_locked(error):
+                    # The next evaluation retries once Blender accepts writes again.
+                    logger.debug(f"Deferred evaluation of rig instance '{name}': {error}")
+                else:
+                    logger.exception(f"Error evaluating rig instance '{name}': {error}")
             finally:
                 done.set()
 
@@ -352,6 +378,10 @@ def rig_instance_listener(_: "Scene", dependency_graph: bpy.types.Depsgraph, is_
             # The underlying data was freed out from under us; skip it.
             continue
         except Exception as error:
+            if is_id_write_locked(error):
+                # The next evaluation retries once Blender accepts writes again.
+                logger.debug(f"Deferred evaluation of rig instance '{instance.name}': {error}")
+                continue
             logger.exception(f"Error evaluating rig instance '{instance.name}': {error}")
 
 
@@ -968,10 +998,9 @@ class RigInstance(bpy.types.PropertyGroup):
         # make sure the rig bone are using the correct rotation mode
         if self.head_rig_evaluated and self.head_rig_evaluated.pose:
             for pose_bone in self.head_rig_evaluated.pose.bones:
-                if pose_bone.name in self.head_driver_bone_names:
-                    pose_bone.rotation_mode = "QUATERNION"
-                else:
-                    pose_bone.rotation_mode = "XYZ"
+                mode = "QUATERNION" if pose_bone.name in self.head_driver_bone_names else "XYZ"
+                if pose_bone.rotation_mode != mode:
+                    pose_bone.rotation_mode = mode
                 # save the rest pose and their parent space matrix so we don't have to calculate it again
                 rest_pose[pose_bone.name] = utilities.get_bone_rest_transformations(pose_bone.bone)
 
@@ -1149,10 +1178,9 @@ class RigInstance(bpy.types.PropertyGroup):
         if self.body_rig_evaluated and self.body_rig_evaluated.pose:
             for pose_bone in self.body_rig_evaluated.pose.bones:
                 # make sure the body bones are using the correct rotation mode
-                if pose_bone.name in self.body_driver_bone_names:
-                    pose_bone.rotation_mode = "QUATERNION"
-                else:
-                    pose_bone.rotation_mode = "XYZ"
+                mode = "QUATERNION" if pose_bone.name in self.body_driver_bone_names else "XYZ"
+                if pose_bone.rotation_mode != mode:
+                    pose_bone.rotation_mode = mode
 
                 # save the rest pose and their parent space matrix so we don't have to calculate it again
                 rest_pose[pose_bone.name] = utilities.get_bone_rest_transformations(pose_bone.bone, rotation_mode="XYZ")
@@ -1317,11 +1345,25 @@ class RigInstance(bpy.types.PropertyGroup):
         self.data[self.cache_key("body", "bone_transform_plan")] = plan
         return plan
 
+    def _apply_head_rotation_modes(self):
+        # Only assigned when it differs: Blender rejects the write attempt itself in a locked
+        # context, so a rig that is already correct must not attempt one at all.
+        if self.head_rig and self.head_rig.pose:
+            for pose_bone in self.head_rig.pose.bones:
+                mode = "XYZ" if pose_bone.name.startswith("FACIAL_") else "QUATERNION"
+                if pose_bone.rotation_mode != mode:
+                    pose_bone.rotation_mode = mode
+
     def head_initialize(self, update_raw_control_list: bool = True):
         from .bindings import riglogic  # pyright: ignore[reportAttributeAccessIssue]
         from .dna_io import get_dna_reader
 
         if not self.head_valid:
+            return
+
+        # Done before destroy_head so a context that rejects ID writes leaves the previous state
+        # intact and this simply runs again on the next evaluation.
+        if not apply_id_writes(f"head rotation modes for '{self.name}'", self._apply_head_rotation_modes):
             return
 
         # Release any previous head state first: re-initializing without this leaks the old
@@ -1337,14 +1379,6 @@ class RigInstance(bpy.types.PropertyGroup):
             logger.warning(f"Failed to read the head DNA for Rig Instance {self.name}.")
             return
         self.data[self.cache_key("head", "dna_reader")] = dna_reader
-
-        # make sure the rig bones are using the correct rotation mode
-        if self.head_rig and self.head_rig.pose:
-            for pose_bone in self.head_rig.pose.bones:
-                if pose_bone.name.startswith("FACIAL_"):
-                    pose_bone.rotation_mode = "XYZ"
-                else:
-                    pose_bone.rotation_mode = "QUATERNION"
 
         # set the rig logic manager and instance
         self.data[self.cache_key("head", "manager")] = riglogic.RigLogic(
@@ -1511,7 +1545,7 @@ class RigInstance(bpy.types.PropertyGroup):
         self.destroy_head()
         self.destroy_body()
 
-    def update_head_switch_values(self):  # noqa: PLR0912
+    def update_head_switch_values(self):
         if not self.face_board:
             return
 
@@ -1555,19 +1589,19 @@ class RigInstance(bpy.types.PropertyGroup):
         if eye_aim_control:
             use_eye_aim = self.head_use_eye_aim
             if self.data.get(self.cache_key("head", "eye_aim_visibility")) != use_eye_aim:
-                if IS_BLENDER_5:
-                    eye_aim_control.hide = not use_eye_aim
-                else:
-                    eye_aim_control.bone.hide = not use_eye_aim
+                hidden = not use_eye_aim
 
-                for child in eye_aim_control.children_recursive:
-                    if not child.name.startswith(("GRP_", "LOC_")):
-                        if IS_BLENDER_5:
-                            child.hide = not use_eye_aim
-                        else:
-                            child.bone.hide = not use_eye_aim
+                def apply_eye_aim_visibility():
+                    for pose_bone in [eye_aim_control, *eye_aim_control.children_recursive]:
+                        if pose_bone != eye_aim_control and pose_bone.name.startswith(("GRP_", "LOC_")):
+                            continue
+                        target = pose_bone if IS_BLENDER_5 else pose_bone.bone
+                        if target.hide != hidden:
+                            target.hide = hidden
 
-                self.data[self.cache_key("head", "eye_aim_visibility")] = use_eye_aim
+                # Only cache once the writes land, otherwise a locked context is never retried.
+                if apply_id_writes(f"eye aim visibility for '{self.name}'", apply_eye_aim_visibility):
+                    self.data[self.cache_key("head", "eye_aim_visibility")] = use_eye_aim
 
     def get_head_gui_control_values_from_eye_aim(
         self, dependency_graph: bpy.types.Depsgraph | None = None

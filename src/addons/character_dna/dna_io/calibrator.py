@@ -37,6 +37,39 @@ class DNACalibrator(DNAExporter, DNAImporter):
         This is only available in the Pro edition and when the output option is enabled."""
         return bool(self._instance.output.auto_update_lods) and self._instance.is_pro
 
+    def validate(self) -> tuple[bool, str, str, Callable | None]:
+        valid, title, message, fix = super().validate()
+        if not valid:
+            return (valid, title, message, fix)
+
+        # A calibration writes back into the DNA's own vertex arrays by index, so a mesh that
+        # gained vertices has nowhere to write them. Overwriting is unaffected, hence the override.
+        mesh_index_lookup = {
+            self._dna_reader.getMeshName(index): index for index in range(self._dna_reader.getMeshCount())
+        }
+        mismatched = []
+        for mesh_objects in self._export_lods.values():
+            for mesh_object, _ in mesh_objects:
+                real_name = utilities.remove_instance_prefix(mesh_object.name, self._instance.name)
+                mesh_index = mesh_index_lookup.get(real_name)
+                if mesh_index is None:
+                    continue
+                dna_vertex_count = len(self._dna_reader.getVertexPositionXs(mesh_index))
+                scene_vertex_count = len(mesh_object.data.vertices)
+                if scene_vertex_count != dna_vertex_count:
+                    mismatched.append(f'"{mesh_object.name}" has {scene_vertex_count}, DNA has {dna_vertex_count}')
+
+        if mismatched:
+            return (
+                False,
+                "Vertex count mismatch. Calibrating requires the DNA's topology.",
+                "\n".join(mismatched)
+                + "\n\nRemove the added or deleted vertices, or set the export method to Overwrite.",
+                None,
+            )
+
+        return (True, "Success", "All validations passed.", None)
+
     def _get_body_mesh_lookup(
         self, lod_index: int, mesh_name: str, head_to_body_edge_loop_mapping: dict[str, dict[int, int]]
     ) -> dict[int, Vector]:
@@ -118,6 +151,15 @@ class DNACalibrator(DNAExporter, DNAImporter):
                 x_values = self._dna_reader.getVertexPositionXs(mesh_index)
                 y_values = self._dna_reader.getVertexPositionYs(mesh_index)
                 z_values = self._dna_reader.getVertexPositionZs(mesh_index)
+
+                # Reachable when the user turned validations off, since the loop below indexes the
+                # DNA's arrays with the scene mesh's own vertex indices.
+                if vertex_indices and max(vertex_indices) >= len(x_values):
+                    logger.warning(
+                        f'Skipping "{real_name}", it has more vertices than the DNA mesh '
+                        f"({max(vertex_indices) + 1} vs {len(x_values)}). Use the Overwrite method instead."
+                    )
+                    continue
 
                 for vertex_index in vertex_indices:
                     # See if we can get the vertex position from the body mesh lookup first,

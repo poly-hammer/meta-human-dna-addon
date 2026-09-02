@@ -133,3 +133,43 @@ def test_head_evaluates_without_a_face_board(load_head_only_dna):
 
     assert after != before
     assert after["head.qz"] == pytest.approx(0.3827, abs=1e-3)
+
+
+def test_head_initialize_leaves_no_rotation_mode_to_write(load_head_only_dna):
+    """Blender rejects the write attempt itself in a locked context, so a second initialize,
+    which is what every depsgraph update triggers, must find nothing left to assign."""
+    instance = get_instance()
+    instance.head_initialize()
+
+    assert instance.head_initialized
+    for pose_bone in instance.head_rig.pose.bones:
+        expected = "XYZ" if pose_bone.name.startswith("FACIAL_") else "QUATERNION"
+        assert pose_bone.rotation_mode == expected, pose_bone.name
+
+
+def test_head_initialize_keeps_the_previous_state_when_id_writes_are_locked(load_head_only_dna, monkeypatch):
+    """A failed re-initialize used to leave the rig destroyed and stop it animating for the session."""
+    instance = get_instance()
+    instance.head_initialize()
+
+    def locked(*_args, **_kwargs):
+        raise AttributeError("Writing to ID classes in this context is not allowed")
+
+    monkeypatch.setattr(type(instance), "_apply_head_rotation_modes", locked)
+    instance.head_initialize()
+
+    assert instance.head_initialized
+    assert instance.head_instance is not None
+
+
+def test_head_initialize_still_raises_a_genuine_attribute_error(load_head_only_dna, monkeypatch):
+    """Only Blender's locked-write error is tolerated; a real coding fault must not be swallowed."""
+    instance = get_instance()
+
+    def broken(*_args, **_kwargs):
+        raise AttributeError("'NoneType' object has no attribute 'pose'")
+
+    monkeypatch.setattr(type(instance), "_apply_head_rotation_modes", broken)
+
+    with pytest.raises(AttributeError, match="NoneType"):
+        instance.head_initialize()

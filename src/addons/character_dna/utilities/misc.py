@@ -102,9 +102,9 @@ def set_context(context: dict[str, Any]) -> None:
     for object_name, attributes in object_contexts.items():
         scene_object = bpy.data.objects.get(object_name)
         if scene_object:
-            scene_object.hide_set(attributes.get("hide", False))
+            set_hidden(scene_object, attributes.get("hide", False))
             scene_object.hide_viewport = attributes.get("hide_viewport", False)
-            scene_object.select_set(attributes.get("select", False))
+            set_selected(scene_object, attributes.get("select", False))
 
             active_action = attributes.get("active_action")
             if active_action and scene_object.animation_data:
@@ -113,8 +113,8 @@ def set_context(context: dict[str, Any]) -> None:
             scene_object.show_instancer_for_render = attributes.get("show_instancer_for_render", False)
 
     # set the active object
-    if active_object_name and bpy.context.view_layer:
-        bpy.context.view_layer.objects.active = bpy.data.objects.get(active_object_name)
+    if active_object_name:
+        set_active(bpy.data.objects.get(active_object_name))
 
     # set the mode
     if bpy.context.mode != mode:
@@ -174,17 +174,61 @@ def preserved_context() -> Generator[dict[str, Any], None, None]:
         window_manager_properties.evaluate_dependency_graph = True
 
 
+def set_hidden(scene_object: bpy.types.Object | None, state: bool) -> bool:
+    """Hide or unhide the object, skipping it when it has no base in the view layer.
+
+    Blender raises on an object outside the view layer rather than treating it as a no-op, and a
+    character can end up there via an excluded collection or a collection left out of the scene.
+    The attempt is what reports it: ``view_layer.objects`` is not synced until the depsgraph runs,
+    so a membership pre-check would skip objects Blender would have accepted.
+    """
+    if not scene_object:
+        return False
+    try:
+        scene_object.hide_set(state)
+    except RuntimeError as error:
+        logger.warning(f'Skipping visibility change on "{scene_object.name}": {error}')
+        return False
+    return True
+
+
+def set_selected(scene_object: bpy.types.Object | None, state: bool) -> bool:
+    """Select or deselect the object, skipping it when it has no base in the view layer."""
+    if not scene_object:
+        return False
+    try:
+        scene_object.select_set(state)
+    except RuntimeError as error:
+        logger.warning(f'Skipping selection of "{scene_object.name}": {error}')
+        return False
+    return True
+
+
+def set_active(scene_object: bpy.types.Object | None) -> bool:
+    """Make the object active, skipping it when it has no base in the view layer."""
+    if not scene_object or not bpy.context.view_layer:
+        return False
+    try:
+        bpy.context.view_layer.objects.active = scene_object
+    except RuntimeError as error:
+        logger.warning(f'Skipping active object change to "{scene_object.name}": {error}')
+        return False
+    return True
+
+
 def deselect_all():
     for scene_object in bpy.data.objects:
         scene_object.select_set(False)
 
 
-def select_only(*scene_object: bpy.types.Object):
+def select_only(*scene_object: bpy.types.Object) -> bool:
+    """Select the given objects and make the last reachable one active, reporting whether any was."""
     deselect_all()
+    activated = False
     for _scene_object in scene_object:
-        _scene_object.select_set(True)
-        if bpy.context.view_layer:
-            bpy.context.view_layer.objects.active = _scene_object
+        set_selected(_scene_object, True)
+        activated = set_active(_scene_object) or activated
+    return activated
 
 
 def switch_to_object_mode():
@@ -212,11 +256,10 @@ def switch_to_bone_edit_mode(*armature_object: bpy.types.Object):
         # armature first so it is visible and settable as the active object.
         for _armature_object in armature_object:
             _armature_object.hide_viewport = False
-            with contextlib.suppress(RuntimeError):
-                _armature_object.hide_set(False)
+            set_hidden(_armature_object, False)
         select_only(*armature_object)
-        if bpy.context.view_layer:
-            bpy.context.view_layer.objects.active = armature_object[0]
+        if not set_active(armature_object[0] if armature_object else None):
+            return
         bpy.ops.object.mode_set(mode="EDIT")
 
 
@@ -227,9 +270,9 @@ def switch_to_pose_mode(*scene_object: bpy.types.Object):
     # objects first so they are visible and settable as the active object.
     for _scene_object in scene_object:
         _scene_object.hide_viewport = False
-        with contextlib.suppress(RuntimeError):
-            _scene_object.hide_set(False)
-    select_only(*scene_object)
+        set_hidden(_scene_object, False)
+    if not select_only(*scene_object):
+        return
     bpy.ops.object.mode_set(mode="POSE")
 
 
@@ -537,10 +580,24 @@ def get_active_body() -> "CharacterComponentBody | None":
     return None
 
 
+def is_collection_in_scene(collection: bpy.types.Collection | None) -> bool:
+    """Whether the collection is reachable from the scene's root collection."""
+    if not collection or not bpy.context.scene:
+        return False
+    root = bpy.context.scene.collection
+    return collection == root or collection in root.children_recursive
+
+
 def move_to_collection(scene_objects: list[bpy.types.Object], collection_name: str, exclusively: bool = False):
     collection = bpy.data.collections.get(collection_name)
     if not collection and bpy.context.scene:
         collection = bpy.data.collections.new(collection_name)
+        bpy.context.scene.collection.children.link(collection)
+
+    # A collection of this name can survive in the file without being linked to the scene, and
+    # moving objects into it would drop them out of the view layer entirely.
+    if collection and not is_collection_in_scene(collection) and bpy.context.scene:
+        logger.warning(f'Re-linking collection "{collection.name}" to the scene, it was outside the scene hierarchy.')
         bpy.context.scene.collection.children.link(collection)
 
     if exclusively:

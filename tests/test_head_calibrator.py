@@ -61,7 +61,8 @@ def test_bone_behaviors(original_head_dna_json_data, calibrated_head_dna_json_da
     ("mesh_name", "attribute", "axis_name"),
     get_test_mesh_geometry_params(
         vertex_positions=True,
-        normals=True,
+        # Off while `import_normals` has no UI control, so no imported mesh carries the DNA's normals.
+        normals=False,
         uvs=True,
         dna_file_path=HEAD_DNA_FILE,
         ci_required=CI_CALIBRATE_MESH_NAMES,

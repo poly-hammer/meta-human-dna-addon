@@ -79,8 +79,9 @@ def get_active_rig_instance() -> "RigInstance | None":
     """
     Gets the active rig instance.
     """
-    scene_properties: "CharacterSceneProperties" = getattr(bpy.context.scene, ToolInfo.NAME)  # noqa: UP037
-    if not hasattr(bpy.context.scene, ToolInfo.NAME):
+    # The property is gone while the addon is unregistered, which a panel poll can still race.
+    scene_properties: "CharacterSceneProperties | None" = getattr(bpy.context.scene, ToolInfo.NAME, None)  # noqa: UP037
+    if not scene_properties:
         return None
 
     if len(scene_properties.rig_instance_list) > 0:
@@ -565,6 +566,8 @@ def set_bake_end_frame(self: "BakeAnimationBase", value: int):
 
 
 def set_active_lod(self: "CharacterViewOptionsProperties", value: int):
+    from ..utilities import set_hidden
+
     self["active_lod"] = value
     if not bpy.context.scene:
         return
@@ -582,39 +585,47 @@ def set_active_lod(self: "CharacterViewOptionsProperties", value: int):
                 f"{instance.name}_saliva_lod{value}_mesh",
                 f"{instance.name}_body_lod{value}_mesh",
             ]
-            scene_object.hide_set(True)
+            set_hidden(scene_object, True)
             if scene_object.name.endswith(f"_lod{value}_mesh") and scene_object.name not in ignored_names:
-                scene_object.hide_set(False)
+                set_hidden(scene_object, False)
 
     # un-hide the body lod. There are 2 head lods per body lod
     body_lod_index = HEAD_TO_BODY_LOD_MAPPING.get(value)
     body_lod_object = bpy.data.objects.get(f"{instance.name}_body_lod{body_lod_index}_mesh")
     if body_lod_object:
-        body_lod_object.hide_set(False)
+        set_hidden(body_lod_object, False)
 
 
 def set_show_head_bones(self: "CharacterViewOptionsProperties", value: bool):
+    from ..utilities import set_hidden
+
     instance = _get_view_options_owner(self)
     if instance and instance.head_rig:
-        instance.head_rig.hide_set(not value)
+        set_hidden(instance.head_rig, not value)
 
 
 def set_show_face_board(self: "CharacterViewOptionsProperties", value: bool):
+    from ..utilities import set_hidden
+
     instance = _get_view_options_owner(self)
     if instance and instance.face_board:
-        instance.face_board.hide_set(not value)
+        set_hidden(instance.face_board, not value)
 
 
 def set_show_control_rig(self: "CharacterViewOptionsProperties", value: bool):
+    from ..utilities import set_hidden
+
     instance = _get_view_options_owner(self)
     if instance and instance.control_rig:
-        instance.control_rig.hide_set(not value)
+        set_hidden(instance.control_rig, not value)
 
 
 def set_show_body_bones(self: "CharacterViewOptionsProperties", value: bool):
+    from ..utilities import set_hidden
+
     instance = _get_view_options_owner(self)
     if instance and instance.body_rig:
-        instance.body_rig.hide_set(not value)
+        set_hidden(instance.body_rig, not value)
 
 
 def get_hide_volume_bones(self: "CharacterViewOptionsProperties") -> bool:

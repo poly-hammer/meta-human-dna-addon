@@ -1276,6 +1276,14 @@ class ExportSelectedComponent(bpy.types.Operator):
                 self.report({"ERROR"}, "File must be saved to use a relative path")
                 return {"CANCELLED"}
 
+            if not component.dna_reader:
+                self.report(
+                    {"ERROR"},
+                    f'The {component.component_type} DNA file "{component.dna_file_path}" could not be read. '
+                    "Please re-select it under the Rig Instance panel.",
+                )
+                return {"CANCELLED"}
+
             dna_io_instance: DNAExporter = None  # type: ignore[assignment]
             if instance.output.method == "calibrate":
                 # When re-exporting only the head, conform its neck seam onto a body
