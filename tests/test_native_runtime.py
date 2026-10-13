@@ -111,7 +111,7 @@ def test_runtime_hydration_classifies_expected_states(monkeypatch, caplog, probl
 
 def test_runtime_adoption_clears_initialization_warning(monkeypatch):
     """Successful adoption removes the temporary warning rather than leaving stale status."""
-    carrier = SimpleNamespace(as_pointer=lambda: 123)
+    carrier = SimpleNamespace(as_pointer=lambda: 123, animation_data=None)
     instance = SimpleNamespace(as_pointer=lambda: 456)
     monkeypatch.setattr(engine, "_records", {})
     monkeypatch.setattr(engine, "_warnings", {123: "Not initialized", 456: "Not initialized"})

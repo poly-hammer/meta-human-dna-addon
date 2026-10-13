@@ -441,14 +441,12 @@ def preflight_runtime_migration(instances: list[Any], *, rebuild_controls: bool 
                 owners.extend((owner, owner.data))
         for carrier in carriers:
             for target in carrier.get("targets", ()):
-                owner = target.get("owner")
-                if owner is not None and target.get("embedded", False):
-                    owner = owner.node_tree
+                owner, path = bindings.resolve_output_target(carrier, target)
                 if owner is None:
                     continue
                 owners.append(owner)
                 animation = owner.animation_data
-                path, index = target["path"], max(0, target["index"])
+                index = max(0, target["index"])
                 curve = animation.drivers.find(path, index=index) if animation else None
                 if curve and not bindings.owned_curve(curve, carrier):
                     issues.append(f"{name}: conflicting driver on {owner.name}:{path}[{index}]")

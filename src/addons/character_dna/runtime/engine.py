@@ -23,12 +23,14 @@ from .bindings import (
     mute_targets,
     owned_curve,
     remove_targets,
+    resolve_output_target,
     validate_targets,
 )
 
 
 logger = logging.getLogger(__name__)
 NAMESPACE = "character_dna_native_solve_v1"
+SOLVE_EXPRESSION = f"{NAMESPACE}(self, depsgraph)"
 SCHEMA_VERSION = 3
 SETTINGS = (
     "auto_evaluate",
@@ -53,8 +55,6 @@ def capability() -> tuple[bool, str]:
     global _module
     if bpy.app.version < (4, 5, 0) or sys.version_info[:2] not in {(3, 11), (3, 13)}:
         return False, "RigLogic requires Blender 4.5 or newer with supported Python bindings"
-    if not bpy.context.preferences.filepaths.use_scripts_auto_execute and bpy.app.autoexec_fail:
-        return False, "This file has Python driver execution disabled"
     try:
         if _module is None:
             from ..bindings import load_native_runtime
@@ -71,6 +71,43 @@ def capability() -> tuple[bool, str]:
     except (ImportError, OSError, RuntimeError) as error:
         return False, f"Native runtime unavailable: {error}"
     return True, "Native runtime available"
+
+
+def register_driver_namespace() -> None:
+    """Expose the installed callback without changing the file's script permissions.
+
+    Blender clears this namespace on load. Its restricted driver evaluator accepts
+    our expression once the callback is present; autoexec_fail can describe an
+    earlier failure or an unrelated script and is not a runtime capability check.
+    """
+    bpy.app.driver_namespace[NAMESPACE] = solve
+
+
+def _solve_driver(carrier: Any) -> Any:
+    """Recognize only our persisted solve expression, never arbitrary file scripts."""
+    curve = carrier.animation_data.drivers.find('["epoch"]') if carrier.animation_data else None
+    if curve is not None:
+        driver = curve.driver
+        if driver.type == "SCRIPTED" and driver.use_self and driver.expression == SOLVE_EXPRESSION:
+            return driver
+    return None
+
+
+def _refresh_driver(carrier: Any, *, initialized: bool) -> None:
+    """Retry a failed owned driver after its callback and native session are ready."""
+    driver = _solve_driver(carrier)
+    if driver is None:
+        return
+    failed = not driver.is_valid
+    if failed:
+        # Restoring the namespace alone does not reset Blender's invalid-driver
+        # flag. Reassign the identical expression to discard the failed bytecode.
+        # This also works on linked carriers without making them local or overrides.
+        driver.expression = SOLVE_EXPRESSION
+    if initialized or failed:
+        # An early evaluation may have returned cached outputs before hydration,
+        # leaving a valid driver that still needs to run with its new session.
+        carrier.update_tag()
 
 
 def _model(path: str, body: bool) -> Any:
@@ -254,21 +291,17 @@ def carrier_issues(carrier: Any) -> list[str]:
         issues.append(f"{carrier.name}: obsolete source scene dependency")
     if not carrier.is_property_overridable_library('["targets"]'):
         issues.append(f"{carrier.name}: native targets require migration for editable linking")
-    animation = carrier.animation_data
-    epoch = animation.drivers.find('["epoch"]') if animation else None
-    if epoch is None or NAMESPACE not in epoch.driver.expression:
+    if _solve_driver(carrier) is None:
         issues.append(f"{carrier.name}: missing native solve driver")
     for target in carrier.get("targets", []):
-        owner = target.get("owner")
-        if owner and target.get("embedded"):
-            owner = owner.node_tree
+        owner, path = resolve_output_target(carrier, target)
         curve = (
-            owner.animation_data.drivers.find(target["path"], index=max(0, target["index"]))
+            owner.animation_data.drivers.find(path, index=max(0, target["index"]))
             if (owner and owner.animation_data)
             else None
         )
         if curve is None or not owned_curve(curve, carrier):
-            issues.append(f"{carrier.name}: missing or conflicting output driver {target['path']}")
+            issues.append(f"{carrier.name}: missing or conflicting output driver {path}")
     return issues
 
 
@@ -293,10 +326,11 @@ def binding_issues(instance: Any) -> list[str]:
 
 
 def adopt(instance: Any = None) -> int:
-    """Hydrate compatible saved bindings without writing their original datablocks."""
+    """Hydrate saved bindings and retry failed drivers without replacing their data."""
     from .ui_refresh import invalidate_migration
 
     invalidate_migration()
+    register_driver_namespace()
     available, reason = capability()
     if not available:
         raise RuntimeError(reason)
@@ -309,12 +343,13 @@ def adopt(instance: Any = None) -> int:
     )
     if issues:
         raise ValueError("; ".join(issues))
-    bpy.app.driver_namespace[NAMESPACE] = solve
     count = 0
     for carrier in found:
         key = carrier.as_pointer()
-        if key not in _records:
+        initialized = key not in _records
+        if initialized:
             _records[key] = make_record(carrier, instance)
+        _refresh_driver(carrier, initialized=initialized)
         _warnings.pop(key, None)
         count += 1
     if instance is not None:
@@ -399,13 +434,14 @@ def restore() -> None:
 
 def hydrate() -> None:
     """Adopt newly loaded compatible carriers without retiring existing sessions."""
+    register_driver_namespace()
     if not capability()[0]:
         return
     _live_records()
-    bpy.app.driver_namespace[NAMESPACE] = solve
     for carrier in carriers():
         try:
             if carrier.as_pointer() in _records:
+                _refresh_driver(carrier, initialized=False)
                 continue
             if requires_migration(carrier):
                 warn_unavailable(carrier, MIGRATION_WARNING)
@@ -415,6 +451,7 @@ def hydrate() -> None:
                 raise ValueError("; ".join(issues))
             record = make_record(carrier)
             _records[carrier.as_pointer()] = record
+            _refresh_driver(carrier, initialized=True)
             _warnings.pop(carrier.as_pointer(), None)
             _errors.pop(carrier.get("instance_id", ""), None)
         except FileNotFoundError:
@@ -583,12 +620,12 @@ def install(instance: Any) -> None:  # noqa: PLR0912, PLR0915
                         variable.targets[0].transform_space = "WORLD_SPACE"
             for flag in SETTINGS:
                 add_variable(driver, flag, carrier, f'["settings"]["{flag}"]')
-            driver.expression = f"{NAMESPACE}(self, depsgraph)"
+            driver.expression = SOLVE_EXPRESSION
             _records[carrier.as_pointer()] = make_record(carrier, instance)
             _warnings.pop(carrier.as_pointer(), None)
         if instance.head_rig and instance.face_board and instance.auto_evaluate_head:
             _install_switches(instance, identity)
-        bpy.app.driver_namespace[NAMESPACE] = solve
+        register_driver_namespace()
         _errors.pop(identity, None)
         _warnings.pop(instance.as_pointer(), None)
     except Exception:
@@ -952,5 +989,5 @@ def _install_switches(instance: Any, identity: str) -> None:
     curve.driver.use_self = True
     for index, name in enumerate(switches):
         add_variable(curve.driver, f"switch_{index}", face, face.pose.bones[name].path_from_id("location") + "[1]")
-    curve.driver.expression = f"{NAMESPACE}(self, depsgraph)"
+    curve.driver.expression = SOLVE_EXPRESSION
     _records[carrier.as_pointer()] = make_record(carrier, instance)

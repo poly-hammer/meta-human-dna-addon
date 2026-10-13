@@ -18,7 +18,7 @@ logger = logging.getLogger(constants.ToolInfo.NAME)
 bl_info = {
     "name": "Character DNA",
     "author": "Poly Hammer",
-    "version": (0, 14, 1),
+    "version": (0, 14, 3),
     "blender": (4, 5, 0),
     "location": "File > Import > MetaHuman DNA",
     "description": (
@@ -145,7 +145,13 @@ def register():
 
     # add event handlers
     for handler_name, handler_function in app_handlers.items():
-        getattr(bpy.app.handlers, handler_name).append(handler_function)
+        handler_list = getattr(bpy.app.handlers, handler_name)
+        if handler_function not in handler_list:
+            if handler_name == "load_post":
+                # Initialize before callbacks that may trigger driver evaluation.
+                handler_list.insert(0, handler_function)
+            else:
+                handler_list.append(handler_function)
 
 
 def unregister():

@@ -358,6 +358,7 @@ def setup_scene(*_: Any) -> None:
     from ..runtime import controller, engine
     from .migration import detect_legacy_data, migrate_legacy_data
 
+    engine.register_driver_namespace()
     engine.invalidate()
     # Auto-migrate rig-instance data saved by a different addon edition (Free vs
     # Pro) or an older version before initializing, so reopening a .blend always
@@ -369,6 +370,9 @@ def setup_scene(*_: Any) -> None:
         except Exception as error:
             logger.exception(f"Failed to auto-migrate legacy scene data: {error}")
 
+    # Other addons' setup callbacks may evaluate the graph immediately. Prepare
+    # our sessions first so those evaluations have both the callback and its data.
+    controller.after_load()
     scene_properties = getattr(bpy.context.scene, ToolInfo.NAME, object)
 
     # initialize the rig instances
@@ -380,8 +384,6 @@ def setup_scene(*_: Any) -> None:
                 notify_rig_instances_changed(instance)
         except Exception as error:
             logger.exception(f"Failed to set up rig instance '{instance.name}': {error}")
-
-    controller.after_load()
 
 
 def teardown_scene(*_: Any) -> None:
