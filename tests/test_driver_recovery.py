@@ -202,11 +202,12 @@ def test_unrelated_scripts_remain_blocked(untrusted_rig, tmp_path):
     assert driver.expression == "__import__('math').sqrt(4)"
 
 
-def test_modified_solve_expression_is_not_repaired(untrusted_rig):
+@pytest.mark.parametrize("expression", [engine.SOLVE_EXPRESSION, engine.PREVIEW_EXPRESSION])
+def test_modified_solve_expression_is_not_repaired(untrusted_rig, expression):
     """A carrier marker alone does not authorize rewriting a custom expression."""
     carrier = engine.carriers()[0]
     driver = carrier.animation_data.drivers.find('["epoch"]').driver
-    expression = engine.SOLVE_EXPRESSION + " + missing_custom_function()"
+    expression += " + missing_custom_function()"
     driver.expression = expression
     carrier.update_tag()
     bpy.context.view_layer.update()
@@ -216,6 +217,42 @@ def test_modified_solve_expression_is_not_repaired(untrusted_rig):
     bpy.context.view_layer.update()
     assert driver.expression == expression
     assert not driver.is_valid
+
+
+@pytest.mark.parametrize("recover", ["hydrate", "adopt", "reload"])
+def test_preview_recovery_preserves_frame_dependency(untrusted_rig, tmp_path, recover):
+    """Preview rigs remain current after recovery and return to live inputs on playback."""
+    from character_dna.utilities import detect_runtime_migration
+
+    pytest.importorskip("character_dna.editors.raw_control_editor.callbacks")
+    instance = get_active_rig_instance()
+    # File loading hydrates native sessions; editing initializes the SDK lazily.
+    instance.evaluate()
+    instance.raw_control_editor.raw_controls["CTRL_expressions.jawOpen"].value = 0.3
+    bpy.context.view_layer.update()
+    expected = _pose()
+    live_pose = untrusted_rig[1]
+    assert expected != pytest.approx(live_pose, abs=1e-6)
+    assert engine.binding_issues(instance) == []
+    assert not detect_runtime_migration(bpy.context.scene)
+    if recover == "reload":
+        path = tmp_path / "preview.blend"
+        bpy.ops.wm.save_as_mainfile(filepath=str(path))
+        bpy.ops.wm.open_mainfile(filepath=str(path), use_scripts=False)
+    else:
+        _fail_drivers()
+        if recover == "hydrate":
+            engine.hydrate()
+        else:
+            engine.adopt(instance)
+    _assert_recovered(expected)
+    instance = get_active_rig_instance()
+    assert engine.binding_issues(instance) == []
+    assert not detect_runtime_migration(bpy.context.scene)
+    head = next(carrier for carrier in engine.carriers(instance) if carrier["component"] == "head")
+    assert head.animation_data.drivers.find('["epoch"]').driver.expression == engine.PREVIEW_EXPRESSION
+    bpy.context.scene.frame_set(bpy.context.scene.frame_current + 1)
+    _assert_recovered(live_pose)
 
 
 @pytest.mark.parametrize("editable", [False, True], ids=["linked", "override"])

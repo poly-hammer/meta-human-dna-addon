@@ -88,6 +88,29 @@ def test_cross_edition_migration_skips_existing_names(empty_scene: bpy.types.Sce
     assert names.count("Ada") == 1
 
 
+@pytest.mark.parametrize("active_collection", [None, "Unrelated"])
+def test_collection_migration_uses_scene_root(empty_scene, active_collection):
+    """File-load migration must work without an active collection or outside the asset tree."""
+    empty_scene["meta_human_dna"] = {}
+    assets = bpy.data.collections.new("Assets")
+    empty_scene.collection.children.link(assets)
+    lod = bpy.data.collections.new("Ada_lod0")
+    assets.children.link(lod)
+    rig = bpy.data.objects.new("Ada_head_rig", bpy.data.armatures.new("Ada_head_rig"))
+    lod.objects.link(rig)
+    selected = None
+    if active_collection:
+        selected = bpy.data.collections.new(active_collection)
+        empty_scene.collection.children.link(selected)
+    with bpy.context.temp_override(collection=selected):
+        assert migrate_legacy_data(bpy.context) == "collection_data"
+    instances = empty_scene.character_dna.rig_instance_list
+    assert len(instances) == 1
+    assert instances["Ada"].head_rig == rig
+    assert "meta_human_dna" not in empty_scene
+    assert detect_legacy_data(empty_scene) is None
+
+
 def test_detection_survives_group_without_rig_instance_list(empty_scene: bpy.types.Scene):
     """A registered group from another addon may not define ``rig_instance_list``.
 

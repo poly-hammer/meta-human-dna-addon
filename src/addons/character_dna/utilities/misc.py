@@ -406,9 +406,12 @@ def pre_undo(*_: Any) -> None:
     addon_window_manager_properties = get_addon_window_manager_properties(context)
     addon_scene_properties = get_addon_scene_properties(context)
 
-    # Always invalidate the caches that hold live `bpy` RNA wrappers
-    for instance in addon_scene_properties.rig_instance_list:
-        instance.destroy_references()
+    # Global undo can remap IDs in inactive scenes too. Their authoring caches
+    # must not keep RNA wrappers while the native runtime rebinds fresh IDs.
+    for scene in bpy.data.scenes:
+        properties = getattr(scene, ToolInfo.NAME, None)
+        for instance in getattr(properties, "rig_instance_list", ()):
+            instance.destroy_references()
 
     # Only run the pre-undo logic if the current context is a 3D view area
     if context.area and context.area.type == "VIEW_3D" and context.region and context.region.type == "WINDOW":

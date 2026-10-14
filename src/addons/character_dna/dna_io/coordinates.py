@@ -81,6 +81,7 @@ class CanonicalDNAWriter:
 
     def write(self) -> None:
         from ..bindings import dna
+        from ..runtime.engine import invalidate_model_file
         from .misc import release_dna_handle
 
         self.writer.write()
@@ -91,6 +92,7 @@ class CanonicalDNAWriter:
         reader.read()
         if not dna.Status.isOk():
             raise RuntimeError(dna.Status.get().message)
+        invalidate_model_file(self.file_path)
         stream = dna.FileStream(str(self.file_path), dna.AccessMode_Write, dna.OpenMode_Binary, None)
         writer_class = dna.JSONStreamWriter if self.file_format == "json" else dna.BinaryStreamWriter
         output = writer_class(stream)

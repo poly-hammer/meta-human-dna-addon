@@ -208,14 +208,16 @@ def before_undo() -> None:
     global _undoing
     _undoing = True
     ui_refresh.clear()
-    engine.invalidate()
+    engine.prepare_undo()
 
 
 def after_undo() -> None:
     """Rehydrate the bindings restored by Blender's undo, without rewriting its stack."""
     global _undoing
-    _undoing = False
-    engine.restore()
+    try:
+        engine.restore_undo()
+    finally:
+        _undoing = False
 
 
 def suspend(instance: Any) -> bool:
