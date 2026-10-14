@@ -33,6 +33,31 @@ class LegacyDataError(ValueError):
     """Identify migration failures so the UI can report one actionable message."""
 
 
+def resolve_output_target(carrier: Any, target: Any) -> tuple[Any, str]:
+    """Resolve a saved output channel after Blender's built-in RNA versioning.
+
+    Keep this read-only and standalone: the reference inspector uses this module
+    without importing or enabling the addon, including for linked source files.
+    """
+    owner, path = target.get("owner"), target["path"]
+    if owner and target.get("embedded", False):
+        owner = owner.node_tree
+    if (
+        carrier.get("component") == "switches"
+        and path.startswith('bones["')
+        and path.endswith('"].hide')
+        and target["index"] == -1
+        and "hide" in bpy.types.PoseBone.bl_rna.properties
+    ):
+        face = carrier.get("face")
+        if face and face.type == "ARMATURE" and face.data == owner:
+            # Blender 5 moves the driver to the pose object, but cannot update
+            # the owner/path stored in our custom metadata. The old Bone.hide
+            # now controls Edit Mode visibility, so never fall back to it.
+            return face, f"pose.{path}"
+    return owner, path
+
+
 def _identity(owner: Any) -> str | None:
     if not isinstance(owner, bpy.types.ID):
         return None
@@ -132,11 +157,9 @@ def describe_instance(scene: Any, edition: str, instance: Any) -> dict:  # noqa:
         if carrier.animation_data is None or not carrier.animation_data.drivers.find('["epoch"]'):
             issues.append(f"{carrier.name}: missing saved epoch driver")
         for target in carrier.get("targets", []):
-            owner = target.get("owner")
-            if owner and target.get("embedded"):
-                owner = owner.node_tree
+            owner, path = resolve_output_target(carrier, target)
             curve = (
-                owner.animation_data.drivers.find(target["path"], index=max(0, target["index"]))
+                owner.animation_data.drivers.find(path, index=max(0, target["index"]))
                 if owner and owner.animation_data
                 else None
             )

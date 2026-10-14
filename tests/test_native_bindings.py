@@ -69,3 +69,27 @@ def test_native_rejects_keyframed_output(native_objects):
     with pytest.raises(ValueError, match="Keyframed"):
         install_targets(carrier, [Target(target, "location", 0, 0)])
     assert len(target.animation_data.drivers) == 0
+
+
+@pytest.mark.parametrize("change", ["remove", "expression", "owner"])
+def test_validation_rechecks_current_driver_ownership(native_objects, change):
+    """The indexed validator must not reuse success or overlook one array channel."""
+    from character_dna.runtime import engine
+
+    carrier, target = native_objects.carrier, native_objects.target
+    carrier["schema_version"] = engine.SCHEMA_VERSION
+    solve = carrier.driver_add('["epoch"]').driver
+    solve.type = "SCRIPTED"
+    solve.use_self = True
+    solve.expression = engine.SOLVE_EXPRESSION
+    install_targets(carrier, [Target(target, "location", axis, 0) for axis in range(3)])
+    carrier.property_overridable_library_set('["targets"]', True)
+    assert engine.carrier_issues(carrier) == []
+    curve = target.animation_data.drivers.find("location", index=1)
+    if change == "remove":
+        target.driver_remove("location", 1)
+    elif change == "expression":
+        curve.driver.expression = "42"
+    else:
+        curve.driver.variables[0].targets[0].id = target
+    assert len(engine.carrier_issues(carrier)) == 1

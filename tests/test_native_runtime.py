@@ -111,7 +111,7 @@ def test_runtime_hydration_classifies_expected_states(monkeypatch, caplog, probl
 
 def test_runtime_adoption_clears_initialization_warning(monkeypatch):
     """Successful adoption removes the temporary warning rather than leaving stale status."""
-    carrier = SimpleNamespace(as_pointer=lambda: 123)
+    carrier = SimpleNamespace(as_pointer=lambda: 123, animation_data=None)
     instance = SimpleNamespace(as_pointer=lambda: 456)
     monkeypatch.setattr(engine, "_records", {})
     monkeypatch.setattr(engine, "_warnings", {123: "Not initialized", 456: "Not initialized"})
@@ -258,6 +258,7 @@ def test_native_raw_slider_preview(native_head):
     assert get_raw_control_item_value(item) == pytest.approx(0.8)
     assert before != after
     assert engine.active(native_head)
+    assert engine.binding_issues(native_head) == []
 
 
 @pytest.mark.usefixtures("pro_editors")
@@ -302,6 +303,7 @@ def test_native_raw_activate_on_click_matches_authoring(native_head, control):
     index = editor.raw_controls.find(f"CTRL_expressions.{control}")
     editor.raw_controls_active_index = index
     bpy.context.view_layer.update()
+    assert engine.binding_issues(native_head) == []
     assert editor.raw_controls[index].value == pytest.approx(1.0)
     native_pose = _head_matrices(native_head)
     editor.activate_on_click = False
@@ -353,6 +355,7 @@ def test_native_shape_slider_matches_authoring(native_shape, evaluate_shapes):
         bpy.context.view_layer.update()
         assert item.value == pytest.approx(value)
         assert _head_matrices(instance) == pytest.approx(before, abs=1e-5)
+        assert engine.binding_issues(instance) == []
     native_vertices = [
         value
         for vertex in instance.head_mesh.evaluated_get(bpy.context.view_layer.depsgraph).data.vertices
@@ -378,6 +381,7 @@ def test_native_shape_activate_on_click_matches_authoring(native_shape):
     editor.activate_on_click = True
     editor.shape_key_list_active_index = index
     bpy.context.view_layer.update()
+    assert engine.binding_issues(instance) == []
     native_value = editor.shape_key_list[index].value
     assert native_value > 0.5
     native_pose = _head_matrices(instance)

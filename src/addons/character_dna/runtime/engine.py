@@ -8,6 +8,7 @@ import sys
 import uuid
 
 from array import array
+from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -23,12 +24,15 @@ from .bindings import (
     mute_targets,
     owned_curve,
     remove_targets,
+    resolve_output_target,
     validate_targets,
 )
 
 
 logger = logging.getLogger(__name__)
 NAMESPACE = "character_dna_native_solve_v1"
+SOLVE_EXPRESSION = f"{NAMESPACE}(self, depsgraph)"
+PREVIEW_EXPRESSION = f"{SOLVE_EXPRESSION} + 0 * frame"
 SCHEMA_VERSION = 3
 SETTINGS = (
     "auto_evaluate",
@@ -41,6 +45,21 @@ SETTINGS = (
 )
 _records: dict[int, dict[str, Any]] = {}
 _models: dict[tuple[str, bool], Any] = {}
+
+
+@dataclass(frozen=True)
+class _ModelFile:
+    """Only immutable native data and file identity; never Blender RNA wrappers."""
+
+    signature: tuple[int, ...]
+    key: tuple[str, bool]
+    model: Any
+    module: Any
+
+
+_model_files: dict[tuple[str, bool], _ModelFile] = {}
+_undo_models: dict[tuple[str, bool], _ModelFile] = {}
+_restoring_undo = False
 _module: Any = None
 _generation = 0
 _errors: dict[str, str] = {}
@@ -53,8 +72,6 @@ def capability() -> tuple[bool, str]:
     global _module
     if bpy.app.version < (4, 5, 0) or sys.version_info[:2] not in {(3, 11), (3, 13)}:
         return False, "RigLogic requires Blender 4.5 or newer with supported Python bindings"
-    if not bpy.context.preferences.filepaths.use_scripts_auto_execute and bpy.app.autoexec_fail:
-        return False, "This file has Python driver execution disabled"
     try:
         if _module is None:
             from ..bindings import load_native_runtime
@@ -73,14 +90,121 @@ def capability() -> tuple[bool, str]:
     return True, "Native runtime available"
 
 
+def register_driver_namespace() -> None:
+    """Expose the installed callback without changing the file's script permissions.
+
+    Blender clears this namespace on load. Its restricted driver evaluator accepts
+    our expression once the callback is present; autoexec_fail can describe an
+    earlier failure or an unrelated script and is not a runtime capability check.
+    """
+    bpy.app.driver_namespace[NAMESPACE] = solve
+
+
+def _solve_driver(carrier: Any) -> Any:
+    """Recognize only our live and frame-dependent preview solve expressions."""
+    curve = carrier.animation_data.drivers.find('["epoch"]') if carrier.animation_data else None
+    if curve is not None:
+        driver = curve.driver
+        if (
+            driver.type == "SCRIPTED"
+            and driver.use_self
+            and driver.expression in (SOLVE_EXPRESSION, PREVIEW_EXPRESSION)
+        ):
+            return driver
+    return None
+
+
+def _refresh_driver(carrier: Any, *, initialized: bool) -> None:
+    """Retry a failed owned driver after its callback and native session are ready."""
+    driver = _solve_driver(carrier)
+    if driver is None:
+        return
+    failed = not driver.is_valid
+    if failed:
+        # Restoring the namespace alone does not reset Blender's invalid-driver
+        # flag. Reassign the identical expression to discard the failed bytecode.
+        # This also works on linked carriers without making them local or overrides.
+        driver.expression = driver.expression
+    if initialized or failed:
+        # An early evaluation may have returned cached outputs before hydration,
+        # leaving a valid driver that still needs to run with its new session.
+        carrier.update_tag()
+
+
+def _file_signature(path: Path) -> tuple[int, ...]:
+    stat = path.stat()
+    return stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns, stat.st_dev, stat.st_ino
+
+
+def invalidate_model_file(path: str | Path) -> None:
+    """Require a fresh content hash after a DNA write, even if timestamps are preserved."""
+    resolved = str(Path(bpy.path.abspath(str(path))).resolve())
+    for body in (False, True):
+        _model_files.pop((resolved, body), None)
+        _undo_models.pop((resolved, body), None)
+
+
 def _model(path: str, body: bool) -> Any:
     resolved = Path(bpy.path.abspath(path)).resolve(strict=True)
+    signature = _file_signature(resolved)
+    source_key = (str(resolved), body)
+    cached = _undo_models.get(source_key) if _restoring_undo else None
+    if cached is not None and cached.module is _module and cached.signature == signature:
+        _models[cached.key] = cached.model
+        _model_files[source_key] = cached
+        return cached.model
+    # Ordinary loads/rebuilds always hash. File metadata is only a fast path for
+    # undo recovery; same-size external edits can preserve modification times.
+    _model_files.pop(source_key, None)
     with resolved.open("rb") as stream:
         digest = hashlib.file_digest(stream, "sha256").hexdigest()
     key = (digest, body)
-    if key not in _models:
-        _models[key] = _module.load_model(str(resolved), body, False, True)
-    return _models[key]
+    model = _models.get(key)
+    if model is None and _restoring_undo:
+        model = next(
+            (entry.model for entry in _undo_models.values() if entry.key == key and entry.module is _module), None
+        )
+    if model is None:
+        model = _module.load_model(str(resolved), body, False, True)
+    if _file_signature(resolved) != signature:
+        raise RuntimeError(f"DNA changed while loading: {resolved}. Retry loading the rig.")
+    _models[key] = model
+    _model_files[source_key] = _ModelFile(signature, key, model, _module)
+    return model
+
+
+def _clear_models() -> None:
+    _models.clear()
+    _model_files.clear()
+
+
+def prepare_undo() -> None:
+    """Retain only immutable DNA models while releasing all scene-dependent state."""
+    snapshot = {key: entry for key, entry in _model_files.items() if _models.get(entry.key) is entry.model}
+    invalidate()
+    _undo_models.update(snapshot)
+
+
+def restore_undo() -> None:
+    """Rebind restored IDs using checked models; discard recovery state even on failure."""
+    global _restoring_undo
+    snapshot = _undo_models.copy()
+    # Other callbacks may have evaluated during the remap. Retire those records too.
+    invalidate()
+    _undo_models.update(snapshot)
+    _restoring_undo = True
+    try:
+        hydrate()
+    finally:
+        _restoring_undo = False
+        _undo_models.clear()
+        used = {id(record["model"]) for record in _records.values() if "model" in record}
+        for key, model in tuple(_models.items()):
+            if id(model) not in used:
+                del _models[key]
+        for key, entry in tuple(_model_files.items()):
+            if entry.key not in _models:
+                del _model_files[key]
 
 
 def instance_id(instance: Any) -> str:
@@ -120,7 +244,7 @@ def _live_records() -> list[dict[str, Any]]:
         else:
             records.append(record)
     if not _records:
-        _models.clear()
+        _clear_models()
     return records
 
 
@@ -139,10 +263,12 @@ def invalidate() -> None:
     from .ui_refresh import invalidate_migration
 
     invalidate_migration()
-    global _generation
+    global _generation, _restoring_undo
     _generation += 1
     _records.clear()
-    _models.clear()
+    _clear_models()
+    _undo_models.clear()
+    _restoring_undo = False
     _warnings.clear()
 
 
@@ -170,7 +296,7 @@ def discard(instance: Any = None) -> None:
         _warnings.pop(carrier.as_pointer(), None)
         bpy.data.objects.remove(carrier, do_unlink=True)
     if not _records:
-        _models.clear()
+        _clear_models()
         _errors.clear()
 
 
@@ -254,21 +380,20 @@ def carrier_issues(carrier: Any) -> list[str]:
         issues.append(f"{carrier.name}: obsolete source scene dependency")
     if not carrier.is_property_overridable_library('["targets"]'):
         issues.append(f"{carrier.name}: native targets require migration for editable linking")
-    animation = carrier.animation_data
-    epoch = animation.drivers.find('["epoch"]') if animation else None
-    if epoch is None or NAMESPACE not in epoch.driver.expression:
+    if _solve_driver(carrier) is None:
         issues.append(f"{carrier.name}: missing native solve driver")
+    owners = {}
     for target in carrier.get("targets", []):
-        owner = target.get("owner")
-        if owner and target.get("embedded"):
-            owner = owner.node_tree
-        curve = (
-            owner.animation_data.drivers.find(target["path"], index=max(0, target["index"]))
-            if (owner and owner.animation_data)
-            else None
-        )
+        owner, path = resolve_output_target(carrier, target)
+        curve = None
+        if owner and owner.animation_data:
+            key = owner.as_pointer()
+            if key not in owners:
+                # Keep RNA wrappers local to this validation, never across undo.
+                owners[key] = {(curve.data_path, curve.array_index): curve for curve in owner.animation_data.drivers}
+            curve = owners[key].get((path, max(0, target["index"])))
         if curve is None or not owned_curve(curve, carrier):
-            issues.append(f"{carrier.name}: missing or conflicting output driver {target['path']}")
+            issues.append(f"{carrier.name}: missing or conflicting output driver {path}")
     return issues
 
 
@@ -293,10 +418,11 @@ def binding_issues(instance: Any) -> list[str]:
 
 
 def adopt(instance: Any = None) -> int:
-    """Hydrate compatible saved bindings without writing their original datablocks."""
+    """Hydrate saved bindings and retry failed drivers without replacing their data."""
     from .ui_refresh import invalidate_migration
 
     invalidate_migration()
+    register_driver_namespace()
     available, reason = capability()
     if not available:
         raise RuntimeError(reason)
@@ -309,12 +435,13 @@ def adopt(instance: Any = None) -> int:
     )
     if issues:
         raise ValueError("; ".join(issues))
-    bpy.app.driver_namespace[NAMESPACE] = solve
     count = 0
     for carrier in found:
         key = carrier.as_pointer()
-        if key not in _records:
+        initialized = key not in _records
+        if initialized:
             _records[key] = make_record(carrier, instance)
+        _refresh_driver(carrier, initialized=initialized)
         _warnings.pop(key, None)
         count += 1
     if instance is not None:
@@ -399,13 +526,14 @@ def restore() -> None:
 
 def hydrate() -> None:
     """Adopt newly loaded compatible carriers without retiring existing sessions."""
+    register_driver_namespace()
     if not capability()[0]:
         return
     _live_records()
-    bpy.app.driver_namespace[NAMESPACE] = solve
     for carrier in carriers():
         try:
             if carrier.as_pointer() in _records:
+                _refresh_driver(carrier, initialized=False)
                 continue
             if requires_migration(carrier):
                 warn_unavailable(carrier, MIGRATION_WARNING)
@@ -415,6 +543,7 @@ def hydrate() -> None:
                 raise ValueError("; ".join(issues))
             record = make_record(carrier)
             _records[carrier.as_pointer()] = record
+            _refresh_driver(carrier, initialized=True)
             _warnings.pop(carrier.as_pointer(), None)
             _errors.pop(carrier.get("instance_id", ""), None)
         except FileNotFoundError:
@@ -583,12 +712,12 @@ def install(instance: Any) -> None:  # noqa: PLR0912, PLR0915
                         variable.targets[0].transform_space = "WORLD_SPACE"
             for flag in SETTINGS:
                 add_variable(driver, flag, carrier, f'["settings"]["{flag}"]')
-            driver.expression = f"{NAMESPACE}(self, depsgraph)"
+            driver.expression = SOLVE_EXPRESSION
             _records[carrier.as_pointer()] = make_record(carrier, instance)
             _warnings.pop(carrier.as_pointer(), None)
         if instance.head_rig and instance.face_board and instance.auto_evaluate_head:
             _install_switches(instance, identity)
-        bpy.app.driver_namespace[NAMESPACE] = solve
+        register_driver_namespace()
         _errors.pop(identity, None)
         _warnings.pop(instance.as_pointer(), None)
     except Exception:
@@ -748,9 +877,8 @@ def _store_preview(record: dict[str, Any], outputs: array, controls: dict[str, A
     }
     carrier["preview_revision"] = carrier.get("preview_revision", 0) + 1
     curve = carrier.animation_data.drivers.find('["epoch"]')
-    expression = f"{NAMESPACE}(self, depsgraph) + 0 * frame"
-    if curve.driver.expression != expression:
-        curve.driver.expression = expression
+    if curve.driver.expression != PREVIEW_EXPRESSION:
+        curve.driver.expression = PREVIEW_EXPRESSION
     carrier.update_tag()
 
 
@@ -952,5 +1080,5 @@ def _install_switches(instance: Any, identity: str) -> None:
     curve.driver.use_self = True
     for index, name in enumerate(switches):
         add_variable(curve.driver, f"switch_{index}", face, face.pose.bones[name].path_from_id("location") + "[1]")
-    curve.driver.expression = f"{NAMESPACE}(self, depsgraph)"
+    curve.driver.expression = SOLVE_EXPRESSION
     _records[carrier.as_pointer()] = make_record(carrier, instance)

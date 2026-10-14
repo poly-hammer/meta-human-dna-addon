@@ -208,14 +208,16 @@ def before_undo() -> None:
     global _undoing
     _undoing = True
     ui_refresh.clear()
-    engine.invalidate()
+    engine.prepare_undo()
 
 
 def after_undo() -> None:
     """Rehydrate the bindings restored by Blender's undo, without rewriting its stack."""
     global _undoing
-    _undoing = False
-    engine.restore()
+    try:
+        engine.restore_undo()
+    finally:
+        _undoing = False
 
 
 def suspend(instance: Any) -> bool:
@@ -308,7 +310,7 @@ def register() -> None:
         bpy.utils.unregister_class(operator)
     if operator is not CHARACTER_DNA_OT_sync_native_runtime:
         bpy.utils.register_class(CHARACTER_DNA_OT_sync_native_runtime)
-    bpy.app.driver_namespace[engine.NAMESPACE] = engine.solve
+    engine.register_driver_namespace()
     if _after_import not in bpy.app.handlers.blend_import_post:
         bpy.app.handlers.blend_import_post.append(_after_import)
     if not bpy.app.timers.is_registered(_startup):

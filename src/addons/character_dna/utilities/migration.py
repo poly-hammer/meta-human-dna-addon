@@ -300,7 +300,7 @@ def _copy_rig_instance_fields(target_properties: CharacterSceneProperties, sourc
 
 
 def migrate_by_collection_data(context: Context, addon_id: str) -> None:
-    for collection in bpy.context.collection.children_recursive:
+    for collection in context.scene.collection.children_recursive:
         if collection.name.endswith("_lod0"):
             rig_instance_name = collection.name[:-5]
             if rig_instance_name not in [
@@ -317,7 +317,7 @@ def migrate_by_collection_data(context: Context, addon_id: str) -> None:
                 instance.body_material = bpy.data.materials.get(rig_instance_name + "_body_shader")
 
     # Remove old addon key in scene data after migration
-    bpy.context.scene.pop(addon_id, None)
+    context.scene.pop(addon_id, None)
 
 
 def migrate_legacy_data(
@@ -441,14 +441,12 @@ def preflight_runtime_migration(instances: list[Any], *, rebuild_controls: bool 
                 owners.extend((owner, owner.data))
         for carrier in carriers:
             for target in carrier.get("targets", ()):
-                owner = target.get("owner")
-                if owner is not None and target.get("embedded", False):
-                    owner = owner.node_tree
+                owner, path = bindings.resolve_output_target(carrier, target)
                 if owner is None:
                     continue
                 owners.append(owner)
                 animation = owner.animation_data
-                path, index = target["path"], max(0, target["index"])
+                index = max(0, target["index"])
                 curve = animation.drivers.find(path, index=index) if animation else None
                 if curve and not bindings.owned_curve(curve, carrier):
                     issues.append(f"{name}: conflicting driver on {owner.name}:{path}[{index}]")

@@ -7,6 +7,8 @@ from typing import Any
 
 import bpy
 
+from ..utilities.reference import resolve_output_target
+
 
 CARRIER_MARKER = "character_dna_native_carrier"
 DRIVER_EXPRESSION = "output + 0 * epoch"
@@ -108,12 +110,10 @@ def install_targets(carrier: Any, targets: list[Target]) -> None:
 def mute_targets(carrier: Any, muted: bool) -> None:
     """Release output channels immediately without deleting their portable bindings."""
     for item in carrier.get("targets", []):
-        owner = item.get("owner")
-        if owner and item.get("embedded", False):
-            owner = owner.node_tree
+        owner, path = resolve_output_target(carrier, item)
         if owner is None or owner.animation_data is None:
             continue
-        curve = owner.animation_data.drivers.find(item["path"], index=max(0, item["index"]))
+        curve = owner.animation_data.drivers.find(path, index=max(0, item["index"]))
         if curve and owned_curve(curve, carrier) and curve.mute != muted:
             curve.mute = muted
             owner.update_tag()
@@ -122,14 +122,12 @@ def mute_targets(carrier: Any, muted: bool) -> None:
 def remove_targets(carrier: Any) -> None:
     """Remove only recorded, still-owned drivers; preserve user replacements."""
     for item in carrier.get("targets", []):
-        owner = item.get("owner")
-        if owner and item.get("embedded", False):
-            owner = owner.node_tree
+        owner, path = resolve_output_target(carrier, item)
         if owner is None or owner.animation_data is None:
             continue
-        curve = owner.animation_data.drivers.find(item["path"], index=max(0, item["index"]))
+        curve = owner.animation_data.drivers.find(path, index=max(0, item["index"]))
         if curve and owned_curve(curve, carrier):
-            _remove_driver(owner, item["path"], item["index"])
+            _remove_driver(owner, path, item["index"])
 
 
 def _remove_driver(owner: Any, path: str, index: int) -> None:

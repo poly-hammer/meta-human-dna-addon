@@ -358,6 +358,7 @@ def setup_scene(*_: Any) -> None:
     from ..runtime import controller, engine
     from .migration import detect_legacy_data, migrate_legacy_data
 
+    engine.register_driver_namespace()
     engine.invalidate()
     # Auto-migrate rig-instance data saved by a different addon edition (Free vs
     # Pro) or an older version before initializing, so reopening a .blend always
@@ -369,6 +370,9 @@ def setup_scene(*_: Any) -> None:
         except Exception as error:
             logger.exception(f"Failed to auto-migrate legacy scene data: {error}")
 
+    # Other addons' setup callbacks may evaluate the graph immediately. Prepare
+    # our sessions first so those evaluations have both the callback and its data.
+    controller.after_load()
     scene_properties = getattr(bpy.context.scene, ToolInfo.NAME, object)
 
     # initialize the rig instances
@@ -380,8 +384,6 @@ def setup_scene(*_: Any) -> None:
                 notify_rig_instances_changed(instance)
         except Exception as error:
             logger.exception(f"Failed to set up rig instance '{instance.name}': {error}")
-
-    controller.after_load()
 
 
 def teardown_scene(*_: Any) -> None:
@@ -404,9 +406,12 @@ def pre_undo(*_: Any) -> None:
     addon_window_manager_properties = get_addon_window_manager_properties(context)
     addon_scene_properties = get_addon_scene_properties(context)
 
-    # Always invalidate the caches that hold live `bpy` RNA wrappers
-    for instance in addon_scene_properties.rig_instance_list:
-        instance.destroy_references()
+    # Global undo can remap IDs in inactive scenes too. Their authoring caches
+    # must not keep RNA wrappers while the native runtime rebinds fresh IDs.
+    for scene in bpy.data.scenes:
+        properties = getattr(scene, ToolInfo.NAME, None)
+        for instance in getattr(properties, "rig_instance_list", ()):
+            instance.destroy_references()
 
     # Only run the pre-undo logic if the current context is a 3D view area
     if context.area and context.area.type == "VIEW_3D" and context.region and context.region.type == "WINDOW":
